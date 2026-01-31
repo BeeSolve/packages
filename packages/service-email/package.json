@@ -1,12 +1,34 @@
 {
   "name": "@beesolve/email-service",
-  "version": "0.1.0",
   "description": "",
-  "homepage": "https://github.com/beesolve/packages/tree/main/packages/email-service#readme",
-  "license": "MIT",
+  "version": "0.1.0",
+  "type": "module",
   "files": [
     "dist"
   ],
+  "exports": {
+    "./cdk": {
+      "import": {
+        "types": "./dist/cdk.d.ts",
+        "default": "./dist/cdk.js"
+      }
+    },
+    "./sdk": {
+      "import": {
+        "types": "./dist/sdk.d.ts",
+        "default": "./dist/sdk.js"
+      }
+    },
+    "./templating": {
+      "import": {
+        "types": "./dist/templating.d.ts",
+        "default": "./dist/templating.js"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "homepage": "https://github.com/beesolve/packages/tree/main/packages/email-service#readme",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/beesolve/packages.git"
@@ -40,29 +62,5 @@
   },
   "devDependencies": {
     "@types/react": "catalog:"
-  },
-  "type": "module",
-  "exports": {
-    "./sdk": {
-      "import": {
-        "types": "./dist/sdk.d.ts",
-        "default": "./dist/sdk.js"
-      }
-    },
-    "./cdk": {
-      "import": {
-        "types": "./dist/cdk.d.ts",
-        "default": "./dist/cdk.js"
-      }
-    },
-    "./templating": {
-      "import": {
-        "types": "./dist/templating.d.ts",
-        "default": "./dist/templating.js"
-      }
-    },
-    "./package.json": "./package.json"
-  },
-  "module": "./dist/index.js",
-  "types": "./dist/index.d.ts"
+  }
 }
