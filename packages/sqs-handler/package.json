@@ -1,0 +1,61 @@
+{
+  "name": "@beesolve/sqs-handler",
+  "version": "0.1.0",
+  "description": "",
+  "homepage": "https://github.com/beesolve/packages/tree/main/packages/sqs-handler#readme",
+  "license": "MIT",
+  "files": [
+    "dist"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/beesolve/packages.git"
+  },
+  "scripts": {
+    "type-check": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "typescript": "catalog:"
+  },
+  "peerDependenciesMeta": {
+    "typescript": {
+      "optional": true
+    }
+  },
+  "dependencies": {
+    "aws-cdk-lib": "catalog:",
+    "constructs": "catalog:",
+    "@aws-sdk/client-sqs": "catalog:",
+    "valibot": "catalog:",
+    "@beesolve/helpers": "workspace:*",
+    "@beesolve/cdk-email-alarms": "workspace:*",
+    "@beesolve/cdk-constructs": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "catalog:"
+  },
+  "type": "module",
+  "exports": {
+    "./sdk": {
+      "import": {
+        "types": "./dist/sdk.d.ts",
+        "default": "./dist/sdk.js"
+      }
+    },
+    "./cdk": {
+      "import": {
+        "types": "./dist/cdk.d.ts",
+        "default": "./dist/cdk.js"
+      }
+    },
+    "./templating": {
+      "import": {
+        "types": "./dist/templating.d.ts",
+        "default": "./dist/templating.js"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts"
+}

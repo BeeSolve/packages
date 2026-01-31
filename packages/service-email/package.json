@@ -1,0 +1,68 @@
+{
+  "name": "@beesolve/email-service",
+  "version": "0.1.0",
+  "description": "",
+  "homepage": "https://github.com/beesolve/packages/tree/main/packages/email-service#readme",
+  "license": "MIT",
+  "files": [
+    "dist"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/beesolve/packages.git"
+  },
+  "scripts": {
+    "type-check": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "typescript": "catalog:"
+  },
+  "peerDependenciesMeta": {
+    "typescript": {
+      "optional": true
+    }
+  },
+  "dependencies": {
+    "@aws-sdk/client-eventbridge": "catalog:",
+    "@aws-sdk/client-dynamodb": "catalog:",
+    "@aws-sdk/client-s3": "catalog:",
+    "@aws-sdk/client-ses": "catalog:",
+    "@aws-sdk/client-sqs": "catalog:",
+    "@aws-sdk/lib-dynamodb": "catalog:",
+    "@react-email/components": "catalog:",
+    "aws-cdk-lib": "catalog:",
+    "constructs": "catalog:",
+    "mimetext": "catalog:",
+    "valibot": "catalog:",
+    "react": "catalog:",
+    "@beesolve/helpers": "workspace:*",
+    "@beesolve/cdk-constructs": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/react": "catalog:"
+  },
+  "type": "module",
+  "exports": {
+    "./sdk": {
+      "import": {
+        "types": "./dist/sdk.d.ts",
+        "default": "./dist/sdk.js"
+      }
+    },
+    "./cdk": {
+      "import": {
+        "types": "./dist/cdk.d.ts",
+        "default": "./dist/cdk.js"
+      }
+    },
+    "./templating": {
+      "import": {
+        "types": "./dist/templating.d.ts",
+        "default": "./dist/templating.js"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts"
+}

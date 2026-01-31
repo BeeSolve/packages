@@ -1,8 +1,8 @@
 {
-  "name": "@beesolve/helpers",
+  "name": "@beesolve/cdk-constructs",
   "version": "0.1.0",
-  "description": "Elegant and performant component library",
-  "homepage": "https://github.com/beesolve/packages/tree/main/packages/helpers#readme",
+  "description": "",
+  "homepage": "https://github.com/beesolve/packages/tree/main/packages/cdk-constructs#readme",
   "license": "MIT",
   "files": [
     "dist"
@@ -23,11 +23,9 @@
     }
   },
   "dependencies": {
-    "valibot": "catalog:"
-  },
-  "devDependencies": {
-    "@types/node": "catalog:",
-    "@types/bun": "catalog:"
+    "aws-cdk-lib": "catalog:",
+    "constructs": "catalog:",
+    "@beesolve/helpers": "workspace:*"
   },
   "type": "module",
   "exports": {
@@ -35,12 +33,6 @@
       "import": {
         "types": "./dist/index.d.ts",
         "default": "./dist/index.js"
-      }
-    },
-    "./bun": {
-      "import": {
-        "types": "./dist/bun.d.ts",
-        "default": "./dist/bun.js"
       }
     },
     "./package.json": "./package.json"

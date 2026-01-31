@@ -1,5 +1,5 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": { "declaration": true, "isolatedDeclarations": true },
-  "include": ["src/**/*", "bun.ts", "index.ts"],
+  "include": ["src/**/*", "cdk.ts", "index.ts"],
 }
