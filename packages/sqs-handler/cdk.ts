@@ -1,3 +1,4 @@
+import { SqsWithDlq } from "@beesolve/cdk-constructs";
 import { type EmailAlarms } from "@beesolve/cdk-email-alarms";
 import { Duration } from "aws-cdk-lib";
 import { Architecture, Function, Runtime } from "aws-cdk-lib/aws-lambda";
