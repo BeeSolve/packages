@@ -41,7 +41,7 @@
     },
     "packages/helpers": {
       "name": "@beesolve/helpers",
-      "version": "0.1.1",
+      "version": "0.1.3",
       "dependencies": {
         "valibot": "catalog:",
       },
@@ -87,7 +87,7 @@
     },
     "packages/sqs-handler": {
       "name": "@beesolve/sqs-handler",
-      "version": "0.1.1",
+      "version": "0.1.5",
       "dependencies": {
         "@aws-sdk/client-sqs": "catalog:",
         "@beesolve/cdk-constructs": "workspace:*",

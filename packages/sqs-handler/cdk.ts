@@ -1,7 +1,10 @@
-import { SqsWithDlq } from "@beesolve/cdk-constructs";
+import {
+  nodejsFunctionDefaultConfig,
+  SqsWithDlq,
+} from "@beesolve/cdk-constructs";
 import { type EmailAlarms } from "@beesolve/cdk-email-alarms";
 import { Duration } from "aws-cdk-lib";
-import { Architecture, Function, Runtime } from "aws-cdk-lib/aws-lambda";
+import { Function } from "aws-cdk-lib/aws-lambda";
 import {
   NodejsFunction,
   type NodejsFunctionProps,
@@ -15,10 +18,18 @@ export interface SqsHandlerProps {
    */
   readonly entry: string;
   /**
-   * @default false
+   * When you provide instance of EmailAlarms alarm for your SQS queues and Lambda handler will be set up automatically.
    */
-  readonly isProd?: boolean;
-  readonly alarms: EmailAlarms;
+  readonly alarms?: EmailAlarms;
+  /**
+   * You can change default memorySize and timeout here.
+   *
+   * @default
+   * {
+   *    memorySize: 1024,
+   *    timeout: Duration.seconds(30)
+   * }
+   */
   readonly handlerProps?: Pick<NodejsFunctionProps, "memorySize" | "timeout">;
 }
 
@@ -29,23 +40,16 @@ export class SqsHandler extends Construct {
   constructor(scope: Construct, id: string, props: SqsHandlerProps) {
     super(scope, id);
 
-    const { isProd = false, handlerProps = {} } = props;
+    const { handlerProps = {} } = props;
 
     this.handler = new NodejsFunction(this, "QueueHandler", {
-      description: "Tasks queue handler",
+      description: `${id} queue handler`,
       entry: resolve(__dirname, props.entry),
       handler: "handler",
-      bundling: {
-        minify: isProd,
-        sourceMap: isProd,
-        sourcesContent: false,
-        target: "es2022",
-      },
       memorySize: 1024,
       timeout: Duration.seconds(30),
-      runtime: Runtime.NODEJS_24_X,
-      architecture: Architecture.ARM_64,
-      depsLockFilePath: resolve(`${__dirname}/../../bun.lock`),
+      bundling: nodejsFunctionDefaultConfig.bundling,
+      ...nodejsFunctionDefaultConfig.runtime,
       ...handlerProps,
     });
 
@@ -58,7 +62,8 @@ export class SqsHandler extends Construct {
       this.queue.queue.queueUrl,
     );
 
-    props.alarms.reportSqsErrors(this.queue);
+    props.alarms?.reportSqsErrors(this.queue);
+    props.alarms?.reportLambdaErrors(this.handler);
   }
 
   readonly grantAccess = (grantee: Function): void => {

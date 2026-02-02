@@ -35,8 +35,8 @@ export function createSqsHandlers<
             v.string(),
             v.parseJson(),
             v.object({
-              fName: v.picklist(Object.keys(props.functions)),
-              fArgs: v.array(v.any()),
+              fn: v.picklist(Object.keys(props.functions)),
+              args: v.array(v.any()),
             }),
           ),
           body,
@@ -44,18 +44,15 @@ export function createSqsHandlers<
 
         if (!result.success)
           throw new Error(
-            `Wrong message format: ${JSON.stringify(v.flatten(result.issues), null, 2)}`,
+            `Wrong message format: ${JSON.stringify(v.flatten(result.issues))}`,
           );
 
-        const { fName, fArgs } = result.output;
+        const { fn, args } = result.output;
 
-        console.info({
-          function: fName,
-          arguments: JSON.stringify(fArgs, null, 2),
-        });
+        console.info(JSON.stringify({ function: fn, arguments: args }));
 
-        await props.functions[fName]?.(
-          ...fArgs.map((args) => decodeFromStringifiable(args)),
+        await props.functions[fn]?.(
+          ...args.map((args) => decodeFromStringifiable(args)),
         );
       } catch (error) {
         console.error(error);
@@ -69,7 +66,7 @@ export function createSqsHandlers<
   const functions = Object.entries(props.functions).reduce(
     (result, [functionName]) => ({
       ...result,
-      [functionName](...args) {
+      async [functionName](...args) {
         const originalFunction = props.functions[functionName];
         if (originalFunction == null)
           throw Error(
@@ -83,12 +80,12 @@ export function createSqsHandlers<
         if (props.localInvocation) {
           originalFunction(...functionArgs);
         } else {
-          props.sqsClient.send(
+          await props.sqsClient.send(
             new SendMessageCommand({
               QueueUrl: props.queueUrl,
               MessageBody: JSON.stringify({
-                fName: functionName,
-                fArgs: functionArgs.map((args) => encodeToStringifiable(args)),
+                fn: functionName,
+                args: functionArgs.map((args) => encodeToStringifiable(args)),
               }),
               MessageDeduplicationId: fifoOptions?.deduplicationId,
               MessageGroupId: fifoOptions?.groupId,

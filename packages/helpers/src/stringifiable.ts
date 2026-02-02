@@ -10,6 +10,7 @@ const tokens = {
   date: "d",
   bigInt: "B",
   buffer: "p",
+  formData: "f",
 } as const;
 
 const maxDepth = 30;
@@ -55,6 +56,13 @@ function decodeValue(value: any): any {
     if (token === tokens.date) return new Date(val);
     if (token === tokens.bigInt) return BigInt(val);
     if (token === tokens.buffer) return Buffer.from(val, "base64url");
+    if (token === tokens.formData) {
+      const formData = new FormData();
+      for (const [key, value] of Object.entries(JSON.parse(val))) {
+        formData.append(key, value as any);
+      }
+      return formData;
+    }
 
     throw Error(`Unsupported token "${token}" for value "${value}"`);
   }
@@ -94,6 +102,10 @@ function encodeValue(value: any, depth = 0): any {
 
   if (Array.isArray(value))
     return value.map((value) => encodeValue(value, depth + 1));
+
+  if (value instanceof FormData) {
+    return `${tokens.formData}${JSON.stringify(Object.fromEntries(value.entries()))}`;
+  }
 
   if (isPlainObject(value))
     return Object.entries(value).reduce(
