@@ -1,77 +1,178 @@
 import {
-  nodejsFunctionDefaultConfig,
+  EmailAlarms,
+  Nodejs24Function,
+  type Nodejs24FunctionProps,
   SqsWithDlq,
+  type SqsWithDlqLambdaInputProps,
 } from "@beesolve/cdk-constructs";
-import { type EmailAlarms } from "@beesolve/cdk-email-alarms";
-import { Duration } from "aws-cdk-lib";
+import { capitalizeFirstLetter } from "@beesolve/helpers";
 import { Function } from "aws-cdk-lib/aws-lambda";
 import {
   NodejsFunction,
   type NodejsFunctionProps,
 } from "aws-cdk-lib/aws-lambda-nodejs";
 import { Construct } from "constructs";
-import { resolve } from "node:path";
 
 export interface SqsHandlerProps {
   /**
-   * Path to file where SDK handler is exported.
-   */
-  readonly entry: string;
-  /**
-   * When you provide instance of EmailAlarms alarm for your SQS queues and Lambda handler will be set up automatically.
-   */
-  readonly alarms?: EmailAlarms;
-  /**
-   * You can change default memorySize and timeout here.
+   * SqsHandler will deploy NodejsFunction handler.
+   *
+   * This configuration is reused for all additional configurations.
+   * The only required properties are `memorySize`, `timeout` and `entry`.
+   * `entry` should point to file where your handler from `createSqsHandlers` is exported.
    *
    * @default
+   *
    * {
-   *    memorySize: 1024,
-   *    timeout: Duration.seconds(30)
+   *   runtime: Runtime.NODEJS_24_X,
+   *   architecture: Architecture.ARM_64,
+   *   bundling: {
+   *     minify: true,
+   *     sourceMap: true,
+   *     sourcesContent: false,
+   *     target: "es2022",
+   *   }
+   * }
+   *
+   */
+  readonly handlerProps: Nodejs24FunctionProps &
+    Required<Pick<Nodejs24FunctionProps, "memorySize" | "timeout" | "entry">>;
+
+  /**
+   * You can set up additional properties through this config.
+   *
+   * For example you can set up FIFO queue here.
+   */
+  readonly queueProps?: Omit<SqsWithDlqLambdaInputProps, "lambda">;
+
+  /**
+   * You can specify additional handler configurations here.
+   *
+   * @example
+   *
+   * {
+   *   longRunning: {
+   *     // memory from `handlerProps` will be reused here
+   *     timeout: Duration.minutes(15)
+   *   },
+   *   multipleCpu: {
+   *     memorySize: 10240,
+   *     timeout: Duration.minutes(5)
+   *   }
    * }
    */
-  readonly handlerProps?: Pick<NodejsFunctionProps, "memorySize" | "timeout">;
+  readonly additionalConfigurations?: Record<
+    string,
+    Pick<Nodejs24FunctionProps, "memorySize" | "timeout">
+  >;
+
+  /**
+   * If you set up EmailAlarms you can pass it here and alarms for SQS and DLQ will be added automatically.
+   */
+  readonly alarms?: EmailAlarms;
 }
 
+const mainQueueLabel = "main";
+
 export class SqsHandler extends Construct {
-  private readonly queue: SqsWithDlq;
-  readonly handler: NodejsFunction;
+  private readonly configurations: Record<
+    string,
+    {
+      readonly queue: SqsWithDlq;
+      readonly handler: NodejsFunction;
+    }
+  > = {};
 
   constructor(scope: Construct, id: string, props: SqsHandlerProps) {
     super(scope, id);
 
-    const { handlerProps = {} } = props;
+    const {
+      handlerProps,
+      queueProps,
+      additionalConfigurations: additionalHandlerConfigurations = {},
+      alarms,
+    } = props;
 
-    this.handler = new NodejsFunction(this, "QueueHandler", {
-      description: `${id} queue handler`,
-      entry: resolve(__dirname, props.entry),
-      handler: "handler",
-      memorySize: 1024,
-      timeout: Duration.seconds(30),
-      bundling: nodejsFunctionDefaultConfig.bundling,
-      ...nodejsFunctionDefaultConfig.runtime,
-      ...handlerProps,
+    const configurations: Record<
+      string,
+      Pick<NodejsFunctionProps, "memorySize" | "timeout">
+    > = {
+      ...additionalHandlerConfigurations,
+      [mainQueueLabel]: {
+        memorySize: handlerProps.memorySize,
+        timeout: handlerProps.timeout,
+      },
+    };
+
+    const { description, memorySize, timeout, ...mainConfig } = handlerProps;
+
+    for (const [name, config] of Object.entries(configurations)) {
+      const prefix = capitalizeFirstLetter(name);
+      const handlerId = `${prefix}Handler`;
+      const handler = new Nodejs24Function(this, handlerId, {
+        description: `${description ?? "Tasks queue handler"} - ${name}`,
+        ...mainConfig,
+        ...config,
+      });
+
+      const queue = SqsWithDlq.asLambdaInput({
+        lambda: handler,
+        ...queueProps,
+      });
+
+      alarms?.reportSqsErrors(queue);
+
+      this.configurations[name] = {
+        handler,
+        queue,
+      };
+    }
+
+    const env = this.toEnvironmentVariables();
+
+    this.forEachHandler((handler) => {
+      env.forEach(({ key, value }) => handler.addEnvironment(key, value));
     });
-
-    this.queue = SqsWithDlq.asLambdaInput({
-      lambda: this.handler,
-    });
-
-    this.handler.addEnvironment(
-      "BEESOLVE_TASKS_QUEUE_URL",
-      this.queue.queue.queueUrl,
-    );
-
-    props.alarms?.reportSqsErrors(this.queue);
-    props.alarms?.reportLambdaErrors(this.handler);
   }
 
   readonly grantAccess = (grantee: Function): void => {
-    this.queue.queue.grantSendMessages(grantee);
+    Object.values(this.configurations).forEach(({ queue }) => {
+      queue.queue.grantSendMessages(grantee);
+    });
 
-    grantee.addEnvironment(
-      "BEESOLVE_TASKS_QUEUE_URL",
-      this.queue.queue.queueUrl,
+    const env = this.toEnvironmentVariables();
+    env.forEach(({ key, value }) => grantee.addEnvironment(key, value));
+  };
+
+  readonly forEachHandler = (
+    callback: (handler: NodejsFunction) => void,
+  ): void => {
+    Object.values(this.configurations).forEach(({ handler }) =>
+      callback(handler),
     );
+  };
+
+  private readonly toEnvironmentVariables = () => {
+    const { [mainQueueLabel]: main, ...rest } = this.configurations;
+    if (main == null)
+      throw Error(`Unexpected error. Main queue and handler not set.`);
+
+    return [
+      {
+        key: "BEESOLVE_TASKS_MAIN_QUEUE_URL",
+        value: main.queue.queue.queueUrl,
+      },
+      {
+        key: "BEESOLVE_TASKS_ADDITIONAL_QUEUE_URLS",
+        value: JSON.stringify(
+          Object.fromEntries(
+            Object.entries(rest).map(([key, { queue }]) => [
+              key,
+              queue.queue.queueUrl,
+            ]),
+          ),
+        ),
+      },
+    ];
   };
 }

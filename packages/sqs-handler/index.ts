@@ -10,10 +10,12 @@ type Functions = Record<string, (...args: any[]) => Promise<void>>;
 
 export function createSqsHandlers<
   TFunctions extends Functions,
+  const TQueueName extends string,
   Fifo extends boolean,
 >(props: {
   readonly functions: TFunctions;
-  readonly queueUrl: string;
+  readonly queueUrls: Record<TQueueName | "main", string>;
+  readonly queueUrlOverride?: Partial<Record<keyof TFunctions, TQueueName>>;
   readonly localInvocation?: true;
   readonly sqsClient: Pick<SQSClient, "send">;
   readonly fifo: Fifo;
@@ -23,7 +25,7 @@ export function createSqsHandlers<
       itemIdentifier: string;
     }[];
   }>,
-  QueuedFunctions<TFunctions, Fifo>,
+  QueuedFunctions<TFunctions, Fifo, TQueueName>,
 ] {
   const handler = async (event: SQSEvent) => {
     const batchItemFailures = new Array<{ itemIdentifier: string }>();
@@ -44,12 +46,15 @@ export function createSqsHandlers<
 
         if (!result.success)
           throw new Error(
-            `Wrong message format: ${JSON.stringify(v.flatten(result.issues))}`,
+            `Wrong message format: ${JSON.stringify(v.flatten(result.issues), null, 2)}`,
           );
 
         const { fn, args } = result.output;
 
-        console.info(JSON.stringify({ function: fn, arguments: args }));
+        console.info({
+          function: fn,
+          arguments: JSON.stringify(args),
+        });
 
         await props.functions[fn]?.(
           ...args.map((args) => decodeFromStringifiable(args)),
@@ -66,29 +71,37 @@ export function createSqsHandlers<
   const functions = Object.entries(props.functions).reduce(
     (result, [functionName]) => ({
       ...result,
-      async [functionName](...args) {
+      [functionName](...args) {
         const originalFunction = props.functions[functionName];
         if (originalFunction == null)
           throw Error(
             `Cannot invoke "${functionName}". Make sure the function is defined.`,
           );
         const functionArgs: any[] = args.slice(0, originalFunction.length);
-        const fifoOptions:
-          | { readonly deduplicationId?: string; readonly groupId?: string }
+        const options:
+          | {
+              readonly deduplicationId?: string;
+              readonly groupId?: string;
+              readonly queueName?: TQueueName;
+            }
           | undefined = args[originalFunction.length];
 
         if (props.localInvocation) {
           originalFunction(...functionArgs);
         } else {
-          await props.sqsClient.send(
+          const queueUrl =
+            options?.queueName ??
+            props.queueUrls[props.queueUrlOverride?.[functionName] ?? "main"];
+
+          props.sqsClient.send(
             new SendMessageCommand({
-              QueueUrl: props.queueUrl,
+              QueueUrl: queueUrl,
               MessageBody: JSON.stringify({
                 fn: functionName,
                 args: functionArgs.map((args) => encodeToStringifiable(args)),
               }),
-              MessageDeduplicationId: fifoOptions?.deduplicationId,
-              MessageGroupId: fifoOptions?.groupId,
+              MessageDeduplicationId: options?.deduplicationId,
+              MessageGroupId: options?.groupId,
             }),
           );
         }
@@ -100,16 +113,21 @@ export function createSqsHandlers<
   return [handler, functions];
 }
 
-type QueuedFunctions<T extends Functions, Fifo extends boolean> = {
+type QueuedFunctions<
+  T extends Functions,
+  Fifo extends boolean,
+  QueueName extends string,
+> = {
   [key in keyof T]: AddParameters<
     T[key],
     [
-      fifoOptions?: Fifo extends true
+      options?: Fifo extends true
         ? {
+            readonly queueName?: QueueName;
             readonly deduplicationId?: string;
             readonly groupId?: string;
           }
-        : never,
+        : { readonly queueName?: QueueName },
     ]
   >;
 };

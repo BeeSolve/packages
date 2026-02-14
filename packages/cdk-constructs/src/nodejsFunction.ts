@@ -19,7 +19,7 @@ import type { Construct } from "constructs";
 import { buildSync, type Message } from "esbuild";
 import { execSync } from "node:child_process";
 
-type Nodejs24FunctionProps = Omit<
+export type Nodejs24FunctionProps = Omit<
   NodejsFunctionProps,
   | "runtime"
   | "architecture"
