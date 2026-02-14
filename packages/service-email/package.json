@@ -1,10 +1,11 @@
 {
   "name": "@beesolve/email-service",
   "description": "",
-  "version": "0.1.1",
+  "version": "0.1.5",
   "type": "module",
   "files": [
-    "dist"
+    "dist",
+    "handler"
   ],
   "exports": {
     "./cdk": {
@@ -34,7 +35,8 @@
     "url": "git+https://github.com/beesolve/packages.git"
   },
   "scripts": {
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "prepublishOnly": "bun run --bun build.ts"
   },
   "peerDependencies": {
     "typescript": "catalog:"
@@ -61,6 +63,7 @@
     "@beesolve/cdk-constructs": "workspace:*"
   },
   "devDependencies": {
-    "@types/react": "catalog:"
+    "@types/react": "catalog:",
+    "esbuild": "catalog:"
   }
 }

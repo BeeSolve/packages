@@ -1,4 +1,8 @@
-import { SqsWithDlq } from "@beesolve/cdk-constructs";
+import {
+  getRevision,
+  Nodejs24Function,
+  SqsWithDlq,
+} from "@beesolve/cdk-constructs";
 import { Duration, RemovalPolicy } from "aws-cdk-lib";
 import {
   AttributeType,
@@ -8,13 +12,7 @@ import {
 } from "aws-cdk-lib/aws-dynamodb";
 import { EventBus } from "aws-cdk-lib/aws-events";
 import { Effect, PolicyStatement } from "aws-cdk-lib/aws-iam";
-import {
-  Architecture,
-  Runtime,
-  type Function,
-  type FunctionOptions,
-} from "aws-cdk-lib/aws-lambda";
-import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
+import { type Function, type FunctionOptions } from "aws-cdk-lib/aws-lambda";
 import {
   BlockPublicAccess,
   Bucket,
@@ -29,7 +27,6 @@ import {
 } from "aws-cdk-lib/aws-ses";
 import { Queue } from "aws-cdk-lib/aws-sqs";
 import { Construct } from "constructs";
-import { resolve } from "node:path";
 
 export class Emails extends Construct {
   private table: TableV2;
@@ -149,22 +146,14 @@ export class Emails extends Construct {
       ],
     });
 
-    const handler = new NodejsFunction(this, "SqsHandler", {
+    const handler = new Nodejs24Function(this, "SqsHandler", {
       description: "Email queue handler",
-      entry: resolve(__dirname, "./src/handler.ts"),
-      handler: "handler",
-      bundling: {
-        minify: isProd,
-        sourceMap: isProd,
-        sourcesContent: false,
-        target: "es2022",
-      },
+      entry: "./handler/",
+      handler: "handler.handler",
       memorySize: props.handler?.memorySize ?? 256,
       timeout: props.handler?.timeout ?? Duration.seconds(30),
       reservedConcurrentExecutions:
         props.handler?.reservedConcurrentExecutions ?? 2,
-      runtime: Runtime.NODEJS_24_X,
-      architecture: Architecture.ARM_64,
       environment: {
         BUCKET_NAME: this.bucket.bucketName,
         TABLE_NAME: this.table.tableName,
@@ -175,7 +164,7 @@ export class Emails extends Construct {
         DEFAULT_CONFIGURATION_SET_NAME:
           defaultConfigurationSet.configurationSetName,
       },
-      depsLockFilePath: resolve(`${__dirname}/../../bun.lock`),
+      revision: getRevision(true),
     });
     this.table.grantReadWriteData(handler);
     this.bucket.grantRead(handler);

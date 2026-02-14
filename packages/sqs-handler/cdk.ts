@@ -1,16 +1,12 @@
 import {
-  EmailAlarms,
   Nodejs24Function,
   type Nodejs24FunctionProps,
   SqsWithDlq,
   type SqsWithDlqLambdaInputProps,
 } from "@beesolve/cdk-constructs";
+import type { EmailAlarms } from "@beesolve/cdk-email-alarms";
 import { capitalizeFirstLetter } from "@beesolve/helpers";
 import { Function } from "aws-cdk-lib/aws-lambda";
-import {
-  NodejsFunction,
-  type NodejsFunctionProps,
-} from "aws-cdk-lib/aws-lambda-nodejs";
 import { Construct } from "constructs";
 
 export interface SqsHandlerProps {
@@ -79,7 +75,7 @@ export class SqsHandler extends Construct {
     string,
     {
       readonly queue: SqsWithDlq;
-      readonly handler: NodejsFunction;
+      readonly handler: Nodejs24Function;
     }
   > = {};
 
@@ -95,7 +91,7 @@ export class SqsHandler extends Construct {
 
     const configurations: Record<
       string,
-      Pick<NodejsFunctionProps, "memorySize" | "timeout">
+      Pick<Nodejs24FunctionProps, "memorySize" | "timeout">
     > = {
       ...additionalHandlerConfigurations,
       [mainQueueLabel]: {
@@ -145,7 +141,7 @@ export class SqsHandler extends Construct {
   };
 
   readonly forEachHandler = (
-    callback: (handler: NodejsFunction) => void,
+    callback: (handler: Nodejs24Function) => void,
   ): void => {
     Object.values(this.configurations).forEach(({ handler }) =>
       callback(handler),
