@@ -1,8 +1,8 @@
 {
-  "name": "@beesolve/helpers",
-  "version": "0.1.4",
+  "name": "@beesolve/lambda-fetch-api",
+  "version": "0.1.2",
   "description": "",
-  "homepage": "https://github.com/beesolve/packages/tree/main/packages/helpers#readme",
+  "homepage": "https://github.com/beesolve/packages/tree/main/packages/lambda-fetch-api#readme",
   "license": "MIT",
   "files": [
     "dist"
@@ -23,11 +23,11 @@
     }
   },
   "dependencies": {
-    "valibot": "catalog:"
+    "@beesolve/helpers": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "catalog:",
-    "@types/bun": "catalog:"
+    "@types/aws-lambda": "catalog:"
   },
   "type": "module",
   "exports": {
@@ -35,12 +35,6 @@
       "import": {
         "types": "./dist/index.d.ts",
         "default": "./dist/index.js"
-      }
-    },
-    "./bun": {
-      "import": {
-        "types": "./dist/bun.d.ts",
-        "default": "./dist/bun.js"
       }
     },
     "./package.json": "./package.json"

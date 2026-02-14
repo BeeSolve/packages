@@ -38,4 +38,11 @@ export default defineWorkspace([
       entry: ["index.ts", "cdk.ts"],
     },
   },
+  {
+    name: "@beesolve/lambda-fetch-api",
+    root: "packages/lambda-fetch-api",
+    config: {
+      entry: ["index.ts"],
+    },
+  },
 ]);

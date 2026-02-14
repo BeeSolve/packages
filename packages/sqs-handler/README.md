@@ -45,3 +45,8 @@ const sqsHandler = new SqsHandler(stack, "SqsHandler", {
 
 sqsHandler.grantAccess(handler);
 ```
+
+
+
+
+https://logtape.org/manual/install
