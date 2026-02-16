@@ -1,7 +1,7 @@
 {
   "name": "@beesolve/email-service",
   "description": "",
-  "version": "0.1.9",
+  "version": "0.1.15",
   "type": "module",
   "files": [
     "dist"
@@ -35,7 +35,7 @@
   },
   "scripts": {
     "type-check": "tsc --noEmit",
-    "prepublishOnly": "bun run --bun build.ts && zip -r dist/handler.zip handler/*"
+    "prepublishOnly": "bun run --bun build.ts && cd handler && zip -r ../dist/handler.zip *"
   },
   "peerDependencies": {
     "typescript": "catalog:"

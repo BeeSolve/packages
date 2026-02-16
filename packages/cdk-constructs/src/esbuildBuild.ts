@@ -40,6 +40,9 @@ function toBuildConfig(props: BuildProps): BuildOptions {
     splitting: true,
     treeShaking: true,
     outdir: props.outDir,
+    outExtension: {
+      ".js": ".mjs",
+    },
   };
 }
 

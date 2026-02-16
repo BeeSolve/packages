@@ -75,6 +75,12 @@ export class Nodejs24Function extends Function {
     } = props;
 
     const shouldBuild = entry.endsWith(".ts");
+
+    if (!shouldBuild && handler == null) {
+      throw Error(
+        `Missing "handler". When using prebuild code eg. "entry" ends with ".ts" or "/" you need to provide "handler" property. Please provide "handler" in format "filename.functionName".`,
+      );
+    }
     const outDir = shouldBuild
       ? resolve(`${cwd()}/cdk.out/beesolve-nodejs.bundling.${id}.${Date.now()}`)
       : entry;
@@ -86,10 +92,8 @@ export class Nodejs24Function extends Function {
       });
     }
 
-    const fileName = shouldBuild
-      ? entry.split("/").at(-1)?.replace(".ts", "")
-      : "";
-    const handlerName = `${fileName}.${handler ?? "handler"}`;
+    const handlerName =
+      handler ?? `${entry.split("/").at(-1)?.replace(".ts", "")}.handler`;
 
     super(scope, id, {
       ...rest,
