@@ -1,4 +1,4 @@
-import { RemovalPolicy } from "aws-cdk-lib";
+import { Aspects, RemovalPolicy, Stack, Tags, type IAspect } from "aws-cdk-lib";
 import {
   Architecture,
   Code,
@@ -12,7 +12,7 @@ import {
   RetentionDays,
   type LogGroupProps,
 } from "aws-cdk-lib/aws-logs";
-import type { Construct } from "constructs";
+import type { Construct, IConstruct } from "constructs";
 import { execSync } from "node:child_process";
 import { resolve } from "node:path";
 import { cwd } from "node:process";
@@ -35,47 +35,53 @@ export type Nodejs24FunctionProps = Omit<
   readonly runtime?: typeof Runtime.NODEJS_24_X;
   readonly architecture?: typeof Architecture.ARM_64;
   readonly handler?: string;
-  /**
-   * When function is being built the source maps are bundled without content for better performance.
-   * You should provide revision which is added to the description automatically for easier debugging.
-   *
-   * You can use cached `getRevision()` function which is exported in this file in order to get git commit id.
-   */
-  readonly revision: string;
 };
 
 /**
  * This construct provides easy way of deploying Node.js function with opinionated defaults.
  *
  * You need to provide `entry` - TypeScript file which exports `handler` function.
+ * If your code is already built, you can provide directory ending with `/` as `entry` so the build step is skipped.
  *
- * Entry file is being transpiled by `esbuild` to ESM format compatible with Node.js 24.
+ * By default, your code is built with esbuild in ESM format with provided CommonJS polyfills.
+ * The code is minified for better performance and exteranl sourcemaps are provided.
+ * All the libraries are bundled eg. the default aws-sdk from Nodejs runtime is not being used as it is slower and not always the latest version.
  *
+ * @default
+ *
+ * {
+ *    code: Code.fromAsset(esbuildOutputDirectory),
+ *    handler: "filename.handler", // where filename is parsed from `entry`
+ *    architecture: Architecture.ARM_64,
+ *    runtime: Runtime.NODEJS_24_X,
+ *    logGroup: new LogGroup(scope, `${id}LogGroup`, {
+ *      retention: RetentionDays.TWO_WEEKS,
+ *      removalPolicy: RemovalPolicy.DESTROY,
+ *    }),
+ *    loggingFormat = LoggingFormat.JSON,
+ * }
  */
 export class Nodejs24Function extends Function {
   constructor(scope: Construct, id: string, props: Nodejs24FunctionProps) {
     const {
       entry,
       handler,
-      description = "",
       logGroupProps = {
         retention: RetentionDays.TWO_WEEKS,
         removalPolicy: RemovalPolicy.DESTROY,
       },
       loggingFormat = LoggingFormat.JSON,
-      revision = true,
       ...rest
     } = props;
 
     const shouldBuild = entry.endsWith(".ts");
-
     const outDir = shouldBuild
-      ? resolve(`${cwd()}/cdk.out/bundling.${id}.beesolve-nodejs.${Date.now()}`)
+      ? resolve(`${cwd()}/cdk.out/beesolve-nodejs.bundling.${id}.${Date.now()}`)
       : entry;
 
     if (shouldBuild) {
       esmBuildSync({
-        entryPoints: [`${cwd()}/${props.entry}`],
+        entryPoints: [props.entry],
         outDir,
       });
     }
@@ -93,8 +99,38 @@ export class Nodejs24Function extends Function {
       handler: handlerName,
       logGroup: new LogGroup(scope, `${id}LogGroup`, logGroupProps),
       loggingFormat: loggingFormat,
-      description: `${description} (${revision})`,
     });
+  }
+}
+
+/**
+ * When function is being built the source maps are bundled without content for better performance.
+ * It is good practice to tag resources with git revision for better debugging.
+ *
+ * You can use this helper function which tags all `Function` constructs within provided stack with `revision` tag.
+ */
+export function tagFunctionsWithRevision(
+  stack: Stack,
+  props: {
+    /**
+     * If current working directory does not contain git history the `NotAGitRepositoryError` is thrown.
+     *
+     * @default true
+     */
+    readonly enforceGit?: false;
+  },
+): void {
+  const revision = getRevision(props.enforceGit ?? true);
+  Aspects.of(stack).add(new TagFunctionsWithRevisionAspect({ revision }));
+}
+
+class TagFunctionsWithRevisionAspect implements IAspect {
+  constructor(private readonly props: { readonly revision: string }) {}
+
+  public visit(node: IConstruct): void {
+    if (node instanceof Function) {
+      Tags.of(node).add("revision", this.props.revision);
+    }
   }
 }
 

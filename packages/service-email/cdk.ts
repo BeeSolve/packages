@@ -1,8 +1,4 @@
-import {
-  getRevision,
-  Nodejs24Function,
-  SqsWithDlq,
-} from "@beesolve/cdk-constructs";
+import { Nodejs24Function, SqsWithDlq } from "@beesolve/cdk-constructs";
 import { Duration, RemovalPolicy } from "aws-cdk-lib";
 import {
   AttributeType,
@@ -27,6 +23,7 @@ import {
 } from "aws-cdk-lib/aws-ses";
 import { Queue } from "aws-cdk-lib/aws-sqs";
 import { Construct } from "constructs";
+import { fileURLToPath } from "node:url";
 
 export class Emails extends Construct {
   private table: TableV2;
@@ -148,7 +145,7 @@ export class Emails extends Construct {
 
     const handler = new Nodejs24Function(this, "SqsHandler", {
       description: "Email queue handler",
-      entry: "./handler/",
+      entry: `${fileURLToPath(new URL(".", import.meta.url))}handler/`,
       handler: "handler.handler",
       memorySize: props.handler?.memorySize ?? 256,
       timeout: props.handler?.timeout ?? Duration.seconds(30),
@@ -164,7 +161,6 @@ export class Emails extends Construct {
         DEFAULT_CONFIGURATION_SET_NAME:
           defaultConfigurationSet.configurationSetName,
       },
-      revision: getRevision(true),
     });
     this.table.grantReadWriteData(handler);
     this.bucket.grantRead(handler);

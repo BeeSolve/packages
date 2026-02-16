@@ -50,7 +50,7 @@ export class EmailAlarms extends Construct {
     const dlqTopic = new Topic(props.dlq, "DlqAlarmTopic");
     dlqTopic.addSubscription(this.emailSubscription);
 
-    const dlqAlarm = new Alarm(this, "DlqAlarm", {
+    const dlqAlarm = new Alarm(props.dlq, "DlqAlarm", {
       alarmDescription: `DLQ for ${props.queue.queueName} is not empty.`,
       metric: props.dlq.metricApproximateNumberOfMessagesVisible(),
       threshold: 1,
@@ -83,7 +83,7 @@ export class EmailAlarms extends Construct {
       }
 
       if (props.noConsumersPeriod) {
-        const noConsumers = new Alarm(this, "NoConsumersAlarm", {
+        const noConsumers = new Alarm(props.queue, "NoConsumersAlarm", {
           alarmDescription: `Queue had no consumers for ${props.noConsumersPeriod.toHumanString()}.`,
           metric: props.queue.metric("NumberOfMessagesReceived", {
             statistic: "Sum",

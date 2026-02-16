@@ -12,7 +12,7 @@
     },
     "packages/cdk-constructs": {
       "name": "@beesolve/cdk-constructs",
-      "version": "0.1.11",
+      "version": "0.1.13",
       "dependencies": {
         "@beesolve/helpers": "workspace:*",
         "aws-cdk-lib": "catalog:",
@@ -28,7 +28,7 @@
     },
     "packages/cdk-email-alarms": {
       "name": "@beesolve/cdk-email-alarms",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "dependencies": {
         "aws-cdk-lib": "catalog:",
         "constructs": "catalog:",
@@ -76,7 +76,7 @@
     },
     "packages/service-email": {
       "name": "@beesolve/email-service",
-      "version": "0.1.5",
+      "version": "0.1.6",
       "dependencies": {
         "@aws-sdk/client-dynamodb": "catalog:",
         "@aws-sdk/client-eventbridge": "catalog:",
