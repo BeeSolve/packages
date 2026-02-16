@@ -76,7 +76,7 @@
     },
     "packages/service-email": {
       "name": "@beesolve/email-service",
-      "version": "0.1.6",
+      "version": "0.1.7",
       "dependencies": {
         "@aws-sdk/client-dynamodb": "catalog:",
         "@aws-sdk/client-eventbridge": "catalog:",
@@ -94,6 +94,7 @@
         "valibot": "catalog:",
       },
       "devDependencies": {
+        "@types/aws-lambda": "catalog:",
         "@types/react": "catalog:",
         "esbuild": "catalog:",
       },
@@ -106,7 +107,7 @@
     },
     "packages/sqs-handler": {
       "name": "@beesolve/sqs-handler",
-      "version": "0.1.13",
+      "version": "0.1.14",
       "dependencies": {
         "@aws-sdk/client-sqs": "catalog:",
         "@beesolve/cdk-constructs": "workspace:*",

@@ -102,8 +102,5 @@ export interface SqsWithDlqLambdaInputProps extends SqsWithDlqProps {
 
 type BatchingConfig = Pick<
   SqsEventSourceProps,
-  | "batchSize"
-  | "maxBatchingWindow"
-  | "reportBatchItemFailures"
-  | "maxConcurrency"
+  "batchSize" | "maxBatchingWindow" | "maxConcurrency"
 >;

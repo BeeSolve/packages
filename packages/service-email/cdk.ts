@@ -7,8 +7,10 @@ import {
   TableV2,
 } from "aws-cdk-lib/aws-dynamodb";
 import { EventBus } from "aws-cdk-lib/aws-events";
+import type { LogGroupProps } from "aws-cdk-lib/aws-events-targets";
 import { Effect, PolicyStatement } from "aws-cdk-lib/aws-iam";
 import { type Function, type FunctionOptions } from "aws-cdk-lib/aws-lambda";
+import { RetentionDays } from "aws-cdk-lib/aws-logs";
 import {
   BlockPublicAccess,
   Bucket,
@@ -51,6 +53,17 @@ export class Emails extends Construct {
       readonly eventsToTrack?: Set<EmailSendingEvent>;
       readonly isProd?: boolean;
       readonly removalPolicy?: RemovalPolicy;
+      /**
+       * Adjusts logging for SQS handler.
+       *
+       * @default
+       *
+       * {
+       *   removalPolicy: RemovalPolicy.DESTROY,
+       *   retention: RetentionDays.TWO_WEEKS
+       * }
+       */
+      readonly logGroupProps?: LogGroupProps;
       readonly deletionProtection?: boolean;
       /**
        * How long should the attachments be stored in S3 bucket before they are deleted.
@@ -63,7 +76,7 @@ export class Emails extends Construct {
        *
        * If set to 0, messages are not being persisted to DynamoDB.
        *
-       * @default 7
+       * @default 14
        */
       readonly messagesRetentionDays?: number;
       /**
@@ -91,7 +104,7 @@ export class Emails extends Construct {
     const {
       isProd = false,
       attachmentsRetentionDays = 180,
-      messagesRetentionDays = 7,
+      messagesRetentionDays = 14,
       eventBusName = "default",
       defaultConfigurationSet = new ConfigurationSet(
         this,
@@ -118,6 +131,10 @@ export class Emails extends Construct {
     this.table = new TableV2(this, "EmailLog", {
       partitionKey: {
         name: "pk",
+        type: AttributeType.STRING,
+      },
+      sortKey: {
+        name: "sk",
         type: AttributeType.STRING,
       },
       billing: Billing.onDemand(),
@@ -160,6 +177,11 @@ export class Emails extends Construct {
         EVENT_BUS_ARN: eventBus.eventBusArn,
         DEFAULT_CONFIGURATION_SET_NAME:
           defaultConfigurationSet.configurationSetName,
+      },
+      logGroupProps: {
+        removalPolicy: RemovalPolicy.DESTROY,
+        retention: RetentionDays.TWO_WEEKS,
+        ...props.logGroupProps,
       },
     });
     this.table.grantReadWriteData(handler);

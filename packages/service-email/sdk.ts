@@ -1,7 +1,7 @@
-import { assertUnreachable, call } from "@beesolve/helpers";
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { SQSClient, SendMessageCommand } from "@aws-sdk/client-sqs";
-import { GetCommand } from "@aws-sdk/lib-dynamodb";
+import { QueryCommand } from "@aws-sdk/lib-dynamodb";
+import { assertUnreachable, call } from "@beesolve/helpers";
 import { randomBytes } from "node:crypto";
 import * as v from "valibot";
 import { dynamoClient, s3Client } from "./src/aws";
@@ -114,31 +114,48 @@ export class Email {
     readonly request: v.InferOutput<typeof requestSchema>;
     readonly expiresAt: Date;
   }> => {
-    const { Item } = await dynamoClient.send(
-      new GetCommand({
+    const { Items = [] } = await dynamoClient.send(
+      new QueryCommand({
         TableName: env.BEESOLVE_EMAILS_TABLE_NAME,
-        Key: {
-          pk: requestId,
+        KeyConditionExpression: "#pk = :pk",
+        ExpressionAttributeNames: {
+          "#pk": "pk",
+        },
+        ExpressionAttributeValues: {
+          ":pk": requestId,
         },
       }),
     );
 
-    if (Item == null) {
+    if (Items.length === 0) {
       throw new MessageNotFoundError(
         `Message for ${requestId} has not been found. Make sure you have set up messagesRetentionDays properly.`,
       );
     }
+    if (Items.length !== 1) {
+      throw new UnexpectedError(
+        `There are multiple records for ${requestId} which should not happen.`,
+      );
+    }
 
-    const result = v.safeParse(requestSchema, Item.request);
+    const result = v.safeParse(
+      v.object({
+        request: requestSchema,
+        pk: v.string(),
+        sk: v.string(),
+        ttl: v.number(),
+      }),
+      Items[0],
+    );
     if (!result.success) {
       throw new MalformedRequestError(`Persisted request is malformed.`);
     }
 
     return {
-      requestId,
-      messageId: Item.messageId,
-      request: result.output,
-      expiresAt: new Date(Item.ttl * 1000),
+      requestId: result.output.pk,
+      messageId: result.output.sk,
+      request: result.output.request,
+      expiresAt: new Date(result.output.ttl * 1000),
     };
   };
 }
@@ -153,6 +170,15 @@ class MessageNotFoundError extends Error {
 }
 
 class MalformedRequestError extends Error {
+  public readonly stringified: boolean;
+
+  constructor(message: any) {
+    super(typeof message === "string" ? message : JSON.stringify(message));
+    this.stringified = typeof message !== "string";
+  }
+}
+
+class UnexpectedError extends Error {
   public readonly stringified: boolean;
 
   constructor(message: any) {

@@ -1,7 +1,7 @@
 import { EventBridge } from "@aws-sdk/client-eventbridge";
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { SendRawEmailCommand, SESClient } from "@aws-sdk/client-ses";
-import { PutCommand } from "@aws-sdk/lib-dynamodb";
+import { BatchWriteCommand } from "@aws-sdk/lib-dynamodb";
 import { asNull, assertUnreachable, call } from "@beesolve/helpers";
 import type { SQSEvent } from "aws-lambda";
 import { createMimeMessage } from "mimetext";
@@ -36,7 +36,13 @@ const events = new Events({
   eventBusArn: env.EVENT_BUS_ARN,
 });
 
-export const handler = async (event: SQSEvent) => {
+export const handler = async (
+  event: SQSEvent,
+): Promise<{
+  batchItemFailures: {
+    itemIdentifier: string;
+  }[];
+}> => {
   const batchItemFailures = new Array<{ itemIdentifier: string }>();
 
   for (const record of event.Records) {
@@ -146,18 +152,39 @@ export const handler = async (event: SQSEvent) => {
         },
       });
 
-      if (env.MESSAGES_RETENTION_DAYS != 0) {
-        const ttl = new Date();
-        ttl.setUTCDate(ttl.getUTCDate() + env.MESSAGES_RETENTION_DAYS);
+      if (env.MESSAGES_RETENTION_DAYS !== 0) {
+        const expiresAt = new Date();
+        expiresAt.setUTCDate(
+          expiresAt.getUTCDate() + env.MESSAGES_RETENTION_DAYS,
+        );
+
+        const ttl = Math.floor(expiresAt.getTime() / 1000);
 
         await dynamoClient.send(
-          new PutCommand({
-            TableName: env.TABLE_NAME,
-            Item: {
-              pk: request.id,
-              messageId: MessageId,
-              request,
-              ttl: Math.floor(ttl.getTime() / 1000),
+          new BatchWriteCommand({
+            RequestItems: {
+              [env.TABLE_NAME]: [
+                {
+                  PutRequest: {
+                    Item: {
+                      pk: request.id,
+                      sk: MessageId,
+                      request,
+                      ttl,
+                    },
+                  },
+                },
+                ...request.recipients.map((recipient) => ({
+                  PutRequest: {
+                    Item: {
+                      pk: recipient,
+                      sk: new Date().toISOString(),
+                      ttl,
+                      key: { pk: request.id, sk: MessageId },
+                    },
+                  },
+                })),
+              ],
             },
           }),
         );

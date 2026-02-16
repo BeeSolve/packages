@@ -2,7 +2,7 @@ import * as v from "valibot";
 
 export const requestSchema = v.object({
   id: v.string(),
-  recipients: v.array(v.pipe(v.string(), v.email())),
+  recipients: v.array(v.pipe(v.string(), v.email(), v.toLowerCase())),
   subject: v.string(),
   html: v.string(),
   text: v.optional(v.string()),
