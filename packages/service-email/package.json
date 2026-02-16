@@ -35,7 +35,7 @@
   },
   "scripts": {
     "type-check": "tsc --noEmit",
-    "prepublishOnly": "bun run --bun build.ts"
+    "prepublishOnly": "bun run --bun build.ts && zip -r dist/handler.zip handler/*"
   },
   "peerDependencies": {
     "typescript": "catalog:"

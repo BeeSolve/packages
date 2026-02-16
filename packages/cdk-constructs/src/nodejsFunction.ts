@@ -29,7 +29,7 @@ export type Nodejs24FunctionProps = Omit<
   | "bundling"
   | "awsSdkConnectionReuse"
 > & {
-  readonly entry: `${string}.ts` | `${string}/`;
+  readonly entry: `${string}.ts` | `${string}/` | `${string}.zip`;
   readonly logGroupProps?: LogGroupProps;
   readonly loggingFormat?: LoggingFormat;
   readonly runtime?: typeof Runtime.NODEJS_24_X;
@@ -41,7 +41,7 @@ export type Nodejs24FunctionProps = Omit<
  * This construct provides easy way of deploying Node.js function with opinionated defaults.
  *
  * You need to provide `entry` - TypeScript file which exports `handler` function.
- * If your code is already built, you can provide directory ending with `/` as `entry` so the build step is skipped.
+ * If your code is already built, you can provide directory ending with `/` or `.zip` as `entry` so the build step is skipped.
  *
  * By default, your code is built with esbuild in ESM format with provided CommonJS polyfills.
  * The code is minified for better performance and exteranl sourcemaps are provided.

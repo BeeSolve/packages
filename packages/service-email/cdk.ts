@@ -162,7 +162,7 @@ export class Emails extends Construct {
 
     const handler = new Nodejs24Function(this, "SqsHandler", {
       description: "Email queue handler",
-      entry: `${fileURLToPath(new URL(".", import.meta.url))}handler/`,
+      entry: `${fileURLToPath(new URL(".", import.meta.url))}handler.zip`,
       handler: "handler.handler",
       memorySize: props.handler?.memorySize ?? 256,
       timeout: props.handler?.timeout ?? Duration.seconds(30),
