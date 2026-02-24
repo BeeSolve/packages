@@ -19,14 +19,19 @@ export function awsRequest(
   const headers = awsEventHeaders(event);
   const body = awsEventBody(event);
 
-  headers.append("aws-event", JSON.stringify(event));
+  headers.append(
+    "aws-event",
+    Buffer.from(JSON.stringify(event)).toString("base64url"),
+  );
   headers.append(
     "aws-context",
-    JSON.stringify({
-      ...context,
-      serializedAtTimeInMillis: Date.now(),
-      remainingTimeInMillis: context.getRemainingTimeInMillis(),
-    }),
+    Buffer.from(
+      JSON.stringify({
+        ...context,
+        serializedAtTimeInMillis: Date.now(),
+        remainingTimeInMillis: context.getRemainingTimeInMillis(),
+      }),
+    ).toString("base64url"),
   );
 
   return new Request(url, { method, headers, body });

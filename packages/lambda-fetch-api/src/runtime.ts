@@ -15,7 +15,7 @@ export function toAwsEvent(
       `Provided request does not contain "aws-event" header.`,
     );
 
-  return JSON.parse(header);
+  return JSON.parse(Buffer.from(header, "base64url").toString("utf8"));
 }
 
 // todo: validate with valibot
@@ -33,7 +33,7 @@ export function toAwsContext(request: Request): Context {
   }: Omit<Context, "getRemainingTimeInMillis"> & {
     serializedAtTimeInMillis: number;
     remainingTimeInMillis: number;
-  } = JSON.parse(header);
+  } = JSON.parse(Buffer.from(header, "base64url").toString("utf8"));
 
   return {
     ...rest,
