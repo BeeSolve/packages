@@ -20,14 +20,7 @@ export interface SqsHandlerProps {
    * @default
    *
    * {
-   *   runtime: Runtime.NODEJS_24_X,
-   *   architecture: Architecture.ARM_64,
-   *   bundling: {
-   *     minify: true,
-   *     sourceMap: true,
-   *     sourcesContent: false,
-   *     target: "es2022",
-   *   }
+   *   reservedConcurrentExecutions: 2
    * }
    *
    */
@@ -100,13 +93,20 @@ export class SqsHandler extends Construct {
       },
     };
 
-    const { description, memorySize, timeout, ...mainConfig } = handlerProps;
+    const {
+      description,
+      memorySize,
+      timeout,
+      reservedConcurrentExecutions,
+      ...mainConfig
+    } = handlerProps;
 
     for (const [name, config] of Object.entries(configurations)) {
       const prefix = capitalizeFirstLetter(name);
       const handlerId = `${prefix}Handler`;
       const handler = new Nodejs24Function(this, handlerId, {
         description: `${description ?? "Tasks queue handler"} - ${name}`,
+        reservedConcurrentExecutions: reservedConcurrentExecutions ?? 2,
         ...mainConfig,
         ...config,
       });
