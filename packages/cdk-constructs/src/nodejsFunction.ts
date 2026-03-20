@@ -14,8 +14,8 @@ import {
 } from "aws-cdk-lib/aws-logs";
 import type { Construct, IConstruct } from "constructs";
 import { execSync } from "node:child_process";
+import { tmpdir } from "node:os";
 import { resolve } from "node:path";
-import { cwd } from "node:process";
 import { esmBuildSync } from "./esbuildBuild";
 
 export type Nodejs24FunctionProps = Omit<
@@ -82,7 +82,9 @@ export class Nodejs24Function extends Function {
       );
     }
     const outDir = shouldBuild
-      ? resolve(`${cwd()}/cdk.out/beesolve-nodejs.bundling.${id}.${Date.now()}`)
+      ? resolve(
+          `${tmpdir()}/cdk.out/beesolve-nodejs-bundling-${id}-${Date.now()}`,
+        )
       : entry;
 
     if (shouldBuild) {

@@ -1,7 +1,7 @@
 {
   "name": "@beesolve/sqs-handler",
   "description": "",
-  "version": "0.1.18",
+  "version": "0.1.20",
   "type": "module",
   "files": [
     "dist"
@@ -45,9 +45,9 @@
     "constructs": "catalog:",
     "@aws-sdk/client-sqs": "catalog:",
     "valibot": "catalog:",
-    "@beesolve/helpers": "workspace:*",
-    "@beesolve/cdk-email-alarms": "workspace:*",
-    "@beesolve/cdk-constructs": "workspace:*"
+    "@beesolve/helpers": "workspace:^",
+    "@beesolve/cdk-email-alarms": "workspace:^",
+    "@beesolve/cdk-constructs": "workspace:^"
   },
   "devDependencies": {
     "@types/aws-lambda": "catalog:"

@@ -1,7 +1,7 @@
 {
   "name": "@beesolve/email-service",
   "description": "",
-  "version": "0.1.17",
+  "version": "0.1.19",
   "type": "module",
   "files": [
     "dist"
@@ -58,8 +58,8 @@
     "mimetext": "catalog:",
     "valibot": "catalog:",
     "react": "catalog:",
-    "@beesolve/helpers": "workspace:*",
-    "@beesolve/cdk-constructs": "workspace:*"
+    "@beesolve/helpers": "workspace:^",
+    "@beesolve/cdk-constructs": "workspace:^"
   },
   "devDependencies": {
     "@types/aws-lambda": "catalog:",

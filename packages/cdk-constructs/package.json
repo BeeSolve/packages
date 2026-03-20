@@ -1,6 +1,6 @@
 {
   "name": "@beesolve/cdk-constructs",
-  "version": "0.1.26",
+  "version": "0.1.28",
   "description": "",
   "homepage": "https://github.com/beesolve/packages/tree/main/packages/cdk-constructs#readme",
   "license": "MIT",
@@ -23,7 +23,7 @@
     }
   },
   "dependencies": {
-    "@beesolve/helpers": "workspace:*",
+    "@beesolve/helpers": "workspace:^",
     "aws-cdk-lib": "catalog:",
     "constructs": "catalog:",
     "esbuild": "catalog:"
