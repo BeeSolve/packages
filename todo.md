@@ -14,14 +14,14 @@
 
 ## Step 3 — Create `scripts/publish.ts`
 
-- [ ] Create `scripts/publish.ts` with topological publish logic
-- [ ] Verify `bun pm pack` resolves `workspace:^` references (inspect tarball on a package with internal deps):
+- [x] Create `scripts/publish.ts` with topological publish logic
+- [x] Verify `bun pm pack` resolves `workspace:^` references (inspect tarball on a package with internal deps):
   ```bash
   bun pm pack
   tar -xOf *.tgz package/package.json | grep -E 'workspace|catalog'
   rm *.tgz
   ```
-  - If `workspace:^` remains: fall back to storing `NPM_TOKEN` and using `bun publish --access public` instead
+  - Confirmed: grep returns nothing — references fully resolved. Hybrid approach is safe.
 
 ## Step 4 — Create `.github/workflows/ci.yml`
 
