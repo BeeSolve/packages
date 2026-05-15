@@ -2,8 +2,8 @@
 
 ## Step 1 — Initialize Changesets
 
-- [ ] Run `bunx changeset init` to generate `.changeset/config.json`
-- [ ] Edit `.changeset/config.json` to set `access: "public"`, `baseBranch: "main"`, `updateInternalDependencies: "patch"`
+- [x] Run `bunx changeset init` to generate `.changeset/config.json`
+- [x] Edit `.changeset/config.json` to set `access: "public"`, `baseBranch: "main"`, `updateInternalDependencies: "patch"`
 
 ## Step 2 — Update Root `package.json`
 
