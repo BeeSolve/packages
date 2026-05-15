@@ -29,9 +29,9 @@
 
 ## Step 5 — Create `.github/workflows/publish.yml`
 
-- [ ] Create `.github/workflows/publish.yml` (changesets/action with version + publish steps)
-- [ ] Confirm `actions/setup-node@v6` with `node-version: '24'` and `registry-url` set (no `NODE_AUTH_TOKEN`)
-- [ ] Confirm `id-token: write` permission is present
+- [x] Create `.github/workflows/publish.yml` (changesets/action with version + publish steps)
+- [x] Confirm `actions/setup-node@v4` with `node-version: '24'` and `registry-url` set (no `NODE_AUTH_TOKEN`)
+- [x] Confirm `id-token: write` permission is present
 
 ## Step 6 — Register OIDC Trusted Publishers on npmjs.org (manual, one-time)
 

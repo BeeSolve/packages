@@ -1,0 +1,38 @@
+name: Publish
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write       # changesets commits version bumps + changelogs
+  id-token: write       # npm OIDC Trusted Publishers
+  pull-requests: write  # changesets bot creates/updates the Version PR
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+          # DO NOT set NODE_AUTH_TOKEN — its presence breaks OIDC auth
+
+      - uses: oven-sh/setup-bun@v2
+
+      - run: bun install
+
+      - name: Version or Publish
+        uses: changesets/action@v1
+        with:
+          version: bun run version
+          publish: bun run publish:packages
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # NO NPM_TOKEN — OIDC Trusted Publishers handles auth
