@@ -63,6 +63,7 @@
   },
   "devDependencies": {
     "@types/aws-lambda": "catalog:",
+    "@types/node": "catalog:",
     "@types/react": "catalog:",
     "esbuild": "catalog:"
   }
