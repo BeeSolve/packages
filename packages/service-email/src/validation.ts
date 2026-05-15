@@ -1,6 +1,6 @@
 import * as v from "valibot";
 
-export const requestSchema = v.object({
+const _requestSchema = v.object({
   id: v.string(),
   recipients: v.array(v.pipe(v.string(), v.email(), v.toLowerCase())),
   subject: v.string(),
@@ -32,3 +32,5 @@ export const requestSchema = v.object({
   ),
   configurationSetName: v.optional(v.string()),
 });
+
+export const requestSchema: typeof _requestSchema = _requestSchema;
