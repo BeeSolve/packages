@@ -4,9 +4,12 @@
   "scripts": {
     "build": "bunup",
     "dev": "bunup --watch",
-    "type-check": "bun run --filter '*' type-check"
+    "type-check": "bun run --filter '*' type-check",
+    "version": "changeset version",
+    "publish:packages": "bun run build && bun scripts/publish.ts"
   },
   "devDependencies": {
+    "@changesets/cli": "^2.27.0",
     "@types/bun": "^1.3.14",
     "bunup": "^0.16.31",
     "typescript": "^6.0.3"

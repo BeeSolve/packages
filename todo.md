@@ -7,10 +7,10 @@
 
 ## Step 2 — Update Root `package.json`
 
-- [ ] Add `@changesets/cli: "^2.27.0"` to `devDependencies`
-- [ ] Add `version` script: `changeset version`
-- [ ] Add `publish:packages` script: `bun run build && bun scripts/publish.ts`
-- [ ] Run `bun install` to install `@changesets/cli`
+- [x] Add `@changesets/cli: "^2.27.0"` to `devDependencies`
+- [x] Add `version` script: `changeset version`
+- [x] Add `publish:packages` script: `bun run build && bun scripts/publish.ts`
+- [x] Run `bun install` to install `@changesets/cli`
 
 ## Step 3 — Create `scripts/publish.ts`
 
