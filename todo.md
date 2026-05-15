@@ -25,7 +25,7 @@
 
 ## Step 4 — Create `.github/workflows/ci.yml`
 
-- [ ] Create `.github/workflows/ci.yml` (checkout → setup-bun → install → build → type-check)
+- [x] Create `.github/workflows/ci.yml` (checkout → setup-bun → install → build → type-check)
 
 ## Step 5 — Create `.github/workflows/publish.yml`
 
