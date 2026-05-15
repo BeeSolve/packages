@@ -35,16 +35,16 @@
 
 ## Step 6 — Register OIDC Trusted Publishers on npmjs.org (manual, one-time)
 
-- [ ] `@beesolve/helpers` — add Trusted Publisher (org: `beesolve`, repo: `packages`, workflow: `publish.yml`)
-- [ ] `@beesolve/cdk-email-alarms` — add Trusted Publisher
-- [ ] `@beesolve/cdk-constructs` — add Trusted Publisher
-- [ ] `@beesolve/lambda-fetch-api` — add Trusted Publisher
-- [ ] `@beesolve/email-service` — add Trusted Publisher
-- [ ] `@beesolve/sqs-handler` — add Trusted Publisher
+- [x] `@beesolve/helpers` — add Trusted Publisher (org: `beesolve`, repo: `packages`, workflow: `publish.yml`)
+- [x] `@beesolve/cdk-email-alarms` — add Trusted Publisher
+- [x] `@beesolve/cdk-constructs` — add Trusted Publisher
+- [x] `@beesolve/lambda-fetch-api` — add Trusted Publisher
+- [x] `@beesolve/email-service` — add Trusted Publisher
+- [x] `@beesolve/sqs-handler` — add Trusted Publisher
 
 ## Step 7 — Create `docs/adding-a-package.md`
 
-- [ ] Write guide covering: directory structure, required `package.json` fields, `bunup.config.ts` entry, `scripts/publish.ts` entry, OIDC registration, first manual publish steps, developer changeset workflow
+- [x] Write guide covering: directory structure, required `package.json` fields, `bunup.config.ts` entry, `scripts/publish.ts` entry, OIDC registration, first manual publish steps, developer changeset workflow
 
 ## Verification
 
