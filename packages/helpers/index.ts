@@ -44,7 +44,7 @@ export type PickStringProps<T> = Pick<
 >;
 
 /**
- * Create new record from an array based on selected `string` property. Selected property will be used as a key.
+ * Create new record from an array based on either a selected `string` property or a key selector function.
  *
  * @example Sample usage
  * ```ts
@@ -59,6 +59,22 @@ export type PickStringProps<T> = Pick<
  *    result === {
  *        '123': { id: '123', name: 'Jozko' },
  *        '234': { id: '234', name: 'Ferko' }
+ *    }
+ * ```
+ *
+ * @example Use key selector function
+ * ```ts
+ *    const result = toRecordByProperty(
+ *        [
+ *            { groupId: 'g-123', userId: 'u-123', role: 'admin' },
+ *            { groupId: 'g-123', userId: 'u-234', role: 'reader' }
+ *        ],
+ *        value => `${value.groupId}|${value.userId}`
+ *    );
+ *
+ *    result === {
+ *        'g-123|u-123': { groupId: 'g-123', userId: 'u-123', role: 'admin' },
+ *        'g-123|u-234': { groupId: 'g-123', userId: 'u-234', role: 'reader' }
  *    }
  * ```
  *
@@ -78,14 +94,19 @@ export type PickStringProps<T> = Pick<
  *        'ferko_velky': { id: '234', name: 'Ferko Velky' }
  *    }
  * ```
+ *
+ * When needed the object can be converted back to an array by calling Object.values(object).
  */
 export function toRecordByProperty<T extends { [key: string]: any }>(
   input: T[],
-  key: keyof PickStringProps<T>,
+  key: keyof PickStringProps<T> | ((value: T) => string),
   keyTransformer: (key: string) => string = (key) => key,
 ): Record<string, T> {
   return Object.fromEntries(
-    input.map((item) => [keyTransformer(item[key]), item]),
+    input.map((item) => [
+      keyTransformer(typeof key === "function" ? key(item) : item[key]),
+      item,
+    ]),
   );
 }
 
