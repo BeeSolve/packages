@@ -5,9 +5,9 @@ on:
     branches: [main]
 
 permissions:
-  contents: write       # changesets commits version bumps + changelogs
-  id-token: write       # npm OIDC Trusted Publishers
-  pull-requests: write  # changesets bot creates/updates the Version PR
+  contents: write # changesets commits version bumps + changelogs
+  id-token: write # npm OIDC Trusted Publishers
+  pull-requests: write # changesets bot creates/updates the Version PR
 
 jobs:
   publish:
@@ -20,8 +20,9 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: '24'
-          registry-url: 'https://registry.npmjs.org'
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+          package-manager-cache: false
           # DO NOT set NODE_AUTH_TOKEN — its presence breaks OIDC auth
 
       - uses: oven-sh/setup-bun@v2

@@ -29,6 +29,12 @@ export default defineWorkspace([
     root: "packages/service-email",
     config: {
       entry: ["cdk.ts", "sdk.ts", "templating.ts"],
+      // types inferred via tsgo because of complex types like valibot are exported
+      // @see: https://bunup.dev/docs/guide/typescript-declarations.html#infer-types
+      dts: {
+        inferTypes: true,
+        tsgo: true,
+      },
     },
   },
   {
