@@ -128,12 +128,14 @@ export class Email {
     );
 
     if (Items.length === 0) {
-      throw new MessageNotFoundError(
+      throw new EmailServiceError(
+        "message_not_found",
         `Message for ${requestId} has not been found. Make sure you have set up messagesRetentionDays properly.`,
       );
     }
     if (Items.length !== 1) {
-      throw new UnexpectedError(
+      throw new EmailServiceError(
+        "unexpected",
         `There are multiple records for ${requestId} which should not happen.`,
       );
     }
@@ -148,7 +150,7 @@ export class Email {
       Items[0],
     );
     if (!result.success) {
-      throw new MalformedRequestError(`Persisted request is malformed.`);
+      throw new EmailServiceError("malformed_request", `Persisted request is malformed.`);
     }
 
     return {
@@ -160,29 +162,12 @@ export class Email {
   };
 }
 
-class MessageNotFoundError extends Error {
-  public readonly stringified: boolean;
-
-  constructor(message: any) {
-    super(typeof message === "string" ? message : JSON.stringify(message));
-    this.stringified = typeof message !== "string";
-  }
-}
-
-class MalformedRequestError extends Error {
-  public readonly stringified: boolean;
-
-  constructor(message: any) {
-    super(typeof message === "string" ? message : JSON.stringify(message));
-    this.stringified = typeof message !== "string";
-  }
-}
-
-class UnexpectedError extends Error {
-  public readonly stringified: boolean;
-
-  constructor(message: any) {
-    super(typeof message === "string" ? message : JSON.stringify(message));
-    this.stringified = typeof message !== "string";
+export class EmailServiceError extends Error {
+  constructor(
+    public readonly code: "message_not_found" | "malformed_request" | "unexpected",
+    message: string,
+  ) {
+    super(message);
+    this.name = "EmailServiceError";
   }
 }

@@ -42,7 +42,7 @@ Tracks progress against PLAN.md. See REVIEW.md for full context on each item.
 
 ## Code quality
 
-- [ ] **email-service** — Consolidate `AttachmentValidationError` / `AttachmentFetchError` / `AttachmentUploadError` into a single `EmailServiceError` class (`sdk.ts`)
+- [x] **email-service** — Consolidate `AttachmentValidationError` / `AttachmentFetchError` / `AttachmentUploadError` into a single `EmailServiceError` class (`sdk.ts`)
 - [x] **cdk-email-alarms** — Scope CloudWatch alarm construct IDs per resource to prevent duplicate ID errors (`index.ts`)
 
 ---
