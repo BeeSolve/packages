@@ -113,13 +113,9 @@ const baseStyles = {
     fontSize: "14px",
     textDecoration: "underline",
   },
-  text: text,
+  text,
   mainText: {
-    color: "#333",
-    fontFamily:
-      "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif",
-    fontSize: "14px",
-    margin: "24px 0",
+    ...text,
     marginBottom: "14px",
   } as const,
   main: {
@@ -139,11 +135,7 @@ const baseStyles = {
   upperSection: { padding: "25px 35px" },
   lowerSection: { padding: "25px 35px" },
   footerText: {
-    color: "#333",
-    fontFamily:
-      "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif",
-    fontSize: "12px",
-    margin: "24px 0",
+    ...text,
     padding: "0 20px",
   } as const,
   cautionText: {
