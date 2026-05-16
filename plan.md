@@ -1,326 +1,143 @@
-# npm Publishing Automation — Implementation Plan
+# Improvement Plan: @beesolve/packages
 
-## Context
-
-This monorepo has 6 published npm packages with a clear dependency graph but zero automation.
-Publishing is currently manual (`bun publish --access public` per package). The goal is
-Changesets-based versioning with automated publishing on push to main, using GitHub Actions
-and npm OIDC Trusted Publishers (secretless — no stored NPM_TOKEN).
-
-**Key constraints:**
-- `bun publish` MUST be used (not `npm publish`) because it resolves `workspace:^` and
-  `catalog:` references in package.json before publishing.
-- `bun publish` does NOT support npm OIDC Trusted Publishers natively.
-- Solution: **hybrid** — `bun pm pack` creates the resolved tarball, then `npm publish <tarball>`
-  performs the OIDC-authenticated publish via Node 24's npm CLI.
-- `bun pm pack` resolves `catalog:` (confirmed by bun docs); `workspace:^` resolution is
-  documented by inference — needs one-off verification during implementation (see risk section).
-- All 6 packages are already published on npm. No bootstrap publish needed.
+Derived from REVIEW.md (2026-05-16). Items are grouped by theme and ordered by impact.
 
 ---
 
-## Files to Create / Modify
+## 1. Security fixes
 
-| File | Action |
-|---|---|
-| `.changeset/config.json` | Create (via `bunx changeset init`, then edit) |
-| `package.json` (root) | Modify: add `@changesets/cli`, add `version` + `publish:packages` scripts |
-| `scripts/publish.ts` | Create: topological publish script |
-| `.github/workflows/ci.yml` | Create |
-| `.github/workflows/publish.yml` | Create |
-| `docs/adding-a-package.md` | Create: guide for adding new packages |
+### 1.1 Credential injection in `StaticWebsite` basic auth — DONE
+Pre-compute the `Basic <base64>` string at CDK synth time so no user-controlled input
+touches the generated CloudFront function source. Use `JSON.stringify` for the prefixes
+array. See commit `3b7ed5d`.
+
+**File:** `packages/cdk-constructs/src/staticWebsite.ts`
 
 ---
 
-## Step 1 — Initialize Changesets
+## 2. Correctness fixes (silent failures & data loss)
 
-```bash
-bunx changeset init
-```
+### 2.1 DynamoDB batch write chunking — `email-service`
+`BatchWriteItemCommand` has a hard AWS limit of 25 items. The handler writes
+`recipients.length * 2` items in one call, so any email with 13+ recipients will throw.
 
-Creates `.changeset/config.json`. Edit to:
+**Approach:** Use `splitArrayToChunks(items, 25)` from `@beesolve/helpers` to split the
+write items, then `await Promise.all` the resulting batch calls.
 
-```json
-{
-  "$schema": "https://unpkg.com/@changesets/config/schema.json",
-  "changelog": "@changesets/cli/changelog",
-  "commit": false,
-  "fixed": [],
-  "linked": [],
-  "access": "public",
-  "baseBranch": "main",
-  "updateInternalDependencies": "patch",
-  "ignore": []
-}
-```
+**File:** `packages/service-email/src/handler.ts` (lines ~163-191)
 
-`access: "public"` applies globally — all 6 packages are public scoped.
+### 2.2 Throw on unknown SQS function name — `sqs-handler`
+`props.functions[fn]?.()` silently returns `undefined` for unknown function names,
+causing the message to be ACK'd without processing.
 
----
+**Approach:** Replace optional chain with an explicit presence check and `throw`.
 
-## Step 2 — Update Root `package.json`
+**File:** `packages/sqs-handler/index.ts` (line ~59)
 
-Add to `devDependencies`:
-```json
-"@changesets/cli": "^2.27.0"
-```
+### 2.3 Content-type regex in `lambda-fetch-api`
+The current regex `/^text\/|\/(javascript|json|xml)|utf-?8/i` is unanchored on the second
+alternative — it can match unintended strings. Rewrite as:
+`/^text\/|^application\/(json|xml|javascript)|utf-?8/i`
 
-Add/update `scripts`:
-```json
-{
-  "scripts": {
-    "build": "bunup",
-    "dev": "bunup --watch",
-    "type-check": "bun run --filter '*' type-check",
-    "version": "changeset version",
-    "publish:packages": "bun run build && bun scripts/publish.ts"
-  }
-}
-```
+**File:** `packages/lambda-fetch-api/src/util.ts` (line ~191)
+
+### 2.4 Sender email address validation — `email-service`
+`validation.ts` validates recipient addresses with `v.email()` but the sender
+`emailAddress` field is a bare `v.string()`. An invalid sender will fail at SES send time.
+
+**Approach:** Add `v.email()` pipe to the sender `emailAddress` field.
+
+**File:** `packages/service-email/src/validation.ts`
 
 ---
 
-## Step 3 — Create `scripts/publish.ts`
+## 3. Error handling improvements
 
-Publishes packages in topological order. For each package:
-1. Reads current version from `package.json`
-2. Checks npm registry — skips if this version is already published
-3. Runs `prepublishOnly` script manually if the package has one (handles `service-email`
-   Lambda zip build; `bun pm pack` does not trigger `prepublishOnly`)
-4. Runs `bun pm pack` — creates a `.tgz` with resolved `workspace:^`/`catalog:` references
-5. Runs `npm publish <tarball> --access public` — npm CLI performs OIDC Trusted Publishers auth
-6. Cleans up the tarball
+### 3.1 Log EventBridge failures — `email-service`
+`events.ts` calls `putEvents()` with no error handling. Failures are silently swallowed.
 
-```typescript
-#!/usr/bin/env bun
-import { $ } from "bun";
-import { join } from "path";
+**Approach:** Wrap in try/catch and log the error. Decide whether to re-throw (strict) or
+just log (lenient) based on whether event emission is considered critical.
 
-const ROOT = join(import.meta.dir, "..");
+**File:** `packages/service-email/src/events.ts`
 
-// Topological order — dependencies before dependents
-const PACKAGES = [
-  "packages/helpers",
-  "packages/cdk-email-alarms",
-  "packages/cdk-constructs",
-  "packages/lambda-fetch-api",
-  "packages/service-email",
-  "packages/sqs-handler",
-] as const;
+### 3.2 Remove unused `SQSClient` import — `sqs-handler`
+Dead import; triggers any linter.
 
-type Pkg = { name: string; version: string; scripts?: Record<string, string> };
+**File:** `packages/sqs-handler/index.ts`
 
-async function readPkg(dir: string): Promise<Pkg> {
-  return Bun.file(join(ROOT, dir, "package.json")).json();
-}
+### 3.3 Fix typo in error messages — `email-service`
+`"labmda"` → `"lambda"` at lines 10 and 13.
 
-async function isPublished(name: string, version: string): Promise<boolean> {
-  const result = await $`npm view ${name}@${version} version`.quiet().nothrow();
-  return result.exitCode === 0;
-}
-
-for (const pkgDir of PACKAGES) {
-  const absDir = join(ROOT, pkgDir);
-  const pkg = await readPkg(pkgDir);
-
-  if (await isPublished(pkg.name, pkg.version)) {
-    console.log(`  skip ${pkg.name}@${pkg.version} (already on npm)`);
-    continue;
-  }
-
-  console.log(`  publishing ${pkg.name}@${pkg.version}`);
-
-  // Run prepublishOnly manually (bun pm pack does not trigger it)
-  if (pkg.scripts?.prepublishOnly) {
-    await $`bun run prepublishOnly`.cwd(absDir);
-  }
-
-  // Pack with bun — resolves workspace:^ and catalog: references
-  await $`bun pm pack`.cwd(absDir);
-
-  // Find the generated tarball
-  const [tarball] = [...new Bun.Glob("*.tgz").scanSync(absDir)];
-  if (!tarball) throw new Error(`No tarball found in ${pkgDir}`);
-
-  // Publish via npm CLI — triggers OIDC Trusted Publishers
-  await $`npm publish ${tarball} --access public`.cwd(absDir);
-
-  await $`rm ${tarball}`.cwd(absDir);
-}
-```
+**File:** `packages/service-email/src/handler.ts`
 
 ---
 
-## Step 4 — Create `.github/workflows/ci.yml`
+## 4. Tooling — linting & formatting
 
-```yaml
-name: CI
+### 4.1 Add Biome to the monorepo root
+Biome handles both linting and formatting in a single tool with near-zero config.
+It integrates with Bun and runs fast.
 
-on:
-  pull_request:
-    branches: [main]
+**Approach:**
+1. `bun add -d @biomejs/biome` at the root
+2. `bunx biome init` to generate `biome.json`
+3. Configure to match existing style (tabs vs spaces, quote style, etc.)
+4. Add `"lint": "biome check ."` and `"format": "biome format --write ."` to root scripts
+5. Add a `bun run lint` step to `ci.yml`
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-
-      - uses: oven-sh/setup-bun@v2
-
-      - run: bun install
-
-      - run: bun run build
-
-      - run: bun run type-check
-```
+**Files:** `package.json`, `biome.json`, `.github/workflows/ci.yml`
 
 ---
 
-## Step 5 — Create `.github/workflows/publish.yml`
+## 5. Documentation fixes
 
-`changesets/action` does double duty on each push to main:
-- **Pending changesets exist** → creates/updates a Version PR (bumps versions, writes CHANGELOG)
-- **Version PR just merged** (no pending changesets) → runs the `publish:packages` script
+### 5.1 Fix `sqs-handler` README example
+The README uses `queueUrl` (singular) but the actual API uses `queueUrls` (plural, a
+`Record<string, string>`). The example will not compile.
 
-```yaml
-name: Publish
-
-on:
-  push:
-    branches: [main]
-
-permissions:
-  contents: write       # changesets commits version bumps + changelogs
-  id-token: write       # npm OIDC Trusted Publishers
-  pull-requests: write  # changesets bot creates/updates the Version PR
-
-jobs:
-  publish:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: '24'
-          registry-url: 'https://registry.npmjs.org'
-          # DO NOT set NODE_AUTH_TOKEN — its presence breaks OIDC auth
-
-      - uses: oven-sh/setup-bun@v2
-
-      - run: bun install
-
-      - name: Version or Publish
-        uses: changesets/action@v1
-        with:
-          version: bun run version
-          publish: bun run publish:packages
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # NO NPM_TOKEN — OIDC Trusted Publishers handles auth
-```
-
-**Action versions** (latest as of May 2026):
-- `actions/checkout@v6` (v6.0.2)
-- `actions/setup-node@v6` (v6.4.0) — Node 24 ships npm CLI v11.5.1+ required for OIDC
-- `oven-sh/setup-bun@v2` (v2.2.0)
-- `changesets/action@v1` (v1.8.0)
+**File:** `packages/sqs-handler/README.md`
 
 ---
 
-## Step 6 — Register OIDC Trusted Publishers on npmjs.org (one-time manual)
+## 6. Minor code quality
 
-For each of the 6 packages:
+### 6.1 Consolidate error classes in `email-service` SDK
+`AttachmentValidationError`, `AttachmentFetchError`, and `AttachmentUploadError` are
+near-identical. Replace with a single `EmailServiceError` class that takes a `code` string.
 
-1. Go to `https://www.npmjs.com/package/@beesolve/<name>/access`
-2. Click **Add Trusted Publisher** → GitHub Actions
-3. Enter:
-   - Organization: `beesolve`
-   - Repository: `packages`
-   - Workflow file: `publish.yml`
+**File:** `packages/service-email/sdk.ts`
 
-Packages to register: `helpers`, `cdk-email-alarms`, `cdk-constructs`, `lambda-fetch-api`,
-`email-service`, `sqs-handler`
+### 6.2 Scope CloudWatch alarm construct IDs — `cdk-email-alarms`
+`"NoMessagesAlarm"` and `"NoConsumersAlarm"` are hardcoded, causing duplicate construct ID
+errors when the construct is used on multiple queues in the same stack. Include the queue or
+function logical ID in the construct ID.
 
----
-
-## Step 7 — Create `docs/adding-a-package.md`
-
-Document the end-to-end workflow for adding a new publishable package:
-
-1. **Create the package directory** under `packages/<name>/` — copy the structure of an
-   existing simple package (`helpers` is a good template): `package.json`, `tsconfig.json`
-   extending `../../tsconfig.base.json`, `index.ts` entry point
-2. **`package.json` fields required**: `name`, `version`, `files: ["dist"]`, `exports`,
-   `repository` pointing to `git+https://github.com/beesolve/packages.git`
-3. **Add to `bunup.config.ts`** — add a workspace entry with entry point(s)
-4. **Add to `scripts/publish.ts`** — insert the new package path in the `PACKAGES` array
-   at the correct topological position: after all its `@beesolve/*` dependencies,
-   before any packages that depend on it
-5. **Register OIDC Trusted Publisher** on npmjs.org (see Step 6 above)
-6. **First publish** — OIDC trust registration requires the package to already exist on npm.
-   From the package directory, run:
-   ```bash
-   npm login   # if not already authenticated
-   bun pm pack
-   npm publish *.tgz --access public
-   rm *.tgz
-   ```
-7. **Developer workflow** — when making changes, run `bunx changeset` in the repo root to
-   add a changeset file describing the change; commit it with the PR
+**File:** `packages/cdk-email-alarms/index.ts`
 
 ---
 
-## Dependency Graph Reference
+## 7. Tests (future work — tracked separately)
 
-```
-Tier 1 (publish first):   helpers, cdk-email-alarms
-Tier 2:                   cdk-constructs, lambda-fetch-api
-Tier 3 (publish last):    email-service, sqs-handler
-```
+No package has any tests. Highest-value starting points:
+- `@beesolve/helpers` — pure functions, easy to test with `bun:test`
+- `@beesolve/lambda-fetch-api` — pure request/response transformations
+- `@beesolve/sqs-handler` — message routing logic
 
-Dependency edges:
-- `cdk-constructs` → `helpers`
-- `lambda-fetch-api` → `helpers`
-- `email-service` → `helpers`, `cdk-constructs`
-- `sqs-handler` → `helpers`, `cdk-email-alarms`, `cdk-constructs`
-
-**`service-email` special case**: `prepublishOnly` runs
-`bun run --bun build.ts && cd handler && zip -r ../dist/handler.zip *`.
-`build.ts` imports `esmBuild` from `@beesolve/cdk-constructs` — resolved from the workspace
-symlink in CI (safe because `bun install` links all workspace packages before publish runs).
-The publish script explicitly runs `prepublishOnly` before `bun pm pack`.
+CDK packages use `aws-cdk-lib/assertions` for snapshot and fine-grained assertion testing.
 
 ---
 
-## Verification
+## 8. Security hardening (lower priority)
 
-1. Open a PR, run `bunx changeset`, select the changed packages and bump type, commit the
-   `.changeset/*.md` file, merge to main
-2. Verify the Changesets bot opens a "Version Packages" PR with version bumps and CHANGELOG
-3. Merge the Version PR
-4. Watch the `publish.yml` workflow — confirm packages publish in topological order
-5. On npmjs.org, verify provenance attestation is visible on the new package versions
-6. Confirm no `NPM_TOKEN` secret exists in GitHub repo settings
+### 8.1 Restrict SES IAM policy — `email-service`
+The CDK construct grants `ses:SendEmail` and `ses:SendRawEmail` on `"*"`. Scope to the
+specific SES identity ARN(s) configured for the service.
 
----
+**File:** `packages/service-email/cdk.ts`
 
-## Risk: `bun pm pack` + `workspace:^` Resolution
+### 8.2 Attachment URL fetch safety — `email-service`
+Public URLs are fetched with no timeout, no size cap, and no origin allowlist. Add an
+`AbortSignal.timeout()` and a max-bytes guard to the fetch call.
 
-`bun publish` is documented to resolve both `catalog:` and `workspace:^`. `bun pm pack` is
-documented to resolve `catalog:`; `workspace:^` resolution is implied but not explicitly
-confirmed.
-
-**Verify before merging** — after running `bun pm pack` on any package with `workspace:^`
-dependencies (`cdk-constructs`, `email-service`, `sqs-handler`), inspect the tarball:
-
-```bash
-tar -xOf <name>-<version>.tgz package/package.json | grep -E 'workspace|catalog'
-```
-
-If `workspace:^` is still present, fall back to storing an `NPM_TOKEN` as a GitHub secret
-and replacing `npm publish <tarball>` with `bun publish --access public` in `publish.ts`.
+**File:** `packages/service-email/src/handler.ts` (line ~86)

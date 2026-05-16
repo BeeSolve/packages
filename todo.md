@@ -1,55 +1,64 @@
-# npm Publishing Automation — Task Checklist
+# TODO: @beesolve/packages improvements
 
-## Step 1 — Initialize Changesets
+Tracks progress against PLAN.md. See REVIEW.md for full context on each item.
 
-- [x] Run `bunx changeset init` to generate `.changeset/config.json`
-- [x] Edit `.changeset/config.json` to set `access: "public"`, `baseBranch: "main"`, `updateInternalDependencies: "patch"`
+---
 
-## Step 2 — Update Root `package.json`
+## Security
 
-- [x] Add `@changesets/cli: "^2.27.0"` to `devDependencies`
-- [x] Add `version` script: `changeset version`
-- [x] Add `publish:packages` script: `bun run build && bun scripts/publish.ts`
-- [x] Run `bun install` to install `@changesets/cli`
+- [x] **cdk-constructs** — Fix credential injection in `StaticWebsite` basic auth CloudFront function (`src/staticWebsite.ts`) — _commit 3b7ed5d_
 
-## Step 3 — Create `scripts/publish.ts`
+---
 
-- [x] Create `scripts/publish.ts` with topological publish logic
-- [x] Verify `bun pm pack` resolves `workspace:^` references (inspect tarball on a package with internal deps):
-  ```bash
-  bun pm pack
-  tar -xOf *.tgz package/package.json | grep -E 'workspace|catalog'
-  rm *.tgz
-  ```
-  - Confirmed: grep returns nothing — references fully resolved. Hybrid approach is safe.
+## Correctness (silent failures & data loss)
 
-## Step 4 — Create `.github/workflows/ci.yml`
+- [ ] **email-service** — Chunk DynamoDB `batchWrite` into ≤25-item groups using `splitArrayToChunks` from `@beesolve/helpers` (`src/handler.ts`)
+- [ ] **sqs-handler** — Throw on unknown function name instead of silently returning `undefined` (`index.ts`)
+- [ ] **lambda-fetch-api** — Fix content-type regex to correctly anchor `application/json` match (`src/util.ts`)
+- [ ] **email-service** — Add `v.email()` validation to sender `emailAddress` field (`src/validation.ts`)
 
-- [x] Create `.github/workflows/ci.yml` (checkout → setup-bun → install → build → type-check)
+---
 
-## Step 5 — Create `.github/workflows/publish.yml`
+## Error handling
 
-- [x] Create `.github/workflows/publish.yml` (changesets/action with version + publish steps)
-- [x] Confirm `actions/setup-node@v4` with `node-version: '24'` and `registry-url` set (no `NODE_AUTH_TOKEN`)
-- [x] Confirm `id-token: write` permission is present
+- [ ] **email-service** — Log (or re-throw) EventBridge `putEvents()` failures (`src/events.ts`)
+- [ ] **email-service** — Fix typo `labmda` → `lambda` in error messages (`src/handler.ts`)
+- [ ] **sqs-handler** — Remove unused `SQSClient` import (`index.ts`)
 
-## Step 6 — Register OIDC Trusted Publishers on npmjs.org (manual, one-time)
+---
 
-- [x] `@beesolve/helpers` — add Trusted Publisher (org: `beesolve`, repo: `packages`, workflow: `publish.yml`)
-- [x] `@beesolve/cdk-email-alarms` — add Trusted Publisher
-- [x] `@beesolve/cdk-constructs` — add Trusted Publisher
-- [x] `@beesolve/lambda-fetch-api` — add Trusted Publisher
-- [x] `@beesolve/email-service` — add Trusted Publisher
-- [x] `@beesolve/sqs-handler` — add Trusted Publisher
+## Tooling
 
-## Step 7 — Create `docs/adding-a-package.md`
+- [ ] **root** — Add Biome for linting + formatting (`package.json`, `biome.json`)
+- [ ] **root** — Add `bun run lint` step to CI (`ci.yml`)
 
-- [x] Write guide covering: directory structure, required `package.json` fields, `bunup.config.ts` entry, `scripts/publish.ts` entry, OIDC registration, first manual publish steps, developer changeset workflow
+---
 
-## Verification
+## Documentation
 
-- [ ] Open a test PR, run `bunx changeset`, commit the `.changeset/*.md` file, merge to main
-- [ ] Confirm Changesets bot opens a "Version Packages" PR with bumped versions and CHANGELOG entries
-- [ ] Merge the Version PR and watch `publish.yml` — confirm packages publish in topological order
-- [ ] Check npmjs.org for provenance attestation on the new package versions
-- [ ] Confirm no `NPM_TOKEN` secret is stored in GitHub repo settings
+- [ ] **sqs-handler** — Fix README example: `queueUrl` → `queueUrls` (`README.md`)
+
+---
+
+## Code quality
+
+- [ ] **email-service** — Consolidate `AttachmentValidationError` / `AttachmentFetchError` / `AttachmentUploadError` into a single `EmailServiceError` class (`sdk.ts`)
+- [ ] **cdk-email-alarms** — Scope CloudWatch alarm construct IDs per resource to prevent duplicate ID errors (`index.ts`)
+
+---
+
+## Security hardening (lower priority)
+
+- [ ] **email-service** — Restrict SES IAM policy from `"*"` to specific identity ARNs (`cdk.ts`)
+- [ ] **email-service** — Add timeout + size cap to public attachment URL fetching (`src/handler.ts`)
+
+---
+
+## Tests (future — tracked separately)
+
+- [ ] Set up `bun:test` at the monorepo root
+- [ ] `@beesolve/helpers` — unit tests for `stringifiable.ts` round-trips and UUID edge cases
+- [ ] `@beesolve/lambda-fetch-api` — unit tests for request/response transformations
+- [ ] `@beesolve/sqs-handler` — unit tests for message routing and FIFO dedup logic
+- [ ] `@beesolve/cdk-constructs` — CDK assertion tests (`aws-cdk-lib/assertions`)
+- [ ] `@beesolve/email-service` — handler unit tests (batch write chunking, attachment paths)
