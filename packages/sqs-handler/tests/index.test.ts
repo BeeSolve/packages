@@ -1,6 +1,6 @@
 import type { SQSEvent } from "aws-lambda";
 import { describe, expect, mock, test } from "bun:test";
-import { encodeToStringifiable } from "../../helpers/src/stringifiable";
+import { encodeToStringifiable } from "@beesolve/helpers";
 import { createSqsHandlers } from "../index";
 
 function makeSqsRecord(

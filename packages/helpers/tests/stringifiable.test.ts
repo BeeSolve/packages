@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
 	decodeFromStringifiable,
 	encodeToStringifiable,
-} from "../src/stringifiable";
+} from "../index";
 
 function roundTrip<T>(value: T): T {
 	return decodeFromStringifiable(encodeToStringifiable(value));

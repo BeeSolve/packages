@@ -1,14 +1,12 @@
 import type { APIGatewayProxyEvent, APIGatewayProxyEventV2, Context } from "aws-lambda";
 import { describe, expect, test } from "bun:test";
 import {
-	isAPIGatewayProxyEvent,
-	isAPIGatewayProxyEventV2,
-} from "../src/runtime";
-import {
 	awsRequest,
 	awsResponseBody,
 	awsResponseHeaders,
-} from "../src/util";
+	isAPIGatewayProxyEvent,
+	isAPIGatewayProxyEventV2,
+} from "../index";
 
 function makeContext(): Context {
 	return {

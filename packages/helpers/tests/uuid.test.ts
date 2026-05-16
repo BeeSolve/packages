@@ -4,7 +4,7 @@ import {
 	base36Encode,
 	uuid7,
 	uuid7ToDate,
-} from "../src/uuid";
+} from "../index";
 
 describe("uuid7", () => {
 	test("produces a 24-character base36 string", () => {
