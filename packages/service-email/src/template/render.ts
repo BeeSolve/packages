@@ -1,5 +1,5 @@
 import { render, toPlainText } from "@react-email/components";
-import { createElement, type Attributes, type FunctionComponent } from "react";
+import { type Attributes, createElement, type FunctionComponent } from "react";
 
 export async function renderEmail<P extends {}>(props: {
   readonly template: FunctionComponent<P>;

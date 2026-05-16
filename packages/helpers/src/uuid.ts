@@ -62,7 +62,7 @@ export function uuid7ToDate(value: string): Date {
 export function base36Encode(data: Uint8Array): string {
   let hex = "0x";
 
-  data.forEach(function (i) {
+  data.forEach((i) => {
     let h = i.toString(16);
     if (h.length % 2) {
       h = "0" + h;

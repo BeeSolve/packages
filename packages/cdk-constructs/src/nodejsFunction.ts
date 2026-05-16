@@ -1,4 +1,13 @@
-import { Aspects, RemovalPolicy, Stack, Tags, type IAspect } from "aws-cdk-lib";
+import { execSync } from "node:child_process";
+import { tmpdir } from "node:os";
+import { resolve } from "node:path";
+import {
+  Aspects,
+  type IAspect,
+  RemovalPolicy,
+  type Stack,
+  Tags,
+} from "aws-cdk-lib";
 import {
   Architecture,
   Code,
@@ -6,16 +15,13 @@ import {
   LoggingFormat,
   Runtime,
 } from "aws-cdk-lib/aws-lambda";
-import { type NodejsFunctionProps } from "aws-cdk-lib/aws-lambda-nodejs";
+import type { NodejsFunctionProps } from "aws-cdk-lib/aws-lambda-nodejs";
 import {
   LogGroup,
-  RetentionDays,
   type LogGroupProps,
+  RetentionDays,
 } from "aws-cdk-lib/aws-logs";
 import type { Construct, IConstruct } from "constructs";
-import { execSync } from "node:child_process";
-import { tmpdir } from "node:os";
-import { resolve } from "node:path";
 import { esmBuildSync } from "./esbuildBuild";
 
 export type Nodejs24FunctionProps = Omit<

@@ -1,8 +1,13 @@
 import { EventBridge } from "@aws-sdk/client-eventbridge";
 import { GetObjectCommand } from "@aws-sdk/client-s3";
-import { SendRawEmailCommand, SESClient } from "@aws-sdk/client-ses";
+import { SESClient, SendRawEmailCommand } from "@aws-sdk/client-ses";
 import { BatchWriteCommand } from "@aws-sdk/lib-dynamodb";
-import { asNull, assertUnreachable, call, splitArrayToChunks } from "@beesolve/helpers";
+import {
+  asNull,
+  assertUnreachable,
+  call,
+  splitArrayToChunks,
+} from "@beesolve/helpers";
 import type { SQSEvent } from "aws-lambda";
 import { createMimeMessage } from "mimetext";
 import * as v from "valibot";
@@ -43,7 +48,7 @@ export const handler = async (
     itemIdentifier: string;
   }[];
 }> => {
-  const batchItemFailures = new Array<{ itemIdentifier: string }>();
+  const batchItemFailures: { itemIdentifier: string }[] = [];
 
   for (const record of event.Records) {
     try {

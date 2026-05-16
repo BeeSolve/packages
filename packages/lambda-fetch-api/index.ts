@@ -1,3 +1,4 @@
+import type { Readable } from "node:stream";
 import type {
   APIGatewayProxyEvent,
   APIGatewayProxyEventV2,
@@ -6,7 +7,6 @@ import type {
   Context,
   StreamifyHandler,
 } from "aws-lambda";
-import type { Readable } from "node:stream";
 import { isAPIGatewayProxyEvent } from "./src/runtime";
 import { awsRequest, awsResponseBody, awsResponseHeaders } from "./src/util";
 

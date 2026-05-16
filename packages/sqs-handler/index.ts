@@ -28,7 +28,7 @@ export function createSqsHandlers<
   QueuedFunctions<TFunctions, Fifo, TQueueName>,
 ] {
   const handler = async (event: SQSEvent) => {
-    const batchItemFailures = new Array<{ itemIdentifier: string }>();
+    const batchItemFailures: { itemIdentifier: string }[] = [];
 
     for (const { body, messageId } of event.Records) {
       try {

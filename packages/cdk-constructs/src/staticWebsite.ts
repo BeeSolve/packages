@@ -5,7 +5,10 @@ import {
   AllowedMethods,
   CachePolicy,
   Distribution,
+  type DistributionProps,
+  type EdgeLambda,
   Function,
+  type FunctionAssociation,
   FunctionCode,
   FunctionEventType,
   FunctionRuntime,
@@ -15,9 +18,6 @@ import {
   PriceClass,
   ResponseHeadersPolicy,
   ViewerProtocolPolicy,
-  type DistributionProps,
-  type EdgeLambda,
-  type FunctionAssociation,
 } from "aws-cdk-lib/aws-cloudfront";
 import { HttpOrigin } from "aws-cdk-lib/aws-cloudfront-origins";
 import { ArnPrincipal, PolicyStatement } from "aws-cdk-lib/aws-iam";

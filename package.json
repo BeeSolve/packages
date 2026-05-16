@@ -2,6 +2,7 @@
   "name": "@beesolve/packages-monorepo",
   "license": "MIT",
   "scripts": {
+    "lint": "biome check packages/",
     "build": "bunup",
     "dev": "bunup --watch",
     "type-check": "bun run --filter '*' type-check",
@@ -11,6 +12,7 @@
     "recalculate-dependencies": "bun scripts/recalculate-dependencies.ts"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.4.15",
     "@changesets/cli": "^2.27.0",
     "@types/bun": "^1.3.14",
     "@types/node": "catalog:",

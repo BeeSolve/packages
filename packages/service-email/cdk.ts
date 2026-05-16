@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import { Nodejs24Function, SqsWithDlq } from "@beesolve/cdk-constructs";
 import { Duration, RemovalPolicy } from "aws-cdk-lib";
 import {
@@ -9,7 +10,7 @@ import {
 import { EventBus } from "aws-cdk-lib/aws-events";
 import type { LogGroupProps } from "aws-cdk-lib/aws-events-targets";
 import { Effect, PolicyStatement } from "aws-cdk-lib/aws-iam";
-import { type Function, type FunctionOptions } from "aws-cdk-lib/aws-lambda";
+import type { Function, FunctionOptions } from "aws-cdk-lib/aws-lambda";
 import { RetentionDays } from "aws-cdk-lib/aws-logs";
 import {
   BlockPublicAccess,
@@ -23,9 +24,8 @@ import {
   EmailSendingEvent,
   EventDestination,
 } from "aws-cdk-lib/aws-ses";
-import { Queue } from "aws-cdk-lib/aws-sqs";
+import type { Queue } from "aws-cdk-lib/aws-sqs";
 import { Construct } from "constructs";
-import { fileURLToPath } from "node:url";
 
 export class Emails extends Construct {
   private table: TableV2;

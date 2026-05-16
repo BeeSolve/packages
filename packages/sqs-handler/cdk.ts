@@ -6,7 +6,7 @@ import {
 } from "@beesolve/cdk-constructs";
 import type { EmailAlarms } from "@beesolve/cdk-email-alarms";
 import { capitalizeFirstLetter } from "@beesolve/helpers";
-import { Function } from "aws-cdk-lib/aws-lambda";
+import type { Function } from "aws-cdk-lib/aws-lambda";
 import { Construct } from "constructs";
 
 export interface SqsHandlerProps {

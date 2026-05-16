@@ -1,5 +1,9 @@
 {
   "extends": "../../tsconfig.base.json",
-  "compilerOptions": { "declaration": true, "isolatedDeclarations": true, "types": ["node", "bun"] },
-  "include": ["src/**/*", "bun.ts", "index.ts"],
+  "compilerOptions": {
+    "declaration": true,
+    "isolatedDeclarations": true,
+    "types": ["node", "bun"]
+  },
+  "include": ["src/**/*", "bun.ts", "index.ts"]
 }

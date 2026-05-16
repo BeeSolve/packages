@@ -1,5 +1,5 @@
 import { Duration } from "aws-cdk-lib";
-import { Function } from "aws-cdk-lib/aws-lambda";
+import type { Function } from "aws-cdk-lib/aws-lambda";
 import {
   SqsEventSource,
   type SqsEventSourceProps,

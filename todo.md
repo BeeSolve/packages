@@ -29,8 +29,8 @@ Tracks progress against PLAN.md. See REVIEW.md for full context on each item.
 
 ## Tooling
 
-- [ ] **root** — Add Biome for linting + formatting (`package.json`, `biome.json`)
-- [ ] **root** — Add `bun run lint` step to CI (`ci.yml`)
+- [x] **root** — Add Biome for linting + formatting (`package.json`, `biome.json`)
+- [x] **root** — Add `bun run lint` step to CI (`ci.yml`)
 
 ---
 

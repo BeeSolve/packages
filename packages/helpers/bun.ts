@@ -7,7 +7,7 @@ export function parseArgs<
 >(
   schema: v.ObjectSchema<TEntries, TMessage>,
 ): v.InferOutput<v.ObjectSchema<TEntries, TMessage>> {
-  const { values, positionals } = util.parseArgs({
+  const { values } = util.parseArgs({
     args: Bun.argv,
     options: Object.fromEntries(
       Object.keys(schema.entries).map((key) => [key, { type: "string" }]),

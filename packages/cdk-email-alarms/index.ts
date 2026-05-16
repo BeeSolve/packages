@@ -1,4 +1,4 @@
-import { Duration } from "aws-cdk-lib";
+import type { Duration } from "aws-cdk-lib";
 import {
   Alarm,
   ComparisonOperator,
@@ -8,7 +8,7 @@ import { SnsAction } from "aws-cdk-lib/aws-cloudwatch-actions";
 import type { Function } from "aws-cdk-lib/aws-lambda";
 import { Topic } from "aws-cdk-lib/aws-sns";
 import { EmailSubscription } from "aws-cdk-lib/aws-sns-subscriptions";
-import { Queue } from "aws-cdk-lib/aws-sqs";
+import type { Queue } from "aws-cdk-lib/aws-sqs";
 import { Construct } from "constructs";
 
 export class EmailAlarms extends Construct {

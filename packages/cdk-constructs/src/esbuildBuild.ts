@@ -1,4 +1,4 @@
-import { build, buildSync, type BuildOptions, type Message } from "esbuild";
+import { type BuildOptions, build, buildSync, type Message } from "esbuild";
 
 interface BuildProps {
   readonly entryPoints: string[];

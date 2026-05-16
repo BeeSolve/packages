@@ -1,6 +1,6 @@
 import { isNotNil } from "@beesolve/helpers";
 import { CfnNamedQuery, CfnWorkGroup } from "aws-cdk-lib/aws-athena";
-import { type DistributionProps } from "aws-cdk-lib/aws-cloudfront";
+import type { DistributionProps } from "aws-cdk-lib/aws-cloudfront";
 import { CfnDatabase, CfnTable } from "aws-cdk-lib/aws-glue";
 import { Bucket, ObjectOwnership } from "aws-cdk-lib/aws-s3";
 import { Construct } from "constructs";
@@ -139,9 +139,9 @@ export class CloudFrontAccessLoggingSettings extends Construct {
             columns:
               props.athena.columns == null
                 ? [...cloudFrontAccessLogColumns]
-                : Array.from(new Set(props.athena.columns)).map(
-                    (column) => columnDefinitionByKey[column],
-                  ).filter(isNotNil),
+                : Array.from(new Set(props.athena.columns))
+                    .map((column) => columnDefinitionByKey[column])
+                    .filter(isNotNil),
             location: `s3://${logBucket.bucketName}/${props.logFilePrefix ?? ""}`,
             inputFormat: "org.apache.hadoop.mapred.TextInputFormat",
             outputFormat:

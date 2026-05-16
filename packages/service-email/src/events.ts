@@ -1,4 +1,4 @@
-import { type EventBridge } from "@aws-sdk/client-eventbridge";
+import type { EventBridge } from "@aws-sdk/client-eventbridge";
 
 export type Event = EmailSentSuccess | EmailSentFailure;
 
