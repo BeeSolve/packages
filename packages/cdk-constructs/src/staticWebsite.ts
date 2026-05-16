@@ -150,24 +150,30 @@ export class StaticWebsite extends Construct {
       });
 
     if (props.basicHttpAuthentication != null) {
+      // Compute the expected auth value at synth time so no user-controlled
+      // strings are interpolated into the generated JavaScript source.
+      // Base64 output is alphanumeric + '+', '/', '=' — safe in a JS string literal.
+      const expectedAuth = `Basic ${Buffer.from(
+        `${props.basicHttpAuthentication.username}:${props.basicHttpAuthentication.password}`,
+      ).toString("base64")}`;
+      const prefixesJson = JSON.stringify(
+        props.basicHttpAuthentication.prefixes ?? ["/"],
+      );
+
       functionAssociations.push({
         eventType: FunctionEventType.VIEWER_REQUEST,
         function: new Function(this, "BasicAuth", {
           runtime: FunctionRuntime.JS_2_0,
           code: FunctionCode.fromInline(`async function handler(event) {
                   const request = event.request;
-
-                  var prefixes = "${(props.basicHttpAuthentication.prefixes ?? ["/"]).join()}".split(",");
-                  if (prefixes.every(prefix => !request.uri.startsWith(prefix))) {
+                  var prefixes = ${prefixesJson};
+                  if (prefixes.every(function(prefix) { return !request.uri.startsWith(prefix); })) {
                       return request;
                   }
-
-                  var authString = 'Basic ' + Buffer.from("${props.basicHttpAuthentication.username}" + ':' + "${props.basicHttpAuthentication.password}").toString('base64');
-                  // Check for Authorization header
-                  if (request.headers.authorization && request.headers.authorization.value === authString) {
+                  var expected = "${expectedAuth}";
+                  if (request.headers.authorization && request.headers.authorization.value === expected) {
                       return request;
                   }
-                  // If authorization fails, return a 401 Unauthorized response
                   return {
                       statusCode: 401,
                       statusDescription: 'Unauthorized',
