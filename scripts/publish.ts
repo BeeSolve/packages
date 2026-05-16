@@ -4,15 +4,7 @@ import { join } from "path";
 
 const ROOT = join(import.meta.dir, "..");
 
-// Topological order — dependencies before dependents
-const PACKAGES = [
-  "packages/helpers",
-  "packages/cdk-email-alarms",
-  "packages/cdk-constructs",
-  "packages/lambda-fetch-api",
-  "packages/service-email",
-  "packages/sqs-handler",
-] as const;
+const PACKAGES: string[] = await Bun.file(join(ROOT, "dependencies.json")).json();
 
 type Pkg = { name: string; version: string; scripts?: Record<string, string> };
 

@@ -6,7 +6,9 @@
     "dev": "bunup --watch",
     "type-check": "bun run --filter '*' type-check",
     "version": "changeset version",
-    "publish:packages": "bun run build && bun scripts/publish.ts"
+    "publish:packages": "bun run build && bun scripts/publish.ts",
+    "add-package": "bun scripts/add-package.ts",
+    "recalculate-dependencies": "bun scripts/recalculate-dependencies.ts"
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.0",

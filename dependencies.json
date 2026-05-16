@@ -1,0 +1,8 @@
+[
+  "packages/cdk-email-alarms",
+  "packages/helpers",
+  "packages/cdk-constructs",
+  "packages/lambda-fetch-api",
+  "packages/service-email",
+  "packages/sqs-handler"
+]

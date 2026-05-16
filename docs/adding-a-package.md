@@ -1,58 +1,46 @@
 # Adding a New Publishable Package
 
-## 1. Create the package directory
+## 1. Scaffold the package
+
+Run the add-package command with the short package name (lowercase kebab-case, without the `@beesolve/` prefix):
+
+```bash
+bun run add-package <name>
+```
+
+This creates `packages/<name>/` with the required files and updates `bunup.config.ts` and `dependencies.json` automatically.
+
+**Created files:**
 
 ```
 packages/<name>/
-  index.ts          # entry point
+  index.ts          # entry point (empty stub — add your exports here)
   tsconfig.json
   package.json
 ```
 
-`tsconfig.json` — extend the base config:
+## 2. Add your code and dependencies
+
+Edit `packages/<name>/index.ts` to export your public API.
+
+If the package depends on other `@beesolve/*` packages in this repo, add them to `package.json` using `workspace:^` references:
 
 ```json
-{
-  "extends": "../../tsconfig.base.json",
-  "compilerOptions": { "declaration": true, "isolatedDeclarations": true },
-  "include": ["src/**/*", "index.ts"]
+"dependencies": {
+  "@beesolve/helpers": "workspace:^"
 }
 ```
 
-## 2. Required `package.json` fields
+Then run:
 
-Use `packages/helpers/package.json` as a template. The fields below are mandatory for publishing to work correctly.
-
-```json
-{
-  "name": "@beesolve/<name>",
-  "version": "0.1.0",
-  "license": "MIT",
-  "type": "module",
-  "files": ["dist"],
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/beesolve/packages.git"
-  },
-  "exports": {
-    ".": {
-      "import": {
-        "types": "./dist/index.d.ts",
-        "default": "./dist/index.js"
-      }
-    },
-    "./package.json": "./package.json"
-  },
-  "scripts": {
-    "type-check": "tsc --noEmit"
-  }
-}
+```bash
+bun install
+bun run recalculate-dependencies
 ```
 
-`repository.url` must exactly match `git+https://github.com/beesolve/packages.git` — npm OIDC
-Trusted Publishers validates this against the GitHub repo that issues the OIDC token.
+`recalculate-dependencies` re-derives the topological publish order from all `package.json` files and updates `dependencies.json`. Run it any time you add or remove intra-monorepo dependencies.
 
-Use `catalog:` references for shared dependencies rather than pinning versions directly:
+Use `catalog:` references for shared external dependencies rather than pinning versions directly:
 
 ```json
 "dependencies": {
@@ -60,9 +48,9 @@ Use `catalog:` references for shared dependencies rather than pinning versions d
 }
 ```
 
-## 3. Add to `bunup.config.ts`
+## 3. Verify the build config
 
-Add a workspace entry in topological order (after any `@beesolve/*` deps it imports):
+The scaffold adds a minimal entry to `bunup.config.ts`:
 
 ```ts
 {
@@ -74,34 +62,21 @@ Add a workspace entry in topological order (after any `@beesolve/*` deps it impo
 },
 ```
 
-## 4. Add to `scripts/publish.ts`
+If your package has multiple entry points or needs custom build options (e.g. `inferTypes`, additional entry files), update this entry manually.
 
-Insert the package path into the `PACKAGES` array at the correct topological position —
-after all its `@beesolve/*` dependencies, before any packages that depend on it:
-
-```ts
-const PACKAGES = [
-  "packages/helpers",           // tier 1
-  "packages/cdk-email-alarms",  // tier 1
-  "packages/<name>",            // insert here if it only depends on tier 1
-  "packages/cdk-constructs",    // tier 2
-  ...
-] as const;
-```
-
-## 5. Register OIDC Trusted Publisher on npmjs.org
+## 4. Register OIDC Trusted Publisher on npmjs.org
 
 The package must exist on npm before you can register a Trusted Publisher.
-Do the first publish manually (see step 6), then:
+Do the first publish manually (see step 5), then:
 
 1. Go to `https://www.npmjs.com/package/@beesolve/<name>/access`
 2. Click **Add Trusted Publisher → GitHub Actions**
 3. Enter:
-   - Organization: `beesolve`
+   - Organization: `BeeSolve`
    - Repository: `packages`
    - Workflow file: `publish.yml`
 
-## 6. First manual publish
+## 5. First manual publish
 
 OIDC trust can only be registered after the package exists on npm, so the very first
 publish must be done manually:
@@ -115,7 +90,7 @@ rm *.tgz
 
 You must be logged in to npm (`npm whoami`). If not, run `npm login` first.
 
-## 7. Developer workflow — making changes
+## 6. Developer workflow — making changes
 
 When you change a package, add a changeset describing the bump type before opening a PR:
 
