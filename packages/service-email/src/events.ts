@@ -26,13 +26,15 @@ export class Events {
   ) {}
 
   readonly putEvents = async (...events: Event[]): Promise<void> => {
-    await this.props.client.putEvents({
-      Entries: events.map((event) => ({
-        DetailType: event.type,
-        Detail: JSON.stringify(event.detail),
-        Source: "beesolve.email.api",
-        EventBusName: this.props.eventBusArn,
-      })),
-    });
+    await this.props.client
+      .putEvents({
+        Entries: events.map((event) => ({
+          DetailType: event.type,
+          Detail: JSON.stringify(event.detail),
+          Source: "beesolve.email.api",
+          EventBusName: this.props.eventBusArn,
+        })),
+      })
+      .catch((error) => console.error("EventBridge putEvents failed", error));
   };
 }

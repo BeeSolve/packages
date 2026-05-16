@@ -189,7 +189,7 @@ export async function awsResponseBody(
 }
 
 function isTextType(contentType = "") {
-  return /^text\/|\/(javascript|json|xml)|utf-?8/i.test(contentType);
+  return /^text\/|\/(javascript|json|xml)\b|utf-?8/i.test(contentType);
 }
 
 function toBuffer(data: ReadableStream): Promise<Buffer> {

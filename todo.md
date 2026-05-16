@@ -12,18 +12,18 @@ Tracks progress against PLAN.md. See REVIEW.md for full context on each item.
 
 ## Correctness (silent failures & data loss)
 
-- [ ] **email-service** — Chunk DynamoDB `batchWrite` into ≤25-item groups using `splitArrayToChunks` from `@beesolve/helpers` (`src/handler.ts`)
-- [ ] **sqs-handler** — Throw on unknown function name instead of silently returning `undefined` (`index.ts`)
-- [ ] **lambda-fetch-api** — Fix content-type regex to correctly anchor `application/json` match (`src/util.ts`)
-- [ ] **email-service** — Add `v.email()` validation to sender `emailAddress` field (`src/validation.ts`)
+- [x] **email-service** — Chunk DynamoDB `batchWrite` into ≤25-item groups using `splitArrayToChunks` from `@beesolve/helpers` (`src/handler.ts`)
+- [x] **sqs-handler** — Throw on unknown function name instead of silently returning `undefined` (`index.ts`)
+- [x] **lambda-fetch-api** — Fix content-type regex to correctly anchor `application/json` match (`src/util.ts`)
+- [x] **email-service** — Add `v.email()` validation to sender `emailAddress` field (`src/validation.ts`)
 
 ---
 
 ## Error handling
 
-- [ ] **email-service** — Log (or re-throw) EventBridge `putEvents()` failures (`src/events.ts`)
-- [ ] **email-service** — Fix typo `labmda` → `lambda` in error messages (`src/handler.ts`)
-- [ ] **sqs-handler** — Remove unused `SQSClient` import (`index.ts`)
+- [x] **email-service** — Log (or re-throw) EventBridge `putEvents()` failures (`src/events.ts`)
+- [x] **email-service** — Fix typo `labmda` → `lambda` in error messages (`src/handler.ts`)
+- [x] **sqs-handler** — Remove unused `SQSClient` import (`index.ts`)
 
 ---
 

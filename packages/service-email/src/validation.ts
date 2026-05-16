@@ -9,7 +9,7 @@ export const requestSchema = v.object({
   sender: v.optional(
     v.object({
       name: v.string(),
-      emailAddress: v.string(),
+      emailAddress: v.pipe(v.string(), v.email()),
     }),
   ),
   attachments: v.optional(

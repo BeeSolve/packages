@@ -1,4 +1,4 @@
-import { SendMessageCommand, SQSClient } from "@aws-sdk/client-sqs";
+import { SendMessageCommand, type SQSClient } from "@aws-sdk/client-sqs";
 import {
   decodeFromStringifiable,
   encodeToStringifiable,
@@ -56,9 +56,9 @@ export function createSqsHandlers<
           arguments: JSON.stringify(args),
         });
 
-        await props.functions[fn]?.(
-          ...args.map((args) => decodeFromStringifiable(args)),
-        );
+        const handler = props.functions[fn];
+        if (handler == null) throw new Error(`Unknown function: "${fn}"`);
+        await handler(...args.map((args) => decodeFromStringifiable(args)));
       } catch (error) {
         console.error(error);
         batchItemFailures.push({ itemIdentifier: messageId });
