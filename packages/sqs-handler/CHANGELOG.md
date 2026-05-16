@@ -1,5 +1,13 @@
 # @beesolve/sqs-handler
 
+## 0.1.22
+
+### Patch Changes
+
+- d0a811d: fix test imports to use each package's public index instead of internal `src/` paths
+- Updated dependencies [d0a811d]
+  - @beesolve/helpers@0.1.6
+
 ## 0.1.21
 
 ### Patch Changes
