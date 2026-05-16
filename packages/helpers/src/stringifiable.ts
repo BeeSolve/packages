@@ -52,7 +52,7 @@ function decodeValue(value: any): any {
 
     if (token === tokens.string) return val;
     if (token === tokens.number) return Number(val);
-    if (token === tokens.boolean) return Boolean(val);
+    if (token === tokens.boolean) return val === "true";
     if (token === tokens.date) return new Date(val);
     if (token === tokens.bigInt) return BigInt(val);
     if (token === tokens.buffer) return Buffer.from(val, "base64url");

@@ -5,6 +5,7 @@
     "lint": "biome check packages/",
     "build": "bunup",
     "dev": "bunup --watch",
+    "test": "bun run --filter '*' test",
     "type-check": "bun run --filter '*' type-check",
     "version": "changeset version",
     "publish:packages": "bun run build && bun scripts/publish.ts",

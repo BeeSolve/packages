@@ -34,6 +34,7 @@
     "url": "git+https://github.com/beesolve/packages.git"
   },
   "scripts": {
+    "test": "bun test",
     "type-check": "tsc --noEmit",
     "prepublishOnly": "bun run --bun build.ts && cd handler && zip -r ../dist/handler.zip *"
   },

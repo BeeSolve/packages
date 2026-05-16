@@ -12,6 +12,7 @@
     "url": "git+https://github.com/beesolve/packages.git"
   },
   "scripts": {
+    "test": "bun test",
     "type-check": "tsc --noEmit"
   },
   "peerDependencies": {
