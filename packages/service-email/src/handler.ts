@@ -1,6 +1,6 @@
 import { EventBridge } from "@aws-sdk/client-eventbridge";
 import { GetObjectCommand } from "@aws-sdk/client-s3";
-import { SESClient, SendRawEmailCommand } from "@aws-sdk/client-ses";
+import { SESv2Client, SendEmailCommand } from "@aws-sdk/client-sesv2";
 import { BatchWriteCommand } from "@aws-sdk/lib-dynamodb";
 import {
   asNull,
@@ -34,12 +34,16 @@ const env = v.parse(envSchema, process.env);
 
 const schema = v.pipe(v.string(), v.parseJson(), requestSchema);
 
-const sesClient = new SESClient();
+const sesClient = new SESv2Client();
 
 const events = new Events({
   client: new EventBridge(),
   eventBusArn: env.EVENT_BUS_ARN,
 });
+
+// v2 API limit is 40 MB (post-base64); 25 MB binary * ~1.33 = ~33 MB encoded,
+// leaving headroom for email body and headers
+const attachmentMaxSizeInBytes = 25 * 1024 * 1024;
 
 export const handler = async (
   event: SQSEvent,
@@ -88,7 +92,6 @@ export const handler = async (
           request.attachments.map(async (item) => {
             const attachment = await call(async () => {
               if (item.type === "public") {
-                const MAX_SIZE = 10 * 1024 * 1024; // 10 MB
                 const controller = new AbortController();
                 const timeout = setTimeout(() => controller.abort(), 10_000);
                 try {
@@ -98,10 +101,10 @@ export const handler = async (
                   const contentLength = response.headers.get("content-length");
                   if (
                     contentLength != null &&
-                    Number(contentLength) > MAX_SIZE
+                    Number(contentLength) > attachmentMaxSizeInBytes
                   ) {
                     throw new Error(
-                      `Attachment exceeds size limit (${MAX_SIZE} bytes)`,
+                      `Attachment exceeds size limit (${attachmentMaxSizeInBytes} bytes)`,
                     );
                   }
                   return response.arrayBuffer();
@@ -145,12 +148,12 @@ export const handler = async (
       }
 
       const { MessageId } = await sesClient.send(
-        new SendRawEmailCommand({
-          RawMessage: {
-            Data: Buffer.from(email.asRaw(), "utf-8"),
+        new SendEmailCommand({
+          Content: {
+            Raw: { Data: Buffer.from(email.asRaw(), "utf-8") },
           },
-          FromArn: env.FROM_ARN,
-          Destinations: request.recipients,
+          FromEmailAddressIdentityArn: env.FROM_ARN,
+          Destination: { ToAddresses: request.recipients },
           ConfigurationSetName:
             request.configurationSetName ?? env.DEFAULT_CONFIGURATION_SET_NAME,
         }),

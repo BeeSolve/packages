@@ -194,7 +194,7 @@ export class Emails extends Construct {
 
     handler.addToRolePolicy(
       new PolicyStatement({
-        actions: ["ses:SendEmail", "ses:SendRawEmail"],
+        actions: ["ses:SendEmail"],
         resources: props.fromArn
           ? [props.fromArn]
           : [
