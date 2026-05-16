@@ -1,6 +1,6 @@
 import { fileURLToPath } from "node:url";
 import { Nodejs24Function, SqsWithDlq } from "@beesolve/cdk-constructs";
-import { Duration, RemovalPolicy } from "aws-cdk-lib";
+import { Duration, RemovalPolicy, Stack } from "aws-cdk-lib";
 import {
   AttributeType,
   Billing,
@@ -195,7 +195,11 @@ export class Emails extends Construct {
     handler.addToRolePolicy(
       new PolicyStatement({
         actions: ["ses:SendEmail", "ses:SendRawEmail"],
-        resources: ["*"],
+        resources: props.fromArn
+          ? [props.fromArn]
+          : [
+              `arn:aws:ses:${Stack.of(this).region}:${Stack.of(this).account}:identity/*`,
+            ],
         effect: Effect.ALLOW,
       }),
     );

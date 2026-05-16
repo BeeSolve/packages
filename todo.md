@@ -49,8 +49,8 @@ Tracks progress against PLAN.md. See REVIEW.md for full context on each item.
 
 ## Security hardening (lower priority)
 
-- [ ] **email-service** — Restrict SES IAM policy from `"*"` to specific identity ARNs (`cdk.ts`)
-- [ ] **email-service** — Add timeout + size cap to public attachment URL fetching (`src/handler.ts`)
+- [x] **email-service** — Restrict SES IAM policy from `"*"` to specific identity ARNs (`cdk.ts`)
+- [x] **email-service** — Add timeout + size cap to public attachment URL fetching (`src/handler.ts`)
 
 ---
 

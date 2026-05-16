@@ -88,9 +88,26 @@ export const handler = async (
           request.attachments.map(async (item) => {
             const attachment = await call(async () => {
               if (item.type === "public") {
-                return fetch(item.publicUrl).then((response) =>
-                  response.arrayBuffer(),
-                );
+                const MAX_SIZE = 10 * 1024 * 1024; // 10 MB
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(), 10_000);
+                try {
+                  const response = await fetch(item.publicUrl, {
+                    signal: controller.signal,
+                  });
+                  const contentLength = response.headers.get("content-length");
+                  if (
+                    contentLength != null &&
+                    Number(contentLength) > MAX_SIZE
+                  ) {
+                    throw new Error(
+                      `Attachment exceeds size limit (${MAX_SIZE} bytes)`,
+                    );
+                  }
+                  return response.arrayBuffer();
+                } finally {
+                  clearTimeout(timeout);
+                }
               }
               if (item.type === "s3") {
                 const object = await s3Client
