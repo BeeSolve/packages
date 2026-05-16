@@ -114,10 +114,7 @@ const baseStyles = {
     textDecoration: "underline",
   },
   text,
-  mainText: {
-    ...text,
-    marginBottom: "14px",
-  } as const,
+  mainText: { ...text, marginBottom: "14px" } as const,
   main: {
     backgroundColor: "#fff",
     color: "#212121",
@@ -136,15 +133,10 @@ const baseStyles = {
   lowerSection: { padding: "25px 35px" },
   footerText: {
     ...text,
+    fontSize: "12px",
     padding: "0 20px",
   } as const,
-  cautionText: {
-    color: "#333",
-    fontFamily:
-      "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif",
-    fontSize: "14px",
-    margin: "0px",
-  } as const,
+  cautionText: { ...text, margin: "0px" } as const,
   button: {
     fontSize: "14px",
     backgroundColor: "#1976d2",
