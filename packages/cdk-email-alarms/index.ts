@@ -66,7 +66,7 @@ export class EmailAlarms extends Construct {
       queueTopic.addSubscription(this.emailSubscription);
 
       if (props.noMessagesPeriod) {
-        const noMessages = new Alarm(this, "NoMessagesAlarm", {
+        const noMessages = new Alarm(props.queue, "NoMessagesAlarm", {
           alarmDescription: `Queue received no messages for ${props.noMessagesPeriod.toHumanString()}.`,
           metric: props.queue.metric("NumberOfMessagesSent", {
             statistic: "Sum",

@@ -36,14 +36,14 @@ Tracks progress against PLAN.md. See REVIEW.md for full context on each item.
 
 ## Documentation
 
-- [ ] **sqs-handler** — Fix README example: `queueUrl` → `queueUrls` (`README.md`)
+- [x] **sqs-handler** — Fix README example: `queueUrl` → `queueUrls` (`README.md`)
 
 ---
 
 ## Code quality
 
 - [ ] **email-service** — Consolidate `AttachmentValidationError` / `AttachmentFetchError` / `AttachmentUploadError` into a single `EmailServiceError` class (`sdk.ts`)
-- [ ] **cdk-email-alarms** — Scope CloudWatch alarm construct IDs per resource to prevent duplicate ID errors (`index.ts`)
+- [x] **cdk-email-alarms** — Scope CloudWatch alarm construct IDs per resource to prevent duplicate ID errors (`index.ts`)
 
 ---
 

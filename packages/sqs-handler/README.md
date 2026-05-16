@@ -19,7 +19,7 @@ import { SQSClient } from "@aws-sdk/client-sqs";
 export const [handler, tasks] = createSqsHandlers({
   fifo: false, // you can create either fifo or standard queues
   sqsClient: new SQSClient(), // provide SQS client
-  queueUrl: process.env.BEESOLVE_TASKS_QUEUE_URL!, // BEESOLVE_TASKS_QUEUE_URL env variable will be automatically injected to your Lambda function
+  queueUrls: { main: process.env.BEESOLVE_TASKS_QUEUE_URL! }, // BEESOLVE_TASKS_QUEUE_URL env variable will be automatically injected to your Lambda function
   functions: {
     // here goes your functions
     test: async (payload: any) => {
