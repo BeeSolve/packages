@@ -1,7 +1,4 @@
-import type {
-  APIGatewayProxyEvent,
-  APIGatewayProxyEventV2,
-} from "aws-lambda";
+import type { APIGatewayProxyEvent, APIGatewayProxyEventV2 } from "aws-lambda";
 
 export function isAPIGatewayProxyEvent(
   event: any,
