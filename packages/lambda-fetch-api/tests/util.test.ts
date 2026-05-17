@@ -77,6 +77,7 @@ function makeV1Event(
 		requestContext: {
 			accountId: "123",
 			apiId: "abc",
+			authorizer: null,
 			httpMethod: "POST",
 			identity: {
 				accessKey: null,
@@ -178,7 +179,7 @@ describe("awsResponseHeaders", () => {
 		expect((result as any).cookies).toBeUndefined();
 	});
 
-	test("v1: returns multiValueHeaders for set-cookie", () => {
+	test("v1: returns multiValueHeaders for set-cookie and omits it from headers", () => {
 		const headers = new Headers({ "content-type": "text/html" });
 		headers.append("set-cookie", "session=abc; Path=/");
 		const response = new Response("", { headers });
@@ -189,9 +190,10 @@ describe("awsResponseHeaders", () => {
 		expect(result.multiValueHeaders["set-cookie"]).toEqual([
 			"session=abc; Path=/",
 		]);
+		expect(result.headers["set-cookie"]).toBeUndefined();
 	});
 
-	test("v2: returns cookies array for set-cookie", () => {
+	test("v2: returns cookies array for set-cookie and omits it from headers", () => {
 		const headers = new Headers({ "content-type": "text/html" });
 		headers.append("set-cookie", "session=abc; Path=/");
 		const response = new Response("", { headers });
@@ -200,6 +202,7 @@ describe("awsResponseHeaders", () => {
 			cookies: string[];
 		};
 		expect(result.cookies).toEqual(["session=abc; Path=/"]);
+		expect(result.headers["set-cookie"]).toBeUndefined();
 	});
 });
 

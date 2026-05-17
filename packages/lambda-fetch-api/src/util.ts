@@ -148,6 +148,8 @@ export function awsResponseHeaders(
     return { headers };
   }
 
+  delete headers["set-cookie"];
+
   if (version === "v1") {
     return {
       headers,
