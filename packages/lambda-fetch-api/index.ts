@@ -3,12 +3,15 @@ import type {
   APIGatewayProxyEventV2,
   APIGatewayProxyResult,
   APIGatewayProxyResultV2,
+  APIGatewayProxyWithLambdaAuthorizerEvent,
+  APIGatewayProxyEventV2WithLambdaAuthorizer,
   Context,
   StreamifyHandler,
 } from "aws-lambda";
 import { runWithAwsContext } from "./src/store";
 import { awsRequest, awsResponseBody, awsResponseHeaders } from "./src/util";
 
+export * from "./src/authorizer";
 export * from "./src/runtime";
 export * from "./src/store";
 export * from "./src/util";
@@ -46,6 +49,42 @@ export function asHttpV2Handler(fetch: Fetch) {
     return {
       statusCode: response.status,
       ...awsResponseHeaders(response, "v2"),
+      ...(await awsResponseBody(response)),
+    };
+  };
+}
+
+export function asLambdaAuthorizedHttpV2Handler<TAuth = unknown>(fetch: Fetch) {
+  return async function handler(
+    event: APIGatewayProxyEventV2WithLambdaAuthorizer<TAuth>,
+    context: Context,
+  ): Promise<APIGatewayProxyResultV2> {
+    const request = awsRequest(event);
+    const response = await runWithAwsContext(event, context, () =>
+      fetch(request),
+    );
+
+    return {
+      statusCode: response.status,
+      ...awsResponseHeaders(response, "v2"),
+      ...(await awsResponseBody(response)),
+    };
+  };
+}
+
+export function asCustomAuthorizedHttpV1Handler<TAuth = unknown>(fetch: Fetch) {
+  return async function handler(
+    event: APIGatewayProxyWithLambdaAuthorizerEvent<TAuth>,
+    context: Context,
+  ): Promise<APIGatewayProxyResult> {
+    const request = awsRequest(event);
+    const response = await runWithAwsContext(event, context, () =>
+      fetch(request),
+    );
+
+    return {
+      statusCode: response.status,
+      ...awsResponseHeaders(response, "v1"),
       ...(await awsResponseBody(response)),
     };
   };
