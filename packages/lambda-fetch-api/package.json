@@ -24,8 +24,7 @@
     }
   },
   "dependencies": {
-    "@beesolve/helpers": "workspace:^",
-    "valibot": "catalog:"
+    "@beesolve/helpers": "workspace:^"
   },
   "devDependencies": {
     "@types/node": "catalog:",

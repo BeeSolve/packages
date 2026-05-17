@@ -5,35 +5,17 @@ import { assertUnreachable } from "@beesolve/helpers";
 import type {
   APIGatewayProxyEvent,
   APIGatewayProxyEventV2,
-  Context,
 } from "aws-lambda";
 
 // Incoming (AWS => Web)
 
 export function awsRequest(
   event: APIGatewayProxyEvent | APIGatewayProxyEventV2,
-  context: Context,
 ): Request {
   const method = awsEventMethod(event);
   const url = awsEventURL(event);
   const headers = awsEventHeaders(event);
   const body = awsEventBody(event);
-
-  headers.append(
-    "aws-event",
-    Buffer.from(JSON.stringify(event)).toString("base64url"),
-  );
-  headers.append(
-    "aws-context",
-    Buffer.from(
-      JSON.stringify({
-        ...context,
-        serializedAtTimeInMillis: Date.now(),
-        remainingTimeInMillis: context.getRemainingTimeInMillis(),
-      }),
-    ).toString("base64url"),
-  );
-
   return new Request(url, { method, headers, body });
 }
 

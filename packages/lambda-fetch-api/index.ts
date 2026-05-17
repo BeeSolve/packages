@@ -6,9 +6,11 @@ import type {
   Context,
   StreamifyHandler,
 } from "aws-lambda";
+import { runWithAwsContext } from "./src/store";
 import { awsRequest, awsResponseBody, awsResponseHeaders } from "./src/util";
 
 export * from "./src/runtime";
+export * from "./src/store";
 export * from "./src/util";
 
 type Fetch = (request: Request) => Promise<Response>;
@@ -18,8 +20,10 @@ export function asHttpV1Handler(fetch: Fetch) {
     event: APIGatewayProxyEvent,
     context: Context,
   ): Promise<APIGatewayProxyResult> {
-    const request = awsRequest(event, context);
-    const response = await fetch(request);
+    const request = awsRequest(event);
+    const response = await runWithAwsContext(event, context, () =>
+      fetch(request),
+    );
 
     return {
       statusCode: response.status,
@@ -34,8 +38,10 @@ export function asHttpV2Handler(fetch: Fetch) {
     event: APIGatewayProxyEventV2,
     context: Context,
   ): Promise<APIGatewayProxyResultV2> {
-    const request = awsRequest(event, context);
-    const response = await fetch(request);
+    const request = awsRequest(event);
+    const response = await runWithAwsContext(event, context, () =>
+      fetch(request),
+    );
 
     return {
       statusCode: response.status,
@@ -50,9 +56,11 @@ export function asResponseStreamHandler(
 ): StreamifyHandler<APIGatewayProxyEventV2, void> {
   return awslambda.streamifyResponse(
     async (event: APIGatewayProxyEventV2, responseStream, context) => {
-      const request = awsRequest(event, context);
+      const request = awsRequest(event);
 
-      const response = await fetch(request);
+      const response = await runWithAwsContext(event, context, () =>
+        fetch(request),
+      );
 
       const httpResponseMetadata = {
         statusCode: response.status,
