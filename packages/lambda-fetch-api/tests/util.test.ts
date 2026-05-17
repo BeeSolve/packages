@@ -1,6 +1,8 @@
 import type { APIGatewayProxyEvent, APIGatewayProxyEventV2, Context } from "aws-lambda";
 import { describe, expect, test } from "bun:test";
 import {
+	InvalidAwsContextHeaderError,
+	InvalidAwsEventHeaderError,
 	MissingAwsContextHeaderError,
 	MissingAwsEventHeaderError,
 	awsRequest,
@@ -10,6 +12,10 @@ import {
 	isAPIGatewayProxyEventV2,
 	toAwsContext,
 	toAwsEvent,
+	toAwsV1Event,
+	toAwsV2Event,
+	withAwsContext,
+	withAwsEvent,
 } from "../index";
 
 function makeContext(): Context {
@@ -225,6 +231,51 @@ describe("toAwsEvent", () => {
 		const request = new Request("https://example.com");
 		expect(() => toAwsEvent(request)).toThrow(MissingAwsEventHeaderError);
 	});
+
+	test("throws InvalidAwsEventHeaderError for unrecognised event shape", () => {
+		const headers = new Headers();
+		headers.set("aws-event", Buffer.from(JSON.stringify({ foo: "bar" })).toString("base64url"));
+		const request = new Request("https://example.com", { headers });
+		expect(() => toAwsEvent(request)).toThrow(InvalidAwsEventHeaderError);
+	});
+});
+
+describe("toAwsV2Event", () => {
+	test("round-trips a v2 event", () => {
+		const event = makeV2Event();
+		const request = awsRequest(event, makeContext());
+		const recovered = toAwsV2Event(request);
+		expect(recovered).toMatchObject({ version: "2.0", rawPath: "/test" });
+	});
+
+	test("throws MissingAwsEventHeaderError when header is absent", () => {
+		const request = new Request("https://example.com");
+		expect(() => toAwsV2Event(request)).toThrow(MissingAwsEventHeaderError);
+	});
+
+	test("throws InvalidAwsEventHeaderError when header contains a v1 event", () => {
+		const request = awsRequest(makeV1Event(), makeContext());
+		expect(() => toAwsV2Event(request)).toThrow(InvalidAwsEventHeaderError);
+	});
+});
+
+describe("toAwsV1Event", () => {
+	test("round-trips a v1 event", () => {
+		const event = makeV1Event();
+		const request = awsRequest(event, makeContext());
+		const recovered = toAwsV1Event(request);
+		expect(recovered).toMatchObject({ httpMethod: "POST", path: "/hello" });
+	});
+
+	test("throws MissingAwsEventHeaderError when header is absent", () => {
+		const request = new Request("https://example.com");
+		expect(() => toAwsV1Event(request)).toThrow(MissingAwsEventHeaderError);
+	});
+
+	test("throws InvalidAwsEventHeaderError when header contains a v2 event", () => {
+		const request = awsRequest(makeV2Event(), makeContext());
+		expect(() => toAwsV1Event(request)).toThrow(InvalidAwsEventHeaderError);
+	});
 });
 
 describe("toAwsContext", () => {
@@ -249,6 +300,54 @@ describe("toAwsContext", () => {
 	test("throws MissingAwsContextHeaderError when header is absent", () => {
 		const request = new Request("https://example.com");
 		expect(() => toAwsContext(request)).toThrow(MissingAwsContextHeaderError);
+	});
+
+	test("throws InvalidAwsContextHeaderError for invalid context shape", () => {
+		const headers = new Headers();
+		headers.set("aws-context", Buffer.from(JSON.stringify({ foo: "bar" })).toString("base64url"));
+		const request = new Request("https://example.com", { headers });
+		expect(() => toAwsContext(request)).toThrow(InvalidAwsContextHeaderError);
+	});
+});
+
+describe("withAwsEvent", () => {
+	test("round-trips v2 event via withAwsEvent + toAwsV2Event", () => {
+		const event = makeV2Event();
+		const base = new Request("https://example.com");
+		const request = withAwsEvent(base, event);
+		const recovered = toAwsV2Event(request);
+		expect(recovered).toMatchObject({ version: "2.0", rawPath: "/test" });
+	});
+
+	test("round-trips v1 event via withAwsEvent + toAwsV1Event", () => {
+		const event = makeV1Event();
+		const base = new Request("https://example.com");
+		const request = withAwsEvent(base, event);
+		const recovered = toAwsV1Event(request);
+		expect(recovered).toMatchObject({ httpMethod: "POST", path: "/hello" });
+	});
+
+	test("does not mutate the original request", () => {
+		const base = new Request("https://example.com");
+		withAwsEvent(base, makeV2Event());
+		expect(base.headers.has("aws-event")).toBe(false);
+	});
+});
+
+describe("withAwsContext", () => {
+	test("round-trips context via withAwsContext + toAwsContext", () => {
+		const ctx = makeContext();
+		const base = new Request("https://example.com");
+		const request = withAwsContext(base, ctx);
+		const recovered = toAwsContext(request);
+		expect(recovered.functionName).toBe("test-fn");
+		expect(recovered.awsRequestId).toBe("req-123");
+	});
+
+	test("does not mutate the original request", () => {
+		const base = new Request("https://example.com");
+		withAwsContext(base, makeContext());
+		expect(base.headers.has("aws-context")).toBe(false);
 	});
 });
 

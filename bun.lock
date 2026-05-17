@@ -16,7 +16,7 @@
     },
     "packages/cdk-constructs": {
       "name": "@beesolve/cdk-constructs",
-      "version": "0.1.28",
+      "version": "0.1.29",
       "dependencies": {
         "@beesolve/helpers": "workspace:^",
         "aws-cdk-lib": "catalog:",
@@ -35,7 +35,7 @@
     },
     "packages/cdk-email-alarms": {
       "name": "@beesolve/cdk-email-alarms",
-      "version": "0.1.3",
+      "version": "0.1.4",
       "dependencies": {
         "aws-cdk-lib": "catalog:",
         "constructs": "catalog:",
@@ -49,7 +49,7 @@
     },
     "packages/helpers": {
       "name": "@beesolve/helpers",
-      "version": "0.1.4",
+      "version": "0.1.6",
       "dependencies": {
         "valibot": "catalog:",
       },
@@ -66,9 +66,10 @@
     },
     "packages/lambda-fetch-api": {
       "name": "@beesolve/lambda-fetch-api",
-      "version": "0.1.6",
+      "version": "0.1.8",
       "dependencies": {
         "@beesolve/helpers": "workspace:^",
+        "valibot": "catalog:",
       },
       "devDependencies": {
         "@types/aws-lambda": "catalog:",
@@ -83,7 +84,7 @@
     },
     "packages/service-email": {
       "name": "@beesolve/email-service",
-      "version": "0.1.19",
+      "version": "0.1.20",
       "dependencies": {
         "@aws-sdk/client-dynamodb": "catalog:",
         "@aws-sdk/client-eventbridge": "catalog:",
@@ -115,7 +116,7 @@
     },
     "packages/sqs-handler": {
       "name": "@beesolve/sqs-handler",
-      "version": "0.1.20",
+      "version": "0.1.22",
       "dependencies": {
         "@aws-sdk/client-sqs": "catalog:",
         "@beesolve/cdk-constructs": "workspace:^",
