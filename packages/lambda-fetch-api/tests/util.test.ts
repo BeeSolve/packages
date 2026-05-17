@@ -1,11 +1,15 @@
 import type { APIGatewayProxyEvent, APIGatewayProxyEventV2, Context } from "aws-lambda";
 import { describe, expect, test } from "bun:test";
 import {
+	MissingAwsContextHeaderError,
+	MissingAwsEventHeaderError,
 	awsRequest,
 	awsResponseBody,
 	awsResponseHeaders,
 	isAPIGatewayProxyEvent,
 	isAPIGatewayProxyEventV2,
+	toAwsContext,
+	toAwsEvent,
 } from "../index";
 
 function makeContext(): Context {
@@ -196,6 +200,52 @@ describe("awsResponseHeaders", () => {
 			cookies: string[];
 		};
 		expect(result.cookies).toEqual(["session=abc; Path=/"]);
+	});
+});
+
+describe("toAwsEvent", () => {
+	test("round-trips a v2 event through the request headers", () => {
+		const event = makeV2Event();
+		const request = awsRequest(event, makeContext());
+		const recovered = toAwsEvent(request);
+		expect(recovered).toMatchObject({ version: "2.0", rawPath: "/test" });
+	});
+
+	test("round-trips a v1 event through the request headers", () => {
+		const event = makeV1Event();
+		const request = awsRequest(event, makeContext());
+		const recovered = toAwsEvent(request);
+		expect(recovered).toMatchObject({ httpMethod: "POST", path: "/hello" });
+	});
+
+	test("throws MissingAwsEventHeaderError when header is absent", () => {
+		const request = new Request("https://example.com");
+		expect(() => toAwsEvent(request)).toThrow(MissingAwsEventHeaderError);
+	});
+});
+
+describe("toAwsContext", () => {
+	test("round-trips context through the request headers", () => {
+		const ctx = makeContext();
+		const request = awsRequest(makeV2Event(), ctx);
+		const recovered = toAwsContext(request);
+		expect(recovered.functionName).toBe("test-fn");
+		expect(recovered.awsRequestId).toBe("req-123");
+	});
+
+	test("getRemainingTimeInMillis decreases over time", () => {
+		const ctx = makeContext();
+		const request = awsRequest(makeV2Event(), ctx);
+		const recovered = toAwsContext(request);
+		const t1 = recovered.getRemainingTimeInMillis();
+		const t2 = recovered.getRemainingTimeInMillis();
+		expect(t1).toBeLessThanOrEqual(10_000);
+		expect(t2).toBeLessThanOrEqual(t1);
+	});
+
+	test("throws MissingAwsContextHeaderError when header is absent", () => {
+		const request = new Request("https://example.com");
+		expect(() => toAwsContext(request)).toThrow(MissingAwsContextHeaderError);
 	});
 });
 

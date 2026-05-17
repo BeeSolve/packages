@@ -1,4 +1,3 @@
-import type { Readable } from "node:stream";
 import type {
   APIGatewayProxyEvent,
   APIGatewayProxyEventV2,
@@ -7,7 +6,6 @@ import type {
   Context,
   StreamifyHandler,
 } from "aws-lambda";
-import { isAPIGatewayProxyEvent } from "./src/runtime";
 import { awsRequest, awsResponseBody, awsResponseHeaders } from "./src/util";
 
 export * from "./src/runtime";
@@ -25,10 +23,7 @@ export function asHttpV1Handler(fetch: Fetch) {
 
     return {
       statusCode: response.status,
-      ...awsResponseHeaders(
-        response,
-        isAPIGatewayProxyEvent(event) ? "v1" : "v2",
-      ),
+      ...awsResponseHeaders(response, "v1"),
       ...(await awsResponseBody(response)),
     };
   };
@@ -44,10 +39,7 @@ export function asHttpV2Handler(fetch: Fetch) {
 
     return {
       statusCode: response.status,
-      ...awsResponseHeaders(
-        response,
-        isAPIGatewayProxyEvent(event) ? "v1" : "v2",
-      ),
+      ...awsResponseHeaders(response, "v2"),
       ...(await awsResponseBody(response)),
     };
   };
@@ -99,7 +91,7 @@ export function asResponseStreamHandler(
 }
 
 async function streamToNodeStream(
-  reader: Readable | ReadableStreamDefaultReader,
+  reader: ReadableStreamDefaultReader,
   writer: NodeJS.WritableStream,
 ) {
   let readResult = await reader.read();

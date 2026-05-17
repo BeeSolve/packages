@@ -7,7 +7,6 @@ import type {
   APIGatewayProxyEventV2,
   Context,
 } from "aws-lambda";
-import { URLSearchParams } from "url";
 
 // Incoming (AWS => Web)
 
@@ -87,13 +86,6 @@ function awsEventQuery(event: APIGatewayProxyEvent | APIGatewayProxyEventV2) {
   )) {
     for (const value of values ?? []) {
       searchParams.append(name, value);
-    }
-  }
-  for (const [name, values] of Object.entries(
-    (event as APIGatewayProxyEventV2).queryStringParameters ?? {},
-  )) {
-    if (values != null) {
-      searchParams.append(name, values);
     }
   }
 

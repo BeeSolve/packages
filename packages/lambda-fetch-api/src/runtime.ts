@@ -67,23 +67,5 @@ export function isAPIGatewayProxyEventV2(
   );
 }
 
-class MissingAwsEventHeaderError extends Error {}
-class MissingAwsContextHeaderError extends Error {}
-
-// todo: create helpers for authorizers
-// const a: APIGatewayProxyEventV2WithLambdaAuthorizer<{ test: number }> =  {} as any;
-// a.requestContext.authorizer.lambda.test;
-
-// todo: create helpers for local testing eg. - also provide fake authorizers
-function withAwsEvent(
-  request: Request,
-  event?: APIGatewayProxyEventV2 | APIGatewayProxyEvent,
-): Request {
-  request.headers.append("aws-event", "fakeevent");
-  return request;
-}
-
-function withAwsContext(request: Request, context?: Context): Request {
-  request.headers.append("aws-context", "fakeevent");
-  return request;
-}
+export class MissingAwsEventHeaderError extends Error {}
+export class MissingAwsContextHeaderError extends Error {}
