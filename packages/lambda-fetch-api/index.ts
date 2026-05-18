@@ -2,7 +2,7 @@ import type {
   APIGatewayProxyEvent,
   APIGatewayProxyEventV2,
   APIGatewayProxyResult,
-  APIGatewayProxyResultV2,
+  APIGatewayProxyStructuredResultV2,
   APIGatewayProxyWithLambdaAuthorizerEvent,
   APIGatewayProxyEventV2WithLambdaAuthorizer,
   Context,
@@ -40,7 +40,7 @@ export function asHttpV2Handler(fetch: Fetch) {
   return async function handler(
     event: APIGatewayProxyEventV2,
     context: Context,
-  ): Promise<APIGatewayProxyResultV2> {
+  ): Promise<APIGatewayProxyStructuredResultV2> {
     const request = awsRequest(event);
     const response = await runWithAwsContext(event, context, () =>
       fetch(request),
@@ -58,7 +58,7 @@ export function asLambdaAuthorizedHttpV2Handler<TAuth = unknown>(fetch: Fetch) {
   return async function handler(
     event: APIGatewayProxyEventV2WithLambdaAuthorizer<TAuth>,
     context: Context,
-  ): Promise<APIGatewayProxyResultV2> {
+  ): Promise<APIGatewayProxyStructuredResultV2> {
     const request = awsRequest(event);
     const response = await runWithAwsContext(event, context, () =>
       fetch(request),
