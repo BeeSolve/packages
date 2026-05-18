@@ -16,6 +16,7 @@
     "test": "bun test"
   },
   "devDependencies": {
+    "@types/bun": "catalog:",
     "@types/node": "catalog:"
   },
   "peerDependencies": {
