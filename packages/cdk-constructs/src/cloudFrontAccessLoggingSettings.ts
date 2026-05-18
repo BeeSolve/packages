@@ -8,6 +8,9 @@ import { Construct } from "constructs";
 /**
  * List of all CloudFront access log columns.
  *
+ * aws-cdk-lib has no typed enum for these — this array is the source of truth.
+ * There are 33 columns as of the linked docs; verify the count there when updating.
+ *
  * @link https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/AccessLogs.html#BasicDistributionFileFormat
  */
 const cloudFrontAccessLogColumns = [

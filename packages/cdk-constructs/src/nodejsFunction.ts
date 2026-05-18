@@ -1,6 +1,6 @@
 import { execSync } from "node:child_process";
 import { tmpdir } from "node:os";
-import { resolve } from "node:path";
+import { basename, extname, resolve } from "node:path";
 import {
   Aspects,
   type IAspect,
@@ -43,6 +43,10 @@ export type Nodejs24FunctionProps = Omit<
   readonly handler?: string;
 };
 
+export function parseHandlerName(entry: string): string {
+  return `${basename(entry, extname(entry))}.handler`;
+}
+
 /**
  * This construct provides easy way of deploying Node.js function with opinionated defaults.
  *
@@ -84,7 +88,7 @@ export class Nodejs24Function extends Function {
 
     if (!shouldBuild && handler == null) {
       throw Error(
-        `Missing "handler". When using prebuild code eg. "entry" ends with ".ts" or "/" you need to provide "handler" property. Please provide "handler" in format "filename.functionName".`,
+        `Missing "handler". When using prebuilt code (entry ends with "/" or ".zip") you must provide the "handler" property in the format "filename.functionName".`,
       );
     }
     const outDir = shouldBuild
@@ -100,8 +104,7 @@ export class Nodejs24Function extends Function {
       });
     }
 
-    const handlerName =
-      handler ?? `${entry.split("/").at(-1)?.replace(".ts", "")}.handler`;
+    const handlerName = handler ?? parseHandlerName(entry);
 
     super(scope, id, {
       ...rest,

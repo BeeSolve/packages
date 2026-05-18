@@ -97,6 +97,15 @@ export class StaticWebsite extends Construct {
   constructor(scope: Construct, id: string, props: StaticWebsiteProps) {
     super(scope, id);
 
+    if (!props.refererId || props.refererId.trim() === "") {
+      throw new Error("StaticWebsite: refererId must be a non-empty string");
+    }
+    if (props.refererId.includes("*") || props.refererId.includes("?")) {
+      throw new Error(
+        "StaticWebsite: refererId must not contain wildcards (* or ?) as they would allow unintended S3 access",
+      );
+    }
+
     const bucket = new Bucket(this, "Bucket", {
       encryption: BucketEncryption.S3_MANAGED,
       websiteIndexDocument: "index.html",

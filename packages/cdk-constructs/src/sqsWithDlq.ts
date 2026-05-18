@@ -1,4 +1,4 @@
-import { Duration } from "aws-cdk-lib";
+import { Annotations, Duration } from "aws-cdk-lib";
 import type { Function } from "aws-cdk-lib/aws-lambda";
 import {
   SqsEventSource,
@@ -56,13 +56,19 @@ export class SqsWithDlq extends Construct {
     const { lambda, batching, ...sqsProps } = props;
 
     const handlerTimeout = lambda.timeout ?? Duration.seconds(3);
+    const sixTimesTimeout = handlerTimeout.toSeconds() * 6;
+    const visibilityTimeoutSeconds = Math.min(sixTimesTimeout, 43200);
+
+    if (sixTimesTimeout > 43200) {
+      Annotations.of(lambda).addWarning(
+        `SqsWithDlq: visibility timeout would be ${sixTimesTimeout}s (6× the ${handlerTimeout.toSeconds()}s Lambda timeout) but has been capped at 12 hours (43200s).`,
+      );
+    }
 
     const sqs = new SqsWithDlq(lambda, "Input", {
       ...sqsProps,
       queue: {
-        visibilityTimeout: Duration.seconds(
-          Math.min(handlerTimeout.toSeconds() * 6, 43200),
-        ),
+        visibilityTimeout: Duration.seconds(visibilityTimeoutSeconds),
         ...sqsProps.queue,
       },
     });
