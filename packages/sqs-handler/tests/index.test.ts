@@ -148,7 +148,7 @@ describe("createSqsHandlers — handler", () => {
 
 describe("createSqsHandlers — queued functions", () => {
 	test("sends a SendMessageCommand to the SQS client", async () => {
-		const sendMock = mock(async () => {});
+		const sendMock = mock(async (_command: unknown) => {});
 		const process = async (_data: string) => {};
 		const [, functions] = createSqsHandlers({
 			functions: { process },
