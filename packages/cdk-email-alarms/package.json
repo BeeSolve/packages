@@ -12,7 +12,11 @@
     "url": "git+https://github.com/beesolve/packages.git"
   },
   "scripts": {
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "test": "bun test"
+  },
+  "devDependencies": {
+    "@types/bun": "catalog:"
   },
   "peerDependencies": {
     "typescript": "catalog:"
