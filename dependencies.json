@@ -4,5 +4,7 @@
   "packages/cdk-constructs",
   "packages/lambda-fetch-api",
   "packages/service-email",
-  "packages/sqs-handler"
+  "packages/sqs-handler",
+  "packages/action-tokens",
+  "packages/auth"
 ]

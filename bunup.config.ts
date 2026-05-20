@@ -51,4 +51,22 @@ export default defineWorkspace([
       entry: ["index.ts"],
     },
   },
+  {
+    name: "@beesolve/action-tokens",
+    root: "packages/action-tokens",
+    config: {
+      entry: ["cdk.ts", "sdk.ts", "model.ts"],
+      dts: {
+        inferTypes: true,
+        tsgo: true,
+      },
+    },
+  },
+  {
+    name: "@beesolve/auth",
+    root: "packages/auth",
+    config: {
+      entry: ["cdk.ts", "sdk.ts", "index.ts"],
+    },
+  },
 ]);
