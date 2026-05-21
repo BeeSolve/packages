@@ -67,6 +67,17 @@ export default defineWorkspace([
     root: "packages/service-auth",
     config: {
       entry: ["cdk.ts", "sdk.ts", "index.ts", "events.ts"],
+      // tsconfig.dts.json excludes lambda handler files (api.ts, authorizer.ts,
+      // sdkHandler.ts) that are only in tsconfig.json for IDE support. Without
+      // this, tsgo fails on TS2883 for handler exports that reference aws-lambda
+      // types from a nested node_modules path.
+      preferredTsconfig: "./tsconfig.dts.json",
+      // types inferred via tsgo because of complex types like valibot are exported
+      // @see: https://bunup.dev/docs/guide/typescript-declarations.html#infer-types
+      dts: {
+        inferTypes: true,
+        tsgo: true,
+      },
     },
   },
 ]);
