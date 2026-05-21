@@ -1,0 +1,25 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    // declaration: true is intentionally absent — bunup generates all .d.ts files
+    // for the library entries (cdk.ts, sdk.ts, index.ts). Having it here would
+    // cause TS2883 portability errors when lambda handler files are included.
+    "isolatedDeclarations": false
+  },
+  // Lambda handler files (api, authorizer, sdkHandler, build) are included here
+  // so the IDE uses this tsconfig and inherits types: ["node", "bun"] from the
+  // base config, making process/Bun globals available. They are also covered by
+  // tsconfig.lambda.json which the type-check script runs separately.
+  "include": [
+    "src/**/*",
+    "cdk.ts",
+    "sdk.ts",
+    "index.ts",
+    "events.ts",
+    "tests/**/*",
+    "api.ts",
+    "authorizer.ts",
+    "sdkHandler.ts",
+    "build.ts"
+  ]
+}

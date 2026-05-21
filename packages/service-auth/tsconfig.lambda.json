@@ -1,0 +1,4 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "include": ["src/**/*", "api.ts", "authorizer.ts", "sdkHandler.ts", "build.ts"]
+}
