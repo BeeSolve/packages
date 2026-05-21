@@ -10,8 +10,6 @@
 
 import * as v from "valibot";
 
-// ─── beesolve.email.api ───────────────────────────────────────────────────────
-
 const emailSentSuccessSchema = v.object({
   source: v.literal("beesolve.email.api"),
   "detail-type": v.literal("EmailSentSuccess"),
@@ -35,8 +33,6 @@ export type EmailSentSuccessDetail = EmailSentSuccessEvent["detail"];
 export type EmailSentFailureDetail = EmailSentFailureEvent["detail"];
 
 export type BeeSolveEmailEvent = EmailSentSuccessEvent | EmailSentFailureEvent;
-
-// ─── aws.ses ──────────────────────────────────────────────────────────────────
 
 const sesMailSchema = v.object({
   timestamp: v.string(),
@@ -148,8 +144,6 @@ export type SesEvent =
 
 export type EmailEvent = BeeSolveEmailEvent | SesEvent;
 
-// ─── Parser ───────────────────────────────────────────────────────────────────
-
 const emailEventSchema = v.variant("detail-type", [
   emailSentSuccessSchema,
   emailSentFailureSchema,
@@ -171,8 +165,6 @@ export function parseEmailEvent(body: string): EmailEvent | null {
   );
   return result.success ? result.output : null;
 }
-
-// ─── Type guards ──────────────────────────────────────────────────────────────
 
 export function isEmailSentSuccess(event: unknown): event is EmailSentSuccessEvent {
   return (event as Record<string, unknown> | null)?.["detail-type"] === "EmailSentSuccess";

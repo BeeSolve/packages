@@ -6,8 +6,6 @@
 
 import * as v from "valibot";
 
-// ─── Schemas ──────────────────────────────────────────────────────────────────
-
 const emailCodeAuthSchema = v.object({
   "detail-type": v.literal("EmailCodeAuth"),
   source: v.string(),
@@ -86,8 +84,6 @@ const authEventSchema = v.variant("detail-type", [
   emailInvitationSchema,
 ]);
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
 export type EmailCodeAuthEvent = v.InferOutput<typeof emailCodeAuthSchema>;
 export type EmailAddressVerifiedEvent = v.InferOutput<typeof emailAddressVerifiedSchema>;
 export type DataTokenEvent = v.InferOutput<typeof dataTokenSchema>;
@@ -106,8 +102,6 @@ export type EmailInvitationDetail = EmailInvitationEvent["detail"];
 
 export type AuthEvent = v.InferOutput<typeof authEventSchema>;
 
-// ─── Parser ───────────────────────────────────────────────────────────────────
-
 /**
  * Parses an EventBridge event from an SQS record body string.
  * Returns `null` when the body is not a recognised auth event.
@@ -119,8 +113,6 @@ export function parseAuthEvent(body: string): AuthEvent | null {
   );
   return result.success ? result.output : null;
 }
-
-// ─── Type guards ──────────────────────────────────────────────────────────────
 
 export function isEmailCodeAuth(event: unknown): event is EmailCodeAuthEvent {
   return (event as Record<string, unknown> | null)?.["detail-type"] === "EmailCodeAuth";
