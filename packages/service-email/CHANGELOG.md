@@ -1,5 +1,11 @@
 # @beesolve/email-service
 
+## 0.3.1
+
+### Patch Changes
+
+- a1a259e: add permissions for configuration-set
+
 ## 0.3.0
 
 ### Minor Changes
