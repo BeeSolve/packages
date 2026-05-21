@@ -182,7 +182,9 @@ const fetch = async (request: Request): Promise<Response> => {
   }
 };
 
-export const handler = keptActive(asHttpV2Handler(fetch));
+type LambdaHandler = (event: unknown, context: unknown) => Promise<unknown> | undefined;
+
+export const handler = keptActive(asHttpV2Handler(fetch)) as unknown as LambdaHandler;
 
 export default {
   fetch,

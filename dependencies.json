@@ -6,5 +6,5 @@
   "packages/service-email",
   "packages/sqs-handler",
   "packages/action-tokens",
-  "packages/auth"
+  "packages/service-auth"
 ]

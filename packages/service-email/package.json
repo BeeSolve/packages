@@ -65,6 +65,7 @@
     "mimetext": "catalog:",
     "valibot": "catalog:",
     "react": "catalog:",
+    "react-dom": "catalog:",
     "@beesolve/helpers": "workspace:^",
     "@beesolve/cdk-constructs": "workspace:^"
   },

@@ -1,5 +1,5 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": { "declaration": true, "isolatedDeclarations": false },
-  "include": ["src/**/*", "cdk.ts", "sdk.ts", "index.ts", "events.ts"]
+  "include": ["src/**/*", "api.ts", "cdk.ts", "sdk.ts", "index.ts", "events.ts"]
 }
