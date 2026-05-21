@@ -1,5 +1,11 @@
 # @beesolve/email-service
 
+## 0.3.0
+
+### Minor Changes
+
+- 8fad7d8: fix permissions
+
 ## 0.2.0
 
 ### Minor Changes
