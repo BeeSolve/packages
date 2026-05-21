@@ -28,7 +28,7 @@ export default defineWorkspace([
     name: "@beesolve/email-service",
     root: "packages/service-email",
     config: {
-      entry: ["cdk.ts", "sdk.ts", "templating.ts"],
+      entry: ["cdk.ts", "sdk.ts", "templating.ts", "events.ts"],
       // types inferred via tsgo because of complex types like valibot are exported
       // @see: https://bunup.dev/docs/guide/typescript-declarations.html#infer-types
       dts: {
@@ -63,10 +63,10 @@ export default defineWorkspace([
     },
   },
   {
-    name: "@beesolve/auth",
-    root: "packages/auth",
+    name: "@beesolve/auth-service",
+    root: "packages/service-auth",
     config: {
-      entry: ["cdk.ts", "sdk.ts", "index.ts"],
+      entry: ["cdk.ts", "sdk.ts", "index.ts", "events.ts"],
     },
   },
 ]);

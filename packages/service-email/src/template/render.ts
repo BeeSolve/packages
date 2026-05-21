@@ -13,3 +13,27 @@ export async function renderEmail<P extends {}>(props: {
     text,
   };
 }
+
+/**
+ * Replaces `$$$__KEY__$$$` placeholder tokens in a pre-built template with runtime values.
+ *
+ * Use this at Lambda runtime together with a pre-built template loaded from disk.
+ * See docs/react-email-templates.md for the recommended pre-build workflow.
+ */
+export function hydrateTemplate(props: {
+  readonly template: { readonly html: string; readonly text: string };
+  readonly props: Record<string, string>;
+  readonly subject: string;
+}): { readonly subject: string; readonly html: string; readonly text: string } {
+  const { html, text } = Object.entries(props.props).reduce(
+    (result, [key, value]) => ({
+      html: result.html.replaceAll(`$$$__${key}__$$$`, value),
+      text: result.text
+        .replaceAll(`$$$__${key}__$$$`, value)
+        .replaceAll(`$$$__${key.toUpperCase()}__$$$`, value),
+    }),
+    props.template,
+  );
+
+  return { subject: props.subject, html, text };
+}

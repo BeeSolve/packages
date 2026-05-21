@@ -25,6 +25,12 @@
         "default": "./dist/templating.js"
       }
     },
+    "./events": {
+      "import": {
+        "types": "./dist/events.d.ts",
+        "default": "./dist/events.js"
+      }
+    },
     "./package.json": "./package.json"
   },
   "homepage": "https://github.com/beesolve/packages/tree/main/packages/email-service#readme",

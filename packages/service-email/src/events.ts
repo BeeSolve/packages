@@ -2,6 +2,7 @@ import type { EventBridge } from "@aws-sdk/client-eventbridge";
 
 export type Event = EmailSentSuccess | EmailSentFailure;
 
+//@claude wouldn't we benefit from creating valibot schemas here and inferring the types out of it? then we can use schemas for validation - maybe even provide validation helpers in ../events.ts
 interface EmailSentSuccess {
   readonly type: "EmailSentSuccess";
   readonly detail: {
