@@ -199,6 +199,7 @@ export class Emails extends Construct {
           ? [props.fromArn]
           : [
               `arn:aws:ses:${Stack.of(this).region}:${Stack.of(this).account}:identity/*`,
+              `arn:aws:ses:${Stack.of(this).region}:${Stack.of(this).account}:configuration-set/${defaultConfigurationSet.configurationSetName}`,
             ],
         effect: Effect.ALLOW,
       }),
