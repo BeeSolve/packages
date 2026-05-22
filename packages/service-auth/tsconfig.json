@@ -20,6 +20,7 @@
     "api.ts",
     "authorizer.ts",
     "sdkHandler.ts",
-    "build.ts"
+    "build.ts",
+    "dev.ts"
   ]
 }

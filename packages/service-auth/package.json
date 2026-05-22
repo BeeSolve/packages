@@ -37,6 +37,12 @@
         "default": "./dist/events.js"
       }
     },
+    "./dev": {
+      "import": {
+        "types": "./dist/dev.d.ts",
+        "default": "./dist/dev.js"
+      }
+    },
     "./api": {
       "import": {
         "types": "./dist/api.d.ts",
