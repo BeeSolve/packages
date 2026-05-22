@@ -79,12 +79,18 @@ export class Auth extends Construct {
        */
       readonly sessionDuration?: Duration;
       /**
-       * How long the API Gateway caches authorizer results.
-       * Set to Duration.seconds(0) to disable caching.
+       * Controls how long API Gateway caches authorizer decisions.
        *
-       * @default Duration.hours(1)
+       * Presets:
+       * - `"immediate"` — no cache (0s). Sign-out takes effect instantly.
+       * - `"balanced"` — short cache (45s). Sign-out effective within ~45s.
+       * - `"relaxed"` — long cache (1h). Lowest cost, sign-out delayed up to 1h.
+       *
+       * Or pass a `Duration` directly to override presets.
+       *
+       * @default "balanced"
        */
-      readonly authorizerCacheTtl?: Duration;
+      readonly authorizerCache?: "immediate" | "balanced" | "relaxed" | Duration;
       /**
        * How long the OTP email code is valid for sign-in.
        *
@@ -216,7 +222,7 @@ export class Auth extends Construct {
 
     this.authorizer = new HttpLambdaAuthorizer("ApiAuthorizer", apiAuthorizer, {
       identitySource: ["$request.header.Cookie"],
-      resultsCacheTtl: props.authorizerCacheTtl ?? Duration.hours(1),
+      resultsCacheTtl: resolveAuthorizerCacheTtl(props.authorizerCache),
     });
 
     this.api = new HttpApi(this, "Api", {
@@ -331,4 +337,16 @@ export class Auth extends Construct {
       this.sdkHandler.functionArn,
     );
   };
+}
+
+function resolveAuthorizerCacheTtl(
+  cache: "immediate" | "balanced" | "relaxed" | Duration = "balanced",
+): Duration {
+  if (cache instanceof Duration) return cache;
+  const presets = {
+    immediate: Duration.seconds(0),
+    balanced: Duration.seconds(45),
+    relaxed: Duration.hours(1),
+  };
+  return presets[cache];
 }
