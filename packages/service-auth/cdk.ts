@@ -15,14 +15,15 @@ import {
   TableV2,
 } from "aws-cdk-lib/aws-dynamodb";
 import { EventBus } from "aws-cdk-lib/aws-events";
-import type { LogGroupProps } from "aws-cdk-lib/aws-logs";
 import {
-  Function,
-  FunctionUrl,
+  type Function,
+  type FunctionUrl,
   FunctionUrlAuthType,
   InvokeMode,
   HttpMethod as LambdaHttpMethod,
 } from "aws-cdk-lib/aws-lambda";
+import type { LogGroupProps } from "aws-cdk-lib/aws-logs";
+import { CfnRuleGroup } from "aws-cdk-lib/aws-wafv2";
 import { Construct } from "constructs";
 
 const distDir = `${fileURLToPath(new URL(".", import.meta.url))}`;
@@ -48,6 +49,13 @@ export class Auth extends Construct {
    */
   private readonly authorizer: HttpLambdaAuthorizer;
   private readonly sdkHandler: Function;
+
+  /**
+   * WAF rule group for rate limiting auth endpoints. Only set when `waf` prop
+   * is provided. Add this to your existing WebACL as a rule group reference,
+   * or create a new WebACL with it. See docs/waf.md for usage examples.
+   */
+  readonly wafRuleGroup?: CfnRuleGroup;
 
   constructor(
     scope: Construct,
@@ -90,7 +98,11 @@ export class Auth extends Construct {
        *
        * @default "balanced"
        */
-      readonly authorizerCache?: "immediate" | "balanced" | "relaxed" | Duration;
+      readonly authorizerCache?:
+        | "immediate"
+        | "balanced"
+        | "relaxed"
+        | Duration;
       /**
        * How long the OTP email code is valid for sign-in.
        *
@@ -115,6 +127,21 @@ export class Auth extends Construct {
        * }
        */
       readonly logGroupProps?: LogGroupProps;
+      /**
+       * Optional WAF configuration for rate limiting on the auth function URL.
+       * Creates a WebACL with a rate-based rule. Disabled by default due to
+       * additional cost. The WebACL must be attached to your CloudFront
+       * distribution manually (WAF for CloudFront requires us-east-1).
+       *
+       * @default undefined (no WAF)
+       */
+      readonly waf?: {
+        /**
+         * Maximum requests per IP in a 5-minute window.
+         * @default 100
+         */
+        readonly rateLimit?: number;
+      };
     },
   ) {
     super(scope, id);
@@ -298,6 +325,36 @@ export class Auth extends Construct {
     props.warmer?.keepActive(sdkHandler);
 
     this.sdkHandler = sdkHandler;
+
+    if (props.waf) {
+      this.wafRuleGroup = new CfnRuleGroup(this, "WafRuleGroup", {
+        capacity: 2,
+        scope: "CLOUDFRONT",
+        visibilityConfig: {
+          cloudWatchMetricsEnabled: true,
+          metricName: `${this.node.path}/waf/auth-rate-limit`,
+          sampledRequestsEnabled: true,
+        },
+        rules: [
+          {
+            name: "AuthRateLimit",
+            priority: 1,
+            action: { block: {} },
+            visibilityConfig: {
+              cloudWatchMetricsEnabled: true,
+              metricName: `${this.node.path}/waf/auth-rate-limit-rule`,
+              sampledRequestsEnabled: true,
+            },
+            statement: {
+              rateBasedStatement: {
+                limit: props.waf.rateLimit ?? 100,
+                aggregateKeyType: "IP",
+              },
+            },
+          },
+        ],
+      });
+    }
   }
 
   /**
