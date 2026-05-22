@@ -1,5 +1,6 @@
 import { SQSClient } from "@aws-sdk/client-sqs";
 import { createSqsHandlers } from "@beesolve/sqs-handler";
+import type { SQSEvent } from "aws-lambda";
 import * as v from "valibot";
 import { toDynamoClient } from "./src/dynamo.ts";
 import { Sessions } from "./src/session.ts";
@@ -19,7 +20,7 @@ const sessions = new Sessions({
   userIdIndexName: env.SESSIONS_USER_ID_INDEX_NAME,
 });
 
-export const [handler, tasks] = createSqsHandlers({
+const result = createSqsHandlers({
   fifo: false,
   sqsClient: new SQSClient(),
   queueUrls: { main: env.BEESOLVE_TASKS_MAIN_QUEUE_URL },
@@ -29,3 +30,6 @@ export const [handler, tasks] = createSqsHandlers({
     },
   },
 });
+
+export const handler: (event: SQSEvent) => Promise<{ batchItemFailures: { itemIdentifier: string }[] }> = result[0];
+export const tasks = result[1];
