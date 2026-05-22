@@ -54,7 +54,7 @@ export async function signInRequest({
     expiresAt,
     overwrite: true,
     owner: token,
-    remainingUses: 10,
+    remainingUses: 3,
     value: code,
   });
 

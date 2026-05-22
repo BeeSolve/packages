@@ -45,6 +45,15 @@ export class ActionTokensClient {
   }) => this.model.drain(props);
 
   /**
+   * Reads a token without decrementing `remainingUses`.
+   * Validates expiry and remaining uses — throws if the token is expired or used up.
+   */
+  readonly peek = (props: {
+    readonly owner: string;
+    readonly action: string;
+  }) => this.model.peek(props);
+
+  /**
    * Creates a new token with throttle enforcement in a single transaction.
    * If a non-expired throttle record exists for this `throttle.id` + `action`,
    * throws `TokenThrottledError`. Both the token and throttle record are written

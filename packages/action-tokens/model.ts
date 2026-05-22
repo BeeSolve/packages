@@ -276,6 +276,34 @@ export class ActionTokens {
     }
   };
 
+  /**
+   * Reads a token without decrementing `remainingUses`.
+   * Validates expiry and remaining uses — throws if the token is expired or used up.
+   * Use this to check token status or display metadata without consuming an attempt.
+   */
+  readonly peek = async (props: {
+    readonly owner: string;
+    readonly action: string;
+  }) => {
+    const { Item: item } = await this.props.dynamo.send(
+      new GetCommand({
+        Key: { owner: props.owner, action: props.action },
+        TableName: this.props.tableName,
+        ConsistentRead: true,
+      }),
+    );
+
+    if (item == null) throw new TokenDoesNotExistError("Token not found.");
+
+    const token = this.parseOne(item);
+    if (token.expiresAt.getTime() <= Date.now())
+      throw new ExpiredTokenError("Token has expired.");
+    if (token.remainingUses <= 0)
+      throw new TokenAlreadyUsedUpError("Token cannot be used anymore.");
+
+    return token;
+  };
+
   readonly drain = async (props: {
     readonly owner: string;
     readonly action: string;
