@@ -1,17 +1,19 @@
+import { randomBytes } from "node:crypto";
 import {
   ConditionalCheckFailedException,
   TransactionCanceledException,
 } from "@aws-sdk/client-dynamodb";
 import {
   BatchGetCommand,
+  BatchWriteCommand,
   DeleteCommand,
-  DynamoDBDocumentClient,
+  type DynamoDBDocumentClient,
   GetCommand,
   PutCommand,
   QueryCommand,
   TransactWriteCommand,
 } from "@aws-sdk/lib-dynamodb";
-import { randomBytes } from "node:crypto";
+import { splitArrayToChunks } from "@beesolve/helpers";
 import * as v from "valibot";
 import { BadRequestError, NotFoundError } from "./errors.ts";
 import { printError } from "./util.ts";
@@ -283,6 +285,30 @@ export class Sessions {
         Key: { id },
       }),
     );
+  };
+
+  readonly deleteAllForUser = async (props: {
+    userId: string;
+    exceptSessionId?: string;
+  }) => {
+    const keys = await this.fetchMany(props.userId);
+    const toDelete = props.exceptSessionId
+      ? keys.filter(({ id }) => id !== props.exceptSessionId)
+      : keys;
+
+    if (toDelete.length === 0) return;
+
+    for (const chunk of splitArrayToChunks(toDelete, 25)) {
+      await this.props.dynamo.send(
+        new BatchWriteCommand({
+          RequestItems: {
+            [this.props.tableName]: chunk.map(({ id }) => ({
+              DeleteRequest: { Key: { id } },
+            })),
+          },
+        }),
+      );
+    }
   };
 
   private readonly toNewSession = (props: {

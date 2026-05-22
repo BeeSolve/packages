@@ -22,7 +22,7 @@ export class AuthClient {
   private readonly lambdaClient: LambdaClient;
 
   constructor(
-    private readonly props: {
+    readonly props: {
       readonly lambdaArn?: string;
       readonly lambdaClient?: LambdaClient;
     } = {},
@@ -50,9 +50,15 @@ export class AuthClient {
     );
 
     if (StatusCode !== 200) {
-      throw new Error(`Cannot invoke synchronous action": ${FunctionError}`);
+      throw new Error(`Cannot invoke synchronous action: ${FunctionError}`);
     }
 
-    return JSON.parse(Payload?.transformToString() ?? "{}") as Response;
+    const raw = JSON.parse(Payload?.transformToString() ?? "null");
+
+    if (raw != null && typeof raw === "object" && "errorMessage" in raw) {
+      throw new Error(`SDK handler error: ${raw.errorMessage}`);
+    }
+
+    return raw as Response;
   };
 }
