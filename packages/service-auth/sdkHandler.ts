@@ -84,32 +84,48 @@ export type ResponseByType<T extends Commands["type"]> =
 
 export type Types<T extends Commands> = T extends any ? T["type"] : never;
 
+const newEmailAccountSchema = v.object({
+  accountId: v.optional(v.string()),
+  emailAddress: v.pipe(v.string(), v.email()),
+});
+
+const accountIdByEmailSchema = v.object({
+  emailAddress: v.pipe(v.string(), v.email()),
+});
+
+const sessionListSchema = v.object({
+  accountId: v.string(),
+});
+
 export const handler = keptActive(async (event: HandlerEvent) => {
   const { type, request } = decodeFromStringifiable<HandlerEvent>(event);
 
   if (type === "newEmailAccount") {
+    const parsed = v.parse(newEmailAccountSchema, request);
     const accountId =
-      request.accountId ?? randomBytes(32).toString("base64url");
+      parsed.accountId ?? randomBytes(32).toString("base64url");
 
     const { id } = await accounts.createNew({
       id: accountId,
       type: "email",
-      username: request.emailAddress,
+      username: parsed.emailAddress,
     });
 
     return { id };
   }
 
   if (type === "accountIdByEmail") {
-    const account = await accounts.getOne(request.emailAddress).catch(asNull);
+    const parsed = v.parse(accountIdByEmailSchema, request);
+    const account = await accounts.getOne(parsed.emailAddress).catch(asNull);
     if (account == null) return null;
 
     return { id: account.id };
   }
 
   if (type === "sessionList") {
+    const parsed = v.parse(sessionListSchema, request);
     const now = Date.now();
-    const sessionsList = await sessions.listMany(request.accountId);
+    const sessionsList = await sessions.listMany(parsed.accountId);
 
     return sessionsList
       .filter(({ expiresAt }) => expiresAt.getTime() > now)
