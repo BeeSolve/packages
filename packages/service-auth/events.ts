@@ -53,7 +53,8 @@ const unsuccessfulAuthSchema = v.object({
   "detail-type": v.literal("UnsuccessfulAuth"),
   source: v.string(),
   detail: v.object({
-    userId: v.string(),
+    emailAddress: v.nullable(v.string()),
+    reason: v.string(),
   }),
 });
 

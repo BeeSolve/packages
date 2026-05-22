@@ -1,3 +1,8 @@
+import {
+  ExpiredTokenError,
+  TokenAlreadyUsedUpError,
+  TokenInvalidError,
+} from "@beesolve/action-tokens/model";
 import { ActionTokensClient } from "@beesolve/action-tokens/sdk";
 import { asNull, call } from "@beesolve/helpers";
 import { randomBytes } from "node:crypto";
@@ -52,6 +57,18 @@ export async function signInComplete({
     value: code,
     drainWhenValid: true,
     owner: token,
+  }).catch(async (error) => {
+    if (
+      error instanceof TokenInvalidError ||
+      error instanceof ExpiredTokenError ||
+      error instanceof TokenAlreadyUsedUpError
+    ) {
+      await events.putEvents({
+        type: "UnsuccessfulAuth",
+        detail: { emailAddress: null, reason: error.message },
+      });
+    }
+    throw error;
   });
 
   const result = v.safeParse(
@@ -99,8 +116,13 @@ export async function signInComplete({
       const account = await accounts.getOne(props.emailAddress).catch(asNull);
       if (account != null) return [account, false];
 
-      if (!props.allowSignUp)
+      if (!props.allowSignUp) {
+        await events.putEvents({
+          type: "UnsuccessfulAuth",
+          detail: { emailAddress: props.emailAddress, reason: "Email not registered." },
+        });
         throw new BadRequestError("Email not registered.");
+      }
 
       return [
         await accounts.createNew({

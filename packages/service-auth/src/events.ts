@@ -93,7 +93,8 @@ interface DataToken {
 interface UnsuccessfulAuth {
   readonly type: "UnsuccessfulAuth";
   readonly detail: {
-    readonly userId: string;
+    readonly emailAddress: string | null;
+    readonly reason: string;
   };
 }
 
