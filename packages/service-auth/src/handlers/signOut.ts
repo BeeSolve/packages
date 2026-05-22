@@ -13,8 +13,14 @@ interface Dependencies {
   readonly events: Pick<Events, "putEvents">;
 }
 
+const safeRedirectTo = v.pipe(
+  v.string(),
+  v.transform(decodeURIComponent),
+  v.regex(/^\/(?!\/)/, "redirectTo must be a relative path"),
+);
+
 const schema = v.object({
-  redirectTo: v.optional(v.string()),
+  redirectTo: v.optional(safeRedirectTo),
 });
 
 export async function signOut({

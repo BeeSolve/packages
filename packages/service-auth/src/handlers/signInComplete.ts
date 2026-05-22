@@ -20,10 +20,16 @@ interface Dependencies {
   readonly dataToken: string | undefined;
 }
 
+const safeRedirectTo = v.pipe(
+  v.string(),
+  v.transform(decodeURIComponent),
+  v.regex(/^\/(?!\/)/, "redirectTo must be a relative path"),
+);
+
 const schema = v.object({
   code: v.pipe(v.string(), v.length(6), v.digits()),
   token: v.string(),
-  redirectTo: v.optional(v.string()),
+  redirectTo: v.optional(safeRedirectTo),
 });
 
 export async function signInComplete({
