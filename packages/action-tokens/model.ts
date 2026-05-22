@@ -1,10 +1,14 @@
-import { ConditionalCheckFailedException } from "@aws-sdk/client-dynamodb";
+import {
+  ConditionalCheckFailedException,
+  TransactionCanceledException,
+} from "@aws-sdk/client-dynamodb";
 import {
   DeleteCommand,
   type DynamoDBDocumentClient,
   GetCommand,
   PutCommand,
   QueryCommand,
+  TransactWriteCommand,
   UpdateCommand,
 } from "@aws-sdk/lib-dynamodb";
 import * as v from "valibot";
@@ -92,6 +96,119 @@ export class ActionTokens {
     } catch (error) {
       if (error instanceof ConditionalCheckFailedException) {
         throw new TokenAlreadyExistsError("Token already exists.");
+      }
+      throw error;
+    }
+
+    return model;
+  };
+
+  /**
+   * Creates a new token with throttle enforcement in a single transaction.
+   * If a non-expired throttle record exists for this `throttle.id` + `action`,
+   * throws `TokenThrottledError`. Both the token and throttle record are written
+   * atomically — if either fails, neither is persisted.
+   *
+   * @example
+   * ```ts
+   * await actionTokens.createNewWithThrottling({
+   *   owner: token,
+   *   action: "signInRequest",
+   *   value: code,
+   *   remainingUses: 3,
+   *   expiresAt,
+   *   data: { emailAddress },
+   *   overwrite: true,
+   *   throttle: { id: emailAddress, windowSeconds: 60 },
+   * });
+   * ```
+   */
+  readonly createNewWithThrottling = async (props: {
+    readonly owner: string;
+    readonly action: string;
+    readonly value: string;
+    readonly remainingUses: number;
+    readonly expiresAt: Date;
+    readonly data: Record<string, unknown> | undefined;
+    readonly overwrite: boolean;
+    /** Throttle configuration. */
+    readonly throttle: {
+      /** Identifier to throttle on (e.g., email address). */
+      readonly id: string;
+      /** Minimum seconds between token creations for this id+action. */
+      readonly windowSeconds: number;
+    };
+  }) => {
+    const item: NewToken = {
+      owner: props.owner,
+      action: props.action,
+      value: props.value,
+      expiresAt: Math.round(props.expiresAt.getTime() / 1000),
+      remainingUses: props.remainingUses,
+      data: props.data,
+      createdAt: new Date().toISOString(),
+    };
+
+    const model = this.parseOne(
+      item,
+      "Unexpected error occurred while creating token. Token has not been created.",
+    );
+
+    const now = Math.round(Date.now() / 1000);
+
+    const tokenPut = {
+      Put: {
+        TableName: this.props.tableName,
+        Item: item,
+        ...(props.overwrite
+          ? {}
+          : {
+              ConditionExpression:
+                "attribute_not_exists(#put_owner) and attribute_not_exists(#put_action)",
+              ExpressionAttributeNames: {
+                "#put_owner": "owner",
+                "#put_action": "action",
+              },
+            }),
+      },
+    };
+
+    const throttlePut = {
+      Put: {
+        TableName: this.props.tableName,
+        Item: {
+          owner: `throttle#${props.throttle.id}`,
+          action: props.action,
+          createdAt: new Date().toISOString(),
+          expiresAt: now + props.throttle.windowSeconds,
+        },
+        ConditionExpression:
+          "attribute_not_exists(#owner) OR #expiresAt <= :now",
+        ExpressionAttributeNames: {
+          "#owner": "owner",
+          "#expiresAt": "expiresAt",
+        },
+        ExpressionAttributeValues: {
+          ":now": now,
+        },
+      },
+    };
+
+    try {
+      await this.props.dynamo.send(
+        new TransactWriteCommand({
+          TransactItems: [throttlePut, tokenPut],
+        }),
+      );
+    } catch (error) {
+      if (error instanceof TransactionCanceledException) {
+        const reasons = error.CancellationReasons ?? [];
+        if (reasons[0]?.Code === "ConditionalCheckFailed") {
+          throw new TokenThrottledError("Too many requests. Try again later.");
+        }
+        if (reasons[1]?.Code === "ConditionalCheckFailed") {
+          throw new TokenAlreadyExistsError("Token already exists.");
+        }
       }
       throw error;
     }
@@ -256,3 +373,4 @@ export class TokenAlreadyUsedUpError extends BaseTokenError {}
 export class TokenInvalidError extends BaseTokenError {}
 export class MalformedTokenError extends BaseTokenError {}
 export class UnexpectedError extends BaseTokenError {}
+export class TokenThrottledError extends BaseTokenError {}
