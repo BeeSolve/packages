@@ -16,7 +16,7 @@
     },
     "packages/action-tokens": {
       "name": "@beesolve/action-tokens",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "dependencies": {
         "@aws-sdk/client-dynamodb": "catalog:",
         "@aws-sdk/credential-providers": "catalog:",
@@ -37,7 +37,7 @@
     },
     "packages/cdk-constructs": {
       "name": "@beesolve/cdk-constructs",
-      "version": "0.1.29",
+      "version": "0.1.30",
       "dependencies": {
         "@beesolve/helpers": "workspace:^",
         "aws-cdk-lib": "catalog:",
@@ -108,11 +108,12 @@
     },
     "packages/service-auth": {
       "name": "@beesolve/auth-service",
-      "version": "0.1.0",
+      "version": "0.2.1",
       "dependencies": {
         "@aws-sdk/client-dynamodb": "catalog:",
         "@aws-sdk/client-eventbridge": "catalog:",
         "@aws-sdk/client-lambda": "catalog:",
+        "@aws-sdk/client-sqs": "catalog:",
         "@aws-sdk/credential-providers": "catalog:",
         "@aws-sdk/lib-dynamodb": "catalog:",
         "@beesolve/action-tokens": "workspace:^",
@@ -121,6 +122,7 @@
         "@beesolve/helpers": "workspace:^",
         "@beesolve/lambda-fetch-api": "workspace:^",
         "@beesolve/lambda-keep-active": "catalog:",
+        "@beesolve/sqs-handler": "workspace:^",
         "aws-cdk-lib": "catalog:",
         "constructs": "catalog:",
         "valibot": "catalog:",
@@ -138,7 +140,7 @@
     },
     "packages/service-email": {
       "name": "@beesolve/email-service",
-      "version": "0.1.20",
+      "version": "0.3.0",
       "dependencies": {
         "@aws-sdk/client-dynamodb": "catalog:",
         "@aws-sdk/client-eventbridge": "catalog:",

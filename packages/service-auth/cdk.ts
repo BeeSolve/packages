@@ -3,6 +3,7 @@ import { ActionTokens } from "@beesolve/action-tokens/cdk";
 import { Nodejs24Function } from "@beesolve/cdk-constructs";
 import type { EmailAlarms } from "@beesolve/cdk-email-alarms";
 import type { LambdaKeepActive } from "@beesolve/lambda-keep-active";
+import { SqsHandler } from "@beesolve/sqs-handler/cdk";
 import { Duration, RemovalPolicy } from "aws-cdk-lib";
 import { HttpApi, HttpMethod } from "aws-cdk-lib/aws-apigatewayv2";
 import { HttpLambdaAuthorizer } from "aws-cdk-lib/aws-apigatewayv2-authorizers";
@@ -304,6 +305,23 @@ export class Auth extends Construct {
       },
       invokeMode: InvokeMode.BUFFERED,
     });
+
+    const sqsHandler = new SqsHandler(this, "Tasks", {
+      handlerProps: {
+        entry: `${distDir}tasks.zip`,
+        handler: "tasks.handler",
+        memorySize: 256,
+        timeout: Duration.seconds(10),
+        environment: {
+          SESSIONS_TABLE_NAME: sessionsTable.tableName,
+          SESSIONS_USER_ID_INDEX_NAME: sessionsByUserIdIndexName,
+        },
+        logGroupProps: props.logGroupProps,
+      },
+      alarms: props.alarms,
+    });
+    sqsHandler.forEachHandler((h) => sessionsTable.grantReadWriteData(h));
+    sqsHandler.grantAccess(authHandler);
 
     const sdkHandler = new Nodejs24Function(this, "SdkHandler", {
       description: "SDK authorizer",

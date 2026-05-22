@@ -21,6 +21,7 @@
     "authorizer.ts",
     "sdkHandler.ts",
     "build.ts",
-    "dev.ts"
+    "dev.ts",
+    "tasks.ts"
   ]
 }

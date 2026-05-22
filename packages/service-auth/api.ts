@@ -18,6 +18,7 @@ import { signInComplete } from "./src/handlers/signInComplete.ts";
 import { signInRequest } from "./src/handlers/signInRequest.ts";
 import { signOut } from "./src/handlers/signOut.ts";
 import { Sessions } from "./src/session.ts";
+import { tasks } from "./tasks.ts";
 
 const envSchema = v.object({
   STAGE: v.string(),
@@ -150,6 +151,7 @@ const fetch = async (request: Request): Promise<Response> => {
         events,
         requestBody,
         headers: request.headers,
+        retrySessionDelete: (sid) => tasks.deleteSession(sid),
       });
     }
 

@@ -1,4 +1,3 @@
-import { asNull } from "@beesolve/helpers";
 import * as v from "valibot";
 import { addSetCookies, parseSid } from "../cookie.ts";
 import { BadRequestError } from "../errors.ts";
@@ -11,6 +10,7 @@ interface Dependencies {
   readonly requestBody: () => Promise<any>;
   readonly sessions: Pick<Sessions, "delete">;
   readonly events: Pick<Events, "putEvents">;
+  readonly retrySessionDelete?: (sid: string) => void;
 }
 
 const safeRedirectTo = v.pipe(
@@ -28,6 +28,7 @@ export async function signOut({
   sessions,
   requestBody,
   events,
+  retrySessionDelete,
 }: Dependencies): Promise<Response> {
   const { redirectTo } = parseBody({
     body: await requestBody(),
@@ -38,7 +39,7 @@ export async function signOut({
   if (sid == null) throw new BadRequestError(`Missing cookie.`);
 
   await Promise.all([
-    sessions.delete(sid).catch(asNull),
+    sessions.delete(sid).catch(() => retrySessionDelete?.(sid)),
     events.putEvents({
       type: "SessionInvalidated",
       detail: {
