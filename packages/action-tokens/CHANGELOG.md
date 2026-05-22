@@ -1,5 +1,13 @@
 # @beesolve/action-tokens
 
+## 0.3.0
+
+### Minor Changes
+
+- 5628db5: - Add `createNewWithThrottling` method — atomic transactional write of token + throttle record. Throws `TokenThrottledError` if cooldown window has not elapsed.
+  - Add `peek` method — read-only token inspection without decrementing `remainingUses`.
+  - Export `TokenThrottledError` class.
+
 ## 0.2.0
 
 ### Minor Changes
