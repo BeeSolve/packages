@@ -1,18 +1,28 @@
 import { SQSClient } from "@aws-sdk/client-sqs";
 import { createSqsHandlers } from "@beesolve/sqs-handler";
+import * as v from "valibot";
 import { toDynamoClient } from "./src/dynamo.ts";
 import { Sessions } from "./src/session.ts";
 
+const env = v.parse(
+  v.object({
+    SESSIONS_TABLE_NAME: v.string(),
+    SESSIONS_USER_ID_INDEX_NAME: v.string(),
+    BEESOLVE_TASKS_MAIN_QUEUE_URL: v.string(),
+  }),
+  process.env,
+);
+
 const sessions = new Sessions({
   dynamo: toDynamoClient(),
-  tableName: process.env.SESSIONS_TABLE_NAME!,
-  userIdIndexName: process.env.SESSIONS_USER_ID_INDEX_NAME!,
+  tableName: env.SESSIONS_TABLE_NAME,
+  userIdIndexName: env.SESSIONS_USER_ID_INDEX_NAME,
 });
 
 export const [handler, tasks] = createSqsHandlers({
   fifo: false,
   sqsClient: new SQSClient(),
-  queueUrls: { main: process.env.BEESOLVE_TASKS_MAIN_QUEUE_URL! },
+  queueUrls: { main: env.BEESOLVE_TASKS_MAIN_QUEUE_URL },
   functions: {
     deleteSession: async (sid: string) => {
       await sessions.delete(sid);

@@ -299,9 +299,9 @@ export class Auth extends Construct {
     this.authUrl = authHandler.addFunctionUrl({
       authType: FunctionUrlAuthType.NONE,
       cors: {
-        allowedOrigins: ["*"],
+        allowedOrigins: [props.frontendUri],
         allowedMethods: [LambdaHttpMethod.POST],
-        allowedHeaders: ["*"],
+        allowedHeaders: ["content-type", "cookie"],
       },
       invokeMode: InvokeMode.BUFFERED,
     });

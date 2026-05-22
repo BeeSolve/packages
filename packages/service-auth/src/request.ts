@@ -7,12 +7,8 @@ export function parseBody<TInput, TOutput>(props: {
 }): TOutput {
   const result = v.safeParse(props.schema, props.body);
   if (!result.success) {
-    const issues = v.flatten(result.issues);
-
-    throw new BadRequestError({
-      message: `Error parsing request body.`,
-      details: issues.nested,
-    });
+    console.error(v.flatten(result.issues));
+    throw new BadRequestError("Error parsing request body.");
   }
 
   return result.output;

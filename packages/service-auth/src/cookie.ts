@@ -31,7 +31,7 @@ export function parseSid(cookieHeader: string | null | undefined) {
 
 const cookieName = "__Host-DataToken";
 export function toDataTokenCookie(token: string, maxAge: number = 900) {
-  return `${cookieName}=${token}; HttpOnly; Max-Age=${maxAge}; SameSite=Lax; Secure; Path=/`;
+  return `${cookieName}=${token}; HttpOnly; Max-Age=${maxAge}; SameSite=Strict; Secure; Path=/`;
 }
 
 export function parseDataTokenCookie(

@@ -83,8 +83,8 @@ describe("toDataTokenCookie", () => {
     expect(toDataTokenCookie("x", 300)).toContain("Max-Age=300");
   });
 
-  test("uses SameSite=Lax", () => {
-    expect(toDataTokenCookie("x")).toContain("SameSite=Lax");
+  test("uses SameSite=Strict", () => {
+    expect(toDataTokenCookie("x")).toContain("SameSite=Strict");
   });
 
   test("is Secure", () => {
