@@ -8,7 +8,7 @@ const distDir = `${root}dist`;
 
 await rm(lambdaDir, { force: true, recursive: true });
 
-for (const entry of ["api", "authorizer", "sdkHandler"] as const) {
+for (const entry of ["api", "authorizer", "sdkHandler", "tasks"] as const) {
   const outDir = `${lambdaDir}/${entry}`;
   await esmBuild({ entryPoints: [`${root}${entry}.ts`], outDir });
   execSync(`zip -r ${distDir}/${entry}.zip *`, { cwd: outDir });
