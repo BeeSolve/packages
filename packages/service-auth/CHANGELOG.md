@@ -1,5 +1,11 @@
 # @beesolve/auth-service
 
+## 0.3.1
+
+### Patch Changes
+
+- dc5d7bf: add missing prebuilt tasks handler
+
 ## 0.3.0
 
 ### Minor Changes
