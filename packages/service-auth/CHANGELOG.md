@@ -1,5 +1,11 @@
 # @beesolve/auth-service
 
+## 0.3.2
+
+### Patch Changes
+
+- 9823894: fix session list type
+
 ## 0.3.1
 
 ### Patch Changes
