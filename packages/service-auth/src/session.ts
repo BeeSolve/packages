@@ -79,6 +79,7 @@ const schema = v.object({
   ),
 });
 type NewSession = v.InferInput<typeof schema>;
+export type UserSession = v.InferOutput<typeof schema>;
 
 export class Sessions {
   constructor(

@@ -8,7 +8,7 @@ import { keptActive } from "@beesolve/lambda-keep-active/runtime";
 import * as v from "valibot";
 import { Accounts } from "./src/account.ts";
 import { toDynamoClient } from "./src/dynamo.ts";
-import { type Session, Sessions } from "./src/session.ts";
+import { type UserSession, Sessions } from "./src/session.ts";
 
 const envSchema = v.object({
   SESSIONS_TABLE_NAME: v.string(),
@@ -65,7 +65,7 @@ type AccountIdByEmailRequest = {
 type SessionListRequest = {
   readonly type: "sessionList";
   readonly request: v.InferInput<typeof sessionListSchema>;
-  readonly response: Session[];
+  readonly response: UserSession[];
 };
 
 type DeleteAllSessionsRequest = {
