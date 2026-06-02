@@ -1,5 +1,11 @@
 # @beesolve/auth-service
 
+## 0.4.0
+
+### Minor Changes
+
+- 35eb37e: implement AuthHandler OAC instead of origin token
+
 ## 0.3.2
 
 ### Patch Changes
