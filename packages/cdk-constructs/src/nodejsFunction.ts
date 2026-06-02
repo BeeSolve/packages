@@ -57,6 +57,11 @@ export function parseHandlerName(entry: string): string {
  * The code is minified for better performance and exteranl sourcemaps are provided.
  * All the libraries are bundled eg. the default aws-sdk from Nodejs runtime is not being used as it is slower and not always the latest version.
  *
+ * **VPC**: When deploying functions that access DynamoDB or other AWS services,
+ * consider placing them in a VPC with a DynamoDB VPC Gateway Endpoint.
+ * Gateway endpoints are free and keep traffic off the public internet.
+ * Pass the `vpc` and `vpcSubnets` props to enable this.
+ *
  * @default
  *
  * {

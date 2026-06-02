@@ -41,6 +41,8 @@ const sqsHandler = new SqsHandler(stack, "SqsHandler", {
     timeout: Duration.seconds(5),
   },
   alarms,
+  // Optional: customer-managed KMS encryption for the SQS queues
+  encryptionKey: myKmsKey,
 });
 
 sqsHandler.grantAccess(handler);

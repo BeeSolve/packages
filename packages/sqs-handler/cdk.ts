@@ -6,6 +6,7 @@ import {
 } from "@beesolve/cdk-constructs";
 import type { EmailAlarms } from "@beesolve/cdk-email-alarms";
 import { capitalizeFirstLetter } from "@beesolve/helpers";
+import type { IKey } from "aws-cdk-lib/aws-kms";
 import type { Function } from "aws-cdk-lib/aws-lambda";
 import { Construct } from "constructs";
 
@@ -59,6 +60,12 @@ export interface SqsHandlerProps {
    * If you set up EmailAlarms you can pass it here and alarms for SQS and DLQ will be added automatically.
    */
   readonly alarms?: EmailAlarms;
+
+  /**
+   * Optional KMS key for server-side encryption of the SQS queues.
+   * When provided, uses KMS encryption instead of SQS-managed encryption.
+   */
+  readonly encryptionKey?: IKey;
 }
 
 const mainQueueLabel = "main";
@@ -80,6 +87,7 @@ export class SqsHandler extends Construct {
       queueProps,
       additionalConfigurations: additionalHandlerConfigurations = {},
       alarms,
+      encryptionKey,
     } = props;
 
     const configurations: Record<
@@ -113,6 +121,7 @@ export class SqsHandler extends Construct {
 
       const queue = SqsWithDlq.asLambdaInput({
         lambda: handler,
+        encryptionKey,
         ...queueProps,
       });
 

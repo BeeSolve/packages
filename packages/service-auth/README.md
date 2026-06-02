@@ -55,6 +55,14 @@ The construct provisions:
 | `eventSource` | `string` | EventBridge source for all auth events. Defaults to `"beesolve.auth.api"`. |
 | `dataToken` | `boolean` | When `true`, reads `__Host-DataToken` cookie on sign-in and fires a `DataToken` event. Defaults to `false`. |
 | `logGroupProps` | `LogGroupProps` | Override Lambda log group configuration. Defaults to `RemovalPolicy.DESTROY` / 2-week retention. |
+| `encryptionKey` | `IKey` | Customer-managed KMS key for all data-at-rest resources (DynamoDB tables and SQS queues). |
+| `contributorInsights` | `boolean` | CloudWatch Contributor Insights on DynamoDB tables. Defaults to `true` in prod. |
+| `accessLogging` | `boolean` | Access logging on the HTTP API. Creates a CloudWatch Log Group. Defaults to `true` in prod. |
+| `authorizerReservedConcurrency` | `number` | Reserved concurrent executions for the authorizer Lambda. |
+| `sdkHandlerReservedConcurrency` | `number` | Reserved concurrent executions for the SDK handler Lambda. |
+
+> [!TIP]
+> When deploying in a VPC, add a DynamoDB VPC Gateway Endpoint to keep traffic off the public internet. Gateway endpoints are free.
 
 #### Adding authorized endpoints
 

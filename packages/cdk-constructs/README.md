@@ -27,6 +27,9 @@ new Nodejs24Function(this, "Api", {
 });
 ```
 
+> [!TIP]
+> When deploying functions that access DynamoDB, consider placing them in a VPC with a DynamoDB VPC Gateway Endpoint. Gateway endpoints are free and keep traffic off the public internet.
+
 ### tagFunctionsWithRevision
 
 Tags every `Function` in the stack with the current git commit hash. Useful alongside external source maps for tracing Lambda errors back to the exact revision.
@@ -47,6 +50,13 @@ const { queue, dlq } = new SqsWithDlq(this, "Jobs");
 // FIFO
 const fifo = new SqsWithDlq(this, "OrderedJobs", {
   queue: { fifo: true, contentBasedDeduplication: true },
+});
+
+// Customer-managed KMS encryption
+import { Key } from "aws-cdk-lib/aws-kms";
+const key = new Key(this, "QueueKey");
+const encrypted = new SqsWithDlq(this, "EncryptedJobs", {
+  encryptionKey: key,
 });
 ```
 

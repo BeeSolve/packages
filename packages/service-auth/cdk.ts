@@ -4,8 +4,8 @@ import { Nodejs24Function } from "@beesolve/cdk-constructs";
 import type { EmailAlarms } from "@beesolve/cdk-email-alarms";
 import type { LambdaKeepActive } from "@beesolve/lambda-keep-active";
 import { SqsHandler } from "@beesolve/sqs-handler/cdk";
-import { Duration, RemovalPolicy } from "aws-cdk-lib";
-import { HttpApi, HttpMethod } from "aws-cdk-lib/aws-apigatewayv2";
+import { Annotations, Duration, RemovalPolicy } from "aws-cdk-lib";
+import { CfnStage, HttpApi, HttpMethod } from "aws-cdk-lib/aws-apigatewayv2";
 import { HttpLambdaAuthorizer } from "aws-cdk-lib/aws-apigatewayv2-authorizers";
 import { HttpLambdaIntegration } from "aws-cdk-lib/aws-apigatewayv2-integrations";
 import {
@@ -28,6 +28,7 @@ import {
   TableV2,
 } from "aws-cdk-lib/aws-dynamodb";
 import { EventBus } from "aws-cdk-lib/aws-events";
+import type { IKey } from "aws-cdk-lib/aws-kms";
 import {
   Architecture,
   Code,
@@ -37,7 +38,7 @@ import {
   InvokeMode,
   Runtime,
 } from "aws-cdk-lib/aws-lambda";
-import type { LogGroupProps } from "aws-cdk-lib/aws-logs";
+import { LogGroup, type LogGroupProps, RetentionDays } from "aws-cdk-lib/aws-logs";
 import { CfnRuleGroup } from "aws-cdk-lib/aws-wafv2";
 import { Construct } from "constructs";
 
@@ -179,6 +180,42 @@ export class Auth extends Construct {
          */
         readonly rateLimit?: number;
       };
+      /**
+       * Optional KMS key for server-side encryption of all data-at-rest resources
+       * (DynamoDB tables and SQS queues). When provided, uses customer-managed
+       * encryption instead of AWS-managed/SQS-managed encryption.
+       */
+      readonly encryptionKey?: IKey;
+      /**
+       * Enable CloudWatch Contributor Insights on DynamoDB tables.
+       * Helps detect access pattern anomalies such as hot partition keys.
+       *
+       * @default true when stage is "prod"
+       */
+      readonly contributorInsights?: boolean;
+      /**
+       * Enable access logging on the HTTP API (API Gateway).
+       * Creates a CloudWatch Log Group for request/response audit trails.
+       *
+       * @default true when stage is "prod"
+       */
+      readonly accessLogging?: boolean;
+      /**
+       * Reserved concurrent executions for the authorizer Lambda.
+       * Caps concurrency to prevent a traffic spike from exhausting the
+       * account-wide Lambda concurrency pool.
+       *
+       * @default undefined (no reservation)
+       */
+      readonly authorizerReservedConcurrency?: number;
+      /**
+       * Reserved concurrent executions for the SDK handler Lambda.
+       * Caps concurrency to prevent a traffic spike from exhausting the
+       * account-wide Lambda concurrency pool.
+       *
+       * @default undefined (no reservation)
+       */
+      readonly sdkHandlerReservedConcurrency?: number;
     },
   ) {
     super(scope, id);
@@ -188,11 +225,14 @@ export class Auth extends Construct {
     const removalPolicy: RemovalPolicy = isProd
       ? RemovalPolicy.RETAIN
       : RemovalPolicy.DESTROY;
+    const contributorInsights = props.contributorInsights ?? isProd;
 
     const actionTokens = new ActionTokens(this, "ActionTokens", {
       deletionProtection,
       removalPolicy,
       pointInTimeRecoveryEnabled: isProd,
+      encryptionKey: props.encryptionKey,
+      contributorInsights,
     });
 
     const eventBus = props.eventBusArn
@@ -206,12 +246,17 @@ export class Auth extends Construct {
       },
       billing: Billing.onDemand(),
       deletionProtection,
-      encryption: TableEncryptionV2.awsManagedKey(),
+      encryption: props.encryptionKey
+        ? TableEncryptionV2.customerManagedKey(props.encryptionKey)
+        : TableEncryptionV2.awsManagedKey(),
       removalPolicy,
       timeToLiveAttribute: "expiresAt",
       pointInTimeRecoverySpecification: {
         pointInTimeRecoveryEnabled: isProd,
       },
+      contributorInsightsSpecification: contributorInsights
+        ? { enabled: true }
+        : undefined,
     });
     const sessionsByUserIdIndexName = "userIdGsi";
     sessionsTable.addGlobalSecondaryIndex({
@@ -238,11 +283,16 @@ export class Auth extends Construct {
       },
       billing: Billing.onDemand(),
       deletionProtection,
-      encryption: TableEncryptionV2.awsManagedKey(),
+      encryption: props.encryptionKey
+        ? TableEncryptionV2.customerManagedKey(props.encryptionKey)
+        : TableEncryptionV2.awsManagedKey(),
       removalPolicy,
       pointInTimeRecoverySpecification: {
         pointInTimeRecoveryEnabled: isProd,
       },
+      contributorInsightsSpecification: contributorInsights
+        ? { enabled: true }
+        : undefined,
     });
     const accountsReverseIndexName = "reverseGsi";
     accountsTable.addGlobalSecondaryIndex({
@@ -264,6 +314,7 @@ export class Auth extends Construct {
       handler: "authorizer.handler",
       memorySize: 256,
       timeout: Duration.seconds(5),
+      reservedConcurrentExecutions: props.authorizerReservedConcurrency,
       environment: {
         SESSIONS_TABLE_NAME: sessionsTable.tableName,
         SESSIONS_USER_ID_INDEX_NAME: sessionsByUserIdIndexName,
@@ -289,10 +340,23 @@ export class Auth extends Construct {
       resultsCacheTtl: resolveAuthorizerCacheTtl(props.authorizerCache),
     });
 
+    const accessLogging = props.accessLogging ?? isProd;
+
     this.api = new HttpApi(this, "Api", {
       apiName: `${this.node.path}/api`,
       description: "API",
     });
+
+    if (accessLogging) {
+      const accessLogGroup = new LogGroup(this, "ApiAccessLogs", {
+        retention: RetentionDays.ONE_MONTH,
+        removalPolicy: RemovalPolicy.DESTROY,
+      });
+      const stage = this.api.defaultStage!.node.defaultChild as CfnStage;
+      stage.accessLogSettings = {
+        destinationArn: accessLogGroup.logGroupArn,
+      };
+    }
 
     const authHandlerEnv: Record<string, string> = {
       STAGE: props.stage,
@@ -381,6 +445,7 @@ export class Auth extends Construct {
         logGroupProps: props.logGroupProps,
       },
       alarms: props.alarms,
+      encryptionKey: props.encryptionKey,
     });
     sqsHandler.forEachHandler((h) => sessionsTable.grantReadWriteData(h));
     sqsHandler.grantAccess(authHandler);
@@ -391,6 +456,7 @@ export class Auth extends Construct {
       handler: "sdkHandler.handler",
       memorySize: 256,
       timeout: Duration.seconds(5),
+      reservedConcurrentExecutions: props.sdkHandlerReservedConcurrency,
       environment: {
         SESSIONS_TABLE_NAME: sessionsTable.tableName,
         SESSIONS_USER_ID_INDEX_NAME: sessionsByUserIdIndexName,
@@ -405,6 +471,13 @@ export class Auth extends Construct {
     props.warmer?.keepActive(sdkHandler);
 
     this.sdkHandler = sdkHandler;
+
+    if (!props.alarms) {
+      Annotations.of(this).addWarningV2(
+        "@beesolve/auth-service:noAlarms",
+        "No alarms configured. DLQ messages (failed session invalidations) will go unnoticed. Pass `alarms` to enable monitoring.",
+      );
+    }
 
     if (props.waf) {
       this.wafRuleGroup = new CfnRuleGroup(this, "WafRuleGroup", {
@@ -443,13 +516,17 @@ export class Auth extends Construct {
    * to avoid CloudFormation cross-stack export issues with Lambda@Edge version ARNs.
    */
   readonly createAuthBehavior = (scope: Construct): BehaviorOptions => {
-    const edgeBodyHash = new experimental.EdgeFunction(scope, "AuthEdgeBodyHash", {
-      runtime: Runtime.NODEJS_24_X,
-      architecture: Architecture.X86_64,
-      handler: "edgeBodyHash.handler",
-      code: Code.fromAsset(this.edgeBodyHashAssetPath),
-      description: "Computes x-amz-content-sha256 for OAC SigV4 signing",
-    });
+    const edgeBodyHash = new experimental.EdgeFunction(
+      scope,
+      "AuthEdgeBodyHash",
+      {
+        runtime: Runtime.NODEJS_24_X,
+        architecture: Architecture.X86_64,
+        handler: "edgeBodyHash.handler",
+        code: Code.fromAsset(this.edgeBodyHashAssetPath),
+        description: "Computes x-amz-content-sha256 for OAC SigV4 signing",
+      },
+    );
 
     return {
       origin: this.authOrigin,

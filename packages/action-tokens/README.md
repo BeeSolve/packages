@@ -31,11 +31,25 @@ const tokens = new ActionTokens(this, "ActionTokens", {
   // Protect the table from accidental deletion in production
   deletionProtection: isProd,
   removalPolicy: isProd ? RemovalPolicy.RETAIN : RemovalPolicy.DESTROY,
+  // Optional: customer-managed KMS encryption
+  encryptionKey: myKmsKey,
+  // Optional: CloudWatch Contributor Insights for access pattern monitoring
+  contributorInsights: isProd,
 });
 
 // Grants read/write access and injects env vars into the Lambda
 tokens.grantAccess(myLambdaFunction);
 ```
+
+#### Default behaviors
+
+| Prop | Default |
+|---|---|
+| `removalPolicy` | `RETAIN` |
+| `deletionProtection` | `true` when `removalPolicy` is `RETAIN` |
+| `pointInTimeRecoveryEnabled` | `true` when `deletionProtection` is `true` |
+| `contributorInsights` | `false` |
+| `encryptionKey` | `undefined` (AWS-managed encryption) |
 
 ### 2 — Lambda handler (SDK)
 

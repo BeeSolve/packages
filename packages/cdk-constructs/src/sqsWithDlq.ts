@@ -1,4 +1,5 @@
 import { Annotations, Duration } from "aws-cdk-lib";
+import type { IKey } from "aws-cdk-lib/aws-kms";
 import type { Function } from "aws-cdk-lib/aws-lambda";
 import {
   SqsEventSource,
@@ -15,6 +16,11 @@ export interface SqsWithDlqProps {
       "fifo" | "contentBasedDeduplication" | "deduplicationScope"
     >
   >;
+  /**
+   * Optional KMS key for server-side encryption of the queue and DLQ.
+   * When provided, uses KMS encryption instead of SQS-managed encryption.
+   */
+  readonly encryptionKey?: IKey;
 }
 
 export class SqsWithDlq extends Construct {
@@ -24,18 +30,25 @@ export class SqsWithDlq extends Construct {
   constructor(scope: Construct, id: string, props: SqsWithDlqProps = {}) {
     super(scope, id);
 
+    const encryptionProps = props.encryptionKey
+      ? {
+          encryption: QueueEncryption.KMS,
+          encryptionMasterKey: props.encryptionKey,
+        }
+      : { encryption: QueueEncryption.SQS_MANAGED };
+
     this.dlq = new Queue(this, "Dlq", {
       fifo: props.queue?.fifo,
       contentBasedDeduplication: props.queue?.contentBasedDeduplication,
       deduplicationScope: props.queue?.deduplicationScope,
-      encryption: QueueEncryption.SQS_MANAGED,
+      ...encryptionProps,
       enforceSSL: true,
       retentionPeriod: Duration.days(14),
       ...props?.dlq,
     });
 
     this.queue = new Queue(this, "Queue", {
-      encryption: QueueEncryption.SQS_MANAGED,
+      ...encryptionProps,
       enforceSSL: true,
       retentionPeriod: Duration.days(14),
       ...props.queue,
