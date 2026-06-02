@@ -1,5 +1,11 @@
 # @beesolve/auth-service
 
+## 0.4.1
+
+### Patch Changes
+
+- 7253dfa: fix prevention of rotating young sessions
+
 ## 0.4.0
 
 ### Minor Changes
