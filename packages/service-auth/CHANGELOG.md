@@ -1,5 +1,11 @@
 # @beesolve/auth-service
 
+## 0.6.1
+
+### Patch Changes
+
+- 3b965b3: Fix API Gateway access log deployment failure by adding required `format` field to `accessLogSettings`.
+
 ## 0.6.0
 
 ### Minor Changes
