@@ -1,5 +1,11 @@
 # @beesolve/auth-service
 
+## 0.5.0
+
+### Minor Changes
+
+- d34336c: Fix cross-stack CloudFormation export error for Lambda@Edge version ARN. Add `createAuthBehavior(scope)` method to create the edge function within the consuming stack, avoiding export update conflicts. Fix session refresh drift check to compare against `createdAt` instead of `startedAt`.
+
 ## 0.4.1
 
 ### Patch Changes
