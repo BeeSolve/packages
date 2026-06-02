@@ -1,6 +1,6 @@
 {
   "name": "@beesolve/auth-service",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Email-code auth system backed by DynamoDB and EventBridge, deployable via CDK",
   "homepage": "https://github.com/beesolve/packages/tree/main/packages/service-auth#readme",
   "license": "MIT",
