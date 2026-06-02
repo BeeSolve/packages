@@ -40,7 +40,9 @@ The construct provisions:
 
 - **DynamoDB tables** — `Sessions` (with a userId GSI) and `Accounts` (with a reverse-lookup GSI).
 - **Three Lambda functions** — the auth API handler, a Lambda authorizer, and an SDK bridge handler.
-- **Function URL** (`authUrl`) — a public, CORS-enabled endpoint for `signInRequest`, `signInComplete`, and `signOut`.
+- **Function URL** (`authUrl`) — an IAM-protected endpoint for `signInRequest`, `signInComplete`, and `signOut`. Access is restricted via CloudFront Origin Access Control (OAC).
+- **Lambda@Edge** — computes `x-amz-content-sha256` for POST body SigV4 signing.
+- **`authBehavior`** — a ready-to-use CloudFront `BehaviorOptions` object that wires the OAC origin and Lambda@Edge together.
 - **HTTP API** (`api`) — an API Gateway HTTP API with the Lambda authorizer attached, used for all routes that require a valid session.
 
 #### Optional props
@@ -81,7 +83,7 @@ The core design principle of this package is **same-domain, cookie-based authori
 
 Because every request — page loads, auth calls, API calls — shares the same origin, the `__Host-SID` session cookie set by the auth handler is automatically included by the browser on every subsequent API request. There is no cross-origin cookie handling, no token plumbing in your frontend code, and no CORS configuration needed between your app and the API.
 
-See [docs/cloudfront.md](docs/cloudfront.md) for a complete CDK example.
+Use `auth.authBehavior` to add the `/auth/*` behavior to your CloudFront distribution — it includes the OAC-signed origin and Lambda@Edge for body hashing. See [docs/cloudfront.md](docs/cloudfront.md) for a complete CDK example.
 
 All three endpoints expect `POST`, `Content-Type: application/json`.
 

@@ -12,14 +12,10 @@ This example shows a complete CDK stack that places a CloudFront distribution in
 import { Auth } from "@beesolve/auth-service/cdk";
 import { Fn, Stack, type StackProps } from "aws-cdk-lib";
 import {
-  AllowedMethods,
-  CachePolicy,
   Distribution,
-  OriginRequestPolicy,
   ViewerProtocolPolicy,
 } from "aws-cdk-lib/aws-cloudfront";
 import {
-  FunctionUrlOrigin,
   HttpOrigin,
   S3StaticWebsiteOrigin,
 } from "aws-cdk-lib/aws-cloudfront-origins";
@@ -36,9 +32,6 @@ export class AppStack extends Stack {
       websiteIndexDocument: "index.html",
     });
 
-    // Create distribution first so we can pass its domain to Auth.
-    // If you have a custom domain, pass that instead and point your DNS
-    // record at the distribution after it is deployed.
     const distribution = new Distribution(this, "Distribution", {
       defaultBehavior: {
         origin: new S3StaticWebsiteOrigin(frontendBucket),
@@ -49,8 +42,6 @@ export class AppStack extends Stack {
     const frontendUri = `https://${distribution.distributionDomainName}`;
 
     // --- Auth ------------------------------------------------------------
-    // frontendUri MUST match the CloudFront domain (or custom domain) so that
-    // __Host-* cookies are scoped to the same origin as the rest of the app.
     const auth = new Auth(this, "Auth", {
       stage: "prod",
       frontendUri,
@@ -64,33 +55,20 @@ export class AppStack extends Stack {
       code: Code.fromInline(`exports.handler = async () => ({ statusCode: 200, body: "ok" })`),
     });
 
-    // Adds the Lambda behind the session-cookie authorizer on auth.api
     auth.addAuthorizedEndpoint({ lambda: apiHandler });
 
     // --- CloudFront behaviors --------------------------------------------
-    const passthroughBehavior = {
-      allowedMethods: AllowedMethods.ALLOW_ALL,
-      cachePolicy: CachePolicy.CACHING_DISABLED,
-      // Forwards all viewer headers and query strings except the Host header,
-      // which CloudFront replaces with the origin domain. This ensures cookies
-      // are forwarded to the Lambda and API Gateway unchanged.
-      originRequestPolicy: OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
-      viewerProtocolPolicy: ViewerProtocolPolicy.HTTPS_ONLY,
-    };
 
-    // /auth/* → Lambda function URL (signInRequest, signInComplete, signOut)
-    distribution.addBehavior(
-      "/auth/*",
-      new FunctionUrlOrigin(auth.authUrl),
-      passthroughBehavior,
-    );
+    // /auth/* → Lambda function URL with OAC (includes Lambda@Edge for body hashing)
+    distribution.addBehavior("/auth/*", auth.authBehavior.origin, auth.authBehavior);
 
     // /api/* → API Gateway HTTP API (session-protected routes)
-    distribution.addBehavior(
-      "/api/*",
-      new HttpOrigin(Fn.parseDomainName(auth.api.url!)),
-      passthroughBehavior,
-    );
+    distribution.addBehavior("/api/*", new HttpOrigin(Fn.parseDomainName(auth.api.url!)), {
+      allowedMethods: AllowedMethods.ALLOW_ALL,
+      cachePolicy: CachePolicy.CACHING_DISABLED,
+      originRequestPolicy: OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
+      viewerProtocolPolicy: ViewerProtocolPolicy.HTTPS_ONLY,
+    });
   }
 }
 ```
@@ -100,12 +78,42 @@ export class AppStack extends Stack {
 | Behavior | Origin | Purpose |
 |---|---|---|
 | `/*` (default) | S3 bucket | Serves your frontend SPA |
-| `/auth/*` | `FunctionUrlOrigin(auth.authUrl)` | Auth handler — sets `__Host-SID` and `aSID` cookies |
+| `/auth/*` | `auth.authBehavior` | Auth handler — OAC-signed, Lambda@Edge computes body hash for SigV4 |
 | `/api/*` | `HttpOrigin(auth.api.url)` | API Gateway — the Lambda authorizer validates `__Host-SID` on every request |
+
+## How OAC works
+
+CloudFront Origin Access Control (OAC) signs requests to the Lambda function URL using SigV4. The function URL has `AuthType: AWS_IAM`, so direct access (without a valid SigV4 signature) is rejected at the IAM layer — the Lambda is never invoked.
+
+For POST requests, SigV4 requires the body hash (`x-amz-content-sha256`). A Lambda@Edge function (origin-request, `includeBody: true`) computes this header automatically. This is already wired into `auth.authBehavior`.
+
+## CORS
+
+With `AWS_IAM` auth type, CORS configured on the function URL is not applied. Add a CloudFront response headers policy to your `/auth/*` behavior if you need CORS headers:
+
+```ts
+import { ResponseHeadersPolicy, HeadersFrameOption, HeadersReferrerPolicy } from "aws-cdk-lib/aws-cloudfront";
+
+const corsPolicy = new ResponseHeadersPolicy(this, "AuthCors", {
+  corsBehavior: {
+    accessControlAllowOrigins: [frontendUri],
+    accessControlAllowMethods: ["POST"],
+    accessControlAllowHeaders: ["content-type", "cookie"],
+    accessControlAllowCredentials: true,
+    originOverride: true,
+  },
+});
+
+// Add to the auth behavior:
+distribution.addBehavior("/auth/*", auth.authBehavior.origin, {
+  ...auth.authBehavior,
+  responseHeadersPolicy: corsPolicy,
+});
+```
 
 ## Custom domain
 
-Replace `distribution.distributionDomainName` with your domain name and point an `A`/`ALIAS` DNS record at the distribution. Pass the same domain as `frontendUri`:
+Replace `distribution.distributionDomainName` with your domain name and point an `A`/`ALIAS` DNS record at the distribution:
 
 ```ts
 const frontendUri = "https://app.example.com";

@@ -8,10 +8,17 @@ const distDir = `${root}dist`;
 
 await rm(lambdaDir, { force: true, recursive: true });
 
-for (const entry of ["api", "authorizer", "sdkHandler", "tasks"] as const) {
+for (const entry of [
+  "api",
+  "authorizer",
+  "sdkHandler",
+  "tasks",
+  "src/edgeBodyHash",
+] as const) {
   const outDir = `${lambdaDir}/${entry}`;
   await esmBuild({ entryPoints: [`${root}${entry}.ts`], outDir });
-  execSync(`zip -r ${distDir}/${entry}.zip *`, { cwd: outDir });
+  const zipName = entry.includes("/") ? entry.split("/").pop()! : entry;
+  execSync(`zip -r ${distDir}/${zipName}.zip *`, { cwd: outDir });
 }
 
 await rm(lambdaDir, { force: true, recursive: true });

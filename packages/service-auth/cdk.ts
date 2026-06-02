@@ -9,6 +9,17 @@ import { HttpApi, HttpMethod } from "aws-cdk-lib/aws-apigatewayv2";
 import { HttpLambdaAuthorizer } from "aws-cdk-lib/aws-apigatewayv2-authorizers";
 import { HttpLambdaIntegration } from "aws-cdk-lib/aws-apigatewayv2-integrations";
 import {
+  AllowedMethods,
+  type BehaviorOptions,
+  CachePolicy,
+  FunctionUrlOriginAccessControl,
+  LambdaEdgeEventType,
+  OriginRequestPolicy,
+  ViewerProtocolPolicy,
+  experimental,
+} from "aws-cdk-lib/aws-cloudfront";
+import { FunctionUrlOrigin } from "aws-cdk-lib/aws-cloudfront-origins";
+import {
   AttributeType,
   Billing,
   ProjectionType,
@@ -17,14 +28,15 @@ import {
 } from "aws-cdk-lib/aws-dynamodb";
 import { EventBus } from "aws-cdk-lib/aws-events";
 import {
+  Architecture,
+  Code,
   type Function,
   type FunctionUrl,
   FunctionUrlAuthType,
   InvokeMode,
-  HttpMethod as LambdaHttpMethod,
+  Runtime,
 } from "aws-cdk-lib/aws-lambda";
 import type { LogGroupProps } from "aws-cdk-lib/aws-logs";
-import { Secret } from "aws-cdk-lib/aws-secretsmanager";
 import { CfnRuleGroup } from "aws-cdk-lib/aws-wafv2";
 import { Construct } from "constructs";
 
@@ -60,11 +72,11 @@ export class Auth extends Construct {
   readonly wafRuleGroup?: CfnRuleGroup;
 
   /**
-   * Origin verification token value. Add this as a custom origin header
-   * (`x-origin-token`) in your CloudFront distribution to prevent direct
-   * invocation of the Lambda function URL.
+   * CloudFront behavior options for the auth function URL.
+   * Add this as a behavior in your CloudFront distribution for the `/auth/*` path.
+   * Includes OAC-signed origin and Lambda@Edge for POST body hashing.
    */
-  readonly originVerificationToken: string;
+  readonly authBehavior: BehaviorOptions;
 
   constructor(
     scope: Construct,
@@ -266,13 +278,6 @@ export class Auth extends Construct {
       description: "API",
     });
 
-    const originToken = new Secret(this, "OriginToken", {
-      description: `x-origin-token for ${this.node.path}`,
-      removalPolicy: RemovalPolicy.DESTROY,
-      generateSecretString: { passwordLength: 128, excludePunctuation: true },
-    }).secretValue.toString();
-    this.originVerificationToken = originToken;
-
     const authHandlerEnv: Record<string, string> = {
       STAGE: props.stage,
       SESSIONS_TABLE_NAME: sessionsTable.tableName,
@@ -288,7 +293,6 @@ export class Auth extends Construct {
       OTP_EXPIRY: String(
         Math.round((props.otpExpiry ?? Duration.minutes(10)).toSeconds()),
       ),
-      ORIGIN_TOKEN: originToken,
     };
     if (props.eventSource != null) {
       authHandlerEnv["EVENT_SOURCE"] = props.eventSource;
@@ -313,14 +317,36 @@ export class Auth extends Construct {
     props.warmer?.keepActive(authHandler);
 
     this.authUrl = authHandler.addFunctionUrl({
-      authType: FunctionUrlAuthType.NONE,
-      cors: {
-        allowedOrigins: [props.frontendUri],
-        allowedMethods: [LambdaHttpMethod.POST],
-        allowedHeaders: ["content-type", "cookie"],
-      },
+      authType: FunctionUrlAuthType.AWS_IAM,
       invokeMode: InvokeMode.BUFFERED,
     });
+
+    const edgeBodyHash = new experimental.EdgeFunction(this, "EdgeBodyHash", {
+      runtime: Runtime.NODEJS_24_X,
+      architecture: Architecture.X86_64,
+      handler: "edgeBodyHash.handler",
+      code: Code.fromAsset(`${distDir}edgeBodyHash.zip`),
+      description: "Computes x-amz-content-sha256 for OAC SigV4 signing",
+    });
+
+    const oac = new FunctionUrlOriginAccessControl(this, "AuthOAC");
+
+    this.authBehavior = {
+      origin: FunctionUrlOrigin.withOriginAccessControl(this.authUrl, {
+        originAccessControl: oac,
+      }),
+      allowedMethods: AllowedMethods.ALLOW_ALL,
+      cachePolicy: CachePolicy.CACHING_DISABLED,
+      originRequestPolicy: OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
+      viewerProtocolPolicy: ViewerProtocolPolicy.HTTPS_ONLY,
+      edgeLambdas: [
+        {
+          functionVersion: edgeBodyHash.currentVersion,
+          eventType: LambdaEdgeEventType.ORIGIN_REQUEST,
+          includeBody: true,
+        },
+      ],
+    };
 
     const sqsHandler = new SqsHandler(this, "Tasks", {
       handlerProps: {

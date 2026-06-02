@@ -48,7 +48,6 @@ const envSchema = v.object({
     v.pipe(v.string(), v.transform(Number)),
     "600", // 10 minutes
   ),
-  ORIGIN_TOKEN: v.string(),
 });
 const env = v.parse(envSchema, process.env);
 
@@ -90,9 +89,6 @@ const fetch = async (request: Request): Promise<Response> => {
 
   console.time(awsRequestId);
   try {
-    if (request.headers.get("x-origin-token") !== env.ORIGIN_TOKEN) {
-      throw new ForbiddenError("Invalid origin.");
-    }
     if (request.method.toLowerCase() !== "post") {
       throw new BadRequestError("Invalid HTTP method.");
     }

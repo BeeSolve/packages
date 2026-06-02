@@ -35,6 +35,22 @@ bun run publish:packages
 
 This builds all packages and publishes any version not yet on npm, in topological order derived from `dependencies.json`.
 
+### Snapshot (beta) releases
+
+To publish a throwaway pre-release for testing:
+
+```bash
+bunx changeset version --snapshot beta
+bun run build
+cd packages/<name>
+bun run prepublishOnly
+bun pm pack
+npm publish *.tgz --access public --tag beta
+rm *.tgz
+```
+
+See [docs/snapshot-releases.md](docs/snapshot-releases.md) for the full workflow.
+
 ## Dependency order
 
 `dependencies.json` records the topological publish order. Regenerate it after adding or removing `@beesolve/*` dependencies between packages:
