@@ -13,6 +13,7 @@ import {
   type BehaviorOptions,
   CachePolicy,
   FunctionUrlOriginAccessControl,
+  type IOrigin,
   LambdaEdgeEventType,
   OriginRequestPolicy,
   ViewerProtocolPolicy,
@@ -75,8 +76,23 @@ export class Auth extends Construct {
    * CloudFront behavior options for the auth function URL.
    * Add this as a behavior in your CloudFront distribution for the `/auth/*` path.
    * Includes OAC-signed origin and Lambda@Edge for POST body hashing.
+   *
+   * IMPORTANT: When using this across stacks, prefer `createAuthBehavior()` instead
+   * to avoid CloudFormation cross-stack export issues with Lambda@Edge versions.
    */
   readonly authBehavior: BehaviorOptions;
+
+  /**
+   * OAC-signed origin for the auth function URL.
+   * Use with `createAuthBehavior()` when creating the behavior in a different stack.
+   */
+  readonly authOrigin: IOrigin;
+
+  /**
+   * Path to the edgeBodyHash asset zip.
+   * Use with `createAuthBehavior()` when the distribution lives in a different stack.
+   */
+  readonly edgeBodyHashAssetPath: string;
 
   constructor(
     scope: Construct,
@@ -321,20 +337,24 @@ export class Auth extends Construct {
       invokeMode: InvokeMode.BUFFERED,
     });
 
+    this.edgeBodyHashAssetPath = `${distDir}edgeBodyHash.zip`;
+
+    const oac = new FunctionUrlOriginAccessControl(this, "AuthOAC");
+    this.authOrigin = FunctionUrlOrigin.withOriginAccessControl(this.authUrl, {
+      originAccessControl: oac,
+    });
+
+    // Edge function in same construct — safe when distribution is in the same stack.
     const edgeBodyHash = new experimental.EdgeFunction(this, "EdgeBodyHash", {
       runtime: Runtime.NODEJS_24_X,
       architecture: Architecture.X86_64,
       handler: "edgeBodyHash.handler",
-      code: Code.fromAsset(`${distDir}edgeBodyHash.zip`),
+      code: Code.fromAsset(this.edgeBodyHashAssetPath),
       description: "Computes x-amz-content-sha256 for OAC SigV4 signing",
     });
 
-    const oac = new FunctionUrlOriginAccessControl(this, "AuthOAC");
-
     this.authBehavior = {
-      origin: FunctionUrlOrigin.withOriginAccessControl(this.authUrl, {
-        originAccessControl: oac,
-      }),
+      origin: this.authOrigin,
       allowedMethods: AllowedMethods.ALLOW_ALL,
       cachePolicy: CachePolicy.CACHING_DISABLED,
       originRequestPolicy: OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
@@ -416,6 +436,36 @@ export class Auth extends Construct {
       });
     }
   }
+
+  /**
+   * Creates auth behavior options with the edge function scoped to the provided construct.
+   * Use this when the CloudFront distribution lives in a different stack than the Auth construct
+   * to avoid CloudFormation cross-stack export issues with Lambda@Edge version ARNs.
+   */
+  readonly createAuthBehavior = (scope: Construct): BehaviorOptions => {
+    const edgeBodyHash = new experimental.EdgeFunction(scope, "AuthEdgeBodyHash", {
+      runtime: Runtime.NODEJS_24_X,
+      architecture: Architecture.X86_64,
+      handler: "edgeBodyHash.handler",
+      code: Code.fromAsset(this.edgeBodyHashAssetPath),
+      description: "Computes x-amz-content-sha256 for OAC SigV4 signing",
+    });
+
+    return {
+      origin: this.authOrigin,
+      allowedMethods: AllowedMethods.ALLOW_ALL,
+      cachePolicy: CachePolicy.CACHING_DISABLED,
+      originRequestPolicy: OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
+      viewerProtocolPolicy: ViewerProtocolPolicy.HTTPS_ONLY,
+      edgeLambdas: [
+        {
+          functionVersion: edgeBodyHash.currentVersion,
+          eventType: LambdaEdgeEventType.ORIGIN_REQUEST,
+          includeBody: true,
+        },
+      ],
+    };
+  };
 
   /**
    * Adds provided Lambda function behind API Gateway with authorizer.
