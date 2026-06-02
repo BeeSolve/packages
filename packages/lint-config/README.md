@@ -1,0 +1,109 @@
+# @beesolve/lint-config
+
+Shared Oxlint + Oxfmt configuration and custom lint rules for beesolve projects.
+
+## Quick Setup
+
+```bash
+bun add -D oxlint oxfmt nano-staged husky @beesolve/lint-config
+bunx @beesolve/lint-config setup --type package --internal "@beesolve/*"
+```
+
+### Project Types
+
+| Type        | Use for                                           |
+| ----------- | ------------------------------------------------- |
+| `package`   | Library packages (this monorepo, standalone libs) |
+| `monorepo`  | App monorepos with web (expense-ease)             |
+| `sveltekit` | SvelteKit projects (admin.barlogova.sk)           |
+
+### Internal Pattern
+
+Set `--internal` to match your workspace packages:
+
+- `@beesolve/*` for shared packages repo
+- `@app/*` for app monorepos
+
+## What's Included
+
+### Formatter (Oxfmt)
+
+- Trailing commas everywhere
+- Double quotes
+- 2-space indent, 100 char print width
+- Import sorting (builtin → external → internal → relative)
+- `package.json` key sorting
+
+### Linter (Oxlint)
+
+#### Native Rules
+
+- `typescript/consistent-type-imports` — enforce `import type`
+- `typescript/no-explicit-any` — warn
+- `typescript/no-non-null-assertion` — warn
+- `typescript/no-empty-object-type` — error
+- `unicorn/no-accumulating-spread` — warn
+
+#### Banned Syntax (`no-restricted-syntax`)
+
+- **No enums** — use `as const` objects or union types
+- **No switch** — use if-chains with early returns + `assertUnreachable()`
+- **No `T[]`** — use `Array<T>`
+
+#### Custom Rules (`beesolve/*`)
+
+| Rule                       | Description                                                                          |
+| -------------------------- | ------------------------------------------------------------------------------------ |
+| `prefer-props-object`      | Max 1 param per function. Exception: 2 params if both are objects (handler pattern). |
+| `valibot-namespace-import` | Must use `import * as v from "valibot"`. Auto-fixable.                               |
+| `no-valibot-date`          | Ban `v.date()`, use `v.isoDateTime()`. Auto-fixable.                                 |
+| `naming-conventions`       | PascalCase for types/interfaces, camelCase or UPPER_CASE for everything else.        |
+
+### Pre-commit (nano-staged + husky)
+
+Runs on staged files before commit:
+
+- `oxfmt` on all files
+- `oxlint` on `.js/.ts/.jsx/.tsx` files
+
+## Conventions (Not Lint-Enforced)
+
+These are documented conventions; follow them in code review:
+
+1. **Date string comparison**: Use `localeCompare()` for comparing ISO date strings, not `>` / `<`.
+
+2. **Schema-first types**: Define valibot schemas at boundaries, infer types with `v.InferOutput<typeof schema>`. Don't manually write types that duplicate schema shapes.
+
+3. **File naming** (planned rule): Prefer flat directories with inverse naming:
+   - `userOne.ts`, `userMany.ts`, `user.ts` instead of `user/one.ts`, `user/many.ts`
+   - camelCase filenames only
+   - Test files: `entityAction.test.ts`
+
+4. **Classes**: Avoid unless required by framework (SvelteKit) or boundary pattern (repository). Suppress lint warning inline when justified.
+
+## Manual Configuration
+
+If you don't use the setup script, reference configs directly:
+
+`.oxlintrc.json`:
+
+```json
+{
+  "extends": ["@beesolve/lint-config/presets/package.oxlintrc.json"]
+}
+```
+
+`.nano-staged.json`:
+
+```json
+{
+  "*": "oxfmt --no-error-on-unmatched-pattern",
+  "**/*.{js,ts,jsx,tsx}": "oxlint"
+}
+```
+
+## Adding Custom Rules
+
+Edit `plugins/beesolve.js`. Rules use the standard ESLint plugin API (ESLint v9 compatible) and run inside Oxlint's JS plugin runtime.
+
+See: https://oxc.rs/docs/guide/usage/linter/writing-js-plugins

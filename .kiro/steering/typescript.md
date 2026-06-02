@@ -10,6 +10,13 @@
 
 - Use barrel exports (`index.ts`) for package public APIs — this is the only repo where barrel exports are allowed
 
+## Linting & Formatting
+
+- Formatter: Oxfmt (`bun run fmt` / `bun run fmt:check`)
+- Linter: Oxlint (`bun run lint`) with custom rules via `@beesolve/lint-config`
+- Pre-commit: nano-staged + husky (auto-runs oxfmt + oxlint on changed files)
+- Config lives in `packages/lint-config/` — shared across all beesolve projects
+
 ## Monorepo
 
 - Workspaces with `catalog:` for shared dependency versions

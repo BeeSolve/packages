@@ -1,0 +1,33 @@
+{
+  "$schema": "https://raw.githubusercontent.com/oxc-project/oxc/main/npm/oxlint/configuration_schema.json",
+  "jsPlugins": ["oxlint-plugin-eslint", "../plugins/beesolve.js"],
+  "rules": {
+    "typescript/no-explicit-any": "warn",
+    "typescript/consistent-type-imports": "error",
+    "typescript/no-non-null-assertion": "warn",
+    "typescript/no-empty-object-type": "error",
+
+    "eslint-js/no-restricted-syntax": [
+      "error",
+      {
+        "selector": "TSEnumDeclaration",
+        "message": "No enums. Use `as const` objects or union types instead."
+      },
+      {
+        "selector": "SwitchStatement",
+        "message": "No switch statements. Use if-chains with early returns and assertUnreachable()."
+      },
+      {
+        "selector": "TSArrayType",
+        "message": "Use Array<T> instead of T[]."
+      }
+    ],
+
+    "oxc/no-accumulating-spread": "warn",
+
+    "beesolve/prefer-props-object": "error",
+    "beesolve/valibot-namespace-import": "error",
+    "beesolve/no-valibot-date": "error",
+    "beesolve/naming-conventions": "error"
+  }
+}
