@@ -355,6 +355,16 @@ export class Auth extends Construct {
       const stage = this.api.defaultStage!.node.defaultChild as CfnStage;
       stage.accessLogSettings = {
         destinationArn: accessLogGroup.logGroupArn,
+        format: JSON.stringify({
+          requestId: "$context.requestId",
+          ip: "$context.identity.sourceIp",
+          method: "$context.httpMethod",
+          path: "$context.path",
+          status: "$context.status",
+          responseLength: "$context.responseLength",
+          latency: "$context.responseLatency",
+          time: "$context.requestTime",
+        }),
       };
     }
 
