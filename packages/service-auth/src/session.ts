@@ -188,9 +188,9 @@ export class Sessions {
       const start = new Date();
       const drift = this.props.refreshDrift ?? 15_000;
 
-      const difference = start.getTime() - props.session.startedAt.getTime();
+      const difference = start.getTime() - props.session.createdAt.getTime();
       if (difference < drift) {
-        // Session is very young — skip rotation and return the existing session.
+        // Session record is very young — skip rotation and return the existing session.
         // maxAge is capped to the remaining session lifetime so the cookie
         // expiry stays in sync. This cannot go negative in practice: the caller
         // (authorizer) guards against expired sessions before calling refresh,
