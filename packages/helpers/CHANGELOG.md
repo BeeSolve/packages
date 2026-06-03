@@ -1,5 +1,13 @@
 # @beesolve/helpers
 
+## 0.1.7
+
+### Patch Changes
+
+- ff131ea: Date fields (`expiresAt`, `createdAt`, `startedAt`, `updatedAt`) are now ISO timestamp strings instead of `Date` objects. Use `Date.parse(value)` for comparisons or `new Date(value)` to convert.
+
+  Migrate from Biome to Oxlint + Oxfmt. Add `@beesolve/lint-config` with custom rules. Replace `T[]` with `Array<T>` syntax. Add typeguards to lambda-fetch-api authorizer.
+
 ## 0.1.6
 
 ### Patch Changes
