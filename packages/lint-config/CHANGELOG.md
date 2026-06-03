@@ -1,5 +1,11 @@
 # @beesolve/lint-config
 
+## 0.2.1
+
+### Patch Changes
+
+- 302955a: Add auto-fixer to `readonly-props` rule (inserts `readonly` keyword automatically with `--fix`)
+
 ## 0.2.0
 
 ### Minor Changes
