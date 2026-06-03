@@ -1,6 +1,6 @@
 ---
 "@beesolve/action-tokens": minor
-"@beesolve/service-auth": minor
+"@beesolve/auth-service": minor
 "@beesolve/lambda-fetch-api": patch
 "@beesolve/helpers": patch
 ---
