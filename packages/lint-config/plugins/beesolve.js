@@ -144,6 +144,46 @@ const plugin = {
       },
     },
 
+    "no-then-chains": {
+      meta: {
+        type: "suggestion",
+        docs: { description: "Ban .then() chains. Use async/await instead." },
+      },
+      create(context) {
+        return {
+          "CallExpression > MemberExpression.callee[property.name='then']"(node) {
+            context.report({
+              node: node.property,
+              message: "Use `await` instead of `.then()` chains.",
+            });
+          },
+        };
+      },
+    },
+
+    "readonly-props": {
+      meta: {
+        type: "suggestion",
+        docs: { description: "Enforce readonly on interface and type literal properties." },
+      },
+      create(context) {
+        return {
+          "TSInterfaceDeclaration TSPropertySignature[readonly=false]"(node) {
+            context.report({
+              node: node.key,
+              message: `Property "${node.key.name || node.key.value}" should be readonly.`,
+            });
+          },
+          "TSTypeLiteral TSPropertySignature[readonly=false]"(node) {
+            context.report({
+              node: node.key,
+              message: `Property "${node.key.name || node.key.value}" should be readonly.`,
+            });
+          },
+        };
+      },
+    },
+
     "naming-conventions": {
       meta: {
         type: "suggestion",

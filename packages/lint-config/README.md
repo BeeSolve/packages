@@ -42,7 +42,7 @@ Set `--internal` to match your workspace packages:
 - `typescript/no-explicit-any` — warn
 - `typescript/no-non-null-assertion` — warn
 - `typescript/no-empty-object-type` — error
-- `unicorn/no-accumulating-spread` — warn
+- `oxc/no-accumulating-spread` — warn
 
 #### Banned Syntax (`no-restricted-syntax`)
 
@@ -52,12 +52,46 @@ Set `--internal` to match your workspace packages:
 
 #### Custom Rules (`beesolve/*`)
 
-| Rule                       | Description                                                                          |
-| -------------------------- | ------------------------------------------------------------------------------------ |
-| `prefer-props-object`      | Max 1 param per function. Exception: 2 params if both are objects (handler pattern). |
-| `valibot-namespace-import` | Must use `import * as v from "valibot"`. Auto-fixable.                               |
-| `no-valibot-date`          | Ban `v.date()`, use `v.isoDateTime()`. Auto-fixable.                                 |
-| `naming-conventions`       | PascalCase for types/interfaces, camelCase or UPPER_CASE for everything else.        |
+| Rule                       | Severity | Description                                                                                      |
+| -------------------------- | -------- | ------------------------------------------------------------------------------------------------ |
+| `prefer-props-object`      | error    | Max 1 param per function. Exceptions: callbacks, constructors, 2 object params (handler pattern) |
+| `valibot-namespace-import` | error    | Must use `import * as v from "valibot"`. Auto-fixable.                                           |
+| `no-valibot-date`          | error    | Ban `v.date()`, use `v.isoTimestamp()`. Auto-fixable.                                            |
+| `naming-conventions`       | error    | PascalCase for types/interfaces, camelCase/PascalCase for values.                                |
+| `no-then-chains`           | error    | Ban `.then()` chains. Use `await` instead.                                                       |
+| `readonly-props`           | warn     | Interface and type literal properties should be `readonly`.                                      |
+
+### Presets
+
+Presets extend `base.oxlintrc.json` and add project-specific ignore patterns.
+
+| Preset     | Use for                                                          | `internalPattern` |
+| ---------- | ---------------------------------------------------------------- | ----------------- |
+| `package`  | Library packages (`@beesolve/packages`)                          | `@beesolve/*`     |
+| `monorepo` | App monorepos with tRPC/React (bewatr-reporting, expense-ease)   | `@app/*`          |
+| `sveltekit`| SvelteKit projects (admin.barlogova.sk)                          | `@app/*`          |
+
+#### Overriding rules per project
+
+Add rule overrides in your project's `.oxlintrc.json`:
+```jsonc
+{
+  "extends": ["@beesolve/lint-config/presets/monorepo.oxlintrc.json"],
+  "rules": {
+    "beesolve/readonly-props": "off"
+  }
+}
+```
+
+#### Adding project-specific custom rules
+
+Create a local plugin file and reference it:
+```jsonc
+{
+  "extends": ["@beesolve/lint-config/presets/monorepo.oxlintrc.json"],
+  "jsPlugins": ["./lint/my-project-rules.js"]
+}
+```
 
 ### Pre-commit (nano-staged + husky)
 

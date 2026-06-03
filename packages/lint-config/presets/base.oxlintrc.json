@@ -28,6 +28,8 @@
     "beesolve/prefer-props-object": "error",
     "beesolve/valibot-namespace-import": "error",
     "beesolve/no-valibot-date": "error",
-    "beesolve/naming-conventions": "error"
+    "beesolve/naming-conventions": "error",
+    "beesolve/no-then-chains": "error",
+    "beesolve/readonly-props": "warn"
   }
 }
