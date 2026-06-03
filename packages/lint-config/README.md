@@ -14,8 +14,8 @@ bunx @beesolve/lint-config setup --type package --internal "@beesolve/*"
 | Type        | Use for                                           |
 | ----------- | ------------------------------------------------- |
 | `package`   | Library packages (this monorepo, standalone libs) |
-| `monorepo`  | App monorepos with web (expense-ease)             |
-| `sveltekit` | SvelteKit projects (admin.barlogova.sk)           |
+| `monorepo`  | App monorepos with web                            |
+| `sveltekit` | SvelteKit projects                                |
 
 ### Internal Pattern
 
@@ -65,11 +65,11 @@ Set `--internal` to match your workspace packages:
 
 Presets extend `base.oxlintrc.json` and add project-specific ignore patterns.
 
-| Preset      | Use for                                                        | `internalPattern` |
-| ----------- | -------------------------------------------------------------- | ----------------- |
-| `package`   | Library packages (`@beesolve/packages`)                        | `@beesolve/*`     |
-| `monorepo`  | App monorepos with tRPC/React (bewatr-reporting, expense-ease) | `@app/*`          |
-| `sveltekit` | SvelteKit projects (admin.barlogova.sk)                        | `@app/*`          |
+| Preset      | Use for                                 | `internalPattern` |
+| ----------- | --------------------------------------- | ----------------- |
+| `package`   | Library packages (`@beesolve/packages`) | `@beesolve/*`     |
+| `monorepo`  | App monorepos with tRPC/React           | `@app/*`          |
+| `sveltekit` | SvelteKit projects                      | `@app/*`          |
 
 #### Overriding rules per project
 

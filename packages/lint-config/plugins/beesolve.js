@@ -164,22 +164,22 @@ const plugin = {
     "readonly-props": {
       meta: {
         type: "suggestion",
+        fixable: "code",
         docs: { description: "Enforce readonly on interface and type literal properties." },
       },
       create(context) {
+        function report(node) {
+          context.report({
+            node: node.key,
+            message: `Property "${node.key.name || node.key.value}" should be readonly.`,
+            fix(fixer) {
+              return fixer.insertTextBefore(node.key, "readonly ");
+            },
+          });
+        }
         return {
-          "TSInterfaceDeclaration TSPropertySignature[readonly=false]"(node) {
-            context.report({
-              node: node.key,
-              message: `Property "${node.key.name || node.key.value}" should be readonly.`,
-            });
-          },
-          "TSTypeLiteral TSPropertySignature[readonly=false]"(node) {
-            context.report({
-              node: node.key,
-              message: `Property "${node.key.name || node.key.value}" should be readonly.`,
-            });
-          },
+          "TSInterfaceDeclaration TSPropertySignature[readonly=false]": report,
+          "TSTypeLiteral TSPropertySignature[readonly=false]": report,
         };
       },
     },
