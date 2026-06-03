@@ -8,6 +8,7 @@ import type {
   Context,
   StreamifyHandler,
 } from "aws-lambda";
+
 import { runWithAwsContext } from "./src/store";
 import { awsRequest, awsResponseBody, awsResponseHeaders } from "./src/util";
 
@@ -24,9 +25,7 @@ export function asHttpV1Handler(fetch: Fetch) {
     context: Context,
   ): Promise<APIGatewayProxyResult> {
     const request = awsRequest(event);
-    const response = await runWithAwsContext(event, context, () =>
-      fetch(request),
-    );
+    const response = await runWithAwsContext(event, context, () => fetch(request));
 
     return {
       statusCode: response.status,
@@ -42,9 +41,7 @@ export function asHttpV2Handler(fetch: Fetch) {
     context: Context,
   ): Promise<APIGatewayProxyStructuredResultV2> {
     const request = awsRequest(event);
-    const response = await runWithAwsContext(event, context, () =>
-      fetch(request),
-    );
+    const response = await runWithAwsContext(event, context, () => fetch(request));
 
     return {
       statusCode: response.status,
@@ -60,9 +57,7 @@ export function asLambdaAuthorizedHttpV2Handler<TAuth = unknown>(fetch: Fetch) {
     context: Context,
   ): Promise<APIGatewayProxyStructuredResultV2> {
     const request = awsRequest(event);
-    const response = await runWithAwsContext(event, context, () =>
-      fetch(request),
-    );
+    const response = await runWithAwsContext(event, context, () => fetch(request));
 
     return {
       statusCode: response.status,
@@ -78,9 +73,7 @@ export function asCustomAuthorizedHttpV1Handler<TAuth = unknown>(fetch: Fetch) {
     context: Context,
   ): Promise<APIGatewayProxyResult> {
     const request = awsRequest(event);
-    const response = await runWithAwsContext(event, context, () =>
-      fetch(request),
-    );
+    const response = await runWithAwsContext(event, context, () => fetch(request));
 
     return {
       statusCode: response.status,
@@ -97,9 +90,7 @@ export function asResponseStreamHandler(
     async (event: APIGatewayProxyEventV2, responseStream, context) => {
       const request = awsRequest(event);
 
-      const response = await runWithAwsContext(event, context, () =>
-        fetch(request),
-      );
+      const response = await runWithAwsContext(event, context, () => fetch(request));
 
       const httpResponseMetadata = {
         statusCode: response.status,
@@ -121,10 +112,7 @@ export function asResponseStreamHandler(
 
       // Assign to the responseStream parameter to prevent accidental reuse of the non-wrapped stream.
       // @see https://docs.aws.amazon.com/lambda/latest/dg/response-streaming-tutorial.html
-      responseStream = awslambda.HttpResponseStream.from(
-        responseStream,
-        httpResponseMetadata,
-      );
+      responseStream = awslambda.HttpResponseStream.from(responseStream, httpResponseMetadata);
 
       // Call write on the stream to trigger metadata to be sent
       // https://github.com/aws/aws-lambda-nodejs-runtime-interface-client/blob/2ce88619fd176a5823bc5f38c5484d1cbdf95717/src/HttpResponseStream.js#L22

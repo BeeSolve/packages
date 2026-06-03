@@ -1,5 +1,6 @@
 import { mkdir, readdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+
 import { renderEmail } from "./render.js";
 
 /**
@@ -31,9 +32,7 @@ export async function buildTemplates(options: {
   await mkdir(outDir, { recursive: true });
 
   const files = await readdir(templatesDir);
-  const templateFiles = files.filter((f) =>
-    /\.(tsx|ts|jsx|js)$/.test(f),
-  );
+  const templateFiles = files.filter((f) => /\.(tsx|ts|jsx|js)$/.test(f));
 
   await Promise.all(
     templateFiles.flatMap((filename) =>
@@ -52,10 +51,7 @@ export async function buildTemplates(options: {
         });
 
         const baseName = filename.replace(/\.(tsx|ts|jsx|js)$/, "");
-        await writeFile(
-          join(outDir, `${baseName}_${locale}.json`),
-          JSON.stringify({ html, text }),
-        );
+        await writeFile(join(outDir, `${baseName}_${locale}.json`), JSON.stringify({ html, text }));
       }),
     ),
   );

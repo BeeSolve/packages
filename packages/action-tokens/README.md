@@ -43,13 +43,13 @@ tokens.grantAccess(myLambdaFunction);
 
 #### Default behaviors
 
-| Prop | Default |
-|---|---|
-| `removalPolicy` | `RETAIN` |
-| `deletionProtection` | `true` when `removalPolicy` is `RETAIN` |
+| Prop                         | Default                                    |
+| ---------------------------- | ------------------------------------------ |
+| `removalPolicy`              | `RETAIN`                                   |
+| `deletionProtection`         | `true` when `removalPolicy` is `RETAIN`    |
 | `pointInTimeRecoveryEnabled` | `true` when `deletionProtection` is `true` |
-| `contributorInsights` | `false` |
-| `encryptionKey` | `undefined` (AWS-managed encryption) |
+| `contributorInsights`        | `false`                                    |
+| `encryptionKey`              | `undefined` (AWS-managed encryption)       |
 
 ### 2 — Lambda handler (SDK)
 
@@ -95,7 +95,7 @@ import {
 
 try {
   const used = await tokens.use({
-    owner: "user-123",  // omit to look up by value alone (GSI path)
+    owner: "user-123", // omit to look up by value alone (GSI path)
     action: "verify-email",
     value: submittedCode,
     drainWhenValid: false, // set true to zero out remaining uses in one step
@@ -104,9 +104,15 @@ try {
   // token.data contains whatever was stored at creation time
   console.log("verified email:", used.data?.emailAddress);
 } catch (error) {
-  if (error instanceof TokenDoesNotExistError) { /* token not found */ }
-  if (error instanceof ExpiredTokenError)      { /* token has expired */ }
-  if (error instanceof TokenAlreadyUsedUpError){ /* no uses remaining */ }
+  if (error instanceof TokenDoesNotExistError) {
+    /* token not found */
+  }
+  if (error instanceof ExpiredTokenError) {
+    /* token has expired */
+  }
+  if (error instanceof TokenAlreadyUsedUpError) {
+    /* no uses remaining */
+  }
   if (error instanceof Error && error.message === "Token is invalid.") {
     /* value did not match */
   }
@@ -145,15 +151,15 @@ const tokens = new ActionTokens({
 
 Creates a new token. Throws `TokenAlreadyExistsError` if a token with the same `(owner, action)` already exists and `overwrite` is `false`.
 
-| Prop | Type | Description |
-|---|---|---|
-| `owner` | `string` | Identifies who owns the token (e.g. a user ID) |
-| `action` | `string` | Identifies the purpose of the token (e.g. `"verify-email"`) |
-| `value` | `string` | The secret that must be presented when calling `use()` |
-| `remainingUses` | `number` | How many times the token can be used before being blocked |
-| `expiresAt` | `Date` | When the token expires |
-| `data` | `Record<string, unknown> \| undefined` | Arbitrary metadata stored with the token |
-| `overwrite` | `boolean` | Replace an existing `(owner, action)` token if one exists |
+| Prop            | Type                                   | Description                                                 |
+| --------------- | -------------------------------------- | ----------------------------------------------------------- |
+| `owner`         | `string`                               | Identifies who owns the token (e.g. a user ID)              |
+| `action`        | `string`                               | Identifies the purpose of the token (e.g. `"verify-email"`) |
+| `value`         | `string`                               | The secret that must be presented when calling `use()`      |
+| `remainingUses` | `number`                               | How many times the token can be used before being blocked   |
+| `expiresAt`     | `Date`                                 | When the token expires                                      |
+| `data`          | `Record<string, unknown> \| undefined` | Arbitrary metadata stored with the token                    |
+| `overwrite`     | `boolean`                              | Replace an existing `(owner, action)` token if one exists   |
 
 ### `use(props)`
 
@@ -161,12 +167,12 @@ Validates and consumes one use of the token. Throws if the token does not exist,
 
 Returns the updated token.
 
-| Prop | Type | Description |
-|---|---|---|
-| `owner` | `string \| undefined` | If provided, fetches by `(owner, action)` with a consistent read. If omitted, fetches by `(value, action)` via the GSI |
-| `action` | `string` | |
-| `value` | `string` | The secret to validate |
-| `drainWhenValid` | `boolean` | If `true` and the value is correct, sets `remainingUses` to `0` atomically |
+| Prop             | Type                  | Description                                                                                                            |
+| ---------------- | --------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `owner`          | `string \| undefined` | If provided, fetches by `(owner, action)` with a consistent read. If omitted, fetches by `(value, action)` via the GSI |
+| `action`         | `string`              |                                                                                                                        |
+| `value`          | `string`              | The secret to validate                                                                                                 |
+| `drainWhenValid` | `boolean`             | If `true` and the value is correct, sets `remainingUses` to `0` atomically                                             |
 
 ### `drain(props)`
 
@@ -174,14 +180,14 @@ Deletes the token unconditionally.
 
 ### Error types (from `@beesolve/action-tokens/model`)
 
-| Class | Thrown when |
-|---|---|
-| `TokenDoesNotExistError` | Token not found |
+| Class                     | Thrown when                                                           |
+| ------------------------- | --------------------------------------------------------------------- |
+| `TokenDoesNotExistError`  | Token not found                                                       |
 | `TokenAlreadyExistsError` | `createNew` called with `overwrite: false` and a token already exists |
-| `ExpiredTokenError` | Token has passed its `expiresAt` |
-| `TokenAlreadyUsedUpError` | `remainingUses` is already `0` |
-| `MalformedTokenError` | Item in DynamoDB does not match the expected schema |
-| `UnexpectedError` | Unexpected state (e.g. index corruption) |
+| `ExpiredTokenError`       | Token has passed its `expiresAt`                                      |
+| `TokenAlreadyUsedUpError` | `remainingUses` is already `0`                                        |
+| `MalformedTokenError`     | Item in DynamoDB does not match the expected schema                   |
+| `UnexpectedError`         | Unexpected state (e.g. index corruption)                              |
 
 ## FAQ
 

@@ -42,10 +42,7 @@ interface Props {
 
 export default function WelcomeEmail({ name, baseUri }: Props) {
   return (
-    <BaseLayout
-      previewText={`Welcome, ${name}`}
-      project={{ name: "My App", baseUri }}
-    >
+    <BaseLayout previewText={`Welcome, ${name}`} project={{ name: "My App", baseUri }}>
       {(styles) => (
         <>
           <Heading style={styles.h1}>Welcome aboard!</Heading>
@@ -69,32 +66,23 @@ WelcomeEmail.PreviewProps = {
 
 ### `BaseLayout` props
 
-| Prop | Required | Description |
-|---|---|---|
-| `previewText` | yes | Short preview text shown in email clients |
-| `project.name` | yes | Used in the header and footer notices |
-| `project.baseUri` | yes | Base URL for links |
-| `project.logo` | no | ReactNode to replace the text name in the header |
-| `children` | yes | Function receiving the style object, returns the body content |
-| `notice` | no | Override the default security notice in the footer |
-| `notificationSettings` | no | Override the default notification settings footer |
-| `enhanceStyles` | no | Extend the default style object with your own tokens |
+| Prop                   | Required | Description                                                   |
+| ---------------------- | -------- | ------------------------------------------------------------- |
+| `previewText`          | yes      | Short preview text shown in email clients                     |
+| `project.name`         | yes      | Used in the header and footer notices                         |
+| `project.baseUri`      | yes      | Base URL for links                                            |
+| `project.logo`         | no       | ReactNode to replace the text name in the header              |
+| `children`             | yes      | Function receiving the style object, returns the body content |
+| `notice`               | no       | Override the default security notice in the footer            |
+| `notificationSettings` | no       | Override the default notification settings footer             |
+| `enhanceStyles`        | no       | Extend the default style object with your own tokens          |
 
 ### Available react-email components
 
 Use any component from `@react-email/components`:
 
 ```tsx
-import {
-  Button,
-  Column,
-  Heading,
-  Hr,
-  Link,
-  Row,
-  Section,
-  Text,
-} from "@react-email/components";
+import { Button, Column, Heading, Hr, Link, Row, Section, Text } from "@react-email/components";
 ```
 
 ---

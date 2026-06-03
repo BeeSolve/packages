@@ -50,10 +50,10 @@ function parseSession(raw: unknown): ValidSession | null {
 }
 
 function unauthorized() {
-  return new Response(
-    JSON.stringify({ message: "Unauthorized", type: "unauthorized" }),
-    { status: 401, headers: { "Content-Type": "application/json" } },
-  );
+  return new Response(JSON.stringify({ message: "Unauthorized", type: "unauthorized" }), {
+    status: 401,
+    headers: { "Content-Type": "application/json" },
+  });
 }
 
 /** For HTTP API (v2) routes behind the service-auth authorizer. */
@@ -61,9 +61,7 @@ export function requireSessionV2(
   handler: (request: Request, session: ValidSession) => Promise<Response>,
 ): (request: Request) => Promise<Response> {
   return async (request) => {
-    const ctx = getAwsLambdaAuthorizerContext() as
-      | { session?: string }
-      | undefined;
+    const ctx = getAwsLambdaAuthorizerContext() as { session?: string } | undefined;
     const session = parseSession(ctx?.session);
     if (session == null) return unauthorized();
     return handler(request, session);
@@ -75,9 +73,7 @@ export function requireSessionV1(
   handler: (request: Request, session: ValidSession) => Promise<Response>,
 ): (request: Request) => Promise<Response> {
   return async (request) => {
-    const ctx = getAwsCustomAuthorizerContext() as
-      | { session?: string }
-      | undefined;
+    const ctx = getAwsCustomAuthorizerContext() as { session?: string } | undefined;
     const session = parseSession(ctx?.session);
     if (session == null) return unauthorized();
     return handler(request, session);

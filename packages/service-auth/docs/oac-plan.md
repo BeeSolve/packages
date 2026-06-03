@@ -48,6 +48,7 @@ const oac = new FunctionUrlOriginAccessControl(this, "AuthOAC", {
 ### 3. Create a Lambda@Edge function to inject `x-amz-content-sha256`
 
 A minimal origin-request Lambda@Edge that:
+
 - Reads the request body (base64-decoded)
 - Computes SHA-256 hash
 - Sets `x-amz-content-sha256` header
@@ -57,7 +58,7 @@ A minimal origin-request Lambda@Edge that:
 const bodyHashFn = new cloudfront.experimental.EdgeFunction(this, "BodyHashFn", {
   runtime: Runtime.NODEJS_20_X,
   handler: "index.handler",
-  code: Code.fromInline(`...`),  // ~10 lines, see below
+  code: Code.fromInline(`...`), // ~10 lines, see below
 });
 ```
 
@@ -100,6 +101,7 @@ The CDK `FunctionUrlOrigin.withOriginAccessControl` construct handles adding the
 ## Consumer-Side Changes
 
 The consumer's CloudFront distribution must:
+
 1. Use the exposed origin (from step 4) for the auth path pattern
 2. Attach the Lambda@Edge function as an `origin-request` association with `includeBody: true`
 3. Use `CachingDisabled` cache policy
@@ -108,13 +110,13 @@ The consumer's CloudFront distribution must:
 
 ## Constraints & Considerations
 
-| Concern | Resolution |
-|---------|-----------|
-| Lambda@Edge body limit: 1 MB | Auth payloads are < 5 KB — no issue |
-| Lambda@Edge must deploy to us-east-1 | Use `EdgeFunction` construct (handles cross-region) |
-| Breaking change: `originVerificationToken` removed | Major version bump via changeset |
-| WAF rule group | Still works — WAF attaches to CloudFront, unaffected by OAC |
-| CORS | Must be configured on CloudFront behavior (Lambda URL CORS headers are stripped when auth type is AWS_IAM with OAC) |
+| Concern                                            | Resolution                                                                                                          |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Lambda@Edge body limit: 1 MB                       | Auth payloads are < 5 KB — no issue                                                                                 |
+| Lambda@Edge must deploy to us-east-1               | Use `EdgeFunction` construct (handles cross-region)                                                                 |
+| Breaking change: `originVerificationToken` removed | Major version bump via changeset                                                                                    |
+| WAF rule group                                     | Still works — WAF attaches to CloudFront, unaffected by OAC                                                         |
+| CORS                                               | Must be configured on CloudFront behavior (Lambda URL CORS headers are stripped when auth type is AWS_IAM with OAC) |
 
 ## Migration Path
 

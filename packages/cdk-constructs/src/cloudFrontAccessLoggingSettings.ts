@@ -48,15 +48,16 @@ const cloudFrontAccessLogColumns = [
   { name: "sc-range-start", type: "string" },
   { name: "sc-range-end", type: "string" },
 ] as const;
-type CloudFrontAccessLogColumn =
-  (typeof cloudFrontAccessLogColumns)[number]["name"];
+type CloudFrontAccessLogColumn = (typeof cloudFrontAccessLogColumns)[number]["name"];
 
 const columnDefinitionByKey = Object.fromEntries(
   cloudFrontAccessLogColumns.map((value) => [value.name, value]),
 );
 
-export interface CloudFrontAccessLoggingSettingsProps
-  extends Pick<DistributionProps, "logFilePrefix" | "logIncludesCookies"> {
+export interface CloudFrontAccessLoggingSettingsProps extends Pick<
+  DistributionProps,
+  "logFilePrefix" | "logIncludesCookies"
+> {
   /**
    * Athena related settings.
    *
@@ -108,11 +109,7 @@ export class CloudFrontAccessLoggingSettings extends Construct {
     "logBucket" | "logFilePrefix" | "enableLogging" | "logIncludesCookies"
   >;
 
-  constructor(
-    scope: Construct,
-    id: string,
-    props: CloudFrontAccessLoggingSettingsProps,
-  ) {
+  constructor(scope: Construct, id: string, props: CloudFrontAccessLoggingSettingsProps) {
     super(scope, id);
 
     const logBucket = new Bucket(this, "AccessLogs", {
@@ -147,11 +144,9 @@ export class CloudFrontAccessLoggingSettings extends Construct {
                     .filter(isNotNil),
             location: `s3://${logBucket.bucketName}/${props.logFilePrefix ?? ""}`,
             inputFormat: "org.apache.hadoop.mapred.TextInputFormat",
-            outputFormat:
-              "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
+            outputFormat: "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
             serdeInfo: {
-              serializationLibrary:
-                "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
+              serializationLibrary: "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
               parameters: {
                 "serialization.format": "\t",
                 "field.delim": "\t",

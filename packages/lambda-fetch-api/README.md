@@ -65,8 +65,8 @@ import {
 } from "@beesolve/lambda-fetch-api";
 
 export const handler = asHttpV2Handler(async (request) => {
-  const event = getAwsV2Event();         // APIGatewayProxyEventV2
-  const context = getAwsContext();        // Context
+  const event = getAwsV2Event(); // APIGatewayProxyEventV2
+  const context = getAwsContext(); // Context
 
   console.log(event.requestContext.requestId);
   console.log(context.getRemainingTimeInMillis());
@@ -75,12 +75,12 @@ export const handler = asHttpV2Handler(async (request) => {
 });
 ```
 
-| Getter | Returns |
-|---|---|
-| `getAwsEvent()` | `APIGatewayProxyEvent \| APIGatewayProxyEventV2` — auto-detected |
-| `getAwsV1Event()` | `APIGatewayProxyEvent` — throws if event is v2 |
-| `getAwsV2Event()` | `APIGatewayProxyEventV2` — throws if event is v1 |
-| `getAwsContext()` | `Context` |
+| Getter            | Returns                                                          |
+| ----------------- | ---------------------------------------------------------------- |
+| `getAwsEvent()`   | `APIGatewayProxyEvent \| APIGatewayProxyEventV2` — auto-detected |
+| `getAwsV1Event()` | `APIGatewayProxyEvent` — throws if event is v2                   |
+| `getAwsV2Event()` | `APIGatewayProxyEventV2` — throws if event is v1                 |
+| `getAwsContext()` | `Context`                                                        |
 
 All getters throw `NotInHandlerContextError` if called outside of a handler invocation.
 
@@ -141,7 +141,7 @@ export const handler = asLambdaAuthorizedHttpV2Handler(async (request) => {
 Without a schema, the getter returns `unknown`:
 
 ```ts
-const raw = getAwsLambdaAuthorizerContext();  // unknown
+const raw = getAwsLambdaAuthorizerContext(); // unknown
 ```
 
 `AuthorizerContextValidationError` is thrown when the schema rejects the payload.
@@ -156,9 +156,9 @@ import { isAPIGatewayProxyEvent, isAPIGatewayProxyEventV2 } from "@beesolve/lamb
 const event = getAwsEvent();
 
 if (isAPIGatewayProxyEventV2(event)) {
-  console.log(event.rawPath);   // APIGatewayProxyEventV2
+  console.log(event.rawPath); // APIGatewayProxyEventV2
 } else {
-  console.log(event.path);      // APIGatewayProxyEvent
+  console.log(event.path); // APIGatewayProxyEvent
 }
 ```
 
@@ -199,9 +199,9 @@ await runWithAwsContext(event, makeContext(), async () => {
 
 ## Error classes
 
-| Class | Thrown when |
-|---|---|
-| `NotInHandlerContextError` | A getter is called outside of a handler invocation |
+| Class                              | Thrown when                                        |
+| ---------------------------------- | -------------------------------------------------- |
+| `NotInHandlerContextError`         | A getter is called outside of a handler invocation |
 | `AuthorizerContextValidationError` | The Standard Schema rejects the authorizer payload |
 
 ## Response utilities

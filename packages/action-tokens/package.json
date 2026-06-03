@@ -4,14 +4,14 @@
   "description": "Generic one-time action token store backed by DynamoDB",
   "homepage": "https://github.com/beesolve/packages/tree/main/packages/action-tokens#readme",
   "license": "MIT",
-  "type": "module",
-  "files": [
-    "dist"
-  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/beesolve/packages.git"
   },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
   "exports": {
     "./cdk": {
       "import": {
@@ -37,14 +37,6 @@
     "type-check": "tsc --noEmit",
     "test": "bun test"
   },
-  "peerDependencies": {
-    "typescript": "catalog:"
-  },
-  "peerDependenciesMeta": {
-    "typescript": {
-      "optional": true
-    }
-  },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "catalog:",
     "@aws-sdk/credential-providers": "catalog:",
@@ -55,5 +47,13 @@
   },
   "devDependencies": {
     "@types/node": "catalog:"
+  },
+  "peerDependencies": {
+    "typescript": "catalog:"
+  },
+  "peerDependenciesMeta": {
+    "typescript": {
+      "optional": true
+    }
   }
 }

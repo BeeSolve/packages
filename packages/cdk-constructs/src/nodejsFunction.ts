@@ -1,27 +1,13 @@
 import { execSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { basename, extname, resolve } from "node:path";
-import {
-  Aspects,
-  type IAspect,
-  RemovalPolicy,
-  type Stack,
-  Tags,
-} from "aws-cdk-lib";
-import {
-  Architecture,
-  Code,
-  Function,
-  LoggingFormat,
-  Runtime,
-} from "aws-cdk-lib/aws-lambda";
+
+import { Aspects, type IAspect, RemovalPolicy, type Stack, Tags } from "aws-cdk-lib";
+import { Architecture, Code, Function, LoggingFormat, Runtime } from "aws-cdk-lib/aws-lambda";
 import type { NodejsFunctionProps } from "aws-cdk-lib/aws-lambda-nodejs";
-import {
-  LogGroup,
-  type LogGroupProps,
-  RetentionDays,
-} from "aws-cdk-lib/aws-logs";
+import { LogGroup, type LogGroupProps, RetentionDays } from "aws-cdk-lib/aws-logs";
 import type { Construct, IConstruct } from "constructs";
+
 import { esmBuildSync } from "./esbuildBuild";
 
 export type Nodejs24FunctionProps = Omit<
@@ -97,9 +83,7 @@ export class Nodejs24Function extends Function {
       );
     }
     const outDir = shouldBuild
-      ? resolve(
-          `${tmpdir()}/cdk.out/beesolve-nodejs-bundling-${id}-${Date.now()}`,
-        )
+      ? resolve(`${tmpdir()}/cdk.out/beesolve-nodejs-bundling-${id}-${Date.now()}`)
       : entry;
 
     if (shouldBuild) {

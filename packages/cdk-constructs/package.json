@@ -4,16 +4,34 @@
   "description": "",
   "homepage": "https://github.com/beesolve/packages/tree/main/packages/cdk-constructs#readme",
   "license": "MIT",
-  "files": [
-    "dist"
-  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/beesolve/packages.git"
   },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    },
+    "./package.json": "./package.json"
+  },
   "scripts": {
     "type-check": "tsc --noEmit",
     "test": "bun test"
+  },
+  "dependencies": {
+    "@beesolve/helpers": "workspace:^",
+    "aws-cdk-lib": "catalog:",
+    "constructs": "catalog:",
+    "esbuild": "catalog:"
   },
   "devDependencies": {
     "@types/bun": "catalog:",
@@ -26,23 +44,5 @@
     "typescript": {
       "optional": true
     }
-  },
-  "dependencies": {
-    "@beesolve/helpers": "workspace:^",
-    "aws-cdk-lib": "catalog:",
-    "constructs": "catalog:",
-    "esbuild": "catalog:"
-  },
-  "type": "module",
-  "exports": {
-    ".": {
-      "import": {
-        "types": "./dist/index.d.ts",
-        "default": "./dist/index.js"
-      }
-    },
-    "./package.json": "./package.json"
-  },
-  "module": "./dist/index.js",
-  "types": "./dist/index.d.ts"
+  }
 }

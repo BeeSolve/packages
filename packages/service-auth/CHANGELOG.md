@@ -13,23 +13,19 @@
 - c2bd8aa: Add optional `encryptionKey` prop for customer-managed KMS encryption on all data-at-rest resources (DynamoDB tables and SQS queues).
 
   **@beesolve/cdk-constructs**
-
   - `SqsWithDlq`: add `encryptionKey?: IKey` — uses KMS encryption when provided
   - `Nodejs24Function`: add VPC + DynamoDB Gateway Endpoint documentation
 
   **@beesolve/sqs-handler**
-
   - `SqsHandler`: add `encryptionKey?: IKey` — forwarded to SQS queues
 
   **@beesolve/action-tokens**
-
   - Add `encryptionKey?: IKey` for customer-managed table encryption
   - Add `contributorInsights?: boolean` for CloudWatch Contributor Insights
   - Default `deletionProtection` to `true` when `removalPolicy` is `RETAIN`
   - Default `pointInTimeRecoveryEnabled` to `true` when `deletionProtection` is `true`
 
   **@beesolve/auth-service**
-
   - Add `encryptionKey?: IKey` applied to all tables and SQS queues
   - Add `contributorInsights?: boolean` (default `true` in prod)
   - Add `accessLogging?: boolean` for HTTP API access logs (default `true` in prod)
@@ -79,7 +75,6 @@
 ### Minor Changes
 
 - 5628db5: Security hardening based on OWASP Top 10:2025 review:
-
   - **[Critical]** Fix open redirect via unvalidated `redirectTo` — decode + validate against `^/(?!/)`
   - **[High]** Add `requireSessionV1`/`requireSessionV2` middleware and `withDevSession` dev helper
   - **[High]** Add authorizer cache presets (`immediate`/`balanced`/`relaxed`) — default changed from 1h to `balanced` (45s)
@@ -95,7 +90,6 @@
   - **[Low]** Add origin verification token for CloudFront → Lambda
 
   ### Breaking changes
-
   - `authorizerCacheTtl` prop replaced with `authorizerCache` (preset string or `Duration`)
   - Default authorizer cache changed from 1h to 45s
   - CORS no longer allows all origins — `frontendUri` is now required and used
@@ -127,7 +121,6 @@
 ### Minor Changes
 
 - 02a7ace: Add `@beesolve/auth-service` package — passwordless email-code auth backed by DynamoDB and EventBridge, deployable via CDK.
-
   - **CDK construct** (`/cdk`): provisions DynamoDB tables (Sessions, Accounts), three Lambda functions (auth API, authorizer, SDK bridge), a Lambda Function URL (`authUrl`) for public auth endpoints, and an API Gateway HTTP API (`api`) for session-protected routes. Designed for same-domain CloudFront deployment — see `docs/cloudfront.md`.
   - **API handler**: handles `POST /auth/signInRequest`, `POST /auth/signInComplete`, and `POST /auth/signOut`. Emits EventBridge events on each action.
   - **Lambda authorizer**: validates `__Host-SID` session cookies, rotates sessions transparently, and forwards session context to downstream Lambdas.

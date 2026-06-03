@@ -1,8 +1,5 @@
 import { SendMessageCommand, type SQSClient } from "@aws-sdk/client-sqs";
-import {
-  decodeFromStringifiable,
-  encodeToStringifiable,
-} from "@beesolve/helpers";
+import { decodeFromStringifiable, encodeToStringifiable } from "@beesolve/helpers";
 import type { SQSEvent } from "aws-lambda";
 import * as v from "valibot";
 
@@ -74,9 +71,7 @@ export function createSqsHandlers<
       [functionName](...args) {
         const originalFunction = props.functions[functionName];
         if (originalFunction == null)
-          throw Error(
-            `Cannot invoke "${functionName}". Make sure the function is defined.`,
-          );
+          throw Error(`Cannot invoke "${functionName}". Make sure the function is defined.`);
         const functionArgs: any[] = args.slice(0, originalFunction.length);
         const options:
           | {
@@ -90,8 +85,7 @@ export function createSqsHandlers<
           originalFunction(...functionArgs);
         } else {
           const queueUrl =
-            options?.queueName ??
-            props.queueUrls[props.queueUrlOverride?.[functionName] ?? "main"];
+            options?.queueName ?? props.queueUrls[props.queueUrlOverride?.[functionName] ?? "main"];
 
           props.sqsClient.send(
             new SendMessageCommand({
@@ -113,11 +107,7 @@ export function createSqsHandlers<
   return [handler, functions];
 }
 
-type QueuedFunctions<
-  T extends Functions,
-  Fifo extends boolean,
-  QueueName extends string,
-> = {
+type QueuedFunctions<T extends Functions, Fifo extends boolean, QueueName extends string> = {
   [key in keyof T]: AddParameters<
     T[key],
     [
@@ -132,7 +122,6 @@ type QueuedFunctions<
   >;
 };
 
-type AddParameters<
-  TFunction extends (...args: any) => any,
-  TParameters extends [...args: any],
-> = (...args: [...Parameters<TFunction>, ...TParameters]) => Promise<void>;
+type AddParameters<TFunction extends (...args: any) => any, TParameters extends [...args: any]> = (
+  ...args: [...Parameters<TFunction>, ...TParameters]
+) => Promise<void>;

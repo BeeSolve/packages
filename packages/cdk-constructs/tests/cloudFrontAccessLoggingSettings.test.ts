@@ -1,6 +1,8 @@
+import { describe, expect, test } from "bun:test";
+
 import { App, Stack } from "aws-cdk-lib";
 import { Template } from "aws-cdk-lib/assertions";
-import { describe, expect, test } from "bun:test";
+
 import { CloudFrontAccessLoggingSettings } from "../src/cloudFrontAccessLoggingSettings";
 
 function makeStack() {

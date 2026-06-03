@@ -1,10 +1,7 @@
 import { ConditionalCheckFailedException } from "@aws-sdk/client-dynamodb";
-import {
-  DynamoDBDocumentClient,
-  PutCommand,
-  QueryCommand,
-} from "@aws-sdk/lib-dynamodb";
+import { DynamoDBDocumentClient, PutCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
 import * as v from "valibot";
+
 import { BadRequestError, NotFoundError } from "./errors.ts";
 import { dateSchema } from "./validation.ts";
 
@@ -46,10 +43,8 @@ export class Accounts {
       }),
     );
 
-    if (items.length === 0)
-      throw new NotFoundError(`Account does not exist.`);
-    if (items.length !== 1)
-      throw new Error(`Unexpected - found more than one accounts.`);
+    if (items.length === 0) throw new NotFoundError(`Account does not exist.`);
+    if (items.length !== 1) throw new Error(`Unexpected - found more than one accounts.`);
 
     const result = this.parseOne(items[0]);
 
@@ -117,10 +112,7 @@ export class Accounts {
     return this.toModel(result);
   };
 
-  private readonly parseOne = (
-    item: any,
-    errorMessage: string = `Malformed account.`,
-  ) => {
+  private readonly parseOne = (item: any, errorMessage: string = `Malformed account.`) => {
     const result = v.safeParse(schema, item);
     if (!result.success) {
       console.error(v.flatten(result.issues));

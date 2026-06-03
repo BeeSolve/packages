@@ -11,9 +11,7 @@ export interface StandardSchemaV1<Input = unknown, Output = unknown> {
 }
 
 export declare namespace StandardSchemaV1 {
-  type InferOutput<T extends StandardSchemaV1> = NonNullable<
-    T["~standard"]["types"]
-  >["output"];
+  type InferOutput<T extends StandardSchemaV1> = NonNullable<T["~standard"]["types"]>["output"];
   type Result<Output> =
     | { readonly value: Output; readonly issues?: undefined }
     | { readonly issues: ReadonlyArray<Issue> };
@@ -34,9 +32,7 @@ async function parseWithSchema<T extends StandardSchemaV1>(
 ): Promise<StandardSchemaV1.InferOutput<T>> {
   const result = await schema["~standard"].validate(value);
   if (result.issues != null)
-    throw new AuthorizerContextValidationError(
-      result.issues.map((i) => i.message).join("; "),
-    );
+    throw new AuthorizerContextValidationError(result.issues.map((i) => i.message).join("; "));
   return result.value as StandardSchemaV1.InferOutput<T>;
 }
 

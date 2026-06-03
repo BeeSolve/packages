@@ -89,12 +89,12 @@ The raw `Accept-Language` header value, e.g. `"fr-FR,fr;q=0.9,en;q=0.8"`. This c
 
 ## Available events
 
-| `detail-type` | Type guard | Fired when |
-|---|---|---|
-| `EmailCodeAuth` | `isEmailCodeAuth` | Sign-in requested — send the OTP email |
-| `EmailAddressVerified` | `isEmailAddressVerified` | New account created on first sign-in |
-| `DataToken` | `isDataToken` | Sign-in complete with `dataToken` enabled |
-| `SuccessfulAuth` | `isSuccessfulAuth` | *(reserved)* |
-| `UnsuccessfulAuth` | `isUnsuccessfulAuth` | *(reserved)* |
-| `SessionInvalidated` | `isSessionInvalidated` | Sign out |
-| `EmailInvitation` | `isEmailInvitation` | *(reserved)* |
+| `detail-type`          | Type guard               | Fired when                                |
+| ---------------------- | ------------------------ | ----------------------------------------- |
+| `EmailCodeAuth`        | `isEmailCodeAuth`        | Sign-in requested — send the OTP email    |
+| `EmailAddressVerified` | `isEmailAddressVerified` | New account created on first sign-in      |
+| `DataToken`            | `isDataToken`            | Sign-in complete with `dataToken` enabled |
+| `SuccessfulAuth`       | `isSuccessfulAuth`       | _(reserved)_                              |
+| `UnsuccessfulAuth`     | `isUnsuccessfulAuth`     | _(reserved)_                              |
+| `SessionInvalidated`   | `isSessionInvalidated`   | Sign out                                  |
+| `EmailInvitation`      | `isEmailInvitation`      | _(reserved)_                              |

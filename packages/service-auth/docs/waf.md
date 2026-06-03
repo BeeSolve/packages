@@ -105,6 +105,7 @@ new Distribution(this, "Cdn", {
 The rule blocks an IP address for the remainder of the 5-minute evaluation window once it exceeds the configured `rateLimit` (default: 100 requests). After the window resets, the IP is unblocked automatically.
 
 This protects against:
+
 - OTP email flooding (spamming `/signInRequest`)
 - Brute-force attempts on `/signInComplete`
 - General abuse of the public auth endpoints

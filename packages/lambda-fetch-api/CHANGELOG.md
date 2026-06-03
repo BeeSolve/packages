@@ -7,7 +7,6 @@
 - 0361bea: Replace header-based event/context propagation with AsyncLocalStorage.
 
   **New API:**
-
   - `getAwsEvent()` — returns the current invocation's event (v1 or v2)
   - `getAwsV1Event()` — returns the event typed as `APIGatewayProxyEvent`, throws if it's a v2 event
   - `getAwsV2Event()` — returns the event typed as `APIGatewayProxyEventV2`, throws if it's a v1 event
@@ -16,7 +15,6 @@
   - `NotInHandlerContextError` — thrown when a getter is called outside of a handler invocation
 
   **Removed (breaking):**
-
   - `toAwsEvent(request)`, `toAwsV1Event(request)`, `toAwsV2Event(request)`, `toAwsContext(request)` → use `getAws*()` instead
   - `withAwsEvent(request, event)`, `withAwsContext(request, context)` → use `runWithAwsContext(event, context, fn)` in tests
   - `MissingAwsEventHeaderError`, `MissingAwsContextHeaderError`, `InvalidAwsEventHeaderError`, `InvalidAwsContextHeaderError` → replaced by `NotInHandlerContextError`
@@ -29,12 +27,10 @@
 - e62252d: Add authorizer handler variants and Standard Schema-compatible payload getters.
 
   **New handler variants:**
-
   - `asLambdaAuthorizedHttpV2Handler<TAuth>(fetch)` — for HTTP API v2 routes protected by a Lambda authorizer; the Lambda event is typed as `APIGatewayProxyEventV2WithLambdaAuthorizer<TAuth>`
   - `asCustomAuthorizedHttpV1Handler<TAuth>(fetch)` — for REST API v1 routes with a custom/Lambda authorizer; the event is typed as `APIGatewayProxyWithLambdaAuthorizerEvent<TAuth>`
 
   **New payload getters (callable inside any handler invocation):**
-
   - `getAwsLambdaAuthorizerContext()` — returns `unknown`; reads `event.requestContext.authorizer.lambda` from the stored v2 event
   - `getAwsLambdaAuthorizerContext(schema)` — validates the payload with any [Standard Schema](https://standardschema.dev/) compatible library (valibot, zod, arktype, …) and returns `Promise<OutputType>`
   - `getAwsCustomAuthorizerContext()` — returns `unknown`; reads `event.requestContext.authorizer` from the stored v1 event
@@ -45,7 +41,6 @@
   The `StandardSchemaV1` interface is exported from the package so consumers can reference it without an additional dependency.
 
 - feabe20: Add typed event accessors, valibot validation, and local testing helpers.
-
   - `toAwsV1Event(request)` and `toAwsV2Event(request)` — typed variants of `toAwsEvent` for when the caller knows which API Gateway version they're working with. `toAwsEvent` is kept as the auto-detecting union form.
   - `withAwsEvent(request, event)` and `withAwsContext(request, context)` — helpers for building test requests without going through a full `awsRequest()` call.
   - `InvalidAwsEventHeaderError` and `InvalidAwsContextHeaderError` — thrown when the header is present but fails schema validation.

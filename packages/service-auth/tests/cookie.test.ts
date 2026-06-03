@@ -1,10 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import {
-  addSetCookies,
-  parseDataTokenCookie,
-  parseSid,
-  toDataTokenCookie,
-} from "../index.ts";
+
+import { addSetCookies, parseDataTokenCookie, parseSid, toDataTokenCookie } from "../index.ts";
 
 describe("parseSid", () => {
   test("returns null for null input", () => {
@@ -54,9 +50,7 @@ describe("parseDataTokenCookie", () => {
   });
 
   test("extracts __Host-DataToken from multi-cookie header", () => {
-    expect(
-      parseDataTokenCookie("foo=bar; __Host-DataToken=dt-val; baz=qux"),
-    ).toBe("dt-val");
+    expect(parseDataTokenCookie("foo=bar; __Host-DataToken=dt-val; baz=qux")).toBe("dt-val");
   });
 });
 

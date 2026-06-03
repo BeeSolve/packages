@@ -1,20 +1,14 @@
 import { Annotations, Duration } from "aws-cdk-lib";
 import type { IKey } from "aws-cdk-lib/aws-kms";
 import type { Function } from "aws-cdk-lib/aws-lambda";
-import {
-  SqsEventSource,
-  type SqsEventSourceProps,
-} from "aws-cdk-lib/aws-lambda-event-sources";
+import { SqsEventSource, type SqsEventSourceProps } from "aws-cdk-lib/aws-lambda-event-sources";
 import { Queue, QueueEncryption, type QueueProps } from "aws-cdk-lib/aws-sqs";
 import { Construct } from "constructs";
 
 export interface SqsWithDlqProps {
   readonly queue?: QueueProps;
   readonly dlq?: Partial<
-    Omit<
-      QueueProps,
-      "fifo" | "contentBasedDeduplication" | "deduplicationScope"
-    >
+    Omit<QueueProps, "fifo" | "contentBasedDeduplication" | "deduplicationScope">
   >;
   /**
    * Optional KMS key for server-side encryption of the queue and DLQ.

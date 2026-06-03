@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+
 import {
   ConditionalCheckFailedException,
   TransactionCanceledException,
@@ -15,6 +16,7 @@ import {
 } from "@aws-sdk/lib-dynamodb";
 import { splitArrayToChunks } from "@beesolve/helpers";
 import * as v from "valibot";
+
 import { BadRequestError, NotFoundError } from "./errors.ts";
 import { printError } from "./util.ts";
 
@@ -198,9 +200,7 @@ export class Sessions {
         // remaining given the 30-day default TTL.
         const maxAge = Math.min(
           props.maxAge ?? this.props.defaultMaxAge ?? 2_592_000,
-          Math.round(
-            (props.session.expiresAt.getTime() - start.getTime()) / 1000,
-          ),
+          Math.round((props.session.expiresAt.getTime() - start.getTime()) / 1000),
         );
 
         return {
@@ -219,10 +219,7 @@ export class Sessions {
       const date = new Date(start);
       date.setUTCMilliseconds(
         date.getUTCMilliseconds() +
-          Math.min(
-            drift * 2,
-            props.session.expiresAt.getTime() - start.getTime(),
-          ),
+          Math.min(drift * 2, props.session.expiresAt.getTime() - start.getTime()),
       );
       const expiresAt = Math.round(date.getTime() / 1000);
 
@@ -262,14 +259,10 @@ export class Sessions {
       return { newSession: model, maxAge };
     } catch (error) {
       if (error instanceof ConditionalCheckFailedException)
-        throw new NotFoundError(
-          `Cannot refresh session - session does not exist.`,
-        );
+        throw new NotFoundError(`Cannot refresh session - session does not exist.`);
 
       if (error instanceof TransactionCanceledException)
-        throw new BadRequestError(
-          `Cannot refresh session - transaction failed.`,
-        );
+        throw new BadRequestError(`Cannot refresh session - transaction failed.`);
 
       if (error instanceof BadRequestError) throw error;
 
@@ -288,10 +281,7 @@ export class Sessions {
     );
   };
 
-  readonly deleteAllForUser = async (props: {
-    userId: string;
-    exceptSessionId?: string;
-  }) => {
+  readonly deleteAllForUser = async (props: { userId: string; exceptSessionId?: string }) => {
     const keys = await this.fetchMany(props.userId);
     const toDelete = props.exceptSessionId
       ? keys.filter(({ id }) => id !== props.exceptSessionId)
@@ -343,10 +333,7 @@ export class Sessions {
     return { item, model, maxAge };
   };
 
-  private readonly parseOne = (
-    item: any,
-    errorMessage: string = `Malformed session.`,
-  ) => {
+  private readonly parseOne = (item: any, errorMessage: string = `Malformed session.`) => {
     const result = v.safeParse(authorizerSchema, item);
     if (!result.success) {
       console.error(v.flatten(result.issues));
@@ -356,10 +343,7 @@ export class Sessions {
     return result.output;
   };
 
-  private readonly parseOneFull = (
-    item: any,
-    errorMessage: string = `Malformed session.`,
-  ) => {
+  private readonly parseOneFull = (item: any, errorMessage: string = `Malformed session.`) => {
     const result = v.safeParse(schema, item);
     if (!result.success) {
       console.error(v.flatten(result.issues));
@@ -374,49 +358,30 @@ export class Sessions {
   ): NewSession["data"] => {
     const data = {
       androidViewer:
-        headers["CloudFront-Is-Android-Viewer"] ??
-        headers["cloudfront-is-android-viewer"],
-      city:
-        headers["CloudFront-Viewer-City"] ?? headers["cloudfront-viewer-city"],
-      country:
-        headers["CloudFront-Viewer-Country"] ??
-        headers["cloudfront-viewer-country"],
+        headers["CloudFront-Is-Android-Viewer"] ?? headers["cloudfront-is-android-viewer"],
+      city: headers["CloudFront-Viewer-City"] ?? headers["cloudfront-viewer-city"],
+      country: headers["CloudFront-Viewer-Country"] ?? headers["cloudfront-viewer-country"],
       countryName:
-        headers["CloudFront-Viewer-Country-Name"] ??
-        headers["cloudfront-viewer-country-name"],
+        headers["CloudFront-Viewer-Country-Name"] ?? headers["cloudfront-viewer-country-name"],
       desktopViewer:
-        headers["CloudFront-Is-Desktop-Viewer"] ??
-        headers["cloudfront-is-desktop-viewer"],
-      iosViewer:
-        headers["CloudFront-Is-IOS-Viewer"] ??
-        headers["cloudfront-is-ios-viewer"],
-      latitude:
-        headers["CloudFront-Viewer-Latitude"] ??
-        headers["cloudfront-viewer-latitude"],
-      longitude:
-        headers["CloudFront-Viewer-Longitude"] ??
-        headers["cloudfront-viewer-longitude"],
+        headers["CloudFront-Is-Desktop-Viewer"] ?? headers["cloudfront-is-desktop-viewer"],
+      iosViewer: headers["CloudFront-Is-IOS-Viewer"] ?? headers["cloudfront-is-ios-viewer"],
+      latitude: headers["CloudFront-Viewer-Latitude"] ?? headers["cloudfront-viewer-latitude"],
+      longitude: headers["CloudFront-Viewer-Longitude"] ?? headers["cloudfront-viewer-longitude"],
       mobileViewer:
-        headers["CloudFront-Is-Mobile-Viewer"] ??
-        headers["cloudfront-is-mobile-viewer"],
+        headers["CloudFront-Is-Mobile-Viewer"] ?? headers["cloudfront-is-mobile-viewer"],
       postalCode:
-        headers["CloudFront-Viewer-Postal-Code"] ??
-        headers["cloudfront-viewer-postal-code"],
+        headers["CloudFront-Viewer-Postal-Code"] ?? headers["cloudfront-viewer-postal-code"],
       region:
-        headers["CloudFront-Viewer-Country-Region"] ??
-        headers["cloudfront-viewer-country-region"],
+        headers["CloudFront-Viewer-Country-Region"] ?? headers["cloudfront-viewer-country-region"],
       regionName:
         headers["CloudFront-Viewer-Country-Region-Name"] ??
         headers["cloudfront-viewer-country-region-name"],
       smartTvViewer:
-        headers["CloudFront-Is-SmartTV-Viewer"] ??
-        headers["cloudfront-is-smarttv-viewer"],
+        headers["CloudFront-Is-SmartTV-Viewer"] ?? headers["cloudfront-is-smarttv-viewer"],
       tabletViewer:
-        headers["CloudFront-Is-Tablet-Viewer"] ??
-        headers["cloudfront-is-tablet-viewer"],
-      timeZone:
-        headers["CloudFront-Viewer-Time-Zone"] ??
-        headers["cloudfront-viewer-time-zone"],
+        headers["CloudFront-Is-Tablet-Viewer"] ?? headers["cloudfront-is-tablet-viewer"],
+      timeZone: headers["CloudFront-Viewer-Time-Zone"] ?? headers["cloudfront-viewer-time-zone"],
       userAgent: headers["User-Agent"] ?? headers["user-agent"],
     };
 
@@ -457,9 +422,7 @@ export class Sessions {
 
       const errorKeys = Object.keys(issues.nested ?? {});
       return Object.fromEntries(
-        Object.entries(result.output as any).filter(
-          ([key]) => !errorKeys.includes(key),
-        ),
+        Object.entries(result.output as any).filter(([key]) => !errorKeys.includes(key)),
       );
     }
 

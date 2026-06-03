@@ -10,22 +10,22 @@ The email service publishes events to EventBridge from two sources. This guide e
 
 Published by the email service's queue handler Lambda after each send attempt.
 
-| `detail-type` | When |
-|---|---|
-| `EmailSentSuccess` | SES accepted and sent the message |
+| `detail-type`      | When                                          |
+| ------------------ | --------------------------------------------- |
+| `EmailSentSuccess` | SES accepted and sent the message             |
 | `EmailSentFailure` | The Lambda failed to process the send request |
 
 ### `aws.ses`
 
 Published directly by SES when delivery events occur. The `Emails` CDK construct tracks `SEND`, `BOUNCE`, `COMPLAINT`, `DELIVERY`, and `REJECT` by default. You can override this with `eventsToTrack`.
 
-| `detail-type` | When |
-|---|---|
-| `SES Message Sent` | SES accepted the message for sending |
-| `SES Delivery` | Recipient's mail server confirmed delivery |
-| `SES Bounce` | Hard or soft bounce from the recipient server |
-| `SES Complaint` | Recipient marked the email as spam |
-| `SES Reject` | SES rejected the message (e.g. detected virus) |
+| `detail-type`      | When                                           |
+| ------------------ | ---------------------------------------------- |
+| `SES Message Sent` | SES accepted the message for sending           |
+| `SES Delivery`     | Recipient's mail server confirmed delivery     |
+| `SES Bounce`       | Hard or soft bounce from the recipient server  |
+| `SES Complaint`    | Recipient marked the email as spam             |
+| `SES Reject`       | SES rejected the message (e.g. detected virus) |
 
 ---
 
@@ -145,7 +145,7 @@ export const handler = async (event: SQSEvent): Promise<void> => {
 ```ts
 import type {
   // Union types
-  EmailEvent,        // BeeSolveEmailEvent | SesEvent
+  EmailEvent, // BeeSolveEmailEvent | SesEvent
   BeeSolveEmailEvent,
   SesEvent,
 

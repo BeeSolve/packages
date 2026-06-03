@@ -1,7 +1,8 @@
 #!/usr/bin/env bun
-import { $ } from "bun";
 import { mkdir } from "fs/promises";
 import { join } from "path";
+
+import { $ } from "bun";
 
 const ROOT = join(import.meta.dir, "..");
 

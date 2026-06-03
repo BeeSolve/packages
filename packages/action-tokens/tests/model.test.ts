@@ -1,4 +1,5 @@
 import { describe, expect, mock, test } from "bun:test";
+
 import { ConditionalCheckFailedException } from "@aws-sdk/client-dynamodb";
 import {
   type DeleteCommand,
@@ -8,6 +9,7 @@ import {
   QueryCommand,
   UpdateCommand,
 } from "@aws-sdk/lib-dynamodb";
+
 import {
   ActionTokens,
   ExpiredTokenError,
@@ -134,9 +136,7 @@ describe("ActionTokens.createNew", () => {
 
     const command = send.mock.calls[0]?.[0] as unknown as PutCommand;
     expect(typeof command.input.Item?.expiresAt).toBe("number");
-    expect(command.input.Item?.expiresAt).toBe(
-      Math.round(expiresAt.getTime() / 1000),
-    );
+    expect(command.input.Item?.expiresAt).toBe(Math.round(expiresAt.getTime() / 1000));
   });
 });
 
@@ -181,9 +181,7 @@ describe("ActionTokens.use — owner provided (GetCommand path)", () => {
     const updateCommand = send.mock.calls.find(
       ([c]) => c instanceof UpdateCommand,
     )?.[0] as unknown as UpdateCommand;
-    expect(
-      updateCommand.input.ExpressionAttributeValues?.[":newRemainingUses"],
-    ).toBe(0);
+    expect(updateCommand.input.ExpressionAttributeValues?.[":newRemainingUses"]).toBe(0);
   });
 
   test("drainWhenValid false: UpdateCommand decrements remainingUses by 1", async () => {
@@ -205,9 +203,7 @@ describe("ActionTokens.use — owner provided (GetCommand path)", () => {
     const updateCommand = send.mock.calls.find(
       ([c]) => c instanceof UpdateCommand,
     )?.[0] as unknown as UpdateCommand;
-    expect(
-      updateCommand.input.ExpressionAttributeValues?.[":newRemainingUses"],
-    ).toBe(4);
+    expect(updateCommand.input.ExpressionAttributeValues?.[":newRemainingUses"]).toBe(4);
   });
 
   test("token not found: throws TokenDoesNotExistError", async () => {

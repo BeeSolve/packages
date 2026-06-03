@@ -2,6 +2,7 @@ import { SQSClient } from "@aws-sdk/client-sqs";
 import { createSqsHandlers } from "@beesolve/sqs-handler";
 import type { SQSEvent } from "aws-lambda";
 import * as v from "valibot";
+
 import { toDynamoClient } from "./src/dynamo.ts";
 import { Sessions } from "./src/session.ts";
 
@@ -31,5 +32,7 @@ const result = createSqsHandlers({
   },
 });
 
-export const handler: (event: SQSEvent) => Promise<{ batchItemFailures: { itemIdentifier: string }[] }> = result[0];
+export const handler: (
+  event: SQSEvent,
+) => Promise<{ batchItemFailures: { itemIdentifier: string }[] }> = result[0];
 export const tasks = result[1];

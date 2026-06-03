@@ -165,9 +165,7 @@ export class StaticWebsite extends Construct {
       const expectedAuth = `Basic ${Buffer.from(
         `${props.basicHttpAuthentication.username}:${props.basicHttpAuthentication.password}`,
       ).toString("base64")}`;
-      const prefixesJson = JSON.stringify(
-        props.basicHttpAuthentication.prefixes ?? ["/"],
-      );
+      const prefixesJson = JSON.stringify(props.basicHttpAuthentication.prefixes ?? ["/"]);
 
       functionAssociations.push({
         eventType: FunctionEventType.VIEWER_REQUEST,
@@ -211,44 +209,37 @@ export class StaticWebsite extends Construct {
         allowedMethods: AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
         compress: true,
         viewerProtocolPolicy: ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
-        responseHeadersPolicy: new ResponseHeadersPolicy(
-          this,
-          "ResponseSecurityHeaders",
-          {
-            securityHeadersBehavior: {
-              contentSecurityPolicy: {
-                contentSecurityPolicy: csp(props.contentSecurityPolicy),
-                override: false,
-              },
-              contentTypeOptions: {
-                override: false,
-              },
-              frameOptions: {
-                frameOption:
-                  props.securityHeaders?.frameOptions ??
-                  HeadersFrameOption.SAMEORIGIN,
-                override: false,
-              },
-              referrerPolicy: {
-                referrerPolicy:
-                  props.securityHeaders?.referrerPolicy ??
-                  HeadersReferrerPolicy.NO_REFERRER,
-                override: false,
-              },
-              strictTransportSecurity: {
-                accessControlMaxAge: Duration.seconds(63072000),
-                preload: true,
-                includeSubdomains: true,
-                override: false,
-              },
-              xssProtection: {
-                protection: true,
-                modeBlock: true,
-                override: false,
-              },
+        responseHeadersPolicy: new ResponseHeadersPolicy(this, "ResponseSecurityHeaders", {
+          securityHeadersBehavior: {
+            contentSecurityPolicy: {
+              contentSecurityPolicy: csp(props.contentSecurityPolicy),
+              override: false,
+            },
+            contentTypeOptions: {
+              override: false,
+            },
+            frameOptions: {
+              frameOption: props.securityHeaders?.frameOptions ?? HeadersFrameOption.SAMEORIGIN,
+              override: false,
+            },
+            referrerPolicy: {
+              referrerPolicy:
+                props.securityHeaders?.referrerPolicy ?? HeadersReferrerPolicy.NO_REFERRER,
+              override: false,
+            },
+            strictTransportSecurity: {
+              accessControlMaxAge: Duration.seconds(63072000),
+              preload: true,
+              includeSubdomains: true,
+              override: false,
+            },
+            xssProtection: {
+              protection: true,
+              modeBlock: true,
+              override: false,
             },
           },
-        ),
+        }),
         functionAssociations,
       },
       errorResponses: [
@@ -272,8 +263,7 @@ export class StaticWebsite extends Construct {
       distribution,
       sources: [props.source],
       memoryLimit: props.deploymentLambdaMemoryLimit ?? 10_240,
-      ephemeralStorageSize:
-        props.deploymentLambdaEphemeralStorageSize ?? Size.mebibytes(512),
+      ephemeralStorageSize: props.deploymentLambdaEphemeralStorageSize ?? Size.mebibytes(512),
     });
 
     if (props.domain != null && props.domain.createDnsRecords !== false) {
@@ -342,11 +332,7 @@ export class StaticWebsite extends Construct {
     function toCertificate(scope: Construct) {
       if (props.domain == null) return undefined;
       if (typeof props.domain.certificate === "string") {
-        return Certificate.fromCertificateArn(
-          scope,
-          "Certificate",
-          props.domain.certificate,
-        );
+        return Certificate.fromCertificateArn(scope, "Certificate", props.domain.certificate);
       }
 
       return props.domain.certificate;
@@ -394,11 +380,7 @@ function csp(props: CspProps): string {
   const defaultSrc = props.defaultSrc ?? [`'self'`];
   const scriptSrc = props.scriptSrc ?? [`'self'`];
   const imgSrc = props.imgSrc ?? [`'self'`, "data:"];
-  const styleSrc = props.styleSrc ?? [
-    `'self'`,
-    `'unsafe-inline'`,
-    "fonts.googleapis.com",
-  ];
+  const styleSrc = props.styleSrc ?? [`'self'`, `'unsafe-inline'`, "fonts.googleapis.com"];
   const fontSrc = props.fontSrc ?? [`'self'`, "fonts.gstatic.com"];
 
   // By default, disallow any API calls.
@@ -438,10 +420,8 @@ function csp(props: CspProps): string {
     has(objectSrc) && `object-src ${objectSrc.join(" ")}`,
     has(props.prefetchSrc) && `prefetch-src ${props.prefetchSrc.join(" ")}`,
     has(scriptSrc) && `script-src ${scriptSrc.join(" ")}`,
-    has(props.scriptSrcElem) &&
-      `script-src-elem ${props.scriptSrcElem.join(" ")}`,
-    has(props.scriptSrcAttr) &&
-      `script-src-attr ${props.scriptSrcAttr.join(" ")}`,
+    has(props.scriptSrcElem) && `script-src-elem ${props.scriptSrcElem.join(" ")}`,
+    has(props.scriptSrcAttr) && `script-src-attr ${props.scriptSrcAttr.join(" ")}`,
     has(styleSrc) && `style-src ${styleSrc.join(" ")}`,
     has(props.styleSrcElem) && `style-src-elem ${props.styleSrcElem.join(" ")}`,
     has(props.styleSrcAttr) && `style-src-attr ${props.styleSrcAttr.join(" ")}`,
@@ -452,8 +432,7 @@ function csp(props: CspProps): string {
     has(frameAncestors) && `frame-ancestors ${frameAncestors.join(" ")}`,
     has(props.navigateTo) && `navigate-to ${props.navigateTo.join(" ")}`,
     has(props.reportTo) && `report-to ${props.reportTo.join(" ")}`,
-    has(requireTrustedTypesFor) &&
-      `require-trusted-types-for ${requireTrustedTypesFor.join(" ")}`,
+    has(requireTrustedTypesFor) && `require-trusted-types-for ${requireTrustedTypesFor.join(" ")}`,
     has(props.trustedTypes) && `trusted-types ${props.trustedTypes.join(" ")}`,
     upgradeInsecureRequests && "upgrade-insecure-requests",
   ]

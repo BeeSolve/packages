@@ -70,10 +70,7 @@ export class ActionTokens {
     );
 
     const condition:
-      | Pick<
-          PutCommand["input"],
-          "ConditionExpression" | "ExpressionAttributeNames"
-        >
+      | Pick<PutCommand["input"], "ConditionExpression" | "ExpressionAttributeNames">
       | undefined = props.overwrite
       ? undefined
       : {
@@ -182,8 +179,7 @@ export class ActionTokens {
           createdAt: new Date().toISOString(),
           expiresAt: now + props.throttle.windowSeconds,
         },
-        ConditionExpression:
-          "attribute_not_exists(#owner) OR #expiresAt <= :now",
+        ConditionExpression: "attribute_not_exists(#owner) OR #expiresAt <= :now",
         ExpressionAttributeNames: {
           "#owner": "owner",
           "#expiresAt": "expiresAt",
@@ -226,8 +222,7 @@ export class ActionTokens {
       ? this.getOneByValue({ action: props.action, value: props.value })
       : this.getOneByOwner({ action: props.action, owner: props.owner }));
 
-    if (token.expiresAt.getTime() <= Date.now())
-      throw new ExpiredTokenError("Token has expired.");
+    if (token.expiresAt.getTime() <= Date.now()) throw new ExpiredTokenError("Token has expired.");
     if (token.remainingUses <= 0)
       throw new TokenAlreadyUsedUpError("Token cannot be used anymore.");
 
@@ -281,10 +276,7 @@ export class ActionTokens {
    * Validates expiry and remaining uses — throws if the token is expired or used up.
    * Use this to check token status or display metadata without consuming an attempt.
    */
-  readonly peek = async (props: {
-    readonly owner: string;
-    readonly action: string;
-  }) => {
+  readonly peek = async (props: { readonly owner: string; readonly action: string }) => {
     const { Item: item } = await this.props.dynamo.send(
       new GetCommand({
         Key: { owner: props.owner, action: props.action },
@@ -296,18 +288,14 @@ export class ActionTokens {
     if (item == null) throw new TokenDoesNotExistError("Token not found.");
 
     const token = this.parseOne(item);
-    if (token.expiresAt.getTime() <= Date.now())
-      throw new ExpiredTokenError("Token has expired.");
+    if (token.expiresAt.getTime() <= Date.now()) throw new ExpiredTokenError("Token has expired.");
     if (token.remainingUses <= 0)
       throw new TokenAlreadyUsedUpError("Token cannot be used anymore.");
 
     return token;
   };
 
-  readonly drain = async (props: {
-    readonly owner: string;
-    readonly action: string;
-  }) => {
+  readonly drain = async (props: { readonly owner: string; readonly action: string }) => {
     await this.props.dynamo.send(
       new DeleteCommand({
         TableName: this.props.tableName,
@@ -341,12 +329,10 @@ export class ActionTokens {
       }),
     );
 
-    if (items.length === 0)
-      throw new TokenDoesNotExistError(`Token not found.`);
+    if (items.length === 0) throw new TokenDoesNotExistError(`Token not found.`);
     // Limit:1 means DynamoDB returns at most one item, but this guard catches
     // any unexpected multi-item response and surfaces index corruption early.
-    if (items.length !== 1)
-      throw new UnexpectedError(`Unexpected error. Found more than 1 token.`);
+    if (items.length !== 1) throw new UnexpectedError(`Unexpected error. Found more than 1 token.`);
 
     return this.parseOne(items[0]);
   };
@@ -371,10 +357,7 @@ export class ActionTokens {
     return this.parseOne(item);
   };
 
-  private readonly parseOne = (
-    item: unknown,
-    errorMessage: string = `Malformed token.`,
-  ) => {
+  private readonly parseOne = (item: unknown, errorMessage: string = `Malformed token.`) => {
     const result = v.safeParse(schema, item);
     if (!result.success) {
       console.error(v.flatten(result.issues));

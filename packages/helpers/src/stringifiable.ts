@@ -78,8 +78,7 @@ function decodeValue(value: any): any {
 }
 
 function encodeValue(value: any, depth = 0): any {
-  if (depth > maxDepth)
-    throw Error(`Cannot encode - max object depth (${maxDepth}) reached.`);
+  if (depth > maxDepth) throw Error(`Cannot encode - max object depth (${maxDepth}) reached.`);
 
   if (typeof value === "function") throw Error(`Cannot encode function`);
   if (typeof value === "symbol") throw Error(`Cannot encode symbol`);
@@ -100,8 +99,7 @@ function encodeValue(value: any, depth = 0): any {
   if (globalThis.Buffer != null && Buffer.isBuffer(value))
     return `${tokens.buffer}${value.toString("base64url")}`;
 
-  if (Array.isArray(value))
-    return value.map((value) => encodeValue(value, depth + 1));
+  if (Array.isArray(value)) return value.map((value) => encodeValue(value, depth + 1));
 
   if (value instanceof FormData) {
     return `${tokens.formData}${JSON.stringify(Object.fromEntries(value.entries()))}`;
@@ -120,7 +118,5 @@ function encodeValue(value: any, depth = 0): any {
 }
 
 function isPlainObject(value: any) {
-  return (
-    typeof value === "object" && value !== null && value.constructor === Object
-  );
+  return typeof value === "object" && value !== null && value.constructor === Object;
 }

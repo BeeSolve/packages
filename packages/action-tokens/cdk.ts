@@ -44,10 +44,8 @@ export class ActionTokens extends Construct {
     super(scope, id);
 
     const removalPolicy = props.removalPolicy ?? RemovalPolicy.RETAIN;
-    const deletionProtection =
-      props.deletionProtection ?? (removalPolicy === RemovalPolicy.RETAIN);
-    const pointInTimeRecoveryEnabled =
-      props.pointInTimeRecoveryEnabled ?? deletionProtection;
+    const deletionProtection = props.deletionProtection ?? removalPolicy === RemovalPolicy.RETAIN;
+    const pointInTimeRecoveryEnabled = props.pointInTimeRecoveryEnabled ?? deletionProtection;
 
     this.table = new TableV2(this, "ActionTokens", {
       partitionKey: {
@@ -68,9 +66,7 @@ export class ActionTokens extends Construct {
       pointInTimeRecoverySpecification: pointInTimeRecoveryEnabled
         ? { pointInTimeRecoveryEnabled }
         : undefined,
-      contributorInsightsSpecification: props.contributorInsights
-        ? { enabled: true }
-        : undefined,
+      contributorInsightsSpecification: props.contributorInsights ? { enabled: true } : undefined,
     });
 
     this.table.addGlobalSecondaryIndex({
@@ -90,10 +86,7 @@ export class ActionTokens extends Construct {
   readonly grantAccess = (grantee: Function) => {
     this.table.grantReadWriteData(grantee);
 
-    grantee.addEnvironment(
-      "BEESOLVE_ACTION_TOKENS_TABLE_NAME",
-      this.table.tableName,
-    );
+    grantee.addEnvironment("BEESOLVE_ACTION_TOKENS_TABLE_NAME", this.table.tableName);
     grantee.addEnvironment("BEESOLVE_ACTION_TOKENS_INDEX_NAME", this.indexName);
   };
 }

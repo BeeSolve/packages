@@ -11,14 +11,8 @@ This example shows a complete CDK stack that places a CloudFront distribution in
 ```ts
 import { Auth } from "@beesolve/auth-service/cdk";
 import { Fn, Stack, type StackProps } from "aws-cdk-lib";
-import {
-  Distribution,
-  ViewerProtocolPolicy,
-} from "aws-cdk-lib/aws-cloudfront";
-import {
-  HttpOrigin,
-  S3StaticWebsiteOrigin,
-} from "aws-cdk-lib/aws-cloudfront-origins";
+import { Distribution, ViewerProtocolPolicy } from "aws-cdk-lib/aws-cloudfront";
+import { HttpOrigin, S3StaticWebsiteOrigin } from "aws-cdk-lib/aws-cloudfront-origins";
 import { Bucket } from "aws-cdk-lib/aws-s3";
 import { Function, Runtime, Code } from "aws-cdk-lib/aws-lambda";
 import { Construct } from "constructs";
@@ -75,11 +69,11 @@ export class AppStack extends Stack {
 
 ## What each piece does
 
-| Behavior | Origin | Purpose |
-|---|---|---|
-| `/*` (default) | S3 bucket | Serves your frontend SPA |
-| `/auth/*` | `auth.authBehavior` | Auth handler — OAC-signed, Lambda@Edge computes body hash for SigV4 |
-| `/api/*` | `HttpOrigin(auth.api.url)` | API Gateway — the Lambda authorizer validates `__Host-SID` on every request |
+| Behavior       | Origin                     | Purpose                                                                     |
+| -------------- | -------------------------- | --------------------------------------------------------------------------- |
+| `/*` (default) | S3 bucket                  | Serves your frontend SPA                                                    |
+| `/auth/*`      | `auth.authBehavior`        | Auth handler — OAC-signed, Lambda@Edge computes body hash for SigV4         |
+| `/api/*`       | `HttpOrigin(auth.api.url)` | API Gateway — the Lambda authorizer validates `__Host-SID` on every request |
 
 ## How OAC works
 
@@ -92,7 +86,11 @@ For POST requests, SigV4 requires the body hash (`x-amz-content-sha256`). A Lamb
 With `AWS_IAM` auth type, CORS configured on the function URL is not applied. Add a CloudFront response headers policy to your `/auth/*` behavior if you need CORS headers:
 
 ```ts
-import { ResponseHeadersPolicy, HeadersFrameOption, HeadersReferrerPolicy } from "aws-cdk-lib/aws-cloudfront";
+import {
+  ResponseHeadersPolicy,
+  HeadersFrameOption,
+  HeadersReferrerPolicy,
+} from "aws-cdk-lib/aws-cloudfront";
 
 const corsPolicy = new ResponseHeadersPolicy(this, "AuthCors", {
   corsBehavior: {

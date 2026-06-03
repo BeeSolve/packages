@@ -1,10 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import {
-  BadRequestError,
-  ForbiddenError,
-  NotFoundError,
-  UnauthorizedError,
-} from "../index.ts";
+
+import { BadRequestError, ForbiddenError, NotFoundError, UnauthorizedError } from "../index.ts";
 
 const errorClasses = [
   { name: "NotFoundError", Ctor: NotFoundError },

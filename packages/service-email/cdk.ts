@@ -1,12 +1,8 @@
 import { fileURLToPath } from "node:url";
+
 import { Nodejs24Function, SqsWithDlq } from "@beesolve/cdk-constructs";
 import { Duration, RemovalPolicy, Stack } from "aws-cdk-lib";
-import {
-  AttributeType,
-  Billing,
-  TableEncryptionV2,
-  TableV2,
-} from "aws-cdk-lib/aws-dynamodb";
+import { AttributeType, Billing, TableEncryptionV2, TableV2 } from "aws-cdk-lib/aws-dynamodb";
 import { EventBus } from "aws-cdk-lib/aws-events";
 import type { LogGroupProps } from "aws-cdk-lib/aws-events-targets";
 import { Effect, PolicyStatement } from "aws-cdk-lib/aws-iam";
@@ -106,10 +102,7 @@ export class Emails extends Construct {
       attachmentsRetentionDays = 180,
       messagesRetentionDays = 14,
       eventBusName = "default",
-      defaultConfigurationSet = new ConfigurationSet(
-        this,
-        "DefaultConfigurationSet",
-      ),
+      defaultConfigurationSet = new ConfigurationSet(this, "DefaultConfigurationSet"),
       eventsToTrack = new Set([
         EmailSendingEvent.SEND,
         EmailSendingEvent.BOUNCE,
@@ -166,8 +159,7 @@ export class Emails extends Construct {
       handler: "handler.handler",
       memorySize: props.handler?.memorySize ?? 256,
       timeout: props.handler?.timeout ?? Duration.seconds(30),
-      reservedConcurrentExecutions:
-        props.handler?.reservedConcurrentExecutions ?? 2,
+      reservedConcurrentExecutions: props.handler?.reservedConcurrentExecutions ?? 2,
       environment: {
         BUCKET_NAME: this.bucket.bucketName,
         TABLE_NAME: this.table.tableName,
@@ -175,8 +167,7 @@ export class Emails extends Construct {
         DEFAULT_SENDER_EMAIL_ADDRESS: props.defaultSender.emailAddress,
         MESSAGES_RETENTION_DAYS: String(messagesRetentionDays),
         EVENT_BUS_ARN: eventBus.eventBusArn,
-        DEFAULT_CONFIGURATION_SET_NAME:
-          defaultConfigurationSet.configurationSetName,
+        DEFAULT_CONFIGURATION_SET_NAME: defaultConfigurationSet.configurationSetName,
       },
       logGroupProps: {
         removalPolicy: RemovalPolicy.DESTROY,
@@ -218,9 +209,6 @@ export class Emails extends Construct {
 
     grantee.addEnvironment("BEESOLVE_EMAILS_QUEUE_URL", this.queue.queueUrl);
     grantee.addEnvironment("BEESOLVE_EMAILS_TABLE_NAME", this.table.tableName);
-    grantee.addEnvironment(
-      "BEESOLVE_EMAILS_ATTACHMENTS_BUCKET",
-      this.bucket.bucketName,
-    );
+    grantee.addEnvironment("BEESOLVE_EMAILS_ATTACHMENTS_BUCKET", this.bucket.bucketName);
   };
 }

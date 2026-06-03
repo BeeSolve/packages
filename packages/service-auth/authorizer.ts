@@ -1,9 +1,11 @@
 import { randomUUID } from "crypto";
+
+import { keptActive } from "@beesolve/lambda-keep-active/runtime";
 import * as v from "valibot";
+
 import { parseSid } from "./src/cookie.ts";
 import { toDynamoClient } from "./src/dynamo.ts";
 import { Sessions } from "./src/session.ts";
-import { keptActive } from "@beesolve/lambda-keep-active/runtime";
 
 const envSchema = v.object({
   SESSIONS_TABLE_NAME: v.string(),
@@ -158,9 +160,7 @@ export const handler = keptActive(async (event: AuthorizationEvent) => {
     const base = parts.slice(0, 5);
 
     const pathParts = parts.at(5)?.split("/") ?? [];
-    const resource = [...base, [...pathParts.slice(0, 2), "*"].join("/")].join(
-      ":",
-    );
+    const resource = [...base, [...pathParts.slice(0, 2), "*"].join("/")].join(":");
 
     return {
       principalId: randomUUID(),

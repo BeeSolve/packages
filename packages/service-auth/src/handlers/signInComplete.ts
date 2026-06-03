@@ -1,3 +1,5 @@
+import { randomBytes } from "node:crypto";
+
 import {
   ExpiredTokenError,
   TokenAlreadyUsedUpError,
@@ -5,8 +7,8 @@ import {
 } from "@beesolve/action-tokens/model";
 import { ActionTokensClient } from "@beesolve/action-tokens/sdk";
 import { asNull, call } from "@beesolve/helpers";
-import { randomBytes } from "node:crypto";
 import * as v from "valibot";
+
 import { Accounts } from "../account.ts";
 import { addSetCookies } from "../cookie.ts";
 import { BadRequestError } from "../errors.ts";
@@ -52,29 +54,28 @@ export async function signInComplete({
     schema,
   });
 
-  const { data } = await actionTokens.use({
-    action: "signInRequest",
-    value: code,
-    drainWhenValid: true,
-    owner: token,
-  }).catch(async (error) => {
-    if (
-      error instanceof TokenInvalidError ||
-      error instanceof ExpiredTokenError ||
-      error instanceof TokenAlreadyUsedUpError
-    ) {
-      await events.putEvents({
-        type: "UnsuccessfulAuth",
-        detail: { emailAddress: null, reason: error.message },
-      });
-    }
-    throw error;
-  });
+  const { data } = await actionTokens
+    .use({
+      action: "signInRequest",
+      value: code,
+      drainWhenValid: true,
+      owner: token,
+    })
+    .catch(async (error) => {
+      if (
+        error instanceof TokenInvalidError ||
+        error instanceof ExpiredTokenError ||
+        error instanceof TokenAlreadyUsedUpError
+      ) {
+        await events.putEvents({
+          type: "UnsuccessfulAuth",
+          detail: { emailAddress: null, reason: error.message },
+        });
+      }
+      throw error;
+    });
 
-  const result = v.safeParse(
-    v.object({ emailAddress: v.pipe(v.string(), v.email()) }),
-    data,
-  );
+  const result = v.safeParse(v.object({ emailAddress: v.pipe(v.string(), v.email()) }), data);
 
   if (!result.success) throw new BadRequestError("Invalid token.");
 
@@ -86,9 +87,7 @@ export async function signInComplete({
 
   const session = await sessions.createOne({
     userId: account.id,
-    data: Sessions.dataFromCloudFrontHeaders(
-      Object.fromEntries(headers.entries()),
-    ),
+    data: Sessions.dataFromCloudFrontHeaders(Object.fromEntries(headers.entries())),
   });
 
   return new Response(null, {

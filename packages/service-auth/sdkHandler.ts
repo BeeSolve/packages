@@ -1,11 +1,9 @@
 import { randomBytes } from "node:crypto";
-import {
-  asNull,
-  assertUnreachable,
-  decodeFromStringifiable,
-} from "@beesolve/helpers";
+
+import { asNull, assertUnreachable, decodeFromStringifiable } from "@beesolve/helpers";
 import { keptActive } from "@beesolve/lambda-keep-active/runtime";
 import * as v from "valibot";
+
 import { Accounts } from "./src/account.ts";
 import { toDynamoClient } from "./src/dynamo.ts";
 import { type UserSession, Sessions } from "./src/session.ts";
@@ -91,21 +89,16 @@ type ToRequest<C extends Command> = C extends any
   : never;
 
 type HandlerEvent = ToRequest<
-  | NewEmailAccountCommand
-  | AccountIdByEmailRequest
-  | SessionListRequest
-  | DeleteAllSessionsRequest
+  NewEmailAccountCommand | AccountIdByEmailRequest | SessionListRequest | DeleteAllSessionsRequest
 >;
 
-export type RequestByType<T extends Commands["type"]> =
-  T extends Commands["type"]
-    ? Extract<Commands, { type: T }>["request"]
-    : never;
+export type RequestByType<T extends Commands["type"]> = T extends Commands["type"]
+  ? Extract<Commands, { type: T }>["request"]
+  : never;
 
-export type ResponseByType<T extends Commands["type"]> =
-  T extends Commands["type"]
-    ? Extract<Commands, { type: T }>["response"]
-    : never;
+export type ResponseByType<T extends Commands["type"]> = T extends Commands["type"]
+  ? Extract<Commands, { type: T }>["response"]
+  : never;
 
 export type Types<T extends Commands> = T extends any ? T["type"] : never;
 

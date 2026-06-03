@@ -12,12 +12,12 @@ bun add @beesolve/email-service
 
 ## Exports
 
-| Entry point | Use in | Purpose |
-|---|---|---|
-| `@beesolve/email-service/cdk` | CDK stack | `Emails` construct — creates all AWS resources |
-| `@beesolve/email-service/sdk` | Lambda / server | `Email` class — queues emails for sending |
+| Entry point                          | Use in                 | Purpose                                                          |
+| ------------------------------------ | ---------------------- | ---------------------------------------------------------------- |
+| `@beesolve/email-service/cdk`        | CDK stack              | `Emails` construct — creates all AWS resources                   |
+| `@beesolve/email-service/sdk`        | Lambda / server        | `Email` class — queues emails for sending                        |
 | `@beesolve/email-service/templating` | Build scripts & Lambda | `renderEmail`, `hydrateTemplate`, `buildTemplates`, `BaseLayout` |
-| `@beesolve/email-service/events` | Lambda event handlers | Typed EventBridge event types and helpers |
+| `@beesolve/email-service/events`     | Lambda event handlers  | Typed EventBridge event types and helpers                        |
 
 ---
 
@@ -44,17 +44,17 @@ emails.grantAccess(myLambdaFunction);
 
 ### Construct options
 
-| Option | Default | Description |
-|---|---|---|
-| `defaultSender` | required | `{ name, emailAddress }` used when no per-request sender is set |
-| `fromArn` | — | Restrict sending to a specific SES verified identity ARN |
-| `defaultConfigurationSet` | auto-created | Attach an existing SES configuration set |
-| `eventsToTrack` | `SEND, BOUNCE, COMPLAINT, DELIVERY, REJECT` | SES events forwarded to EventBridge |
-| `messagesRetentionDays` | `14` | How long email requests are kept in DynamoDB (set to `0` to disable) |
-| `attachmentsRetentionDays` | `180` | How long attachments are kept in S3 |
-| `eventBusName` | `"default"` | EventBridge bus to publish events to |
-| `isProd` | `false` | Enables DynamoDB point-in-time recovery |
-| `handler` | — | Override `memorySize`, `timeout`, `reservedConcurrentExecutions` for the queue handler Lambda |
+| Option                     | Default                                     | Description                                                                                   |
+| -------------------------- | ------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `defaultSender`            | required                                    | `{ name, emailAddress }` used when no per-request sender is set                               |
+| `fromArn`                  | —                                           | Restrict sending to a specific SES verified identity ARN                                      |
+| `defaultConfigurationSet`  | auto-created                                | Attach an existing SES configuration set                                                      |
+| `eventsToTrack`            | `SEND, BOUNCE, COMPLAINT, DELIVERY, REJECT` | SES events forwarded to EventBridge                                                           |
+| `messagesRetentionDays`    | `14`                                        | How long email requests are kept in DynamoDB (set to `0` to disable)                          |
+| `attachmentsRetentionDays` | `180`                                       | How long attachments are kept in S3                                                           |
+| `eventBusName`             | `"default"`                                 | EventBridge bus to publish events to                                                          |
+| `isProd`                   | `false`                                     | Enables DynamoDB point-in-time recovery                                                       |
+| `handler`                  | —                                           | Override `memorySize`, `timeout`, `reservedConcurrentExecutions` for the queue handler Lambda |
 
 ---
 
@@ -160,10 +160,7 @@ interface Props {
 
 export default function WelcomeEmail({ name, baseUri }: Props) {
   return (
-    <BaseLayout
-      previewText={`Welcome, ${name}`}
-      project={{ name: "My App", baseUri }}
-    >
+    <BaseLayout previewText={`Welcome, ${name}`} project={{ name: "My App", baseUri }}>
       {(styles) => (
         <>
           <Text style={styles.text}>Hi {name}, welcome aboard!</Text>
@@ -208,15 +205,15 @@ See [docs/eventbridge-events.md](docs/eventbridge-events.md) for a complete tuto
 
 The service publishes two families of events to EventBridge:
 
-| Source | `detail-type` | When |
-|---|---|---|
-| `beesolve.email.api` | `EmailSentSuccess` | SES accepted and sent the message |
-| `beesolve.email.api` | `EmailSentFailure` | The queue handler failed to send |
-| `aws.ses` | `SES Delivery` | Recipient's mail server confirmed delivery |
-| `aws.ses` | `SES Bounce` | Hard or soft bounce |
-| `aws.ses` | `SES Complaint` | Recipient reported spam |
-| `aws.ses` | `SES Message Sent` | SES accepted the message for sending |
-| `aws.ses` | `SES Reject` | SES rejected the message |
+| Source               | `detail-type`      | When                                       |
+| -------------------- | ------------------ | ------------------------------------------ |
+| `beesolve.email.api` | `EmailSentSuccess` | SES accepted and sent the message          |
+| `beesolve.email.api` | `EmailSentFailure` | The queue handler failed to send           |
+| `aws.ses`            | `SES Delivery`     | Recipient's mail server confirmed delivery |
+| `aws.ses`            | `SES Bounce`       | Hard or soft bounce                        |
+| `aws.ses`            | `SES Complaint`    | Recipient reported spam                    |
+| `aws.ses`            | `SES Message Sent` | SES accepted the message for sending       |
+| `aws.ses`            | `SES Reject`       | SES rejected the message                   |
 
 Use the typed helpers from `@beesolve/email-service/events`:
 

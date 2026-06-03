@@ -28,7 +28,6 @@
   **New: `@beesolve/email-service/events`**
 
   Typed EventBridge event types and runtime helpers for both event sources the email service emits:
-
   - `beesolve.email.api` — `EmailSentSuccess`, `EmailSentFailure`
   - `aws.ses` — `SES Delivery`, `SES Bounce`, `SES Complaint`, `SES Message Sent`, `SES Reject`
 
@@ -52,7 +51,6 @@
 ### Patch Changes
 
 - adf27f3: fix several correctness, error handling, and security issues
-
   - DynamoDB `batchWrite` now chunked into ≤25-item groups; previously would throw for emails with many recipients
   - EventBridge `putEvents` failures are now logged instead of silently swallowed
   - Sender `emailAddress` field now validated as a valid email address

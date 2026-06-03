@@ -90,10 +90,7 @@ export class SqsHandler extends Construct {
       encryptionKey,
     } = props;
 
-    const configurations: Record<
-      string,
-      Pick<Nodejs24FunctionProps, "memorySize" | "timeout">
-    > = {
+    const configurations: Record<string, Pick<Nodejs24FunctionProps, "memorySize" | "timeout">> = {
       ...additionalHandlerConfigurations,
       [mainQueueLabel]: {
         memorySize: handlerProps.memorySize,
@@ -101,13 +98,8 @@ export class SqsHandler extends Construct {
       },
     };
 
-    const {
-      description,
-      memorySize,
-      timeout,
-      reservedConcurrentExecutions,
-      ...mainConfig
-    } = handlerProps;
+    const { description, memorySize, timeout, reservedConcurrentExecutions, ...mainConfig } =
+      handlerProps;
 
     for (const [name, config] of Object.entries(configurations)) {
       const prefix = capitalizeFirstLetter(name);
@@ -149,18 +141,13 @@ export class SqsHandler extends Construct {
     env.forEach(({ key, value }) => grantee.addEnvironment(key, value));
   };
 
-  readonly forEachHandler = (
-    callback: (handler: Nodejs24Function) => void,
-  ): void => {
-    Object.values(this.configurations).forEach(({ handler }) =>
-      callback(handler),
-    );
+  readonly forEachHandler = (callback: (handler: Nodejs24Function) => void): void => {
+    Object.values(this.configurations).forEach(({ handler }) => callback(handler));
   };
 
   private readonly toEnvironmentVariables = () => {
     const { [mainQueueLabel]: main, ...rest } = this.configurations;
-    if (main == null)
-      throw Error(`Unexpected error. Main queue and handler not set.`);
+    if (main == null) throw Error(`Unexpected error. Main queue and handler not set.`);
 
     return [
       {
@@ -171,10 +158,7 @@ export class SqsHandler extends Construct {
         key: "BEESOLVE_TASKS_ADDITIONAL_QUEUE_URLS",
         value: JSON.stringify(
           Object.fromEntries(
-            Object.entries(rest).map(([key, { queue }]) => [
-              key,
-              queue.queue.queueUrl,
-            ]),
+            Object.entries(rest).map(([key, { queue }]) => [key, queue.queue.queueUrl]),
           ),
         ),
       },

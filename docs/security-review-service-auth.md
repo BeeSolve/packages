@@ -23,7 +23,7 @@ Any string is accepted — including `//evil.com` or `https://attacker.com`. An 
 **Fix:** Constrain `redirectTo` to relative paths only:
 
 ```ts
-redirectTo: v.optional(v.pipe(v.string(), v.regex(/^\/(?!\/)/)))
+redirectTo: v.optional(v.pipe(v.string(), v.regex(/^\/(?!\/)/)));
 ```
 
 ---
@@ -36,7 +36,7 @@ The authorizer returns `Allow` for all outcomes — valid, expired, and non-exis
 
 ```ts
 // same for type: "invalid", "expired", and "valid"
-Statement: [{ Action: "execute-api:Invoke", Effect: "Allow", Resource: resource }]
+Statement: [{ Action: "execute-api:Invoke", Effect: "Allow", Resource: resource }];
 ```
 
 This shifts the entire enforcement burden to every individual downstream Lambda. A single handler that doesn't parse `context.session` admits all requests including completely unauthenticated ones.
@@ -230,20 +230,20 @@ If DynamoDB is unavailable and session deletion fails, the error is swallowed an
 
 ## Summary
 
-| # | Severity | OWASP 2025 | Issue | File |
-|---|----------|-----------|-------|------|
-| 1 | Critical | A01 | Open redirect via unvalidated `redirectTo` | `signInComplete.ts:82`, `signOut.ts:47` |
-| 2 | High | A01 | Authorizer always returns `Allow` | `authorizer.ts:168` |
-| 3 | High | A01 | 1-hour cache defeats sign-out | `cdk.ts:219` |
-| 4 | Medium | A06 | No rate limiting on `/signInRequest` | `api.ts:105` |
-| 5 | Medium | A06 | `remainingUses: 10` too permissive | `signInRequest.ts:57` |
-| 6 | Low | A09 | `UnsuccessfulAuth` event never fired | `signInComplete.ts`, `events.ts` |
-| 7 | Low | A10 | Sign-out swallows session deletion failure | `signOut.ts:34` |
-| 8 | Low | A02 | CORS wildcard on auth function URL | `cdk.ts:268` |
-| 9 | Low | A02 | `__Host-DataToken` uses `SameSite=Lax` | `cookie.ts:34` |
-| 10 | Low | A02 | Validation errors expose schema internals | `request.ts:12` |
-| 11 | Low | A08 | `sdkHandler` no schema validation on request | `sdkHandler.ts:88` |
-| 12 | Low | A06 | No session invalidation on re-sign-in | `signInComplete.ts` |
-| 13 | Low | A06 | CloudFront headers trusted without verification | `session.ts:345` |
+| #   | Severity | OWASP 2025 | Issue                                           | File                                    |
+| --- | -------- | ---------- | ----------------------------------------------- | --------------------------------------- |
+| 1   | Critical | A01        | Open redirect via unvalidated `redirectTo`      | `signInComplete.ts:82`, `signOut.ts:47` |
+| 2   | High     | A01        | Authorizer always returns `Allow`               | `authorizer.ts:168`                     |
+| 3   | High     | A01        | 1-hour cache defeats sign-out                   | `cdk.ts:219`                            |
+| 4   | Medium   | A06        | No rate limiting on `/signInRequest`            | `api.ts:105`                            |
+| 5   | Medium   | A06        | `remainingUses: 10` too permissive              | `signInRequest.ts:57`                   |
+| 6   | Low      | A09        | `UnsuccessfulAuth` event never fired            | `signInComplete.ts`, `events.ts`        |
+| 7   | Low      | A10        | Sign-out swallows session deletion failure      | `signOut.ts:34`                         |
+| 8   | Low      | A02        | CORS wildcard on auth function URL              | `cdk.ts:268`                            |
+| 9   | Low      | A02        | `__Host-DataToken` uses `SameSite=Lax`          | `cookie.ts:34`                          |
+| 10  | Low      | A02        | Validation errors expose schema internals       | `request.ts:12`                         |
+| 11  | Low      | A08        | `sdkHandler` no schema validation on request    | `sdkHandler.ts:88`                      |
+| 12  | Low      | A06        | No session invalidation on re-sign-in           | `signInComplete.ts`                     |
+| 13  | Low      | A06        | CloudFront headers trusted without verification | `session.ts:345`                        |
 
 **Sound foundations:** CSPRNG everywhere, `__Host-` prefixed cookies with `HttpOnly`/`Secure`/`SameSite=Strict`, parameterized DynamoDB expressions throughout, conditional writes preventing duplicate accounts, email normalized to lowercase before storage.

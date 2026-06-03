@@ -48,8 +48,6 @@ function toBuildConfig(props: BuildProps): BuildOptions {
 
 export class BuildError extends Error {
   constructor(messages: Message[]) {
-    super(
-      `Couldn't build the code.\n\n${messages.map((message) => message.text).join("\n")}`,
-    );
+    super(`Couldn't build the code.\n\n${messages.map((message) => message.text).join("\n")}`);
   }
 }

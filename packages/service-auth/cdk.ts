@@ -1,4 +1,5 @@
 import { fileURLToPath } from "node:url";
+
 import { ActionTokens } from "@beesolve/action-tokens/cdk";
 import { Nodejs24Function } from "@beesolve/cdk-constructs";
 import type { EmailAlarms } from "@beesolve/cdk-email-alarms";
@@ -136,11 +137,7 @@ export class Auth extends Construct {
        *
        * @default "balanced"
        */
-      readonly authorizerCache?:
-        | "immediate"
-        | "balanced"
-        | "relaxed"
-        | Duration;
+      readonly authorizerCache?: "immediate" | "balanced" | "relaxed" | Duration;
       /**
        * How long the OTP email code is valid for sign-in.
        *
@@ -222,9 +219,7 @@ export class Auth extends Construct {
 
     const isProd = props.stage === "prod";
     const deletionProtection = isProd;
-    const removalPolicy: RemovalPolicy = isProd
-      ? RemovalPolicy.RETAIN
-      : RemovalPolicy.DESTROY;
+    const removalPolicy: RemovalPolicy = isProd ? RemovalPolicy.RETAIN : RemovalPolicy.DESTROY;
     const contributorInsights = props.contributorInsights ?? isProd;
 
     const actionTokens = new ActionTokens(this, "ActionTokens", {
@@ -254,9 +249,7 @@ export class Auth extends Construct {
       pointInTimeRecoverySpecification: {
         pointInTimeRecoveryEnabled: isProd,
       },
-      contributorInsightsSpecification: contributorInsights
-        ? { enabled: true }
-        : undefined,
+      contributorInsightsSpecification: contributorInsights ? { enabled: true } : undefined,
     });
     const sessionsByUserIdIndexName = "userIdGsi";
     sessionsTable.addGlobalSecondaryIndex({
@@ -290,9 +283,7 @@ export class Auth extends Construct {
       pointInTimeRecoverySpecification: {
         pointInTimeRecoveryEnabled: isProd,
       },
-      contributorInsightsSpecification: contributorInsights
-        ? { enabled: true }
-        : undefined,
+      contributorInsightsSpecification: contributorInsights ? { enabled: true } : undefined,
     });
     const accountsReverseIndexName = "reverseGsi";
     accountsTable.addGlobalSecondaryIndex({
@@ -322,11 +313,7 @@ export class Auth extends Construct {
           Math.round((props.sessionDuration ?? Duration.days(30)).toSeconds()),
         ),
         SESSION_REFRESH_DRIFT: String(
-          Math.round(
-            (
-              props.sessionRefreshDrift ?? Duration.seconds(15)
-            ).toMilliseconds(),
-          ),
+          Math.round((props.sessionRefreshDrift ?? Duration.seconds(15)).toMilliseconds()),
         ),
       },
       logGroupProps: props.logGroupProps,
@@ -377,12 +364,8 @@ export class Auth extends Construct {
       EVENT_BUS_ARN: eventBus.eventBusArn,
       BASE_URI: props.frontendUri,
       ALLOW_SIGN_UP: String(props.allowSignUp),
-      SESSION_MAX_AGE: String(
-        Math.round((props.sessionDuration ?? Duration.days(30)).toSeconds()),
-      ),
-      OTP_EXPIRY: String(
-        Math.round((props.otpExpiry ?? Duration.minutes(10)).toSeconds()),
-      ),
+      SESSION_MAX_AGE: String(Math.round((props.sessionDuration ?? Duration.days(30)).toSeconds())),
+      OTP_EXPIRY: String(Math.round((props.otpExpiry ?? Duration.minutes(10)).toSeconds())),
     };
     if (props.eventSource != null) {
       authHandlerEnv["EVENT_SOURCE"] = props.eventSource;
@@ -526,17 +509,13 @@ export class Auth extends Construct {
    * to avoid CloudFormation cross-stack export issues with Lambda@Edge version ARNs.
    */
   readonly createAuthBehavior = (scope: Construct): BehaviorOptions => {
-    const edgeBodyHash = new experimental.EdgeFunction(
-      scope,
-      "AuthEdgeBodyHash",
-      {
-        runtime: Runtime.NODEJS_24_X,
-        architecture: Architecture.X86_64,
-        handler: "edgeBodyHash.handler",
-        code: Code.fromAsset(this.edgeBodyHashAssetPath),
-        description: "Computes x-amz-content-sha256 for OAC SigV4 signing",
-      },
-    );
+    const edgeBodyHash = new experimental.EdgeFunction(scope, "AuthEdgeBodyHash", {
+      runtime: Runtime.NODEJS_24_X,
+      architecture: Architecture.X86_64,
+      handler: "edgeBodyHash.handler",
+      code: Code.fromAsset(this.edgeBodyHashAssetPath),
+      description: "Computes x-amz-content-sha256 for OAC SigV4 signing",
+    });
 
     return {
       origin: this.authOrigin,
@@ -574,10 +553,7 @@ export class Auth extends Construct {
     methods?: HttpMethod[];
   }) => {
     this.api.addRoutes({
-      integration: new HttpLambdaIntegration(
-        props.path ?? "ApiIntegration",
-        props.lambda,
-      ),
+      integration: new HttpLambdaIntegration(props.path ?? "ApiIntegration", props.lambda),
       path: props.path ?? "/api/{proxy+}",
       methods: props.methods ?? [HttpMethod.ANY],
       authorizer: this.authorizer,
@@ -586,10 +562,7 @@ export class Auth extends Construct {
 
   readonly grantSdkAccess = (handler: Function) => {
     this.sdkHandler.grantInvoke(handler);
-    handler.addEnvironment(
-      "BEESOLVE_AUTH_SDK_HANDLER_ARN",
-      this.sdkHandler.functionArn,
-    );
+    handler.addEnvironment("BEESOLVE_AUTH_SDK_HANDLER_ARN", this.sdkHandler.functionArn);
   };
 }
 

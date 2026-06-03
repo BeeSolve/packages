@@ -1,18 +1,15 @@
+import { randomUUID } from "node:crypto";
+
 import { EventBridge } from "@aws-sdk/client-eventbridge";
 import { ActionTokensClient } from "@beesolve/action-tokens/sdk";
 import { asHttpV2Handler } from "@beesolve/lambda-fetch-api";
 import { keptActive } from "@beesolve/lambda-keep-active/runtime";
-import { randomUUID } from "node:crypto";
 import * as v from "valibot";
+
 import { Accounts } from "./src/account.ts";
 import { parseDataTokenCookie } from "./src/cookie.ts";
 import { toDynamoClient } from "./src/dynamo.ts";
-import {
-  BadRequestError,
-  ForbiddenError,
-  NotFoundError,
-  UnauthorizedError,
-} from "./src/errors.ts";
+import { BadRequestError, ForbiddenError, NotFoundError, UnauthorizedError } from "./src/errors.ts";
 import { Events } from "./src/events.ts";
 import { signInComplete } from "./src/handlers/signInComplete.ts";
 import { signInRequest } from "./src/handlers/signInRequest.ts";
@@ -73,10 +70,7 @@ const events = new Events({
 const cookiesToStrip = new Set(["__Host-SID", "__Host-DataToken"]);
 const stagePrefixPattern = new RegExp(`^/${env.STAGE}`);
 
-const errorResponseMap = new Map<
-  Function,
-  { readonly status: number; readonly type: string }
->([
+const errorResponseMap = new Map<Function, { readonly status: number; readonly type: string }>([
   [NotFoundError, { status: 404, type: "notFound" }],
   [ForbiddenError, { status: 403, type: "forbidden" }],
   [UnauthorizedError, { status: 401, type: "unauthorized" }],
@@ -84,8 +78,7 @@ const errorResponseMap = new Map<
 ]);
 
 const fetch = async (request: Request): Promise<Response> => {
-  const awsRequestId =
-    request.headers.get("x-amzn-requestid") ?? `gen-${randomUUID()}`;
+  const awsRequestId = request.headers.get("x-amzn-requestid") ?? `gen-${randomUUID()}`;
 
   console.time(awsRequestId);
   try {
@@ -160,25 +153,19 @@ const fetch = async (request: Request): Promise<Response> => {
     if (error instanceof Error) {
       const meta = errorResponseMap.get(error.constructor);
       if (meta != null) {
-        return new Response(
-          JSON.stringify({ message: error.message, type: meta.type }),
-          {
-            status: meta.status,
-            headers: { "Content-Type": "application/json" },
-          },
-        );
+        return new Response(JSON.stringify({ message: error.message, type: meta.type }), {
+          status: meta.status,
+          headers: { "Content-Type": "application/json" },
+        });
       }
     }
 
     console.error(error);
 
-    return new Response(
-      JSON.stringify({ message: "Unexpected error.", type: "unexpected" }),
-      {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
-      },
-    );
+    return new Response(JSON.stringify({ message: "Unexpected error.", type: "unexpected" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
   } finally {
     console.timeEnd(awsRequestId);
   }

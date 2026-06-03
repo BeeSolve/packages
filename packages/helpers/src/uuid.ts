@@ -46,9 +46,7 @@ export function uuid7ToDate(value: string): Date {
 
   // Verify version and variant.
   if ((decoded.at(6)! & 0xf0) !== 0x70 || (decoded.at(8)! & 0xc0) !== 0x80) {
-    throw new Error(
-      `Unable to extract Date from "${value}"! UUID version 7 is expected.`,
-    );
+    throw new Error(`Unable to extract Date from "${value}"! UUID version 7 is expected.`);
   }
 
   return new Date(timestamp);
@@ -79,10 +77,7 @@ export function base36Encode(data: Uint8Array): string {
  * Alphabet is an extension of HEX encoding.
  */
 export function base36Decode(str: string): Uint8Array {
-  const bigint = [...str].reduce(
-    (acc, curr) => BigInt(parseInt(curr, 36)) + BigInt(36) * acc,
-    0n,
-  );
+  const bigint = [...str].reduce((acc, curr) => BigInt(parseInt(curr, 36)) + BigInt(36) * acc, 0n);
 
   let hex = bigint.toString(16);
   if (hex.length % 2) {

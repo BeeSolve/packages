@@ -1,11 +1,17 @@
 {
   "name": "@beesolve/sqs-handler",
-  "description": "",
   "version": "0.2.0",
-  "type": "module",
+  "description": "",
+  "homepage": "https://github.com/beesolve/packages/tree/main/packages/sqs-handler#readme",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/beesolve/packages.git"
+  },
   "files": [
     "dist"
   ],
+  "type": "module",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -23,15 +29,21 @@
     },
     "./package.json": "./package.json"
   },
-  "homepage": "https://github.com/beesolve/packages/tree/main/packages/sqs-handler#readme",
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/beesolve/packages.git"
-  },
   "scripts": {
     "test": "bun test",
     "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@aws-sdk/client-sqs": "catalog:",
+    "@beesolve/cdk-constructs": "workspace:^",
+    "@beesolve/cdk-email-alarms": "workspace:^",
+    "@beesolve/helpers": "workspace:^",
+    "aws-cdk-lib": "catalog:",
+    "constructs": "catalog:",
+    "valibot": "catalog:"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "catalog:"
   },
   "peerDependencies": {
     "typescript": "catalog:"
@@ -40,17 +52,5 @@
     "typescript": {
       "optional": true
     }
-  },
-  "dependencies": {
-    "aws-cdk-lib": "catalog:",
-    "constructs": "catalog:",
-    "@aws-sdk/client-sqs": "catalog:",
-    "valibot": "catalog:",
-    "@beesolve/helpers": "workspace:^",
-    "@beesolve/cdk-email-alarms": "workspace:^",
-    "@beesolve/cdk-constructs": "workspace:^"
-  },
-  "devDependencies": {
-    "@types/aws-lambda": "catalog:"
   }
 }

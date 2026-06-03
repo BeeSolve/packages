@@ -1,4 +1,5 @@
 import { rm } from "node:fs/promises";
+
 import { esmBuild } from "@beesolve/cdk-constructs";
 
 const outDir = "./handler";

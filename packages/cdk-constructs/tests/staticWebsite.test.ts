@@ -1,7 +1,9 @@
+import { describe, expect, test } from "bun:test";
+
 import { App, Stack } from "aws-cdk-lib";
 import { Template } from "aws-cdk-lib/assertions";
 import { Source } from "aws-cdk-lib/aws-s3-deployment";
-import { describe, expect, test } from "bun:test";
+
 import { StaticWebsite } from "../src/staticWebsite";
 
 const baseProps = {

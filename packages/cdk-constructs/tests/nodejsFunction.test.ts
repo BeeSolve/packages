@@ -1,9 +1,11 @@
-import { App, Stack } from "aws-cdk-lib";
-import { Template } from "aws-cdk-lib/assertions";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+
+import { App, Stack } from "aws-cdk-lib";
+import { Template } from "aws-cdk-lib/assertions";
+
 import { Nodejs24Function, parseHandlerName } from "../src/nodejsFunction";
 
 describe("parseHandlerName", () => {

@@ -1,11 +1,17 @@
 {
   "name": "@beesolve/email-service",
-  "description": "",
   "version": "0.3.2",
-  "type": "module",
+  "description": "",
+  "homepage": "https://github.com/beesolve/packages/tree/main/packages/email-service#readme",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/beesolve/packages.git"
+  },
   "files": [
     "dist"
   ],
+  "type": "module",
   "exports": {
     "./cdk": {
       "import": {
@@ -33,16 +39,33 @@
     },
     "./package.json": "./package.json"
   },
-  "homepage": "https://github.com/beesolve/packages/tree/main/packages/email-service#readme",
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/beesolve/packages.git"
-  },
   "scripts": {
     "test": "bun test",
     "type-check": "tsc --noEmit",
     "prepublishOnly": "bun run --bun build.ts && cd handler && zip -r ../dist/handler.zip *"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "catalog:",
+    "@aws-sdk/client-eventbridge": "catalog:",
+    "@aws-sdk/client-s3": "catalog:",
+    "@aws-sdk/client-sesv2": "catalog:",
+    "@aws-sdk/client-sqs": "catalog:",
+    "@aws-sdk/lib-dynamodb": "catalog:",
+    "@beesolve/cdk-constructs": "workspace:^",
+    "@beesolve/helpers": "workspace:^",
+    "@react-email/components": "catalog:",
+    "aws-cdk-lib": "catalog:",
+    "constructs": "catalog:",
+    "mimetext": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "valibot": "catalog:"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "catalog:",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "esbuild": "catalog:"
   },
   "peerDependencies": {
     "typescript": "catalog:"
@@ -51,28 +74,5 @@
     "typescript": {
       "optional": true
     }
-  },
-  "dependencies": {
-    "@aws-sdk/client-eventbridge": "catalog:",
-    "@aws-sdk/client-dynamodb": "catalog:",
-    "@aws-sdk/client-s3": "catalog:",
-    "@aws-sdk/client-sesv2": "catalog:",
-    "@aws-sdk/client-sqs": "catalog:",
-    "@aws-sdk/lib-dynamodb": "catalog:",
-    "@react-email/components": "catalog:",
-    "aws-cdk-lib": "catalog:",
-    "constructs": "catalog:",
-    "mimetext": "catalog:",
-    "valibot": "catalog:",
-    "react": "catalog:",
-    "react-dom": "catalog:",
-    "@beesolve/helpers": "workspace:^",
-    "@beesolve/cdk-constructs": "workspace:^"
-  },
-  "devDependencies": {
-    "@types/aws-lambda": "catalog:",
-    "@types/node": "catalog:",
-    "@types/react": "catalog:",
-    "esbuild": "catalog:"
   }
 }

@@ -54,16 +54,13 @@ export function BaseLayout<TStyles extends EmailBaseStyles>(props: {
                 </Column>
               </Row>
             </Section>
-            <Section style={styles.upperSection}>
-              {props.children(styles)}
-            </Section>
+            <Section style={styles.upperSection}>{props.children(styles)}</Section>
             <Hr />
             {props.notice?.(styles) ?? (
               <Section style={styles.lowerSection}>
                 <Text style={styles.cautionText}>
-                  <strong>{props.project.name}</strong> service will never email
-                  you and ask you to disclose or verify your password, credit
-                  card, or banking account number.
+                  <strong>{props.project.name}</strong> service will never email you and ask you to
+                  disclose or verify your password, credit card, or banking account number.
                 </Text>
               </Section>
             )}
@@ -71,8 +68,8 @@ export function BaseLayout<TStyles extends EmailBaseStyles>(props: {
           {props.notificationSettings?.(styles) ?? (
             <Text style={styles.footerText}>
               You have received this message because you are using{" "}
-              <strong>{props.project.name}</strong> service. If you don't want
-              to receive these emails please{" "}
+              <strong>{props.project.name}</strong> service. If you don't want to receive these
+              emails please{" "}
               <Link
                 href={`${props.project.baseUri}/app/settings`}
                 target="_blank"

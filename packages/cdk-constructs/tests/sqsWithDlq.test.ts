@@ -1,7 +1,9 @@
+import { describe, expect, test } from "bun:test";
+
 import { App, Duration, Stack } from "aws-cdk-lib";
 import { Annotations, Match, Template } from "aws-cdk-lib/assertions";
 import { Code, Function, Runtime } from "aws-cdk-lib/aws-lambda";
-import { describe, expect, test } from "bun:test";
+
 import { SqsWithDlq } from "../src/sqsWithDlq";
 
 function makeStack() {
@@ -90,9 +92,8 @@ describe("SqsWithDlq", () => {
     const stack = makeStack();
     const lambda = makeLambda(stack, Duration.seconds(10));
     SqsWithDlq.asLambdaInput({ lambda, disabled: true });
-    Template.fromStack(stack).hasResourceProperties(
-      "AWS::Lambda::EventSourceMapping",
-      { Enabled: false },
-    );
+    Template.fromStack(stack).hasResourceProperties("AWS::Lambda::EventSourceMapping", {
+      Enabled: false,
+    });
   });
 });

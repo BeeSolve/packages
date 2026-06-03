@@ -34,7 +34,7 @@ Write the cookie before the user initiates sign-in. The cookie must use the `__H
 import { toDataTokenCookie } from "@beesolve/auth-service";
 
 const token = generateAnonymousSessionId(); // your own ID
-const setCookie = toDataTokenCookie(token);  // Max-Age 900 by default
+const setCookie = toDataTokenCookie(token); // Max-Age 900 by default
 response.headers.append("Set-Cookie", setCookie);
 ```
 
@@ -61,11 +61,11 @@ export const handler = async (event: SQSEvent) => {
 
 ## `DataTokenDetail` shape
 
-| Field | Type | Description |
-|---|---|---|
-| `accountId` | `string` | The authenticated account ID |
-| `emailAddress` | `string` | The authenticated email address |
-| `dataToken` | `string` | The raw value of the `__Host-DataToken` cookie |
+| Field          | Type     | Description                                    |
+| -------------- | -------- | ---------------------------------------------- |
+| `accountId`    | `string` | The authenticated account ID                   |
+| `emailAddress` | `string` | The authenticated email address                |
+| `dataToken`    | `string` | The raw value of the `__Host-DataToken` cookie |
 
 ## Security notes
 

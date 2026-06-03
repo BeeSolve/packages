@@ -1,12 +1,11 @@
 import * as util from "util";
+
 import * as v from "valibot";
 
 export function parseArgs<
   TEntries extends v.ObjectEntries,
   TMessage extends v.ErrorMessage<v.ObjectIssue> | undefined,
->(
-  schema: v.ObjectSchema<TEntries, TMessage>,
-): v.InferOutput<v.ObjectSchema<TEntries, TMessage>> {
+>(schema: v.ObjectSchema<TEntries, TMessage>): v.InferOutput<v.ObjectSchema<TEntries, TMessage>> {
   const { values } = util.parseArgs({
     args: Bun.argv,
     options: Object.fromEntries(

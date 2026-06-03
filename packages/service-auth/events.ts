@@ -108,10 +108,7 @@ export type AuthEvent = v.InferOutput<typeof authEventSchema>;
  * Returns `null` when the body is not a recognised auth event.
  */
 export function parseAuthEvent(body: string): AuthEvent | null {
-  const result = v.safeParse(
-    v.pipe(v.string(), v.parseJson(), authEventSchema),
-    body,
-  );
+  const result = v.safeParse(v.pipe(v.string(), v.parseJson(), authEventSchema), body);
   return result.success ? result.output : null;
 }
 

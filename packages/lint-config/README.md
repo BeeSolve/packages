@@ -107,3 +107,29 @@ If you don't use the setup script, reference configs directly:
 Edit `plugins/beesolve.js`. Rules use the standard ESLint plugin API (ESLint v9 compatible) and run inside Oxlint's JS plugin runtime.
 
 See: https://oxc.rs/docs/guide/usage/linter/writing-js-plugins
+
+## Editor Setup — Zed
+
+1. Install the [Oxc extension](https://zed.dev/extensions/oxc) in Zed
+2. Add to your Zed settings (`~/.config/zed/settings.json` or project `.zed/settings.json`):
+
+```jsonc
+{
+  "formatter": {
+    "language_server": {
+      "name": "oxfmt",
+    },
+  },
+  "format_on_save": "on",
+  "code_actions_on_format": {
+    "source.fixAll.oxc": true,
+  },
+}
+```
+
+This gives you:
+
+- Format on save via oxfmt (uses `.oxfmtrc.json` from project root)
+- Auto-fix oxlint errors on save via `source.fixAll.oxc`
+
+The extension uses `oxfmt --lsp` from your local `node_modules`, so no global install needed.

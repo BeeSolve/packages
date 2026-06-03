@@ -1,3 +1,5 @@
+import { describe, expect, test } from "bun:test";
+
 import type {
   APIGatewayProxyEvent,
   APIGatewayProxyEventV2,
@@ -5,7 +7,7 @@ import type {
   APIGatewayProxyStructuredResultV2,
   Context,
 } from "aws-lambda";
-import { describe, expect, test } from "bun:test";
+
 import { asHttpV1Handler, asHttpV2Handler } from "../index";
 
 function makeContext(): Context {
@@ -25,9 +27,7 @@ function makeContext(): Context {
   };
 }
 
-function makeV1Event(
-  overrides: Partial<APIGatewayProxyEvent> = {},
-): APIGatewayProxyEvent {
+function makeV1Event(overrides: Partial<APIGatewayProxyEvent> = {}): APIGatewayProxyEvent {
   return {
     httpMethod: "GET",
     path: "/hello",
@@ -74,9 +74,7 @@ function makeV1Event(
   };
 }
 
-function makeV2Event(
-  overrides: Partial<APIGatewayProxyEventV2> = {},
-): APIGatewayProxyEventV2 {
+function makeV2Event(overrides: Partial<APIGatewayProxyEventV2> = {}): APIGatewayProxyEventV2 {
   return {
     version: "2.0",
     routeKey: "GET /test",
@@ -108,17 +106,14 @@ function makeV2Event(
 
 describe("asHttpV1Handler", () => {
   test("passes status code through", async () => {
-    const handler = asHttpV1Handler(
-      async () => new Response("", { status: 204 }),
-    );
+    const handler = asHttpV1Handler(async () => new Response("", { status: 204 }));
     const result = await handler(makeV1Event(), makeContext());
     expect(result.statusCode).toBe(204);
   });
 
   test("returns text body as-is", async () => {
     const handler = asHttpV1Handler(
-      async () =>
-        new Response("hello", { headers: { "content-type": "text/plain" } }),
+      async () => new Response("hello", { headers: { "content-type": "text/plain" } }),
     );
     const result = await handler(makeV1Event(), makeContext());
     expect(result.body).toBe("hello");
@@ -128,8 +123,7 @@ describe("asHttpV1Handler", () => {
   test("returns binary body as base64", async () => {
     const data = new Uint8Array([1, 2, 3, 255]);
     const handler = asHttpV1Handler(
-      async () =>
-        new Response(data, { headers: { "content-type": "image/png" } }),
+      async () => new Response(data, { headers: { "content-type": "image/png" } }),
     );
     const result = await handler(makeV1Event(), makeContext());
     expect(result.isBase64Encoded).toBe(true);
@@ -143,10 +137,7 @@ describe("asHttpV1Handler", () => {
       headers.append("set-cookie", "theme=dark; Path=/");
       return new Response("", { headers });
     });
-    const result = (await handler(
-      makeV1Event(),
-      makeContext(),
-    )) as APIGatewayProxyResult;
+    const result = (await handler(makeV1Event(), makeContext())) as APIGatewayProxyResult;
     expect(result.multiValueHeaders?.["set-cookie"]).toEqual([
       "session=abc; Path=/",
       "theme=dark; Path=/",
@@ -160,10 +151,7 @@ describe("asHttpV1Handler", () => {
       capturedRequest = req;
       return new Response("");
     });
-    await handler(
-      makeV1Event({ httpMethod: "POST", path: "/submit" }),
-      makeContext(),
-    );
+    await handler(makeV1Event({ httpMethod: "POST", path: "/submit" }), makeContext());
     expect(capturedRequest?.method).toBe("POST");
     expect(new URL(capturedRequest!.url).pathname).toBe("/submit");
   });
@@ -171,9 +159,7 @@ describe("asHttpV1Handler", () => {
 
 describe("asHttpV2Handler", () => {
   test("passes status code through", async () => {
-    const handler = asHttpV2Handler(
-      async () => new Response("", { status: 201 }),
-    );
+    const handler = asHttpV2Handler(async () => new Response("", { status: 201 }));
     const result = (await handler(
       makeV2Event(),
       makeContext(),
@@ -223,10 +209,7 @@ describe("asHttpV2Handler", () => {
       makeV2Event(),
       makeContext(),
     )) as APIGatewayProxyStructuredResultV2;
-    expect(result.cookies).toEqual([
-      "session=abc; Path=/",
-      "theme=dark; Path=/",
-    ]);
+    expect(result.cookies).toEqual(["session=abc; Path=/", "theme=dark; Path=/"]);
     expect(result.headers?.["set-cookie"]).toBeUndefined();
   });
 

@@ -4,14 +4,14 @@
   "description": "Email-code auth system backed by DynamoDB and EventBridge, deployable via CDK",
   "homepage": "https://github.com/beesolve/packages/tree/main/packages/service-auth#readme",
   "license": "MIT",
-  "type": "module",
-  "files": [
-    "dist"
-  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/beesolve/packages.git"
   },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
   "exports": {
     ".": {
       "import": {
@@ -56,14 +56,6 @@
     "test": "bun test",
     "prepublishOnly": "bun run --bun build.ts"
   },
-  "peerDependencies": {
-    "typescript": "catalog:"
-  },
-  "peerDependenciesMeta": {
-    "typescript": {
-      "optional": true
-    }
-  },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "catalog:",
     "@aws-sdk/client-eventbridge": "catalog:",
@@ -85,5 +77,13 @@
   "devDependencies": {
     "@types/aws-lambda": "catalog:",
     "@types/node": "catalog:"
+  },
+  "peerDependencies": {
+    "typescript": "catalog:"
+  },
+  "peerDependenciesMeta": {
+    "typescript": {
+      "optional": true
+    }
   }
 }

@@ -16,10 +16,7 @@ const emailSentFailureSchema = v.object({
   }),
 });
 
-export const eventSchema = v.variant("type", [
-  emailSentSuccessSchema,
-  emailSentFailureSchema,
-]);
+export const eventSchema = v.variant("type", [emailSentSuccessSchema, emailSentFailureSchema]);
 
 export type Event = v.InferOutput<typeof eventSchema>;
 

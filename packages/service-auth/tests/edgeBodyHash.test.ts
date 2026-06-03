@@ -1,11 +1,11 @@
-import { createHash } from "node:crypto";
 import { describe, expect, test } from "bun:test";
+import { createHash } from "node:crypto";
+
 import type { CloudFrontRequestEvent } from "aws-lambda";
+
 import { handler } from "../src/edgeBodyHash.ts";
 
-function makeEvent(
-  body?: { data: string; encoding: "base64" | "text" },
-): CloudFrontRequestEvent {
+function makeEvent(body?: { data: string; encoding: "base64" | "text" }): CloudFrontRequestEvent {
   return {
     Records: [
       {
@@ -43,10 +43,7 @@ describe("edgeBodyHash", () => {
     const result = await handler(event);
     const expected = createHash("sha256").update(payload).digest("hex");
 
-    expect(result).toHaveProperty(
-      ["headers", "x-amz-content-sha256", 0, "value"],
-      expected,
-    );
+    expect(result).toHaveProperty(["headers", "x-amz-content-sha256", 0, "value"], expected);
   });
 
   test("sets x-amz-content-sha256 for text-encoded body", async () => {
@@ -56,10 +53,7 @@ describe("edgeBodyHash", () => {
     const result = await handler(event);
     const expected = createHash("sha256").update(payload).digest("hex");
 
-    expect(result).toHaveProperty(
-      ["headers", "x-amz-content-sha256", 0, "value"],
-      expected,
-    );
+    expect(result).toHaveProperty(["headers", "x-amz-content-sha256", 0, "value"], expected);
   });
 
   test("passes request through without body unchanged", async () => {
@@ -67,10 +61,7 @@ describe("edgeBodyHash", () => {
 
     const result = await handler(event);
 
-    expect(result).not.toHaveProperty([
-      "headers",
-      "x-amz-content-sha256",
-    ]);
+    expect(result).not.toHaveProperty(["headers", "x-amz-content-sha256"]);
     expect(result).toHaveProperty("uri", "/auth/signInRequest");
   });
 });

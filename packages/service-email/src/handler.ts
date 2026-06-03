@@ -2,15 +2,11 @@ import { EventBridge } from "@aws-sdk/client-eventbridge";
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { SESv2Client, SendEmailCommand } from "@aws-sdk/client-sesv2";
 import { BatchWriteCommand } from "@aws-sdk/lib-dynamodb";
-import {
-  asNull,
-  assertUnreachable,
-  call,
-  splitArrayToChunks,
-} from "@beesolve/helpers";
+import { asNull, assertUnreachable, call, splitArrayToChunks } from "@beesolve/helpers";
 import type { SQSEvent } from "aws-lambda";
 import { createMimeMessage } from "mimetext";
 import * as v from "valibot";
+
 import { dynamoClient, s3Client } from "./aws";
 import { Events } from "./events";
 import { requestSchema } from "./validation";
@@ -99,10 +95,7 @@ export const handler = async (
                     signal: controller.signal,
                   });
                   const contentLength = response.headers.get("content-length");
-                  if (
-                    contentLength != null &&
-                    Number(contentLength) > attachmentMaxSizeInBytes
-                  ) {
+                  if (contentLength != null && Number(contentLength) > attachmentMaxSizeInBytes) {
                     throw new Error(
                       `Attachment exceeds size limit (${attachmentMaxSizeInBytes} bytes)`,
                     );
@@ -154,8 +147,7 @@ export const handler = async (
           },
           FromEmailAddressIdentityArn: env.FROM_ARN,
           Destination: { ToAddresses: request.recipients },
-          ConfigurationSetName:
-            request.configurationSetName ?? env.DEFAULT_CONFIGURATION_SET_NAME,
+          ConfigurationSetName: request.configurationSetName ?? env.DEFAULT_CONFIGURATION_SET_NAME,
         }),
       );
 
@@ -179,9 +171,7 @@ export const handler = async (
 
       if (env.MESSAGES_RETENTION_DAYS !== 0) {
         const expiresAt = new Date();
-        expiresAt.setUTCDate(
-          expiresAt.getUTCDate() + env.MESSAGES_RETENTION_DAYS,
-        );
+        expiresAt.setUTCDate(expiresAt.getUTCDate() + env.MESSAGES_RETENTION_DAYS);
 
         const ttl = Math.floor(expiresAt.getTime() / 1000);
 

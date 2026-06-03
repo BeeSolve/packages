@@ -34,9 +34,7 @@ export function toDataTokenCookie(token: string, maxAge: number = 900) {
   return `${cookieName}=${token}; HttpOnly; Max-Age=${maxAge}; SameSite=Strict; Secure; Path=/`;
 }
 
-export function parseDataTokenCookie(
-  cookieHeader: string | null | undefined,
-): string | null {
+export function parseDataTokenCookie(cookieHeader: string | null | undefined): string | null {
   if (cookieHeader == null) return null;
 
   // Same index [1] assumption as parseSid — safe while tokens are base64url.

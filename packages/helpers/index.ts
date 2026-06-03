@@ -1,10 +1,7 @@
 export * from "./src/stringifiable";
 export * from "./src/uuid";
 
-export function assertUnreachable(
-  value: never,
-  message: string = JSON.stringify(value),
-): never {
+export function assertUnreachable(value: never, message: string = JSON.stringify(value)): never {
   throw Error("An unreachable state reached!\n" + message);
 }
 
@@ -20,10 +17,7 @@ export function isNotNil<T>(value: T | null | undefined): value is T {
   return value != null;
 }
 
-export function toggleInArray<T extends string | number>(
-  value: T,
-  array: T[],
-): T[] {
+export function toggleInArray<T extends string | number>(value: T, array: T[]): T[] {
   if (array.includes(value)) return array.filter((item) => item !== value);
   return [...array, value];
 }
@@ -103,10 +97,7 @@ export function toRecordByProperty<T extends { [key: string]: any }>(
   keyTransformer: (key: string) => string = (key) => key,
 ): Record<string, T> {
   return Object.fromEntries(
-    input.map((item) => [
-      keyTransformer(typeof key === "function" ? key(item) : item[key]),
-      item,
-    ]),
+    input.map((item) => [keyTransformer(typeof key === "function" ? key(item) : item[key]), item]),
   );
 }
 

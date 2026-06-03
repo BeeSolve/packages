@@ -1,8 +1,6 @@
 import { runWithAwsContext } from "@beesolve/lambda-fetch-api";
-import type {
-  APIGatewayProxyEventV2WithLambdaAuthorizer,
-  Context,
-} from "aws-lambda";
+import type { APIGatewayProxyEventV2WithLambdaAuthorizer, Context } from "aws-lambda";
+
 import type { ValidSession } from "./src/requireSession.ts";
 
 export type { ValidSession };
@@ -53,7 +51,13 @@ export function withDevSession(
           }),
         },
       },
-      http: { method: "POST", path: "/", protocol: "HTTP/1.1", sourceIp: "127.0.0.1", userAgent: "dev" },
+      http: {
+        method: "POST",
+        path: "/",
+        protocol: "HTTP/1.1",
+        sourceIp: "127.0.0.1",
+        userAgent: "dev",
+      },
       routeKey: "ANY /",
       requestId: "dev",
       accountId: "local",
@@ -81,6 +85,5 @@ export function withDevSession(
     succeed: () => {},
   };
 
-  return (request) =>
-    runWithAwsContext(fakeEvent, fakeContext, () => handler(request));
+  return (request) => runWithAwsContext(fakeEvent, fakeContext, () => handler(request));
 }

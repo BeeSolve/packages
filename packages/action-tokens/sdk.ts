@@ -2,6 +2,7 @@ import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { fromIni } from "@aws-sdk/credential-providers";
 import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import * as v from "valibot";
+
 import { ActionTokens } from "./model.ts";
 
 const message = `It seems that ActionTokens has not been set up correctly. Please make sure you've used official CDK construct and that you've granted access to your lambda function.`;
@@ -39,19 +40,15 @@ export class ActionTokensClient {
     readonly drainWhenValid: boolean;
   }) => this.model.use(props);
 
-  readonly drain = (props: {
-    readonly owner: string;
-    readonly action: string;
-  }) => this.model.drain(props);
+  readonly drain = (props: { readonly owner: string; readonly action: string }) =>
+    this.model.drain(props);
 
   /**
    * Reads a token without decrementing `remainingUses`.
    * Validates expiry and remaining uses — throws if the token is expired or used up.
    */
-  readonly peek = (props: {
-    readonly owner: string;
-    readonly action: string;
-  }) => this.model.peek(props);
+  readonly peek = (props: { readonly owner: string; readonly action: string }) =>
+    this.model.peek(props);
 
   /**
    * Creates a new token with throttle enforcement in a single transaction.

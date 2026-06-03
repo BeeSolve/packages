@@ -4,33 +4,16 @@
   "description": "",
   "homepage": "https://github.com/beesolve/packages/tree/main/packages/helpers#readme",
   "license": "MIT",
-  "files": [
-    "dist"
-  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/beesolve/packages.git"
   },
-  "scripts": {
-    "test": "bun test",
-    "type-check": "tsc --noEmit"
-  },
-  "peerDependencies": {
-    "typescript": "catalog:"
-  },
-  "peerDependenciesMeta": {
-    "typescript": {
-      "optional": true
-    }
-  },
-  "dependencies": {
-    "valibot": "catalog:"
-  },
-  "devDependencies": {
-    "@types/node": "catalog:",
-    "@types/bun": "catalog:"
-  },
+  "files": [
+    "dist"
+  ],
   "type": "module",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "import": {
@@ -46,6 +29,23 @@
     },
     "./package.json": "./package.json"
   },
-  "module": "./dist/index.js",
-  "types": "./dist/index.d.ts"
+  "scripts": {
+    "test": "bun test",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "valibot": "catalog:"
+  },
+  "devDependencies": {
+    "@types/bun": "catalog:",
+    "@types/node": "catalog:"
+  },
+  "peerDependencies": {
+    "typescript": "catalog:"
+  },
+  "peerDependenciesMeta": {
+    "typescript": {
+      "optional": true
+    }
+  }
 }

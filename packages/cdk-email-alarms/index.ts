@@ -1,9 +1,5 @@
 import type { Duration } from "aws-cdk-lib";
-import {
-  Alarm,
-  ComparisonOperator,
-  TreatMissingData,
-} from "aws-cdk-lib/aws-cloudwatch";
+import { Alarm, ComparisonOperator, TreatMissingData } from "aws-cdk-lib/aws-cloudwatch";
 import { SnsAction } from "aws-cdk-lib/aws-cloudwatch-actions";
 import type { Function } from "aws-cdk-lib/aws-lambda";
 import { Topic } from "aws-cdk-lib/aws-sns";
@@ -74,8 +70,7 @@ export class EmailAlarms extends Construct {
           }),
           threshold: 0,
           evaluationPeriods: 1,
-          comparisonOperator:
-            ComparisonOperator.LESS_THAN_OR_EQUAL_TO_THRESHOLD,
+          comparisonOperator: ComparisonOperator.LESS_THAN_OR_EQUAL_TO_THRESHOLD,
           treatMissingData: TreatMissingData.BREACHING,
         });
 
@@ -91,8 +86,7 @@ export class EmailAlarms extends Construct {
           }),
           threshold: 0,
           evaluationPeriods: 1,
-          comparisonOperator:
-            ComparisonOperator.LESS_THAN_OR_EQUAL_TO_THRESHOLD,
+          comparisonOperator: ComparisonOperator.LESS_THAN_OR_EQUAL_TO_THRESHOLD,
           treatMissingData: TreatMissingData.BREACHING,
         });
 

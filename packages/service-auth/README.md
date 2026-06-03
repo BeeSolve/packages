@@ -47,19 +47,19 @@ The construct provisions:
 
 #### Optional props
 
-| Prop | Type | Description |
-|---|---|---|
-| `alarms` | `EmailAlarms` | Attach a `@beesolve/cdk-email-alarms` instance to report Lambda errors by email. |
-| `eventBusArn` | `string` | ARN of a custom EventBridge bus. Defaults to the `default` bus. |
-| `warmer` | `LambdaKeepActive` | Pass a `@beesolve/lambda-keep-active` instance to keep handlers warm. |
-| `eventSource` | `string` | EventBridge source for all auth events. Defaults to `"beesolve.auth.api"`. |
-| `dataToken` | `boolean` | When `true`, reads `__Host-DataToken` cookie on sign-in and fires a `DataToken` event. Defaults to `false`. |
-| `logGroupProps` | `LogGroupProps` | Override Lambda log group configuration. Defaults to `RemovalPolicy.DESTROY` / 2-week retention. |
-| `encryptionKey` | `IKey` | Customer-managed KMS key for all data-at-rest resources (DynamoDB tables and SQS queues). |
-| `contributorInsights` | `boolean` | CloudWatch Contributor Insights on DynamoDB tables. Defaults to `true` in prod. |
-| `accessLogging` | `boolean` | Access logging on the HTTP API. Creates a CloudWatch Log Group. Defaults to `true` in prod. |
-| `authorizerReservedConcurrency` | `number` | Reserved concurrent executions for the authorizer Lambda. |
-| `sdkHandlerReservedConcurrency` | `number` | Reserved concurrent executions for the SDK handler Lambda. |
+| Prop                            | Type               | Description                                                                                                 |
+| ------------------------------- | ------------------ | ----------------------------------------------------------------------------------------------------------- |
+| `alarms`                        | `EmailAlarms`      | Attach a `@beesolve/cdk-email-alarms` instance to report Lambda errors by email.                            |
+| `eventBusArn`                   | `string`           | ARN of a custom EventBridge bus. Defaults to the `default` bus.                                             |
+| `warmer`                        | `LambdaKeepActive` | Pass a `@beesolve/lambda-keep-active` instance to keep handlers warm.                                       |
+| `eventSource`                   | `string`           | EventBridge source for all auth events. Defaults to `"beesolve.auth.api"`.                                  |
+| `dataToken`                     | `boolean`          | When `true`, reads `__Host-DataToken` cookie on sign-in and fires a `DataToken` event. Defaults to `false`. |
+| `logGroupProps`                 | `LogGroupProps`    | Override Lambda log group configuration. Defaults to `RemovalPolicy.DESTROY` / 2-week retention.            |
+| `encryptionKey`                 | `IKey`             | Customer-managed KMS key for all data-at-rest resources (DynamoDB tables and SQS queues).                   |
+| `contributorInsights`           | `boolean`          | CloudWatch Contributor Insights on DynamoDB tables. Defaults to `true` in prod.                             |
+| `accessLogging`                 | `boolean`          | Access logging on the HTTP API. Creates a CloudWatch Log Group. Defaults to `true` in prod.                 |
+| `authorizerReservedConcurrency` | `number`           | Reserved concurrent executions for the authorizer Lambda.                                                   |
+| `sdkHandlerReservedConcurrency` | `number`           | Reserved concurrent executions for the SDK handler Lambda.                                                  |
 
 > [!TIP]
 > When deploying in a VPC, add a DynamoDB VPC Gateway Endpoint to keep traffic off the public internet. Gateway endpoints are free.
@@ -71,9 +71,9 @@ import { Function } from "aws-cdk-lib/aws-lambda";
 
 // Wire any Lambda behind the session-cookie authorizer
 auth.addAuthorizedEndpoint({
-  lambda: myApiLambda,             // your Lambda
-  path: "/api/{proxy+}",           // optional, defaults to "/api/{proxy+}"
-  methods: [HttpMethod.ANY],       // optional, defaults to ANY
+  lambda: myApiLambda, // your Lambda
+  path: "/api/{proxy+}", // optional, defaults to "/api/{proxy+}"
+  methods: [HttpMethod.ANY], // optional, defaults to ANY
 });
 ```
 
@@ -166,15 +166,15 @@ const sessions = await auth.invoke({
 
 All events are emitted on the configured event bus with source `"beesolve.auth.api"` (or the value of `eventSource`).
 
-| `detail-type` | Fired when | Key fields |
-|---|---|---|
-| `EmailCodeAuth` | Sign-in requested | `accountId` (null for new users), `code`, `expiresAt`, `emailAddress`, `baseUri`, `cookies`, `acceptLanguage`, `requestOrigin` |
-| `EmailAddressVerified` | New account created on first sign-in | `accountId`, `emailAddress`, `verifiedAt` |
-| `DataToken` | Sign-in complete with `dataToken` enabled | `accountId`, `emailAddress`, `dataToken` |
-| `SuccessfulAuth` | *(reserved)* | `userId` |
-| `UnsuccessfulAuth` | *(reserved)* | `userId` |
-| `SessionInvalidated` | Sign out | `sessionId` |
-| `EmailInvitation` | *(reserved)* | `emailAddress`, `baseUri` |
+| `detail-type`          | Fired when                                | Key fields                                                                                                                     |
+| ---------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `EmailCodeAuth`        | Sign-in requested                         | `accountId` (null for new users), `code`, `expiresAt`, `emailAddress`, `baseUri`, `cookies`, `acceptLanguage`, `requestOrigin` |
+| `EmailAddressVerified` | New account created on first sign-in      | `accountId`, `emailAddress`, `verifiedAt`                                                                                      |
+| `DataToken`            | Sign-in complete with `dataToken` enabled | `accountId`, `emailAddress`, `dataToken`                                                                                       |
+| `SuccessfulAuth`       | _(reserved)_                              | `userId`                                                                                                                       |
+| `UnsuccessfulAuth`     | _(reserved)_                              | `userId`                                                                                                                       |
+| `SessionInvalidated`   | Sign out                                  | `sessionId`                                                                                                                    |
+| `EmailInvitation`      | _(reserved)_                              | `emailAddress`, `baseUri`                                                                                                      |
 
 > **Important**: `EmailCodeAuth` is the integration point for email delivery. Subscribe an EventBridge rule to this event and implement your own email-sending logic (e.g. using `@beesolve/service-email`).
 
@@ -276,6 +276,7 @@ serve({
 ```
 
 `withDevSession` accepts:
+
 - `handler` — your fetch handler (`(request: Request) => Promise<Response>`)
 - `session` — an object with at least `userId`. Optionally provide `sessionId` and `expiresAt`.
 

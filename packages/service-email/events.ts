@@ -159,10 +159,7 @@ const emailEventSchema = v.variant("detail-type", [
  * Returns `null` when the body is not a recognised email service event.
  */
 export function parseEmailEvent(body: string): EmailEvent | null {
-  const result = v.safeParse(
-    v.pipe(v.string(), v.parseJson(), emailEventSchema),
-    body,
-  );
+  const result = v.safeParse(v.pipe(v.string(), v.parseJson(), emailEventSchema), body);
   return result.success ? result.output : null;
 }
 
