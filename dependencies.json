@@ -1,10 +1,11 @@
 [
+  "packages/action-tokens",
   "packages/cdk-email-alarms",
   "packages/helpers",
   "packages/cdk-constructs",
   "packages/lambda-fetch-api",
+  "packages/lint-config",
   "packages/service-email",
   "packages/sqs-handler",
-  "packages/action-tokens",
   "packages/service-auth"
 ]

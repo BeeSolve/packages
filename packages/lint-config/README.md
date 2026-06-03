@@ -65,31 +65,33 @@ Set `--internal` to match your workspace packages:
 
 Presets extend `base.oxlintrc.json` and add project-specific ignore patterns.
 
-| Preset     | Use for                                                          | `internalPattern` |
-| ---------- | ---------------------------------------------------------------- | ----------------- |
-| `package`  | Library packages (`@beesolve/packages`)                          | `@beesolve/*`     |
-| `monorepo` | App monorepos with tRPC/React (bewatr-reporting, expense-ease)   | `@app/*`          |
-| `sveltekit`| SvelteKit projects (admin.barlogova.sk)                          | `@app/*`          |
+| Preset      | Use for                                                        | `internalPattern` |
+| ----------- | -------------------------------------------------------------- | ----------------- |
+| `package`   | Library packages (`@beesolve/packages`)                        | `@beesolve/*`     |
+| `monorepo`  | App monorepos with tRPC/React (bewatr-reporting, expense-ease) | `@app/*`          |
+| `sveltekit` | SvelteKit projects (admin.barlogova.sk)                        | `@app/*`          |
 
 #### Overriding rules per project
 
 Add rule overrides in your project's `.oxlintrc.json`:
+
 ```jsonc
 {
-  "extends": ["@beesolve/lint-config/presets/monorepo.oxlintrc.json"],
+  "extends": ["./node_modules/@beesolve/lint-config/presets/monorepo.oxlintrc.json"],
   "rules": {
-    "beesolve/readonly-props": "off"
-  }
+    "beesolve/readonly-props": "off",
+  },
 }
 ```
 
 #### Adding project-specific custom rules
 
 Create a local plugin file and reference it:
+
 ```jsonc
 {
-  "extends": ["@beesolve/lint-config/presets/monorepo.oxlintrc.json"],
-  "jsPlugins": ["./lint/my-project-rules.js"]
+  "extends": ["./node_modules/@beesolve/lint-config/presets/monorepo.oxlintrc.json"],
+  "jsPlugins": ["./lint/my-project-rules.js"],
 }
 ```
 
@@ -123,7 +125,7 @@ If you don't use the setup script, reference configs directly:
 
 ```json
 {
-  "extends": ["@beesolve/lint-config/presets/package.oxlintrc.json"]
+  "extends": ["./node_modules/@beesolve/lint-config/presets/package.oxlintrc.json"]
 }
 ```
 

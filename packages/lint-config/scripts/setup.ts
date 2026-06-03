@@ -42,7 +42,7 @@ const oxfmtConfig = {
 };
 
 const oxlintConfig = {
-  extends: [`@beesolve/lint-config/presets/${projectType}.oxlintrc.json`],
+  extends: [`./node_modules/@beesolve/lint-config/presets/${projectType}.oxlintrc.json`],
 };
 
 const nanoStagedConfig = {
