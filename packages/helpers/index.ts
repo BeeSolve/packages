@@ -1,6 +1,7 @@
 export * from "./src/stringifiable";
-export * from "./src/uuid";
 
+export * from "./src/uuid";
+// oxlint-disable-next-line beesolve/prefer-props-object
 export function assertUnreachable(value: never, message: string = JSON.stringify(value)): never {
   throw Error("An unreachable state reached!\n" + message);
 }
@@ -17,7 +18,8 @@ export function isNotNil<T>(value: T | null | undefined): value is T {
   return value != null;
 }
 
-export function toggleInArray<T extends string | number>(value: T, array: T[]): T[] {
+// oxlint-disable-next-line beesolve/prefer-props-object
+export function toggleInArray<T extends string | number>(value: T, array: Array<T>): Array<T> {
   if (array.includes(value)) return array.filter((item) => item !== value);
   return [...array, value];
 }
@@ -91,8 +93,9 @@ export type PickStringProps<T> = Pick<
  *
  * When needed the object can be converted back to an array by calling Object.values(object).
  */
+// oxlint-disable-next-line beesolve/prefer-props-object typescript/no-explicit-any
 export function toRecordByProperty<T extends { [key: string]: any }>(
-  input: T[],
+  input: Array<T>,
   key: keyof PickStringProps<T> | ((value: T) => string),
   keyTransformer: (key: string) => string = (key) => key,
 ): Record<string, T> {
@@ -106,8 +109,9 @@ export function toRecordByProperty<T extends { [key: string]: any }>(
  *
  * May be used for batch actions which have limit for instance in DynamoDB
  */
-export function splitArrayToChunks<T>(data: T[], chunkSize = 100): T[][] {
-  const result: T[][] = [];
+// oxlint-disable-next-line beesolve/prefer-props-object
+export function splitArrayToChunks<T>(data: Array<T>, chunkSize = 100): Array<Array<T>> {
+  const result: Array<Array<T>> = [];
   const count = Math.ceil(data.length / chunkSize);
   let start = 0;
   let end = chunkSize;
@@ -126,6 +130,7 @@ export function delay(delayInMilliseconds: number = 500): Promise<void> {
   });
 }
 
+// oxlint-disable-next-line beesolve/prefer-props-object
 export function capitalizeFirstLetter(
   [first = "", ...rest]: string,
   locale: Intl.LocalesArgument = "en",

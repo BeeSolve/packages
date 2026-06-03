@@ -66,8 +66,8 @@ describe("EmailAlarms.reportLambdaErrors", () => {
     const alarmResources = template.findResources("AWS::CloudWatch::Alarm");
     const alarm = Object.values(alarmResources)[0];
     const properties = alarm?.Properties ?? {};
-    const okActions: unknown[] = properties.OKActions ?? [];
-    const alarmActions: unknown[] = properties.AlarmActions ?? [];
+    const okActions: Array<unknown> = properties.OKActions ?? [];
+    const alarmActions: Array<unknown> = properties.AlarmActions ?? [];
     expect(okActions).toHaveLength(1);
     expect(alarmActions).toHaveLength(1);
   });

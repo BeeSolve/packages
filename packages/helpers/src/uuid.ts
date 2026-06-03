@@ -1,3 +1,4 @@
+// oxlint-disable typescript/no-non-null-assertion
 /**
  * Produces the UUID version 7.
  *
@@ -37,15 +38,15 @@ export function uuid7ToDate(value: string): Date {
   const decoded = base36Decode(value);
 
   const timestamp =
-    decoded.at(0)! * 2 ** 40 +
-    decoded.at(1)! * 2 ** 32 +
-    decoded.at(2)! * 2 ** 24 +
-    decoded.at(3)! * 2 ** 16 +
-    decoded.at(4)! * 2 ** 8 +
-    decoded.at(5)!;
+    decoded[0]! * 2 ** 40 +
+    decoded[1]! * 2 ** 32 +
+    decoded[2]! * 2 ** 24 +
+    decoded[3]! * 2 ** 16 +
+    decoded[4]! * 2 ** 8 +
+    decoded[5]!;
 
   // Verify version and variant.
-  if ((decoded.at(6)! & 0xf0) !== 0x70 || (decoded.at(8)! & 0xc0) !== 0x80) {
+  if ((decoded[6]! & 0xf0) !== 0x70 || (decoded[8]! & 0xc0) !== 0x80) {
     throw new Error(`Unable to extract Date from "${value}"! UUID version 7 is expected.`);
   }
 

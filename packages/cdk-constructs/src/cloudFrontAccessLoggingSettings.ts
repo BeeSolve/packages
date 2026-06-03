@@ -93,7 +93,7 @@ export interface CloudFrontAccessLoggingSettingsProps extends Pick<
      *
      * @default all available columns
      */
-    readonly columns?: CloudFrontAccessLogColumn[];
+    readonly columns?: Array<CloudFrontAccessLogColumn>;
     /**
      * When `true` sample query is created within the Athena.
      *

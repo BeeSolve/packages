@@ -152,7 +152,7 @@ export function getRevision(enforceGit: boolean): string {
       const shortCommitId = buffer.toString("utf-8").trim();
 
       return `${shortCommitId}${isDirty() ? " - dirty" : ""}`;
-    } catch (error) {
+    } catch {
       if (enforceGit) {
         throw new NotAGitRepositoryError();
       }
@@ -164,7 +164,7 @@ export function getRevision(enforceGit: boolean): string {
     try {
       execSync("git diff --quiet && git diff --cached --quiet");
       return false;
-    } catch (error) {
+    } catch {
       return true;
     }
   }

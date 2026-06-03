@@ -5,11 +5,11 @@ import type { SQSEvent } from "aws-lambda";
 
 import { createSqsHandlers } from "../index";
 
-function makeSqsRecord(messageId: string, body: object): SQSEvent["Records"][number] {
+function makeSqsRecord(props: { messageId: string; body: object }): SQSEvent["Records"][number] {
   return {
-    messageId,
+    messageId: props.messageId,
     receiptHandle: "receipt",
-    body: JSON.stringify(body),
+    body: JSON.stringify(props.body),
     attributes: {
       ApproximateFirstReceiveTimestamp: "0",
       ApproximateReceiveCount: "1",
@@ -36,9 +36,12 @@ describe("createSqsHandlers — handler", () => {
 
     const event: SQSEvent = {
       Records: [
-        makeSqsRecord("msg-1", {
-          fn: "greet",
-          args: [encodeToStringifiable("Alice")],
+        makeSqsRecord({
+          messageId: "msg-1",
+          body: {
+            fn: "greet",
+            args: [encodeToStringifiable("Alice")],
+          },
         }),
       ],
     };
@@ -61,7 +64,7 @@ describe("createSqsHandlers — handler", () => {
     const event: SQSEvent = {
       Records: [
         {
-          ...makeSqsRecord("msg-bad", {}),
+          ...makeSqsRecord({ messageId: "msg-bad", body: {} }),
           body: "not-valid-json{{{",
         },
       ],
@@ -81,9 +84,12 @@ describe("createSqsHandlers — handler", () => {
 
     const event: SQSEvent = {
       Records: [
-        makeSqsRecord("msg-unknown", {
-          fn: "unknownFunction",
-          args: [],
+        makeSqsRecord({
+          messageId: "msg-unknown",
+          body: {
+            fn: "unknownFunction",
+            args: [],
+          },
         }),
       ],
     };
@@ -104,7 +110,7 @@ describe("createSqsHandlers — handler", () => {
     });
 
     const event: SQSEvent = {
-      Records: [makeSqsRecord("msg-throw", { fn: "fail", args: [] })],
+      Records: [makeSqsRecord({ messageId: "msg-throw", body: { fn: "fail", args: [] } })],
     };
 
     const result = await handler(event);
@@ -125,9 +131,9 @@ describe("createSqsHandlers — handler", () => {
 
     const event: SQSEvent = {
       Records: [
-        makeSqsRecord("msg-1", { fn: "good", args: [] }),
-        makeSqsRecord("msg-2", { fn: "bad", args: [] }),
-        makeSqsRecord("msg-3", { fn: "good", args: [] }),
+        makeSqsRecord({ messageId: "msg-1", body: { fn: "good", args: [] } }),
+        makeSqsRecord({ messageId: "msg-2", body: { fn: "bad", args: [] } }),
+        makeSqsRecord({ messageId: "msg-3", body: { fn: "good", args: [] } }),
       ],
     };
 
@@ -151,7 +157,14 @@ describe("createSqsHandlers — queued functions", () => {
     functions.process("payload");
 
     expect(sendMock).toHaveBeenCalledTimes(1);
-    const command = sendMock.mock.calls[0]![0] as any;
+    const command = sendMock.mock.calls[0]?.[0] as unknown as {
+      input: {
+        QueueUrl: string;
+        MessageBody: string;
+        MessageDeduplicationId?: string;
+        MessageGroupId?: string;
+      };
+    };
     expect(command.input.QueueUrl).toBe("https://sqs.us-east-1.amazonaws.com/123/queue");
     const body = JSON.parse(command.input.MessageBody);
     expect(body.fn).toBe("process");

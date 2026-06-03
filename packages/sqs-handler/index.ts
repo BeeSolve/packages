@@ -3,7 +3,8 @@ import { decodeFromStringifiable, encodeToStringifiable } from "@beesolve/helper
 import type { SQSEvent } from "aws-lambda";
 import * as v from "valibot";
 
-type Functions = Record<string, (...args: any[]) => Promise<void>>;
+// oxlint-disable-next-line typescript/no-explicit-any
+type Functions = Record<string, (...args: Array<any>) => Promise<void>>;
 
 export function createSqsHandlers<
   TFunctions extends Functions,
@@ -18,14 +19,14 @@ export function createSqsHandlers<
   readonly fifo: Fifo;
 }): [
   (event: SQSEvent) => Promise<{
-    batchItemFailures: {
+    batchItemFailures: Array<{
       itemIdentifier: string;
-    }[];
+    }>;
   }>,
   QueuedFunctions<TFunctions, Fifo, TQueueName>,
 ] {
   const handler = async (event: SQSEvent) => {
-    const batchItemFailures: { itemIdentifier: string }[] = [];
+    const batchItemFailures: Array<{ itemIdentifier: string }> = [];
 
     for (const { body, messageId } of event.Records) {
       try {
@@ -67,12 +68,16 @@ export function createSqsHandlers<
 
   const functions = Object.entries(props.functions).reduce(
     (result, [functionName]) => ({
+      // oxlint-disable-next-line oxc/no-accumulating-spread
       ...result,
       [functionName](...args) {
         const originalFunction = props.functions[functionName];
-        if (originalFunction == null)
+        if (originalFunction == null) {
           throw Error(`Cannot invoke "${functionName}". Make sure the function is defined.`);
-        const functionArgs: any[] = args.slice(0, originalFunction.length);
+        }
+
+        // oxlint-disable-next-line typescript/no-explicit-any
+        const functionArgs: Array<any> = args.slice(0, originalFunction.length);
         const options:
           | {
               readonly deduplicationId?: string;
@@ -122,6 +127,7 @@ type QueuedFunctions<T extends Functions, Fifo extends boolean, QueueName extend
   >;
 };
 
+// oxlint-disable-next-line typescript/no-explicit-any
 type AddParameters<TFunction extends (...args: any) => any, TParameters extends [...args: any]> = (
   ...args: [...Parameters<TFunction>, ...TParameters]
 ) => Promise<void>;

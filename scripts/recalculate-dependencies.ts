@@ -34,22 +34,22 @@ for (const { dir, pkg } of packages) {
   for (const depName of allDeps) {
     const depDir = nameToDir.get(depName);
     if (depDir && depDir !== dir) {
-      inDegree.set(dir, inDegree.get(dir)! + 1);
-      reverseDeps.get(depDir)!.add(dir);
+      inDegree.set(dir, (inDegree.get(dir) ?? 0) + 1);
+      reverseDeps.get(depDir)?.add(dir);
     }
   }
 }
 
 const queue = packageDirs.filter((d) => inDegree.get(d) === 0).sort();
-const result: string[] = [];
+const result: Array<string> = [];
 
 while (queue.length > 0) {
   queue.sort();
-  const current = queue.shift()!;
+  const current = queue.shift() as string;
   result.push(current);
 
-  for (const dependent of reverseDeps.get(current)!) {
-    const deg = inDegree.get(dependent)! - 1;
+  for (const dependent of reverseDeps.get(current) ?? []) {
+    const deg = (inDegree.get(dependent) ?? 0) - 1;
     inDegree.set(dependent, deg);
     if (deg === 0) queue.push(dependent);
   }

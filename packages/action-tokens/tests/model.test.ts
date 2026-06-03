@@ -60,8 +60,8 @@ describe("ActionTokens.createNew", () => {
     expect(token.action).toBe("verify-email");
     expect(token.value).toBe("tok-abc");
     expect(token.remainingUses).toBe(3);
-    expect(token.expiresAt).toBeInstanceOf(Date);
-    expect(token.createdAt).toBeInstanceOf(Date);
+    expect(token.expiresAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    expect(token.createdAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   });
 
   test("without overwrite: PutCommand includes attribute_not_exists condition", async () => {
@@ -159,7 +159,7 @@ describe("ActionTokens.use — owner provided (GetCommand path)", () => {
 
     expect(send).toHaveBeenCalledTimes(2);
     expect(token.owner).toBe(raw.owner);
-    expect(token.expiresAt).toBeInstanceOf(Date);
+    expect(token.expiresAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   });
 
   test("drainWhenValid true: UpdateCommand sets newRemainingUses to 0", async () => {

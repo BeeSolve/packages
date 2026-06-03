@@ -5,14 +5,14 @@ import {
   TokenAlreadyUsedUpError,
   TokenInvalidError,
 } from "@beesolve/action-tokens/model";
-import { ActionTokensClient } from "@beesolve/action-tokens/sdk";
+import type { ActionTokensClient } from "@beesolve/action-tokens/sdk";
 import { asNull, call } from "@beesolve/helpers";
 import * as v from "valibot";
 
-import { Accounts } from "../account.ts";
+import type { Accounts } from "../account.ts";
 import { addSetCookies } from "../cookie.ts";
 import { BadRequestError } from "../errors.ts";
-import { Events } from "../events.ts";
+import type { Events } from "../events.ts";
 import { parseBody } from "../request.ts";
 import { Sessions } from "../session.ts";
 
@@ -22,6 +22,7 @@ interface Dependencies {
   readonly accounts: Pick<Accounts, "getOne" | "createNew">;
   readonly events: Pick<Events, "putEvents">;
   readonly headers: Headers;
+  // oxlint-disable-next-line typescript/no-explicit-any
   readonly requestBody: () => Promise<any>;
   readonly allowSignUp: boolean;
   readonly dataToken: string | undefined;

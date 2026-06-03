@@ -22,6 +22,7 @@ export type { ValidSession };
  * });
  * ```
  */
+// oxlint-disable-next-line beesolve/prefer-props-object
 export function withDevSession(
   handler: (request: Request) => Promise<Response>,
   session: Pick<ValidSession, "userId"> & Partial<ValidSession>,

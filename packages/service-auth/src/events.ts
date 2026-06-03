@@ -1,4 +1,4 @@
-import { EventBridge } from "@aws-sdk/client-eventbridge";
+import type { EventBridge } from "@aws-sdk/client-eventbridge";
 
 type Event =
   | EmailCodeAuth
@@ -121,7 +121,7 @@ export class Events {
     },
   ) {}
 
-  readonly putEvents = async (...events: Event[]): Promise<void> => {
+  readonly putEvents = async (...events: Array<Event>): Promise<void> => {
     await this.props.client.putEvents({
       Entries: events.map((event) => ({
         DetailType: event.type,

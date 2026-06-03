@@ -97,8 +97,8 @@ export function asResponseStreamHandler(
         ...awsResponseHeaders(response, "v2"),
       };
 
-      if (!httpResponseMetadata.headers!["transfer-encoding"]) {
-        httpResponseMetadata.headers!["transfer-encoding"] = "chunked";
+      if (httpResponseMetadata.headers?.["transfer-encoding"] == null) {
+        httpResponseMetadata.headers["transfer-encoding"] = "chunked";
       }
 
       const body =

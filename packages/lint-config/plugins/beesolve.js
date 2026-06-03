@@ -45,6 +45,25 @@ const plugin = {
           const params = node.params;
           if (params.length <= maxParams) return;
 
+          // Allow class constructors (CDK Construct pattern: scope, id, props)
+          if (
+            node.type === "FunctionExpression" &&
+            node.parent?.type === "MethodDefinition" &&
+            node.parent.kind === "constructor"
+          ) {
+            return;
+          }
+
+          // Allow callbacks (functions passed as arguments to other functions)
+          if (node.parent?.type === "CallExpression" && node.parent.callee !== node) {
+            return;
+          }
+
+          // Allow functions inside array literals (e.g. [handler, fns])
+          if (node.parent?.type === "ArrayExpression") {
+            return;
+          }
+
           if (allowTwoObjectParams && params.length === 2) {
             if (params.every(isObjectShaped)) return;
           }
@@ -98,7 +117,7 @@ const plugin = {
     "no-valibot-date": {
       meta: {
         type: "problem",
-        docs: { description: "Ban v.date(). Use v.isoDateTime() instead." },
+        docs: { description: "Ban v.date(). Use v.isoTimestamp() instead." },
         fixable: "code",
       },
       create(context) {
@@ -114,9 +133,9 @@ const plugin = {
               context.report({
                 node,
                 message:
-                  "Use v.isoDateTime() instead of v.date(). Compare date strings with localeCompare().",
+                  "Use v.isoTimestamp() instead of v.date(). Compare date strings with localeCompare().",
                 fix(fixer) {
-                  return fixer.replaceText(node.callee.property, "isoDateTime");
+                  return fixer.replaceText(node.callee.property, "isoTimestamp");
                 },
               });
             }
@@ -129,16 +148,17 @@ const plugin = {
       meta: {
         type: "suggestion",
         docs: {
-          description: "Enforce camelCase for values, PascalCase for types/interfaces.",
+          description:
+            "Enforce camelCase for values, PascalCase for types/interfaces and React components.",
         },
       },
       create(context) {
-        const PASCAL = /^[A-Z][a-zA-Z0-9]*$/;
-        const CAMEL_OR_UPPER = /^[a-z][a-zA-Z0-9]*$|^[A-Z][A-Z0-9_]*$|^_/;
+        const pascalRe = /^[A-Z][a-zA-Z0-9]*$/;
+        const camelOrPascalRe = /^[a-z][a-zA-Z0-9]*$|^[A-Z][a-zA-Z0-9]*$|^_/;
 
         function checkPascal(node) {
           if (!node.id || !node.id.name) return;
-          if (!PASCAL.test(node.id.name)) {
+          if (!pascalRe.test(node.id.name)) {
             context.report({
               node: node.id,
               message: `Type/interface "${node.id.name}" must be PascalCase.`,
@@ -148,12 +168,11 @@ const plugin = {
 
         function checkCamel(node) {
           if (!node.name) return;
-          // Ignore destructured, imports, and _prefixed (unused)
           if (node.name.startsWith("_")) return;
-          if (!CAMEL_OR_UPPER.test(node.name)) {
+          if (!camelOrPascalRe.test(node.name)) {
             context.report({
               node,
-              message: `"${node.name}" must be camelCase or UPPER_CASE.`,
+              message: `"${node.name}" must be camelCase (or PascalCase for components).`,
             });
           }
         }
@@ -162,7 +181,6 @@ const plugin = {
           TSTypeAliasDeclaration: checkPascal,
           TSInterfaceDeclaration: checkPascal,
 
-          // Check variable declarations (skip destructuring)
           "VariableDeclarator > Identifier.id"(node) {
             if (node.parent.id !== node) return;
             checkCamel(node);

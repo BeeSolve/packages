@@ -153,7 +153,7 @@ describe("asHttpV1Handler", () => {
     });
     await handler(makeV1Event({ httpMethod: "POST", path: "/submit" }), makeContext());
     expect(capturedRequest?.method).toBe("POST");
-    expect(new URL(capturedRequest!.url).pathname).toBe("/submit");
+    expect(new URL(capturedRequest?.url ?? "").pathname).toBe("/submit");
   });
 });
 
@@ -234,6 +234,6 @@ describe("asHttpV2Handler", () => {
       makeContext(),
     );
     expect(capturedRequest?.method).toBe("DELETE");
-    expect(new URL(capturedRequest!.url).pathname).toBe("/api/items");
+    expect(new URL(capturedRequest?.url ?? "").pathname).toBe("/api/items");
   });
 });

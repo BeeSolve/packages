@@ -44,11 +44,11 @@ const attachmentMaxSizeInBytes = 25 * 1024 * 1024;
 export const handler = async (
   event: SQSEvent,
 ): Promise<{
-  batchItemFailures: {
+  batchItemFailures: Array<{
     itemIdentifier: string;
-  }[];
+  }>;
 }> => {
-  const batchItemFailures: { itemIdentifier: string }[] = [];
+  const batchItemFailures: Array<{ itemIdentifier: string }> = [];
 
   for (const record of event.Records) {
     try {

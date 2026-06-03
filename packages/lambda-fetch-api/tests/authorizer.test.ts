@@ -116,7 +116,7 @@ function makeV1EventWithCustomAuthorizer(
   return base as unknown as APIGatewayProxyWithLambdaAuthorizerEvent<Record<string, string>>;
 }
 
-const AuthSchema = v.object({ userId: v.string(), role: v.string() });
+const authSchema = v.object({ userId: v.string(), role: v.string() });
 
 describe("getAwsLambdaAuthorizerContext", () => {
   test("returns raw payload without schema", async () => {
@@ -130,7 +130,7 @@ describe("getAwsLambdaAuthorizerContext", () => {
   test("validates and types payload with a Standard Schema", async () => {
     const event = makeV2EventWithLambdaAuthorizer({ userId: "u1", role: "admin" });
     const auth = await runWithAwsContext(event, makeContext(), () =>
-      getAwsLambdaAuthorizerContext(AuthSchema),
+      getAwsLambdaAuthorizerContext(authSchema),
     );
     expect(auth.userId).toBe("u1");
     expect(auth.role).toBe("admin");
@@ -139,7 +139,7 @@ describe("getAwsLambdaAuthorizerContext", () => {
   test("throws AuthorizerContextValidationError when schema fails", async () => {
     const event = makeV2EventWithLambdaAuthorizer({ bad: "data" });
     await expect(
-      runWithAwsContext(event, makeContext(), () => getAwsLambdaAuthorizerContext(AuthSchema)),
+      runWithAwsContext(event, makeContext(), () => getAwsLambdaAuthorizerContext(authSchema)),
     ).rejects.toThrow(AuthorizerContextValidationError);
   });
 
@@ -160,7 +160,7 @@ describe("getAwsCustomAuthorizerContext", () => {
   test("validates and types payload with a Standard Schema", async () => {
     const event = makeV1EventWithCustomAuthorizer({ userId: "u2", role: "editor" });
     const auth = await runWithAwsContext(event, makeContext(), () =>
-      getAwsCustomAuthorizerContext(AuthSchema),
+      getAwsCustomAuthorizerContext(authSchema),
     );
     expect(auth.userId).toBe("u2");
     expect(auth.role).toBe("editor");
@@ -169,7 +169,7 @@ describe("getAwsCustomAuthorizerContext", () => {
   test("throws AuthorizerContextValidationError when schema fails", async () => {
     const event = makeV1EventWithCustomAuthorizer({});
     await expect(
-      runWithAwsContext(event, makeContext(), () => getAwsCustomAuthorizerContext(AuthSchema)),
+      runWithAwsContext(event, makeContext(), () => getAwsCustomAuthorizerContext(authSchema)),
     ).rejects.toThrow(AuthorizerContextValidationError);
   });
 

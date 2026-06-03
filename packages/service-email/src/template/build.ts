@@ -24,7 +24,7 @@ import { renderEmail } from "./render.js";
 export async function buildTemplates(options: {
   readonly templatesDir: string;
   readonly outDir: string;
-  readonly locales: string[];
+  readonly locales: Array<string>;
 }): Promise<void> {
   const { templatesDir, outDir, locales } = options;
 

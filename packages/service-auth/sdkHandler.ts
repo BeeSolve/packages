@@ -63,7 +63,7 @@ type AccountIdByEmailRequest = {
 type SessionListRequest = {
   readonly type: "sessionList";
   readonly request: v.InferInput<typeof sessionListSchema>;
-  readonly response: UserSession[];
+  readonly response: Array<UserSession>;
 };
 
 type DeleteAllSessionsRequest = {
@@ -80,11 +80,11 @@ export type Commands =
 
 type Command = {
   readonly type: string;
-  readonly request: any;
-  readonly response: any;
+  readonly request: unknown;
+  readonly response: unknown;
 };
 
-type ToRequest<C extends Command> = C extends any
+type ToRequest<C extends Command> = C extends unknown
   ? { type: C["type"]; request: C["request"] }
   : never;
 
@@ -100,7 +100,7 @@ export type ResponseByType<T extends Commands["type"]> = T extends Commands["typ
   ? Extract<Commands, { type: T }>["response"]
   : never;
 
-export type Types<T extends Commands> = T extends any ? T["type"] : never;
+export type Types<T extends Commands> = T extends unknown ? T["type"] : never;
 
 export const handler = keptActive(async (event: HandlerEvent) => {
   const { type, request } = decodeFromStringifiable<HandlerEvent>(event);
@@ -132,8 +132,8 @@ export const handler = keptActive(async (event: HandlerEvent) => {
     const sessionsList = await sessions.listMany(parsed.accountId);
 
     return sessionsList
-      .filter(({ expiresAt }) => expiresAt.getTime() > now)
-      .sort((a, b) => a.expiresAt.getTime() - b.expiresAt.getTime())
+      .filter(({ expiresAt }) => Date.parse(expiresAt) > now)
+      .sort((a, b) => a.expiresAt.localeCompare(b.expiresAt))
       .map(({ data, expiresAt, id, startedAt, updatedAt }) => ({
         id,
         data,

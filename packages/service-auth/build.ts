@@ -12,7 +12,8 @@ await rm(lambdaDir, { force: true, recursive: true });
 for (const entry of ["api", "authorizer", "sdkHandler", "tasks", "src/edgeBodyHash"] as const) {
   const outDir = `${lambdaDir}/${entry}`;
   await esmBuild({ entryPoints: [`${root}${entry}.ts`], outDir });
-  const zipName = entry.includes("/") ? entry.split("/").pop()! : entry;
+  const zipName = entry.includes("/") ? entry.split("/").pop() : entry;
+  if (zipName == null) throw Error(`Cannot parse zipName.`);
   execSync(`zip -r ${distDir}/${zipName}.zip *`, { cwd: outDir });
 }
 

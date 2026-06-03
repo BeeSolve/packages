@@ -6,7 +6,8 @@ import type { EmailAlarms } from "@beesolve/cdk-email-alarms";
 import type { LambdaKeepActive } from "@beesolve/lambda-keep-active";
 import { SqsHandler } from "@beesolve/sqs-handler/cdk";
 import { Annotations, Duration, RemovalPolicy } from "aws-cdk-lib";
-import { CfnStage, HttpApi, HttpMethod } from "aws-cdk-lib/aws-apigatewayv2";
+import { CfnStage } from "aws-cdk-lib/aws-apigatewayv2";
+import { HttpApi, HttpMethod } from "aws-cdk-lib/aws-apigatewayv2";
 import { HttpLambdaAuthorizer } from "aws-cdk-lib/aws-apigatewayv2-authorizers";
 import { HttpLambdaIntegration } from "aws-cdk-lib/aws-apigatewayv2-integrations";
 import {
@@ -339,7 +340,13 @@ export class Auth extends Construct {
         retention: RetentionDays.ONE_MONTH,
         removalPolicy: RemovalPolicy.DESTROY,
       });
-      const stage = this.api.defaultStage!.node.defaultChild as CfnStage;
+
+      // todo: review this
+      const stage = this.api.defaultStage?.node.defaultChild;
+      if (stage == null) throw Error(`Cannot set access logging - missing default stage.`);
+      if (!(stage instanceof CfnStage))
+        throw Error(`Cannot set access logging - stage not instance of CfnStage.`);
+
       stage.accessLogSettings = {
         destinationArn: accessLogGroup.logGroupArn,
         format: JSON.stringify({
@@ -550,7 +557,7 @@ export class Auth extends Construct {
      * Methods which will be handled by this endpoint (optional)
      * @default [HttpMethod.ANY]
      */
-    methods?: HttpMethod[];
+    methods?: Array<HttpMethod>;
   }) => {
     this.api.addRoutes({
       integration: new HttpLambdaIntegration(props.path ?? "ApiIntegration", props.lambda),

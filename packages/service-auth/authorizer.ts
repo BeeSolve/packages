@@ -41,16 +41,16 @@ interface AuthorizationEvent {
 type SetCookieParam = { sid: string; maxAge: number };
 
 type SessionContext =
-  | { type: "invalid"; error: string; setCookiesParams: SetCookieParam[] }
+  | { type: "invalid"; error: string; setCookiesParams: Array<SetCookieParam> }
   | {
       type: "expired";
-      expiredSession: { userId: string; sessionId: string; expiredAt: Date };
-      setCookiesParams: SetCookieParam[];
+      expiredSession: { userId: string; sessionId: string; expiredAt: string };
+      setCookiesParams: Array<SetCookieParam>;
     }
   | {
       type: "valid";
-      validSession: { userId: string; sessionId: string; expiresAt: Date };
-      setCookiesParams: SetCookieParam[];
+      validSession: { userId: string; sessionId: string; expiresAt: string };
+      setCookiesParams: Array<SetCookieParam>;
     };
 
 export const handler = keptActive(async (event: AuthorizationEvent) => {
@@ -92,7 +92,7 @@ export const handler = keptActive(async (event: AuthorizationEvent) => {
       });
     }
 
-    if (Date.now() > session.expiresAt.getTime()) {
+    if (Date.now() > Date.parse(session.expiresAt)) {
       console.error("Session expired.");
       return authorize({
         type: "expired",

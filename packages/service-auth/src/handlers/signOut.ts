@@ -8,6 +8,7 @@ import type { Sessions } from "../session.ts";
 
 interface Dependencies {
   readonly headers: Headers;
+  // oxlint-disable-next-line typescript/no-explicit-any
   readonly requestBody: () => Promise<any>;
   readonly sessions: Pick<Sessions, "delete">;
   readonly events: Pick<Events, "putEvents">;

@@ -3,8 +3,8 @@ import { createHash } from "node:crypto";
 import type { CloudFrontRequestEvent, CloudFrontRequestResult } from "aws-lambda";
 
 export const handler = async (event: CloudFrontRequestEvent): Promise<CloudFrontRequestResult> => {
-  const request = event.Records[0]!.cf.request;
-  if (request.body?.data) {
+  const request = event.Records[0]?.cf.request;
+  if (request?.body?.data) {
     const buf =
       request.body.encoding === "base64"
         ? Buffer.from(request.body.data, "base64")

@@ -18,15 +18,11 @@ const schema = v.object({
   action: v.string(),
   value: v.string(),
   remainingUses: v.number(),
-  createdAt: v.pipe(
-    v.string(),
-    v.transform((value) => new Date(value)),
-    v.date(),
-  ),
+  createdAt: v.pipe(v.string(), v.isoTimestamp()),
   expiresAt: v.pipe(
     v.number(),
-    v.transform((value) => new Date(value * 1000)),
-    v.date(),
+    v.transform((value) => new Date(value * 1000).toISOString()),
+    v.isoTimestamp(),
   ),
   data: v.optional(v.record(v.string(), v.unknown())),
 });
@@ -222,7 +218,8 @@ export class ActionTokens {
       ? this.getOneByValue({ action: props.action, value: props.value })
       : this.getOneByOwner({ action: props.action, owner: props.owner }));
 
-    if (token.expiresAt.getTime() <= Date.now()) throw new ExpiredTokenError("Token has expired.");
+    if (Date.parse(token.expiresAt) <= Date.now())
+      throw new ExpiredTokenError("Token has expired.");
     if (token.remainingUses <= 0)
       throw new TokenAlreadyUsedUpError("Token cannot be used anymore.");
 
@@ -238,9 +235,10 @@ export class ActionTokens {
     return this.parseOne(updated);
   };
 
+  // oxlint-disable-next-line beesolve/prefer-props-object
   private readonly sendUpdate = async (token: Token, shouldDrain: boolean) => {
     try {
-      return this.props.dynamo.send(
+      return await this.props.dynamo.send(
         new UpdateCommand({
           TableName: this.props.tableName,
           Key: {
@@ -288,7 +286,8 @@ export class ActionTokens {
     if (item == null) throw new TokenDoesNotExistError("Token not found.");
 
     const token = this.parseOne(item);
-    if (token.expiresAt.getTime() <= Date.now()) throw new ExpiredTokenError("Token has expired.");
+    if (Date.parse(token.expiresAt) <= Date.now())
+      throw new ExpiredTokenError("Token has expired.");
     if (token.remainingUses <= 0)
       throw new TokenAlreadyUsedUpError("Token cannot be used anymore.");
 
@@ -357,6 +356,7 @@ export class ActionTokens {
     return this.parseOne(item);
   };
 
+  // oxlint-disable-next-line beesolve/prefer-props-object
   private readonly parseOne = (item: unknown, errorMessage: string = `Malformed token.`) => {
     const result = v.safeParse(schema, item);
     if (!result.success) {

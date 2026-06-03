@@ -16,10 +16,10 @@ Users need to re-request OTP codes when emails are delayed. The current flow has
 
 ## Configuration (CDK Props → Env Vars)
 
-| CDK Prop | Env Var | Type | Default | Description |
-|----------|---------|------|---------|-------------|
-| `resendCooldown` | `RESEND_COOLDOWN` | `Duration` → seconds string | `Duration.seconds(60)` | Minimum time between code generations per email |
-| `drainOnResend` | `DRAIN_ON_RESEND` | `boolean` → `"true"/"false"` | `true` | Whether the previous token is drained on resend |
+| CDK Prop         | Env Var           | Type                         | Default                | Description                                     |
+| ---------------- | ----------------- | ---------------------------- | ---------------------- | ----------------------------------------------- |
+| `resendCooldown` | `RESEND_COOLDOWN` | `Duration` → seconds string  | `Duration.seconds(60)` | Minimum time between code generations per email |
+| `drainOnResend`  | `DRAIN_ON_RESEND` | `boolean` → `"true"/"false"` | `true`                 | Whether the previous token is drained on resend |
 
 ## Event Schema Change
 
@@ -44,11 +44,13 @@ interface EmailCodeAuth {
 ### POST /auth/signInRequest (modified response)
 
 **Request** (unchanged):
+
 ```json
 { "emailAddress": "user@example.com" }
 ```
 
 **Response** (new fields):
+
 ```json
 {
   "token": "base64url-random-32-bytes",
@@ -61,11 +63,13 @@ interface EmailCodeAuth {
 ### POST /auth/resendCode (new endpoint)
 
 **Request**:
+
 ```json
 { "token": "existing-token-from-signInRequest" }
 ```
 
 **Response** (success):
+
 ```json
 {
   "token": "new-base64url-random-32-bytes",
@@ -76,6 +80,7 @@ interface EmailCodeAuth {
 ```
 
 **Error responses**:
+
 - `429` — throttled (cooldown not elapsed): `{ "message": "Too many requests. Try again later.", "type": "throttled" }`
 - `400` — token not found / expired / used up: `{ "message": "...", "type": "badRequest" }`
 
@@ -119,11 +124,13 @@ sequenceDiagram
 **Objective**: Extend the EmailCodeAuth event to include the reference code field.
 
 **Implementation**:
+
 - In `src/events.ts`: add `readonly referenceCode: string` to the `EmailCodeAuth` interface detail
 - In `events.ts` (consumer-facing): add `referenceCode: v.string()` to `emailCodeAuthSchema.detail`
 - Update the `EmailCodeAuthDetail` type export
 
 **Test requirements**:
+
 - Existing type checks pass (`bun run type-check`)
 
 **Demo**: The event schema now accepts and types a `referenceCode` field. Existing consumers continue to compile (the field is additive).
@@ -135,6 +142,7 @@ sequenceDiagram
 **Objective**: The initial sign-in request now enforces per-email throttling, generates a reference code, and returns `{ token, referenceCode, canResendAt, expiresAt }`.
 
 **Implementation**:
+
 - In `src/handlers/signInRequest.ts`:
   - Update `Dependencies` interface: add `resendCooldownSeconds: number`
   - Change `actionTokens` type from `Pick<ActionTokensClient, "createNew">` to `Pick<ActionTokensClient, "createNewWithThrottling">`
@@ -149,6 +157,7 @@ sequenceDiagram
   - Pass `resendCooldownSeconds: env.RESEND_COOLDOWN` to `signInRequest`
 
 **Test requirements**:
+
 - Unit test `tests/signInRequest.test.ts`:
   - Mock `actionTokens.createNewWithThrottling` and `events.putEvents`
   - Assert response contains all 4 fields
@@ -164,11 +173,13 @@ sequenceDiagram
 **Objective**: Map `TokenThrottledError` from action-tokens to a 429 response.
 
 **Implementation**:
+
 - In `api.ts`:
   - Import `TokenThrottledError` from `@beesolve/action-tokens/model`
   - Add to `errorResponseMap`: `[TokenThrottledError, { status: 429, type: "throttled" }]`
 
 **Test requirements**:
+
 - Integration: calling `signInRequest` twice within cooldown returns 429 with `{ message: "...", type: "throttled" }`
 
 **Demo**: Rapid consecutive sign-in requests for the same email return HTTP 429 instead of 500.
@@ -180,6 +191,7 @@ sequenceDiagram
 **Objective**: New handler that peeks the existing token, optionally drains it, generates a new token+code+referenceCode, and returns fresh credentials.
 
 **Implementation**:
+
 - Create `src/handlers/resendCode.ts`:
 
 ```ts
@@ -228,19 +240,21 @@ export async function resendCode({
   const { token: oldToken } = parseBody({ body: await requestBody(), schema });
 
   // Peek the existing token to get emailAddress from data
-  const existing = await actionTokens.peek({
-    owner: oldToken,
-    action: "signInRequest",
-  }).catch((error) => {
-    if (
-      error instanceof TokenDoesNotExistError ||
-      error instanceof ExpiredTokenError ||
-      error instanceof TokenAlreadyUsedUpError
-    ) {
-      throw new BadRequestError("Token not found or expired.");
-    }
-    throw error;
-  });
+  const existing = await actionTokens
+    .peek({
+      owner: oldToken,
+      action: "signInRequest",
+    })
+    .catch((error) => {
+      if (
+        error instanceof TokenDoesNotExistError ||
+        error instanceof ExpiredTokenError ||
+        error instanceof TokenAlreadyUsedUpError
+      ) {
+        throw new BadRequestError("Token not found or expired.");
+      }
+      throw error;
+    });
 
   const emailAddress = (existing.data as { emailAddress?: string })?.emailAddress;
   if (!emailAddress) throw new BadRequestError("Invalid token data.");
@@ -288,13 +302,19 @@ export async function resendCode({
   const canResendAt = new Date(Date.now() + resendCooldownSeconds * 1000).toISOString();
 
   return new Response(
-    JSON.stringify({ token: newToken, referenceCode, canResendAt, expiresAt: expiresAt.toISOString() }),
+    JSON.stringify({
+      token: newToken,
+      referenceCode,
+      canResendAt,
+      expiresAt: expiresAt.toISOString(),
+    }),
     { status: 200, headers: { "content-type": "application/json" } },
   );
 }
 ```
 
 **Test requirements**:
+
 - Unit test `tests/resendCode.test.ts`:
   - Happy path: peek returns valid token → drain called (when setting true) → new token created → event emitted → response has all fields
   - Drain disabled: peek returns valid → drain NOT called → new token created
@@ -310,6 +330,7 @@ export async function resendCode({
 **Objective**: Register the `/auth/resendCode` route in the main API handler.
 
 **Implementation**:
+
 - In `api.ts`:
   - Import `resendCode` from `./src/handlers/resendCode.ts`
   - Add `RESEND_COOLDOWN` and `DRAIN_ON_RESEND` to `envSchema`:
@@ -337,6 +358,7 @@ export async function resendCode({
     ```
 
 **Test requirements**:
+
 - Type check passes
 - Manual/integration: calling the route returns expected JSON
 
@@ -349,6 +371,7 @@ export async function resendCode({
 **Objective**: Add `resendCooldown` and `drainOnResend` CDK props, pass them as environment variables.
 
 **Implementation**:
+
 - In `cdk.ts`:
   - Add to props interface:
     ```ts
@@ -375,6 +398,7 @@ export async function resendCode({
     ```
 
 **Test requirements**:
+
 - Type check passes
 - CDK synth produces the env vars in the Lambda environment
 
@@ -387,6 +411,7 @@ export async function resendCode({
 **Objective**: Update README and event docs to reflect the new endpoint, response format, and CDK props.
 
 **Implementation**:
+
 - In `README.md`:
   - Add `resendCooldown` and `drainOnResend` to the "Optional props" table
   - Add "Resend code" section under "2 — Auth flow (client side)" with example:
@@ -409,6 +434,7 @@ export async function resendCode({
 - In `docs/` (optional): add a note in any relevant doc about the resend flow
 
 **Test requirements**:
+
 - Documentation is accurate and consistent with code
 
 **Demo**: README shows the complete resend flow and all new response fields.

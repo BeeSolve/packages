@@ -53,12 +53,12 @@ export class Email {
   }
 
   readonly sendEmail = async (request: {
-    readonly recipients: string[];
+    readonly recipients: Array<string>;
     readonly subject: string;
     readonly html: string;
     readonly text?: string;
     readonly sender?: Sender;
-    readonly attachments?: Attachment[];
+    readonly attachments?: Array<Attachment>;
     readonly configurationSetName?: string;
   }): Promise<{ requestId: string }> => {
     const id = randomBytes(32).toString("base64url");

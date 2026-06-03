@@ -1,5 +1,6 @@
 import type { APIGatewayProxyEvent, APIGatewayProxyEventV2 } from "aws-lambda";
 
+// oxlint-disable-next-line typescript/no-explicit-any
 export function isAPIGatewayProxyEvent(event: any): event is APIGatewayProxyEvent {
   return (
     typeof event.httpMethod === "string" &&
@@ -9,6 +10,7 @@ export function isAPIGatewayProxyEvent(event: any): event is APIGatewayProxyEven
   );
 }
 
+// oxlint-disable-next-line typescript/no-explicit-any
 export function isAPIGatewayProxyEventV2(event: any): event is APIGatewayProxyEventV2 {
   return (
     event.version === "2.0" &&

@@ -6,7 +6,6 @@ import {
   CachePolicy,
   Distribution,
   type DistributionProps,
-  type EdgeLambda,
   Function,
   type FunctionAssociation,
   FunctionCode,
@@ -87,7 +86,7 @@ interface StaticWebsiteProps {
     /**
      * @default ['/']
      */
-    readonly prefixes?: string[];
+    readonly prefixes?: Array<string>;
   };
 }
 
@@ -135,7 +134,7 @@ export class StaticWebsite extends Construct {
       }),
     );
 
-    const functionAssociations: FunctionAssociation[] = [
+    const functionAssociations: Array<FunctionAssociation> = [
       {
         eventType: FunctionEventType.VIEWER_RESPONSE,
         function: new Function(this, "SecurityHeaders", {
@@ -254,7 +253,7 @@ export class StaticWebsite extends Construct {
       priceClass: PriceClass.PRICE_CLASS_100,
       certificate: toCertificate(this),
       domainNames: toDomainNames(),
-      ...(props.logging ?? {}),
+      ...props.logging,
     });
     this.distribution = distribution;
 
@@ -348,31 +347,31 @@ export class StaticWebsite extends Construct {
  * Test your CSP rules at https://csp-evaluator.withgoogle.com
  */
 interface CspProps {
-  readonly childSrc?: string[];
-  readonly connectSrc?: string[];
-  readonly defaultSrc?: string[];
-  readonly fontSrc?: string[];
-  readonly frameSrc?: string[];
-  readonly imgSrc?: string[];
-  readonly manifestSrc?: string[];
-  readonly mediaSrc?: string[];
-  readonly objectSrc?: string[];
-  readonly prefetchSrc?: string[];
-  readonly scriptSrc?: string[];
-  readonly scriptSrcElem?: string[];
-  readonly scriptSrcAttr?: string[];
-  readonly styleSrc?: string[];
-  readonly styleSrcElem?: string[];
-  readonly styleSrcAttr?: string[];
-  readonly workerSrc?: string[];
-  readonly baseUri?: string[];
-  readonly sandbox?: string[];
-  readonly formAction?: string[];
-  readonly frameAncestors?: string[];
-  readonly navigateTo?: string[];
-  readonly reportTo?: string[];
-  readonly requireTrustedTypesFor?: string[];
-  readonly trustedTypes?: string[];
+  readonly childSrc?: Array<string>;
+  readonly connectSrc?: Array<string>;
+  readonly defaultSrc?: Array<string>;
+  readonly fontSrc?: Array<string>;
+  readonly frameSrc?: Array<string>;
+  readonly imgSrc?: Array<string>;
+  readonly manifestSrc?: Array<string>;
+  readonly mediaSrc?: Array<string>;
+  readonly objectSrc?: Array<string>;
+  readonly prefetchSrc?: Array<string>;
+  readonly scriptSrc?: Array<string>;
+  readonly scriptSrcElem?: Array<string>;
+  readonly scriptSrcAttr?: Array<string>;
+  readonly styleSrc?: Array<string>;
+  readonly styleSrcElem?: Array<string>;
+  readonly styleSrcAttr?: Array<string>;
+  readonly workerSrc?: Array<string>;
+  readonly baseUri?: Array<string>;
+  readonly sandbox?: Array<string>;
+  readonly formAction?: Array<string>;
+  readonly frameAncestors?: Array<string>;
+  readonly navigateTo?: Array<string>;
+  readonly reportTo?: Array<string>;
+  readonly requireTrustedTypesFor?: Array<string>;
+  readonly trustedTypes?: Array<string>;
   readonly upgradeInsecureRequests?: boolean;
 }
 
@@ -404,7 +403,7 @@ function csp(props: CspProps): string {
   // By default, disable non-HTTPs requests.
   const upgradeInsecureRequests = props.upgradeInsecureRequests ?? true;
 
-  const has = (value: string[] | undefined): value is string[] => {
+  const has = (value: Array<string> | undefined): value is Array<string> => {
     return value != null && value.length > 0;
   };
 

@@ -86,11 +86,12 @@ describe("splitArrayToChunks", () => {
   });
 
   test("default chunk size is 100", () => {
-    const data = Array.from({ length: 150 }, (_, i) => i);
+    // oxlint-disable-next-line beesolve/prefer-props-object
+    const data = Array.from({ length: 150 }, (_blank, i) => i);
     const result = splitArrayToChunks(data);
     expect(result.length).toBe(2);
-    expect(result[0]!.length).toBe(100);
-    expect(result[1]!.length).toBe(50);
+    expect(result[0]?.length).toBe(100);
+    expect(result[1]?.length).toBe(50);
   });
 });
 

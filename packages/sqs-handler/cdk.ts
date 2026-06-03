@@ -90,16 +90,16 @@ export class SqsHandler extends Construct {
       encryptionKey,
     } = props;
 
+    const { description, memorySize, timeout, reservedConcurrentExecutions, ...mainConfig } =
+      handlerProps;
+
     const configurations: Record<string, Pick<Nodejs24FunctionProps, "memorySize" | "timeout">> = {
       ...additionalHandlerConfigurations,
       [mainQueueLabel]: {
-        memorySize: handlerProps.memorySize,
-        timeout: handlerProps.timeout,
+        memorySize,
+        timeout,
       },
     };
-
-    const { description, memorySize, timeout, reservedConcurrentExecutions, ...mainConfig } =
-      handlerProps;
 
     for (const [name, config] of Object.entries(configurations)) {
       const prefix = capitalizeFirstLetter(name);

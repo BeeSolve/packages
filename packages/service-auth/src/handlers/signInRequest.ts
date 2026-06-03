@@ -14,6 +14,7 @@ interface Dependencies {
   readonly accounts: Pick<Accounts, "getOne">;
   readonly events: Pick<Events, "putEvents">;
   readonly baseUri: string;
+  // oxlint-disable-next-line typescript/no-explicit-any
   readonly requestBody: () => Promise<any>;
   readonly cookies: Record<string, string>;
   readonly acceptLanguage: string | null;

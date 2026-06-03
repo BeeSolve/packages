@@ -34,5 +34,5 @@ const result = createSqsHandlers({
 
 export const handler: (
   event: SQSEvent,
-) => Promise<{ batchItemFailures: { itemIdentifier: string }[] }> = result[0];
+) => Promise<{ batchItemFailures: Array<{ itemIdentifier: string }> }> = result[0];
 export const tasks = result[1];

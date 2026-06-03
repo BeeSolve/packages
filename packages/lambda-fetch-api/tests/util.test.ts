@@ -172,8 +172,8 @@ describe("awsResponseHeaders", () => {
     });
     const result = awsResponseHeaders(response, "v1");
     expect(result.headers["content-type"]).toBe("text/plain");
-    expect((result as any).multiValueHeaders).toBeUndefined();
-    expect((result as any).cookies).toBeUndefined();
+    expect((result as unknown as Record<string, unknown>).multiValueHeaders).toBeUndefined();
+    expect((result as unknown as Record<string, unknown>).cookies).toBeUndefined();
   });
 
   test("v1: returns multiValueHeaders for set-cookie and omits it from headers", () => {
@@ -182,7 +182,7 @@ describe("awsResponseHeaders", () => {
     const response = new Response("", { headers });
     const result = awsResponseHeaders(response, "v1") as {
       headers: Record<string, string>;
-      multiValueHeaders: { "set-cookie": string[] };
+      multiValueHeaders: { "set-cookie": Array<string> };
     };
     expect(result.multiValueHeaders["set-cookie"]).toEqual(["session=abc; Path=/"]);
     expect(result.headers["set-cookie"]).toBeUndefined();
@@ -194,7 +194,7 @@ describe("awsResponseHeaders", () => {
     const response = new Response("", { headers });
     const result = awsResponseHeaders(response, "v2") as {
       headers: Record<string, string>;
-      cookies: string[];
+      cookies: Array<string>;
     };
     expect(result.cookies).toEqual(["session=abc; Path=/"]);
     expect(result.headers["set-cookie"]).toBeUndefined();

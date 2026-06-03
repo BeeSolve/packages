@@ -15,13 +15,16 @@ const tokens = {
 
 const maxDepth = 30;
 
+// oxlint-disable-next-line typescript/no-explicit-any
 export function encodeToStringifiable(value: any) {
   return {
+    // oxlint-disable-next-line typescript/no-explicit-any
     encodedValue: encodeValue(value) as any,
     ___encoded: "v1",
   };
 }
 
+// oxlint-disable-next-line typescript/no-explicit-any
 export function decodeFromStringifiable<T = any>(value: any): T {
   if (!isPlainObject(value)) {
     throw Error(`Only plain objects can be decoded.`);
@@ -35,6 +38,7 @@ export function decodeFromStringifiable<T = any>(value: any): T {
   throw Error(`Unsupported version: "${{ ___encoded }}"`);
 }
 
+// oxlint-disable-next-line typescript/no-explicit-any
 function decodeValue(value: any): any {
   if (typeof value === "string") {
     if (value.startsWith("_")) {
@@ -59,6 +63,7 @@ function decodeValue(value: any): any {
     if (token === tokens.formData) {
       const formData = new FormData();
       for (const [key, value] of Object.entries(JSON.parse(val))) {
+        // oxlint-disable-next-line typescript/no-explicit-any
         formData.append(key, value as any);
       }
       return formData;
@@ -70,13 +75,18 @@ function decodeValue(value: any): any {
   if (Array.isArray(value)) return value.map((item) => decodeValue(item));
   if (typeof value === "object")
     return Object.entries(value).reduce(
-      (result, [k, v]) => ({ ...result, [k]: decodeValue(v) }),
-      {},
+      (result, [k, v]) => {
+        result[k] = decodeValue(v);
+        return result;
+      },
+      // oxlint-disable-next-line typescript/no-explicit-any
+      {} as Record<string, any>,
     );
 
   throw Error(`Unable to decode value. "${value}"`);
 }
 
+// oxlint-disable-next-line typescript/no-explicit-any beesolve/prefer-props-object
 function encodeValue(value: any, depth = 0): any {
   if (depth > maxDepth) throw Error(`Cannot encode - max object depth (${maxDepth}) reached.`);
 
@@ -107,16 +117,19 @@ function encodeValue(value: any, depth = 0): any {
 
   if (isPlainObject(value))
     return Object.entries(value).reduce(
-      (result, [key, value]) => ({
-        ...result,
-        [key]: encodeValue(value, depth + 1),
-      }),
-      {},
+      (result, [key, value]) => {
+        result[key] = encodeValue(value, depth + 1);
+
+        return result;
+      },
+      // oxlint-disable-next-line typescript/no-explicit-any
+      {} as Record<string, any>,
     );
 
   throw Error(`Cannot encode - unsupported value ${typeof value}: "${value}"`);
 }
 
+// oxlint-disable-next-line typescript/no-explicit-any
 function isPlainObject(value: any) {
   return typeof value === "object" && value !== null && value.constructor === Object;
 }

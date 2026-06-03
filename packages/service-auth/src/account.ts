@@ -1,5 +1,6 @@
 import { ConditionalCheckFailedException } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient, PutCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
+import type { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
+import { PutCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
 import * as v from "valibot";
 
 import { BadRequestError, NotFoundError } from "./errors.ts";
@@ -112,6 +113,7 @@ export class Accounts {
     return this.toModel(result);
   };
 
+  // oxlint-disable-next-line beesolve/prefer-props-object typescript/no-explicit-any
   private readonly parseOne = (item: any, errorMessage: string = `Malformed account.`) => {
     const result = v.safeParse(schema, item);
     if (!result.success) {

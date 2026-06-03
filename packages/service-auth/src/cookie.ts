@@ -1,9 +1,9 @@
 export function addSetCookies(props: {
   headers: Headers;
-  cookies: {
+  cookies: Array<{
     sid: string;
     maxAge: number;
-  }[];
+  }>;
 }): Headers {
   for (const { sid, maxAge } of props.cookies) {
     [
@@ -30,6 +30,7 @@ export function parseSid(cookieHeader: string | null | undefined) {
 }
 
 const cookieName = "__Host-DataToken";
+// oxlint-disable-next-line beesolve/prefer-props-object
 export function toDataTokenCookie(token: string, maxAge: number = 900) {
   return `${cookieName}=${token}; HttpOnly; Max-Age=${maxAge}; SameSite=Strict; Secure; Path=/`;
 }

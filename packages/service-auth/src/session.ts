@@ -34,20 +34,12 @@ const authorizerSchema = v.object({
   id: v.string(),
   sessionId: v.string(),
   userId: v.string(),
-  startedAt: v.pipe(
-    v.string(),
-    v.transform((value) => new Date(value)),
-    v.date(),
-  ),
-  createdAt: v.pipe(
-    v.string(),
-    v.transform((value) => new Date(value)),
-    v.date(),
-  ),
+  startedAt: v.pipe(v.string(), v.isoTimestamp()),
+  createdAt: v.pipe(v.string(), v.isoTimestamp()),
   expiresAt: v.pipe(
     v.number(),
-    v.transform((value) => new Date(value * 1000)),
-    v.date(),
+    v.transform((value) => new Date(value * 1000).toISOString()),
+    v.isoTimestamp(),
   ),
 });
 export type Session = v.InferOutput<typeof authorizerSchema>;
@@ -74,11 +66,7 @@ const schema = v.object({
       tabletViewer: v.boolean(),
     }),
   ),
-  updatedAt: v.pipe(
-    v.string(),
-    v.transform((value) => new Date(value)),
-    v.date(),
-  ),
+  updatedAt: v.pipe(v.string(), v.isoTimestamp()),
 });
 type NewSession = v.InferInput<typeof schema>;
 export type UserSession = v.InferOutput<typeof schema>;
@@ -151,7 +139,7 @@ export class Sessions {
       }),
     );
 
-    return items as { id: string; userId: string }[];
+    return items as Array<{ id: string; userId: string }>;
   };
 
   readonly createOne = async (props: {
@@ -190,7 +178,7 @@ export class Sessions {
       const start = new Date();
       const drift = this.props.refreshDrift ?? 15_000;
 
-      const difference = start.getTime() - props.session.createdAt.getTime();
+      const difference = start.getTime() - Date.parse(props.session.createdAt);
       if (difference < drift) {
         // Session record is very young — skip rotation and return the existing session.
         // maxAge is capped to the remaining session lifetime so the cookie
@@ -200,7 +188,7 @@ export class Sessions {
         // remaining given the 30-day default TTL.
         const maxAge = Math.min(
           props.maxAge ?? this.props.defaultMaxAge ?? 2_592_000,
-          Math.round((props.session.expiresAt.getTime() - start.getTime()) / 1000),
+          Math.round((Date.parse(props.session.expiresAt) - start.getTime()) / 1000),
         );
 
         return {
@@ -219,7 +207,7 @@ export class Sessions {
       const date = new Date(start);
       date.setUTCMilliseconds(
         date.getUTCMilliseconds() +
-          Math.min(drift * 2, props.session.expiresAt.getTime() - start.getTime()),
+          Math.min(drift * 2, Date.parse(props.session.expiresAt) - start.getTime()),
       );
       const expiresAt = Math.round(date.getTime() / 1000);
 
@@ -305,7 +293,7 @@ export class Sessions {
   private readonly toNewSession = (props: {
     readonly userId: string;
     readonly sessionId: undefined | string;
-    readonly startedAt: undefined | Date;
+    readonly startedAt: undefined | string;
     readonly data: NewSession["data"];
     readonly maxAge?: number;
   }) => {
@@ -323,7 +311,7 @@ export class Sessions {
       data: props.data,
       createdAt,
       updatedAt: createdAt,
-      startedAt: props.startedAt?.toISOString() ?? createdAt,
+      startedAt: props.startedAt ?? createdAt,
     };
     const model = this.parseOneFull(
       item,
@@ -333,7 +321,8 @@ export class Sessions {
     return { item, model, maxAge };
   };
 
-  private readonly parseOne = (item: any, errorMessage: string = `Malformed session.`) => {
+  // oxlint-disable-next-line beesolve/prefer-props-object
+  private readonly parseOne = (item: unknown, errorMessage: string = `Malformed session.`) => {
     const result = v.safeParse(authorizerSchema, item);
     if (!result.success) {
       console.error(v.flatten(result.issues));
@@ -343,7 +332,8 @@ export class Sessions {
     return result.output;
   };
 
-  private readonly parseOneFull = (item: any, errorMessage: string = `Malformed session.`) => {
+  // oxlint-disable-next-line beesolve/prefer-props-object
+  private readonly parseOneFull = (item: unknown, errorMessage: string = `Malformed session.`) => {
     const result = v.safeParse(schema, item);
     if (!result.success) {
       console.error(v.flatten(result.issues));
@@ -422,7 +412,9 @@ export class Sessions {
 
       const errorKeys = Object.keys(issues.nested ?? {});
       return Object.fromEntries(
-        Object.entries(result.output as any).filter(([key]) => !errorKeys.includes(key)),
+        Object.entries(result.output as Record<string, unknown>).filter(
+          ([key]) => !errorKeys.includes(key),
+        ),
       );
     }
 

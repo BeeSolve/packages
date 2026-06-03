@@ -83,17 +83,18 @@ function awsEventBody(event: APIGatewayProxyEvent | APIGatewayProxyEventV2): Bod
 
 // Outgoing (Web => AWS)
 
+// oxlint-disable-next-line beesolve/prefer-props-object
 export function awsResponseHeaders(
   response: Response,
   version: "v1" | "v2",
 ):
   | {
       headers: Record<string, string>;
-      multiValueHeaders?: { "set-cookie": string[] };
+      multiValueHeaders?: { "set-cookie": Array<string> };
     }
   | {
       headers: Record<string, string>;
-      cookies?: string[];
+      cookies?: Array<string>;
     } {
   const headers: Record<string, string> = {};
   for (const [key, value] of response.headers.entries()) {
@@ -136,7 +137,7 @@ export async function awsResponseBody(
   if (!response.body) {
     return { body: "" };
   }
-  const buffer = await toBuffer(response.body as any);
+  const buffer = await toBuffer(response.body);
   const contentType = response.headers.get("content-type") || "";
   return isTextType(contentType)
     ? { body: buffer.toString("utf8") }
@@ -148,8 +149,9 @@ function isTextType(contentType = "") {
 }
 
 function toBuffer(data: ReadableStream): Promise<Buffer> {
+  // oxlint-disable-next-line beesolve/prefer-props-object
   return new Promise<Buffer>((resolve, reject) => {
-    const chunks: Buffer[] = [];
+    const chunks: Array<Buffer> = [];
     data
       .pipeTo(
         new WritableStream({

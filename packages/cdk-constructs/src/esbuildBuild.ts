@@ -1,7 +1,7 @@
 import { type BuildOptions, build, buildSync, type Message } from "esbuild";
 
 interface BuildProps {
-  readonly entryPoints: string[];
+  readonly entryPoints: Array<string>;
   readonly outDir: string;
 }
 
@@ -47,7 +47,7 @@ function toBuildConfig(props: BuildProps): BuildOptions {
 }
 
 export class BuildError extends Error {
-  constructor(messages: Message[]) {
+  constructor(messages: Array<Message>) {
     super(`Couldn't build the code.\n\n${messages.map((message) => message.text).join("\n")}`);
   }
 }

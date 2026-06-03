@@ -11,6 +11,7 @@ type Store = {
 
 const storage = new AsyncLocalStorage<Store>();
 
+// oxlint-disable-next-line beesolve/prefer-props-object
 export async function runWithAwsContext<T>(
   event: Store["event"],
   context: Context,

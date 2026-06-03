@@ -103,7 +103,7 @@ const fetch = async (request: Request): Promise<Response> => {
           .split(";")
           .map((c) => c.trim().split("="))
           .filter(([key]) => key && !cookiesToStrip.has(key.trim()))
-          .map(([key, ...rest]) => [key!.trim(), rest.join("=")]),
+          .map(([key, ...rest]) => [key?.trim(), rest.join("=")]),
       );
       const acceptLanguage = request.headers.get("accept-language");
       const requestOrigin = request.headers.get("origin");
