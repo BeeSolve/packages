@@ -40,9 +40,10 @@ The construct provisions:
 
 - **DynamoDB tables** — `Sessions` (with a userId GSI) and `Accounts` (with a reverse-lookup GSI).
 - **Three Lambda functions** — the auth API handler, a Lambda authorizer, and an SDK bridge handler.
-- **Function URL** (`authUrl`) — an IAM-protected endpoint for `signInRequest`, `signInComplete`, and `signOut`. Access is restricted via CloudFront Origin Access Control (OAC).
+- **Function URL** (`authUrl`) — an IAM-protected endpoint for `signInRequest`, `signInComplete`, `resendCode`, and `signOut`. Access is restricted via CloudFront Origin Access Control (OAC).
 - **Lambda@Edge** — computes `x-amz-content-sha256` for POST body SigV4 signing.
 - **`authBehavior`** — a ready-to-use CloudFront `BehaviorOptions` object that wires the OAC origin and Lambda@Edge together.
+- **`createAuthBehavior(scope)`** — creates the behavior with the edge function scoped to the provided construct, avoiding cross-stack CloudFormation export issues.
 - **HTTP API** (`api`) — an API Gateway HTTP API with the Lambda authorizer attached, used for all routes that require a valid session.
 
 #### Optional props
@@ -60,6 +61,8 @@ The construct provisions:
 | `accessLogging`                 | `boolean`          | Access logging on the HTTP API. Creates a CloudWatch Log Group. Defaults to `true` in prod.                 |
 | `authorizerReservedConcurrency` | `number`           | Reserved concurrent executions for the authorizer Lambda.                                                   |
 | `sdkHandlerReservedConcurrency` | `number`           | Reserved concurrent executions for the SDK handler Lambda.                                                  |
+| `resendCooldown`                | `Duration`         | Minimum time between code generations for the same email. Defaults to `Duration.seconds(60)`.               |
+| `drainOnResend`                 | `boolean`          | Whether the previous OTP token is invalidated on resend. Defaults to `true`.                                |
 
 > [!TIP]
 > When deploying in a VPC, add a DynamoDB VPC Gateway Endpoint to keep traffic off the public internet. Gateway endpoints are free.
@@ -85,6 +88,16 @@ auth.addAuthorizedEndpoint({
 auth.grantSdkAccess(myLambda);
 ```
 
+#### Cross-stack usage
+
+When the CloudFront distribution lives in a different stack, use `createAuthBehavior(scope)` instead of `authBehavior` to avoid CloudFormation cross-stack export issues with Lambda@Edge version ARNs:
+
+```ts
+// In a different stack from the Auth construct:
+const behavior = auth.createAuthBehavior(this);
+distribution.addBehavior("/auth/*", behavior.origin, behavior);
+```
+
 ### 2 — Auth flow (client side)
 
 The core design principle of this package is **same-domain, cookie-based authorization**. Your frontend, the auth endpoints, and your API all run behind a single CloudFront distribution at one domain (e.g. `app.example.com`). CloudFront routes `/auth/*` to the Lambda function URL and all other paths to your application and API.
@@ -93,30 +106,62 @@ Because every request — page loads, auth calls, API calls — shares the same 
 
 Use `auth.authBehavior` to add the `/auth/*` behavior to your CloudFront distribution — it includes the OAC-signed origin and Lambda@Edge for body hashing. See [docs/cloudfront.md](docs/cloudfront.md) for a complete CDK example.
 
-All three endpoints expect `POST`, `Content-Type: application/json`.
+All endpoints expect `POST`, `Content-Type: application/json`.
+
+```mermaid
+sequenceDiagram
+    participant Browser
+    participant CloudFront
+    participant AuthLambda
+
+    Browser->>CloudFront: POST /auth/signInRequest {emailAddress}
+    CloudFront->>AuthLambda: OAC-signed request
+    AuthLambda-->>CloudFront: 200 {token, referenceCode, canResendAt, expiresAt}
+    CloudFront-->>Browser: 200
+
+    Note over Browser: User receives code via email
+
+    Browser->>CloudFront: POST /auth/signInComplete {token, code, redirectTo}
+    CloudFront->>AuthLambda: OAC-signed request
+    AuthLambda-->>CloudFront: 301 + Set-Cookie: __Host-SID, aSID
+    CloudFront-->>Browser: 301 redirect → /dashboard
+```
 
 #### Sign-in request
 
 ```ts
-const res = await fetch(`${authUrl}/auth/signInRequest`, {
+const res = await fetch("/auth/signInRequest", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify({ emailAddress: "user@example.com" }),
-  credentials: "include",
 });
-const { token } = await res.json(); // save `token` for the next step
+const { token, referenceCode, canResendAt, expiresAt } = await res.json();
+// save `token` for signInComplete or resendCode
 ```
 
 This emits an `EmailCodeAuth` EventBridge event. Your event consumer should send the code to the user's email address.
 
+#### Resend code
+
+```ts
+const res = await fetch("/auth/resendCode", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ token }),
+});
+const { token: newToken, referenceCode, canResendAt, expiresAt } = await res.json();
+// Replace stored token with newToken for signInComplete
+```
+
+Returns HTTP 429 if called before the cooldown (default 60s) has elapsed. The previous token is drained (invalidated) by default.
+
 #### Sign-in complete
 
 ```ts
-const res = await fetch(`${authUrl}/auth/signInComplete`, {
+const res = await fetch("/auth/signInComplete", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify({ token, code: "123456", redirectTo: "/dashboard" }),
-  credentials: "include",
 });
 // 301 redirect with __Host-SID and aSID cookies set
 ```
@@ -124,11 +169,10 @@ const res = await fetch(`${authUrl}/auth/signInComplete`, {
 #### Sign out
 
 ```ts
-await fetch(`${authUrl}/auth/signOut`, {
+await fetch("/auth/signOut", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify({ redirectTo: "/" }),
-  credentials: "include",
 });
 // 301 redirect with __Host-SID cookie cleared
 ```
@@ -160,21 +204,27 @@ const sessions = await auth.invoke({
   type: "sessionList",
   request: { accountId: id },
 });
+
+// Delete all sessions for an account (optionally keep one)
+await auth.invoke({
+  type: "deleteAllSessions",
+  request: { accountId: id, exceptSessionId: "keep-this-one" },
+});
 ```
 
 ### 4 — EventBridge events
 
 All events are emitted on the configured event bus with source `"beesolve.auth.api"` (or the value of `eventSource`).
 
-| `detail-type`          | Fired when                                | Key fields                                                                                                                     |
-| ---------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `EmailCodeAuth`        | Sign-in requested                         | `accountId` (null for new users), `code`, `expiresAt`, `emailAddress`, `baseUri`, `cookies`, `acceptLanguage`, `requestOrigin` |
-| `EmailAddressVerified` | New account created on first sign-in      | `accountId`, `emailAddress`, `verifiedAt`                                                                                      |
-| `DataToken`            | Sign-in complete with `dataToken` enabled | `accountId`, `emailAddress`, `dataToken`                                                                                       |
-| `SuccessfulAuth`       | _(reserved)_                              | `userId`                                                                                                                       |
-| `UnsuccessfulAuth`     | _(reserved)_                              | `userId`                                                                                                                       |
-| `SessionInvalidated`   | Sign out                                  | `sessionId`                                                                                                                    |
-| `EmailInvitation`      | _(reserved)_                              | `emailAddress`, `baseUri`                                                                                                      |
+| `detail-type`          | Fired when                                | Key fields                                                                                                                                      |
+| ---------------------- | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `EmailCodeAuth`        | Sign-in requested or code resent          | `accountId` (null for new users), `code`, `expiresAt`, `emailAddress`, `referenceCode`, `baseUri`, `cookies`, `acceptLanguage`, `requestOrigin` |
+| `EmailAddressVerified` | New account created on first sign-in      | `accountId`, `emailAddress`, `verifiedAt`                                                                                                       |
+| `DataToken`            | Sign-in complete with `dataToken` enabled | `accountId`, `emailAddress`, `dataToken`                                                                                                        |
+| `SuccessfulAuth`       | _(reserved)_                              | `userId`                                                                                                                                        |
+| `UnsuccessfulAuth`     | Sign-in failed (invalid/expired code)     | `emailAddress`, `reason`                                                                                                                        |
+| `SessionInvalidated`   | Sign out                                  | `sessionId`                                                                                                                                     |
+| `EmailInvitation`      | _(reserved)_                              | `emailAddress`, `baseUri`                                                                                                                       |
 
 > **Important**: `EmailCodeAuth` is the integration point for email delivery. Subscribe an EventBridge rule to this event and implement your own email-sending logic (e.g. using `@beesolve/service-email`).
 
@@ -196,7 +246,7 @@ const sid = parseSid(request.headers.get("cookie")); // string | null
 // Parse the data token from a Cookie header
 const dataToken = parseDataTokenCookie(request.headers.get("cookie")); // string | null
 
-// Build a data-token Set-Cookie string (Max-Age 900s, SameSite=Lax)
+// Build a data-token Set-Cookie string (Max-Age 900s, SameSite=Strict)
 const setCookie = toDataTokenCookie("my-token");
 
 // Append __Host-SID and aSID Set-Cookie headers (pass maxAge=-1 to clear)
@@ -232,6 +282,25 @@ The Lambda authorizer is attached to API Gateway as a `HttpLambdaAuthorizer` wit
 To enforce authentication in your handlers, use the `requireSessionV2` or `requireSessionV1` middleware (see below).
 
 ### 7 — Session middleware
+
+```mermaid
+sequenceDiagram
+    participant Browser
+    participant CloudFront
+    participant APIGateway
+    participant Authorizer
+    participant YourLambda
+
+    Browser->>CloudFront: GET /api/data (Cookie: __Host-SID=...)
+    CloudFront->>APIGateway: forward request
+    APIGateway->>Authorizer: invoke (Cookie header)
+    Authorizer->>Authorizer: parse __Host-SID, lookup session in DynamoDB
+    Authorizer-->>APIGateway: Allow + session context {userId, sessionId, type: "valid"}
+    APIGateway->>YourLambda: invoke with authorizer context
+    YourLambda-->>APIGateway: 200 response
+    APIGateway-->>CloudFront: 200
+    CloudFront-->>Browser: 200
+```
 
 The package exports middleware that validates the authorizer context and rejects unauthenticated requests. Import from `@beesolve/auth-service`:
 
@@ -294,6 +363,10 @@ When `dataToken: true` is set on the CDK construct, the auth API reads a `__Host
 
 Yes. Pass `eventBusArn` to the CDK construct. If omitted, the `default` event bus is used.
 
+**Q: Why do client examples use relative URLs with no base address?**
+
+Everything — the frontend, `/auth/*` endpoints, and `/api/*` routes — is served from a single CloudFront distribution on one domain. Because the browser is already on that domain, relative paths like `/auth/signInRequest` resolve to the same origin automatically. This also means `credentials: "include"` is unnecessary (same-origin requests include cookies by default) and there is zero CORS configuration. The `__Host-SID` cookie "just works" because the cookie's origin matches every request the browser makes.
+
 **Q: Why does `signInComplete` return a redirect instead of JSON?**
 
 The redirect (HTTP 301) sets `__Host-SID` and `aSID` cookies as part of the response. This allows the browser to store the session cookie in a single round-trip, then follow the redirect to the destination page.
@@ -316,3 +389,15 @@ Sessions expire after 30 days (`defaultMaxAge = 2_592_000` seconds). The authori
 **Q: Which account types are supported?**
 
 Currently only `email`. The schema includes `phone` and `passkey` as reserved values for future extension, but no handlers implement them yet.
+
+**Q: What is the reference code?**
+
+A random 10-byte base64url string generated alongside every OTP (both initial sign-in and resend). It's returned in the API response and included in the `EmailCodeAuth` event so you can display it in the email subject or body. This helps users identify which email corresponds to their sign-in attempt when multiple codes are in-flight.
+
+**Q: What format are date fields in?**
+
+All date fields (`expiresAt`, `createdAt`, `startedAt`, `updatedAt`) returned by the authorizer and SDK are ISO 8601 timestamp strings. Use `Date.parse(value)` for comparisons or `new Date(value)` to convert.
+
+**Q: How does OAC protect the auth endpoint?**
+
+CloudFront Origin Access Control signs requests to the Lambda function URL using SigV4. The function URL has `AuthType: AWS_IAM`, so direct access without a valid SigV4 signature is rejected at the IAM layer — the Lambda is never invoked. For POST requests, a Lambda@Edge function computes the body hash (`x-amz-content-sha256`) automatically. This is already wired into `auth.authBehavior`.

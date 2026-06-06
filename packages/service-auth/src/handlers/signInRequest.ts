@@ -10,7 +10,7 @@ import { parseBody } from "../request.ts";
 import { generateOTP } from "../util.ts";
 
 interface Dependencies {
-  readonly actionTokens: Pick<ActionTokensClient, "createNew">;
+  readonly actionTokens: Pick<ActionTokensClient, "createNewWithThrottling">;
   readonly accounts: Pick<Accounts, "getOne">;
   readonly events: Pick<Events, "putEvents">;
   readonly baseUri: string;
@@ -21,6 +21,8 @@ interface Dependencies {
   readonly requestOrigin: string | null;
   /** OTP validity period in seconds. */
   readonly otpExpirySeconds: number;
+  /** Cooldown window for resending codes after sign-in. */
+  readonly resendCooldownSeconds: number;
 }
 
 const schema = v.object({
@@ -37,6 +39,7 @@ export async function signInRequest({
   acceptLanguage,
   requestOrigin,
   otpExpirySeconds,
+  resendCooldownSeconds,
 }: Dependencies): Promise<Response> {
   const { emailAddress } = parseBody({
     body: await requestBody(),
@@ -47,24 +50,28 @@ export async function signInRequest({
 
   const token = randomBytes(32).toString("base64url");
   const code = generateOTP();
+  const referenceCode = randomBytes(10).toString("base64url");
 
-  const expiresAt = new Date();
-  expiresAt.setUTCSeconds(expiresAt.getUTCSeconds() + otpExpirySeconds);
+  const createdAtTimestamp = Date.now();
+  const expiresAt = new Date(createdAtTimestamp + otpExpirySeconds * 1000);
+  const canResendAt = new Date(createdAtTimestamp + resendCooldownSeconds * 1000);
 
-  await actionTokens.createNew({
+  await actionTokens.createNewWithThrottling({
     action: "signInRequest",
-    data: { emailAddress },
+    data: { emailAddress, accountId: account?.id ?? null },
     expiresAt,
     overwrite: true,
     owner: token,
     remainingUses: 3,
     value: code,
+    throttle: { id: emailAddress, windowSeconds: resendCooldownSeconds },
   });
 
   await events.putEvents({
     type: "EmailCodeAuth",
     detail: {
       code,
+      referenceCode,
       emailAddress,
       expiresAt: expiresAt.toISOString(),
       accountId: account?.id ?? null,
@@ -75,10 +82,18 @@ export async function signInRequest({
     },
   });
 
-  return new Response(JSON.stringify({ token }), {
-    status: 200,
-    headers: new Headers({
-      "content-type": "application/json",
+  return new Response(
+    JSON.stringify({
+      token,
+      referenceCode,
+      canResendAt: canResendAt.toISOString(),
+      expiresAt: expiresAt.toISOString(),
     }),
-  });
+    {
+      status: 200,
+      headers: new Headers({
+        "content-type": "application/json",
+      }),
+    },
+  );
 }

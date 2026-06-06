@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import { EventBridge } from "@aws-sdk/client-eventbridge";
+import { TokenThrottledError } from "@beesolve/action-tokens/model";
 import { ActionTokensClient } from "@beesolve/action-tokens/sdk";
 import { asHttpV2Handler } from "@beesolve/lambda-fetch-api";
 import { keptActive } from "@beesolve/lambda-keep-active/runtime";
@@ -11,6 +12,7 @@ import { parseDataTokenCookie } from "./src/cookie.ts";
 import { toDynamoClient } from "./src/dynamo.ts";
 import { BadRequestError, ForbiddenError, NotFoundError, UnauthorizedError } from "./src/errors.ts";
 import { Events } from "./src/events.ts";
+import { resendCode } from "./src/handlers/resendCode.ts";
 import { signInComplete } from "./src/handlers/signInComplete.ts";
 import { signInRequest } from "./src/handlers/signInRequest.ts";
 import { signOut } from "./src/handlers/signOut.ts";
@@ -45,6 +47,17 @@ const envSchema = v.object({
     v.pipe(v.string(), v.transform(Number)),
     "600", // 10 minutes
   ),
+  RESEND_COOLDOWN: v.optional(
+    v.pipe(v.string(), v.transform(Number)),
+    "60", // 1 minute
+  ),
+  DRAIN_ON_RESEND: v.optional(
+    v.pipe(
+      v.string(),
+      v.transform((value) => value === "true"),
+    ),
+    "true",
+  ),
 });
 const env = v.parse(envSchema, process.env);
 
@@ -75,6 +88,7 @@ const errorResponseMap = new Map<Function, { readonly status: number; readonly t
   [ForbiddenError, { status: 403, type: "forbidden" }],
   [UnauthorizedError, { status: 401, type: "unauthorized" }],
   [BadRequestError, { status: 400, type: "badRequest" }],
+  [TokenThrottledError, { status: 429, type: "throttled" }],
 ]);
 
 const fetch = async (request: Request): Promise<Response> => {
@@ -97,16 +111,7 @@ const fetch = async (request: Request): Promise<Response> => {
     const requestBody = () => request.json();
 
     if (path === "/auth/signInRequest") {
-      const cookieHeader = request.headers.get("cookie") ?? "";
-      const cookies = Object.fromEntries(
-        cookieHeader
-          .split(";")
-          .map((c) => c.trim().split("="))
-          .filter(([key]) => key && !cookiesToStrip.has(key.trim()))
-          .map(([key, ...rest]) => [key?.trim(), rest.join("=")]),
-      );
-      const acceptLanguage = request.headers.get("accept-language");
-      const requestOrigin = request.headers.get("origin");
+      const { cookies, acceptLanguage, requestOrigin } = parseHeaders(request);
 
       return await signInRequest({
         actionTokens,
@@ -118,6 +123,24 @@ const fetch = async (request: Request): Promise<Response> => {
         acceptLanguage,
         requestOrigin,
         otpExpirySeconds: env.OTP_EXPIRY,
+        resendCooldownSeconds: env.RESEND_COOLDOWN,
+      });
+    }
+
+    if (path === "/auth/resendCode") {
+      const { cookies, acceptLanguage, requestOrigin } = parseHeaders(request);
+
+      return await resendCode({
+        actionTokens,
+        events,
+        requestBody,
+        otpExpirySeconds: env.OTP_EXPIRY,
+        resendCooldownSeconds: env.RESEND_COOLDOWN,
+        drainOnResend: env.DRAIN_ON_RESEND,
+        baseUri: env.BASE_URI,
+        cookies,
+        acceptLanguage,
+        requestOrigin,
       });
     }
 
@@ -170,6 +193,21 @@ const fetch = async (request: Request): Promise<Response> => {
     console.timeEnd(awsRequestId);
   }
 };
+
+function parseHeaders(request: Request) {
+  const cookieHeader = request.headers.get("cookie") ?? "";
+  const cookies = Object.fromEntries(
+    cookieHeader
+      .split(";")
+      .map((c) => c.trim().split("="))
+      .filter(([key]) => key && !cookiesToStrip.has(key.trim()))
+      .map(([key, ...rest]) => [key?.trim(), rest.join("=")]),
+  );
+  const acceptLanguage = request.headers.get("accept-language");
+  const requestOrigin = request.headers.get("origin");
+
+  return { cookies, acceptLanguage, requestOrigin };
+}
 
 type LambdaHandler = (event: unknown, context: unknown) => Promise<unknown> | undefined;
 

@@ -54,6 +54,10 @@ interface EmailCodeAuth {
      * Useful for inferring locale from subdomain or path when Accept-Language is absent.
      */
     readonly requestOrigin: string | null;
+    /**
+     * Reference code which matches requested code to email for beter UX.
+     */
+    readonly referenceCode: string;
   };
 }
 

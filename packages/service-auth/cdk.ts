@@ -146,6 +146,21 @@ export class Auth extends Construct {
        */
       readonly otpExpiry?: Duration;
       /**
+       * Minimum time between code generations for the same email address.
+       * Applies to both the initial sign-in request and resend.
+       *
+       * @default Duration.seconds(60)
+       */
+      readonly resendCooldown?: Duration;
+      /**
+       * Whether the previous OTP token is drained (invalidated) when a new
+       * code is resent. When false, both old and new codes remain valid until
+       * they expire or are used up.
+       *
+       * @default true
+       */
+      readonly drainOnResend?: boolean;
+      /**
        * Sessions younger than this are not rotated on authorizer refresh,
        * preventing churn on back-to-back requests.
        *
@@ -373,6 +388,10 @@ export class Auth extends Construct {
       ALLOW_SIGN_UP: String(props.allowSignUp),
       SESSION_MAX_AGE: String(Math.round((props.sessionDuration ?? Duration.days(30)).toSeconds())),
       OTP_EXPIRY: String(Math.round((props.otpExpiry ?? Duration.minutes(10)).toSeconds())),
+      RESEND_COOLDOWN: String(
+        Math.round((props.resendCooldown ?? Duration.seconds(60)).toSeconds()),
+      ),
+      DRAIN_ON_RESEND: String(props.drainOnResend ?? true),
     };
     if (props.eventSource != null) {
       authHandlerEnv["EVENT_SOURCE"] = props.eventSource;

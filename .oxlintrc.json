@@ -1,3 +1,6 @@
 {
-  "extends": ["./packages/lint-config/presets/package.oxlintrc.json"]
+  "extends": ["./packages/lint-config/presets/package.oxlintrc.json"],
+  "rules": {
+    "beesolve/readonly-props": "off"
+  }
 }

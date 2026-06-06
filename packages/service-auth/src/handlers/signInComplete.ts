@@ -108,9 +108,9 @@ export async function signInComplete({
   });
 
   async function upsertAccount(props: {
-    emailAddress: string;
-    allowSignUp: boolean;
-    dataToken: string | undefined;
+    readonly emailAddress: string;
+    readonly allowSignUp: boolean;
+    readonly dataToken: string | undefined;
   }) {
     const [account, isNew] = await call(async () => {
       const account = await accounts.getOne(props.emailAddress).catch(asNull);

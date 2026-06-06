@@ -18,6 +18,7 @@ const emailCodeAuthSchema = v.object({
     cookies: v.record(v.string(), v.string()),
     acceptLanguage: v.nullable(v.string()),
     requestOrigin: v.nullable(v.string()),
+    referenceCode: v.string(),
   }),
 });
 
