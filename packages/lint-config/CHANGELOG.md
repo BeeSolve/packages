@@ -1,5 +1,11 @@
 # @beesolve/lint-config
 
+## 0.2.2
+
+### Patch Changes
+
+- 98b42fd: turn off ambiguos tests
+
 ## 0.2.1
 
 ### Patch Changes
