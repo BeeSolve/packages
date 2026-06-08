@@ -25,11 +25,11 @@
 
     "oxc/no-accumulating-spread": "warn",
 
-    "beesolve/prefer-props-object": "error",
+    "beesolve/prefer-props-object": "off",
     "beesolve/valibot-namespace-import": "error",
     "beesolve/no-valibot-date": "error",
     "beesolve/naming-conventions": "error",
     "beesolve/no-then-chains": "error",
-    "beesolve/readonly-props": "warn"
+    "beesolve/readonly-props": "off"
   }
 }

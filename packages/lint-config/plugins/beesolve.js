@@ -6,15 +6,13 @@ const plugin = {
       meta: {
         type: "suggestion",
         docs: {
-          description:
-            "Enforce single props/options object parameter. Allows 2 object params for handler pattern.",
+          description: "Suggest single props/options object when function signature is complex.",
         },
         schema: [
           {
             type: "object",
             properties: {
-              maxParams: { type: "integer" },
-              allowTwoObjectParams: { type: "boolean" },
+              minParams: { type: "integer" },
             },
             additionalProperties: false,
           },
@@ -22,28 +20,28 @@ const plugin = {
       },
       create(context) {
         const options = context.options[0] || {};
-        const maxParams = options.maxParams ?? 1;
-        const allowTwoObjectParams = options.allowTwoObjectParams ?? true;
+        const minParams = options.minParams ?? 3;
 
-        function isObjectShaped(param) {
-          if (param.type === "ObjectPattern") return true;
-          if (param.type === "AssignmentPattern" && param.left.type === "ObjectPattern")
-            return true;
-          if (param.typeAnnotation) {
-            const ann = param.typeAnnotation.typeAnnotation || param.typeAnnotation;
-            if (
-              ann.type === "TSTypeLiteral" ||
-              ann.type === "TSTypeReference" ||
-              ann.type === "TSIntersectionType"
-            )
-              return true;
+        function getTypeString(param) {
+          const ann = param.typeAnnotation?.typeAnnotation || param.typeAnnotation;
+          if (!ann) return null;
+          if (ann.type === "TSTypeReference" && ann.typeName) {
+            return ann.typeName.name || null;
           }
-          return false;
+          if (ann.type === "TSStringKeyword") return "string";
+          if (ann.type === "TSNumberKeyword") return "number";
+          if (ann.type === "TSBooleanKeyword") return "boolean";
+          return ann.type;
+        }
+
+        function hasDuplicateTypes(params) {
+          const types = params.map(getTypeString).filter(Boolean);
+          return types.length !== new Set(types).size;
         }
 
         function check(node) {
           const params = node.params;
-          if (params.length <= maxParams) return;
+          if (params.length < minParams) return;
 
           // Allow class constructors (CDK Construct pattern: scope, id, props)
           if (
@@ -54,23 +52,52 @@ const plugin = {
             return;
           }
 
-          // Allow callbacks (functions passed as arguments to other functions)
+          // Allow callbacks (functions passed as arguments)
           if (node.parent?.type === "CallExpression" && node.parent.callee !== node) {
             return;
           }
 
-          // Allow functions inside array literals (e.g. [handler, fns])
+          // Allow functions inside array literals
           if (node.parent?.type === "ArrayExpression") {
             return;
           }
 
-          if (allowTwoObjectParams && params.length === 2) {
-            if (params.every(isObjectShaped)) return;
+          // Allow non-exported functions (only warn on exported members)
+          if (node.type === "FunctionDeclaration") {
+            const parentType = node.parent?.type;
+            if (
+              parentType !== "ExportNamedDeclaration" &&
+              parentType !== "ExportDefaultDeclaration"
+            ) {
+              return;
+            }
+          }
+          if (node.type === "ArrowFunctionExpression" || node.type === "FunctionExpression") {
+            const varDeclarator = node.parent;
+            if (varDeclarator?.type === "VariableDeclarator") {
+              const varDecl = varDeclarator.parent;
+              const grandParent = varDecl?.parent;
+              if (
+                grandParent?.type !== "ExportNamedDeclaration" &&
+                grandParent?.type !== "ExportDefaultDeclaration"
+              ) {
+                return;
+              }
+            } else if (node.parent?.type === "Property") {
+              // Object method — skip
+              return;
+            }
+          }
+
+          // Only warn if params >= minParams AND have duplicate types (easy to swap)
+          // OR if params >= minParams + 1 (just too many regardless)
+          if (params.length < minParams + 1 && !hasDuplicateTypes(params)) {
+            return;
           }
 
           context.report({
             node,
-            message: `Function has ${params.length} parameters. Prefer a single props/options object.`,
+            message: `Function has ${params.length} parameters. Consider a single props/options object.`,
           });
         }
 
@@ -93,7 +120,6 @@ const plugin = {
           ImportDeclaration(node) {
             if (node.source.value !== "valibot") return;
 
-            // Must be namespace import: import * as v from "valibot"
             if (
               node.specifiers.length === 1 &&
               node.specifiers[0].type === "ImportNamespaceSpecifier" &&
@@ -124,23 +150,108 @@ const plugin = {
         return {
           CallExpression(node) {
             if (
-              node.callee.type === "MemberExpression" &&
-              node.callee.object.type === "Identifier" &&
-              node.callee.object.name === "v" &&
-              node.callee.property.type === "Identifier" &&
-              node.callee.property.name === "date"
+              node.callee.type !== "MemberExpression" ||
+              node.callee.object.type !== "Identifier" ||
+              node.callee.object.name !== "v" ||
+              node.callee.property.type !== "Identifier" ||
+              node.callee.property.name !== "date"
             ) {
-              context.report({
-                node,
-                message:
-                  "Use v.isoTimestamp() instead of v.date(). Compare date strings with localeCompare().",
-                fix(fixer) {
-                  return fixer.replaceText(node.callee.property, "isoTimestamp");
-                },
-              });
+              return;
             }
+
+            // Check if inside v.pipe(...) with a preceding v.transform(...)
+            const parent = node.parent;
+            if (parent?.type === "CallExpression" && isPipeCall(parent.callee)) {
+              const args = parent.arguments;
+              const dateIdx = args.indexOf(node);
+              const transformIdx = args.findIndex(
+                (arg) =>
+                  arg.type === "CallExpression" &&
+                  arg.callee.type === "MemberExpression" &&
+                  arg.callee.object.type === "Identifier" &&
+                  arg.callee.object.name === "v" &&
+                  arg.callee.property.name === "transform",
+              );
+
+              if (transformIdx !== -1 && transformIdx < dateIdx) {
+                // First arg is v.string() — we can remove transform + date, keep just isoTimestamp
+                const firstArg = args[0];
+                if (isVCall(firstArg, "string")) {
+                  context.report({
+                    node: parent,
+                    message:
+                      "Use v.pipe(v.string(), v.isoTimestamp()) instead of pipe with transform + date.",
+                    fix(fixer) {
+                      const source = context.getSourceCode();
+                      // Remove transform and replace v.date() with v.isoTimestamp()
+                      const fixes = [];
+
+                      // Remove transform arg (including trailing comma/whitespace)
+                      const transformNode = args[transformIdx];
+                      const nextToken = source.getTokenAfter(transformNode);
+                      if (nextToken && nextToken.value === ",") {
+                        fixes.push(fixer.removeRange([transformNode.range[0], nextToken.range[1]]));
+                      } else {
+                        const prevToken = source.getTokenBefore(transformNode);
+                        if (prevToken && prevToken.value === ",") {
+                          fixes.push(
+                            fixer.removeRange([prevToken.range[0], transformNode.range[1]]),
+                          );
+                        } else {
+                          fixes.push(fixer.remove(transformNode));
+                        }
+                      }
+
+                      // Replace v.date() with v.isoTimestamp()
+                      fixes.push(fixer.replaceText(node, "v.isoTimestamp()"));
+
+                      return fixes;
+                    },
+                  });
+                  return;
+                }
+
+                // Non-string input (e.g. v.number()) — cannot safely auto-fix transform
+                context.report({
+                  node,
+                  message:
+                    "Use v.isoTimestamp() instead of v.date(). Update the transform to return an ISO string.",
+                });
+                return;
+              }
+            }
+
+            // Standalone v.date() — simple replacement
+            context.report({
+              node,
+              message:
+                "Use v.isoTimestamp() instead of v.date(). Compare date strings with localeCompare().",
+              fix(fixer) {
+                return fixer.replaceText(node.callee.property, "isoTimestamp");
+              },
+            });
           },
         };
+
+        function isPipeCall(callee) {
+          return (
+            callee.type === "MemberExpression" &&
+            callee.object.type === "Identifier" &&
+            callee.object.name === "v" &&
+            callee.property.name === "pipe"
+          );
+        }
+
+        //oxlint-disable-next-line beesolve/prefer-props-object
+        function isVCall(node, name) {
+          return (
+            node?.type === "CallExpression" &&
+            node.callee.type === "MemberExpression" &&
+            node.callee.object.type === "Identifier" &&
+            node.callee.object.name === "v" &&
+            node.callee.property.name === name
+          );
+        }
       },
     },
 
@@ -164,7 +275,6 @@ const plugin = {
     "readonly-props": {
       meta: {
         type: "suggestion",
-        fixable: "code",
         docs: { description: "Enforce readonly on interface and type literal properties." },
       },
       create(context) {
@@ -172,9 +282,6 @@ const plugin = {
           context.report({
             node: node.key,
             message: `Property "${node.key.name || node.key.value}" should be readonly.`,
-            fix(fixer) {
-              return fixer.insertTextBefore(node.key, "readonly ");
-            },
           });
         }
         return {
