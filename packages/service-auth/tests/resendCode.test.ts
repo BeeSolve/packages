@@ -89,7 +89,7 @@ describe("resendCode", () => {
     const deps = createDeps();
     await resendCode(deps as Parameters<typeof resendCode>[0]);
 
-    const eventCall = mockCalls(deps.events.putEvents)[0][0];
+    const eventCall = mockCalls(deps.events.putEvents)[0]?.[0];
     expect(eventCall.detail.accountId).toBe("acc-123");
   });
 
@@ -97,7 +97,7 @@ describe("resendCode", () => {
     const deps = createDeps();
     await resendCode(deps as Parameters<typeof resendCode>[0]);
 
-    const call = mockCalls(deps.actionTokens.createNewWithThrottling)[0][0];
+    const call = mockCalls(deps.actionTokens.createNewWithThrottling)[0]?.[0];
     expect(call.data).toEqual({ emailAddress: "user@example.com", accountId: "acc-123" });
   });
 

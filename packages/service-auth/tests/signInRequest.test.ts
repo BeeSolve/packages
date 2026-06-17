@@ -61,7 +61,7 @@ describe("signInRequest", () => {
     const deps = createDeps();
     await signInRequest(deps as Parameters<typeof signInRequest>[0]);
 
-    const call = mockCalls(deps.actionTokens.createNewWithThrottling)[0][0];
+    const call = mockCalls(deps.actionTokens.createNewWithThrottling)[0]?.[0];
     expect(call.throttle).toEqual({ id: "user@example.com", windowSeconds: 60 });
     expect(call.data).toEqual({ emailAddress: "user@example.com", accountId: "acc-123" });
   });
@@ -70,7 +70,7 @@ describe("signInRequest", () => {
     const deps = createDeps();
     await signInRequest(deps as Parameters<typeof signInRequest>[0]);
 
-    const eventCall = mockCalls(deps.events.putEvents)[0][0];
+    const eventCall = mockCalls(deps.events.putEvents)[0]?.[0];
     expect(eventCall.type).toBe("EmailCodeAuth");
     expect(eventCall.detail.referenceCode).toBeDefined();
     expect(eventCall.detail.accountId).toBe("acc-123");
@@ -83,10 +83,10 @@ describe("signInRequest", () => {
     });
     await signInRequest(deps as Parameters<typeof signInRequest>[0]);
 
-    const call = mockCalls(deps.actionTokens.createNewWithThrottling)[0][0];
+    const call = mockCalls(deps.actionTokens.createNewWithThrottling)[0]?.[0];
     expect(call.data).toEqual({ emailAddress: "user@example.com", accountId: null });
 
-    const eventCall = mockCalls(deps.events.putEvents)[0][0];
+    const eventCall = mockCalls(deps.events.putEvents)[0]?.[0];
     expect(eventCall.detail.accountId).toBeNull();
   });
 
