@@ -1,5 +1,11 @@
 # @beesolve/lambda-fetch-api
 
+## 1.0.2
+
+### Patch Changes
+
+- 5708b67: fix dependencies
+
 ## 1.0.1
 
 ### Patch Changes
@@ -18,6 +24,7 @@
 - 0361bea: Replace header-based event/context propagation with AsyncLocalStorage.
 
   **New API:**
+
   - `getAwsEvent()` — returns the current invocation's event (v1 or v2)
   - `getAwsV1Event()` — returns the event typed as `APIGatewayProxyEvent`, throws if it's a v2 event
   - `getAwsV2Event()` — returns the event typed as `APIGatewayProxyEventV2`, throws if it's a v1 event
@@ -26,6 +33,7 @@
   - `NotInHandlerContextError` — thrown when a getter is called outside of a handler invocation
 
   **Removed (breaking):**
+
   - `toAwsEvent(request)`, `toAwsV1Event(request)`, `toAwsV2Event(request)`, `toAwsContext(request)` → use `getAws*()` instead
   - `withAwsEvent(request, event)`, `withAwsContext(request, context)` → use `runWithAwsContext(event, context, fn)` in tests
   - `MissingAwsEventHeaderError`, `MissingAwsContextHeaderError`, `InvalidAwsEventHeaderError`, `InvalidAwsContextHeaderError` → replaced by `NotInHandlerContextError`
@@ -38,10 +46,12 @@
 - e62252d: Add authorizer handler variants and Standard Schema-compatible payload getters.
 
   **New handler variants:**
+
   - `asLambdaAuthorizedHttpV2Handler<TAuth>(fetch)` — for HTTP API v2 routes protected by a Lambda authorizer; the Lambda event is typed as `APIGatewayProxyEventV2WithLambdaAuthorizer<TAuth>`
   - `asCustomAuthorizedHttpV1Handler<TAuth>(fetch)` — for REST API v1 routes with a custom/Lambda authorizer; the event is typed as `APIGatewayProxyWithLambdaAuthorizerEvent<TAuth>`
 
   **New payload getters (callable inside any handler invocation):**
+
   - `getAwsLambdaAuthorizerContext()` — returns `unknown`; reads `event.requestContext.authorizer.lambda` from the stored v2 event
   - `getAwsLambdaAuthorizerContext(schema)` — validates the payload with any [Standard Schema](https://standardschema.dev/) compatible library (valibot, zod, arktype, …) and returns `Promise<OutputType>`
   - `getAwsCustomAuthorizerContext()` — returns `unknown`; reads `event.requestContext.authorizer` from the stored v1 event
