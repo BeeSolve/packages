@@ -31,8 +31,10 @@
     "@beesolve/helpers": "workspace:^"
   },
   "devDependencies": {
+    "@standard-schema/spec": "catalog:",
     "@types/aws-lambda": "catalog:",
-    "@types/node": "catalog:"
+    "@types/node": "catalog:",
+    "valibot": "catalog:"
   },
   "peerDependencies": {
     "typescript": "catalog:"

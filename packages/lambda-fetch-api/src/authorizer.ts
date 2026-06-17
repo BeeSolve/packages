@@ -1,28 +1,5 @@
-// Standard Schema V1 — https://standardschema.dev/
-export interface StandardSchemaV1<Input = unknown, Output = unknown> {
-  readonly "~standard": {
-    readonly version: 1;
-    readonly vendor: string;
-    readonly validate: (
-      value: unknown,
-    ) => StandardSchemaV1.Result<Output> | Promise<StandardSchemaV1.Result<Output>>;
-    readonly types?: StandardSchemaV1.Types<Input, Output> | undefined;
-  };
-}
-
-export declare namespace StandardSchemaV1 {
-  type InferOutput<T extends StandardSchemaV1> = NonNullable<T["~standard"]["types"]>["output"];
-  type Result<Output> =
-    | { readonly value: Output; readonly issues?: undefined }
-    | { readonly issues: ReadonlyArray<Issue> };
-  interface Issue {
-    readonly message: string;
-  }
-  interface Types<Input = unknown, Output = unknown> {
-    readonly input: Input;
-    readonly output: Output;
-  }
-}
+import type { StandardSchemaV1 } from "@standard-schema/spec";
+export type { StandardSchemaV1 } from "@standard-schema/spec";
 
 import { getAwsEvent } from "./store";
 
