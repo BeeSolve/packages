@@ -1,5 +1,11 @@
 # @beesolve/lint-config
 
+## 0.2.3
+
+### Patch Changes
+
+- 6c16d1f: upgrade dependencies
+
 ## 0.2.2
 
 ### Patch Changes
