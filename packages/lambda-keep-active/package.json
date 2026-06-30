@@ -1,0 +1,33 @@
+{
+  "name": "@beesolve/lambda-keep-active",
+  "version": "1.3.3",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BeeSolve/packages.git"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "type-check": "tsc --noEmit",
+    "prepublishOnly": "bun run --bun build.ts"
+  },
+  "dependencies": {
+    "@aws-sdk/client-lambda": "^3.1076.0",
+    "@aws-sdk/client-resource-groups-tagging-api": "^3.1076.0",
+    "@beesolve/cdk-constructs": "workspace:^",
+    "aws-cdk-lib": "^2.260.0",
+    "constructs": "^10.6.0"
+  }
+}

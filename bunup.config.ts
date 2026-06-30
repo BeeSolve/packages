@@ -79,4 +79,15 @@ export default defineWorkspace([
       },
     },
   },
+  {
+    name: "@beesolve/lambda-keep-active",
+    root: "packages/lambda-keep-active",
+    config: {
+      entry: ["index.ts", "runtime.ts"],
+      // dts: {
+      //   inferTypes: true,
+      //   tsgo: true,
+      // },
+    },
+  },
 ]);

@@ -4,6 +4,7 @@
   "packages/helpers",
   "packages/cdk-constructs",
   "packages/lambda-fetch-api",
+  "packages/lambda-keep-active",
   "packages/lint-config",
   "packages/service-email",
   "packages/sqs-handler",
