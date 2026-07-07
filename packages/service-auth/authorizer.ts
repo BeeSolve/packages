@@ -3,7 +3,7 @@ import { randomUUID } from "crypto";
 import { keptActive } from "@beesolve/lambda-keep-active/runtime";
 import * as v from "valibot";
 
-import { parseSid } from "./src/cookie.ts";
+import { type AuthorizeResult, authorize } from "./src/authorize.ts";
 import { toDynamoClient } from "./src/dynamo.ts";
 import { Sessions } from "./src/session.ts";
 
@@ -35,112 +35,20 @@ interface AuthorizationEvent {
   readonly headers: {
     Cookie?: string | null;
     cookie?: string | null;
-  };
+  } & Record<string, string>;
 }
-
-type SetCookieParam = { sid: string; maxAge: number };
-
-type SessionContext =
-  | { type: "invalid"; error: string; setCookiesParams: Array<SetCookieParam> }
-  | {
-      type: "expired";
-      expiredSession: { userId: string; sessionId: string; expiredAt: string };
-      setCookiesParams: Array<SetCookieParam>;
-    }
-  | {
-      type: "valid";
-      validSession: { userId: string; sessionId: string; expiresAt: string };
-      setCookiesParams: Array<SetCookieParam>;
-    };
 
 export const handler = keptActive(async (event: AuthorizationEvent) => {
   try {
     const { Cookie, cookie, ...headers } = event.headers;
 
-    const cookieHeader = Cookie ?? cookie;
-    if (cookieHeader == null) {
-      console.error("Missing cookie header.");
-      return authorize({
-        type: "invalid",
-        error: "Missing cookie header.",
-        setCookiesParams: [],
-      });
-    }
-
-    const sid = parseSid(cookieHeader);
-    if (sid == null) {
-      console.error("Cannot parse SID from cookie.");
-      return authorize({
-        type: "invalid",
-        error: "Invalid cookie.",
-        setCookiesParams: [],
-      });
-    }
-
-    const session = await sessions.getOne(sid).catch(() => null);
-    if (session == null) {
-      console.error("Session not found.");
-      return authorize({
-        type: "invalid",
-        error: "Session not found.",
-        setCookiesParams: [
-          {
-            sid,
-            maxAge: -1,
-          },
-        ],
-      });
-    }
-
-    if (Date.now() > Date.parse(session.expiresAt)) {
-      console.error("Session expired.");
-      return authorize({
-        type: "expired",
-        expiredSession: {
-          userId: session.userId,
-          sessionId: session.sessionId,
-          expiredAt: session.expiresAt,
-        },
-        setCookiesParams: [
-          {
-            sid,
-            maxAge: -1,
-          },
-        ],
-      });
-    }
-
-    const { newSession, maxAge } = await sessions.refresh({
-      session,
-      data: Sessions.dataFromCloudFrontHeaders(headers),
+    const result = await authorize({
+      sessions,
+      cookieHeader: Cookie ?? cookie,
+      headers,
     });
 
-    return authorize({
-      type: "valid",
-      validSession: {
-        userId: newSession.userId,
-        sessionId: session.id,
-        expiresAt: newSession.expiresAt,
-      },
-      setCookiesParams:
-        sid !== newSession.id
-          ? [
-              {
-                sid,
-                maxAge: -1,
-              },
-              {
-                sid: newSession.id,
-                maxAge,
-              },
-            ]
-          : [
-              {
-                sid: newSession.id,
-                maxAge,
-              },
-            ],
-    });
+    return toIamPolicy(event.methodArn, result);
   } catch (error) {
     if (error instanceof Error) {
       console.error(error.message);
@@ -148,35 +56,35 @@ export const handler = keptActive(async (event: AuthorizationEvent) => {
       console.error(`Unknown error ${error}`);
     }
 
-    return authorize({
+    return toIamPolicy(event.methodArn, {
       type: "invalid",
       error: "Unexpected error.",
       setCookiesParams: [],
     });
   }
-
-  function authorize(session: SessionContext) {
-    const parts = event.methodArn.split(":");
-    const base = parts.slice(0, 5);
-
-    const pathParts = parts.at(5)?.split("/") ?? [];
-    const resource = [...base, [...pathParts.slice(0, 2), "*"].join("/")].join(":");
-
-    return {
-      principalId: randomUUID(),
-      policyDocument: {
-        Version: "2012-10-17",
-        Statement: [
-          {
-            Action: "execute-api:Invoke",
-            Effect: "Allow",
-            Resource: resource,
-          },
-        ],
-      },
-      context: {
-        session: JSON.stringify(session),
-      },
-    };
-  }
 });
+
+function toIamPolicy(methodArn: string, session: AuthorizeResult) {
+  const parts = methodArn.split(":");
+  const base = parts.slice(0, 5);
+
+  const pathParts = parts.at(5)?.split("/") ?? [];
+  const resource = [...base, [...pathParts.slice(0, 2), "*"].join("/")].join(":");
+
+  return {
+    principalId: randomUUID(),
+    policyDocument: {
+      Version: "2012-10-17",
+      Statement: [
+        {
+          Action: "execute-api:Invoke",
+          Effect: "Allow",
+          Resource: resource,
+        },
+      ],
+    },
+    context: {
+      session: JSON.stringify(session),
+    },
+  };
+}

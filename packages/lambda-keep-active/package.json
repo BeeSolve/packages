@@ -17,6 +17,12 @@
         "default": "./dist/index.js"
       }
     },
+    "./runtime": {
+      "import": {
+        "types": "./dist/runtime.d.ts",
+        "default": "./dist/runtime.js"
+      }
+    },
     "./package.json": "./package.json"
   },
   "scripts": {
@@ -24,10 +30,10 @@
     "prepublishOnly": "bun run --bun build.ts"
   },
   "dependencies": {
-    "@aws-sdk/client-lambda": "^3.1076.0",
-    "@aws-sdk/client-resource-groups-tagging-api": "^3.1076.0",
+    "@aws-sdk/client-lambda": "^3.1080.0",
+    "@aws-sdk/client-resource-groups-tagging-api": "^3.1080.0",
     "@beesolve/cdk-constructs": "workspace:^",
-    "aws-cdk-lib": "^2.260.0",
+    "aws-cdk-lib": "^2.261.0",
     "constructs": "^10.6.0"
   }
 }

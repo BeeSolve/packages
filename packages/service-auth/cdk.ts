@@ -6,8 +6,7 @@ import type { EmailAlarms } from "@beesolve/cdk-email-alarms";
 import type { LambdaKeepActive } from "@beesolve/lambda-keep-active";
 import { SqsHandler } from "@beesolve/sqs-handler/cdk";
 import { Annotations, Duration, RemovalPolicy } from "aws-cdk-lib";
-import { CfnStage } from "aws-cdk-lib/aws-apigatewayv2";
-import { HttpApi, HttpMethod } from "aws-cdk-lib/aws-apigatewayv2";
+import { CfnStage, HttpApi, HttpMethod } from "aws-cdk-lib/aws-apigatewayv2";
 import { HttpLambdaAuthorizer } from "aws-cdk-lib/aws-apigatewayv2-authorizers";
 import { HttpLambdaIntegration } from "aws-cdk-lib/aws-apigatewayv2-integrations";
 import {
@@ -28,11 +27,13 @@ import {
   ProjectionType,
   TableEncryptionV2,
   TableV2,
+  type TableV2 as TableV2Type,
 } from "aws-cdk-lib/aws-dynamodb";
 import { EventBus } from "aws-cdk-lib/aws-events";
 import type { IKey } from "aws-cdk-lib/aws-kms";
 import {
   Architecture,
+  CfnPermission,
   Code,
   type Function,
   type FunctionUrl,
@@ -46,38 +47,54 @@ import { Construct } from "constructs";
 
 const distDir = `${fileURLToPath(new URL(".", import.meta.url))}`;
 
-export class Auth extends Construct {
+interface CoreProps {
+  readonly stage: string;
+  readonly frontendUri: string;
+  readonly allowSignUp: boolean;
+  readonly alarms?: EmailAlarms;
+  readonly eventBusArn?: string;
+  readonly warmer?: LambdaKeepActive;
+  /** @default "beesolve.auth.api" */
+  readonly eventSource?: string;
+  /** @default false */
+  readonly dataToken?: boolean;
+  /** @default Duration.days(30) */
+  readonly sessionDuration?: Duration;
+  /** @default Duration.minutes(10) */
+  readonly otpExpiry?: Duration;
+  /** @default Duration.seconds(60) */
+  readonly resendCooldown?: Duration;
+  /** @default true */
+  readonly drainOnResend?: boolean;
+  /** @default Duration.seconds(15) */
+  readonly sessionRefreshDrift?: Duration;
+  readonly logGroupProps?: LogGroupProps;
+  readonly waf?: { readonly rateLimit?: number };
+  readonly encryptionKey?: IKey;
+  /** @default true when stage is "prod" */
+  readonly contributorInsights?: boolean;
+  readonly sdkHandlerReservedConcurrency?: number;
+}
+
+export class AuthGateway extends Construct {
   /**
-   * Unauthorized endpoint which should be used for unauthorized actions:
-   * - signInRequest
-   * - signInComplete
-   * - signOut
+   * Unauthorized endpoint for sign-in/sign-out actions.
    */
   readonly authUrl: FunctionUrl;
 
   /**
-   * HttpApi which contains authorized endpoints
+   * HttpApi which contains authorized endpoints.
    */
   readonly api: HttpApi;
 
   /**
-   * Intentionally private to prevent attaching it to a different HttpApi
-   * without also granting the required DynamoDB table permissions.
-   * Promote to `readonly` if multi-API use is needed in the future.
-   */
-  private readonly authorizer: HttpLambdaAuthorizer;
-  private readonly sdkHandler: Function;
-
-  /**
    * WAF rule group for rate limiting auth endpoints. Only set when `waf` prop
-   * is provided. Add this to your existing WebACL as a rule group reference,
-   * or create a new WebACL with it. See docs/waf.md for usage examples.
+   * is provided.
    */
   readonly wafRuleGroup?: CfnRuleGroup;
 
   /**
    * CloudFront behavior options for the auth function URL.
-   * Add this as a behavior in your CloudFront distribution for the `/auth/*` path.
    * Includes OAC-signed origin and Lambda@Edge for POST body hashing.
    *
    * IMPORTANT: When using this across stacks, prefer `createAuthBehavior()` instead
@@ -97,35 +114,13 @@ export class Auth extends Construct {
    */
   readonly edgeBodyHashAssetPath: string;
 
+  private readonly authorizer: HttpLambdaAuthorizer;
+  private readonly sdkHandler: Function;
+
   constructor(
     scope: Construct,
     id: string,
-    props: {
-      readonly stage: string;
-      readonly frontendUri: string;
-      readonly allowSignUp: boolean;
-      readonly alarms?: EmailAlarms;
-      readonly eventBusArn?: string;
-      readonly warmer?: LambdaKeepActive;
-      /**
-       * EventBridge source for all auth events.
-       *
-       * @default "beesolve.auth.api"
-       */
-      readonly eventSource?: string;
-      /**
-       * When true, the auth handler reads the __Host-DataToken cookie on sign-in
-       * and fires a DataToken EventBridge event with the accountId and token value.
-       *
-       * @default false
-       */
-      readonly dataToken?: boolean;
-      /**
-       * How long sessions remain valid after creation.
-       *
-       * @default Duration.days(30)
-       */
-      readonly sessionDuration?: Duration;
+    props: CoreProps & {
       /**
        * Controls how long API Gateway caches authorizer decisions.
        *
@@ -140,95 +135,17 @@ export class Auth extends Construct {
        */
       readonly authorizerCache?: "immediate" | "balanced" | "relaxed" | Duration;
       /**
-       * How long the OTP email code is valid for sign-in.
-       *
-       * @default Duration.minutes(10)
-       */
-      readonly otpExpiry?: Duration;
-      /**
-       * Minimum time between code generations for the same email address.
-       * Applies to both the initial sign-in request and resend.
-       *
-       * @default Duration.seconds(60)
-       */
-      readonly resendCooldown?: Duration;
-      /**
-       * Whether the previous OTP token is drained (invalidated) when a new
-       * code is resent. When false, both old and new codes remain valid until
-       * they expire or are used up.
-       *
-       * @default true
-       */
-      readonly drainOnResend?: boolean;
-      /**
-       * Sessions younger than this are not rotated on authorizer refresh,
-       * preventing churn on back-to-back requests.
-       *
-       * @default Duration.seconds(15)
-       */
-      readonly sessionRefreshDrift?: Duration;
-      /**
-       * Adjusts logging for Lambda functions.
-       *
-       * @default
-       *
-       * {
-       *   removalPolicy: RemovalPolicy.DESTROY,
-       *   retention: RetentionDays.TWO_WEEKS
-       * }
-       */
-      readonly logGroupProps?: LogGroupProps;
-      /**
-       * Optional WAF configuration for rate limiting on the auth function URL.
-       * Creates a WebACL with a rate-based rule. Disabled by default due to
-       * additional cost. The WebACL must be attached to your CloudFront
-       * distribution manually (WAF for CloudFront requires us-east-1).
-       *
-       * @default undefined (no WAF)
-       */
-      readonly waf?: {
-        /**
-         * Maximum requests per IP in a 5-minute window.
-         * @default 100
-         */
-        readonly rateLimit?: number;
-      };
-      /**
-       * Optional KMS key for server-side encryption of all data-at-rest resources
-       * (DynamoDB tables and SQS queues). When provided, uses customer-managed
-       * encryption instead of AWS-managed/SQS-managed encryption.
-       */
-      readonly encryptionKey?: IKey;
-      /**
-       * Enable CloudWatch Contributor Insights on DynamoDB tables.
-       * Helps detect access pattern anomalies such as hot partition keys.
-       *
-       * @default true when stage is "prod"
-       */
-      readonly contributorInsights?: boolean;
-      /**
        * Enable access logging on the HTTP API (API Gateway).
-       * Creates a CloudWatch Log Group for request/response audit trails.
        *
        * @default true when stage is "prod"
        */
       readonly accessLogging?: boolean;
       /**
        * Reserved concurrent executions for the authorizer Lambda.
-       * Caps concurrency to prevent a traffic spike from exhausting the
-       * account-wide Lambda concurrency pool.
        *
        * @default undefined (no reservation)
        */
       readonly authorizerReservedConcurrency?: number;
-      /**
-       * Reserved concurrent executions for the SDK handler Lambda.
-       * Caps concurrency to prevent a traffic spike from exhausting the
-       * account-wide Lambda concurrency pool.
-       *
-       * @default undefined (no reservation)
-       */
-      readonly sdkHandlerReservedConcurrency?: number;
     },
   ) {
     super(scope, id);
@@ -237,6 +154,21 @@ export class Auth extends Construct {
     const deletionProtection = isProd;
     const removalPolicy: RemovalPolicy = isProd ? RemovalPolicy.RETAIN : RemovalPolicy.DESTROY;
     const contributorInsights = props.contributorInsights ?? isProd;
+
+    const sessionMaxAge = String(
+      Math.round((props.sessionDuration ?? Duration.days(30)).toSeconds()),
+    );
+    const sessionRefreshDrift = String(
+      Math.round((props.sessionRefreshDrift ?? Duration.seconds(15)).toMilliseconds()),
+    );
+
+    const tables = createTables(this, {
+      deletionProtection,
+      removalPolicy,
+      encryptionKey: props.encryptionKey,
+      contributorInsights,
+      isProd,
+    });
 
     const actionTokens = new ActionTokens(this, "ActionTokens", {
       deletionProtection,
@@ -250,70 +182,23 @@ export class Auth extends Construct {
       ? EventBus.fromEventBusArn(this, "CustomEventBus", props.eventBusArn)
       : EventBus.fromEventBusName(this, "DefaultEventBus", "default");
 
-    const sessionsTable = new TableV2(this, "Sessions", {
-      partitionKey: {
-        name: "id",
-        type: AttributeType.STRING,
-      },
-      billing: Billing.onDemand(),
-      deletionProtection,
-      encryption: props.encryptionKey
-        ? TableEncryptionV2.customerManagedKey(props.encryptionKey)
-        : TableEncryptionV2.awsManagedKey(),
-      removalPolicy,
-      timeToLiveAttribute: "expiresAt",
-      pointInTimeRecoverySpecification: {
-        pointInTimeRecoveryEnabled: isProd,
-      },
-      contributorInsightsSpecification: contributorInsights ? { enabled: true } : undefined,
-    });
-    const sessionsByUserIdIndexName = "userIdGsi";
-    sessionsTable.addGlobalSecondaryIndex({
-      indexName: sessionsByUserIdIndexName,
-      partitionKey: {
-        name: "userId",
-        type: AttributeType.STRING,
-      },
-      sortKey: {
-        name: "id",
-        type: AttributeType.STRING,
-      },
-      projectionType: ProjectionType.KEYS_ONLY,
+    const { authHandler, authUrl } = createAuthHandler(this, {
+      ...tables,
+      eventBus,
+      actionTokens,
+      coreProps: props,
+      logGroupProps: props.logGroupProps,
+      encryptionKey: props.encryptionKey,
+      alarms: props.alarms,
+      warmer: props.warmer,
     });
 
-    const accountsTable = new TableV2(this, "Accounts", {
-      partitionKey: {
-        name: "id",
-        type: AttributeType.STRING,
-      },
-      sortKey: {
-        name: "username",
-        type: AttributeType.STRING,
-      },
-      billing: Billing.onDemand(),
-      deletionProtection,
-      encryption: props.encryptionKey
-        ? TableEncryptionV2.customerManagedKey(props.encryptionKey)
-        : TableEncryptionV2.awsManagedKey(),
-      removalPolicy,
-      pointInTimeRecoverySpecification: {
-        pointInTimeRecoveryEnabled: isProd,
-      },
-      contributorInsightsSpecification: contributorInsights ? { enabled: true } : undefined,
-    });
-    const accountsReverseIndexName = "reverseGsi";
-    accountsTable.addGlobalSecondaryIndex({
-      indexName: accountsReverseIndexName,
-      partitionKey: {
-        name: "username",
-        type: AttributeType.STRING,
-      },
-      sortKey: {
-        name: "id",
-        type: AttributeType.STRING,
-      },
-      projectionType: ProjectionType.ALL,
-    });
+    this.authUrl = authUrl;
+
+    const behaviorResources = createAuthBehaviorResources(this, { authUrl, authHandler });
+    this.authOrigin = behaviorResources.authOrigin;
+    this.authBehavior = behaviorResources.authBehavior;
+    this.edgeBodyHashAssetPath = behaviorResources.edgeBodyHashAssetPath;
 
     const apiAuthorizer = new Nodejs24Function(this, "ApiAuthorizerHandler", {
       description: "API authorizer",
@@ -323,18 +208,14 @@ export class Auth extends Construct {
       timeout: Duration.seconds(5),
       reservedConcurrentExecutions: props.authorizerReservedConcurrency,
       environment: {
-        SESSIONS_TABLE_NAME: sessionsTable.tableName,
-        SESSIONS_USER_ID_INDEX_NAME: sessionsByUserIdIndexName,
-        SESSION_MAX_AGE: String(
-          Math.round((props.sessionDuration ?? Duration.days(30)).toSeconds()),
-        ),
-        SESSION_REFRESH_DRIFT: String(
-          Math.round((props.sessionRefreshDrift ?? Duration.seconds(15)).toMilliseconds()),
-        ),
+        SESSIONS_TABLE_NAME: tables.sessionsTable.tableName,
+        SESSIONS_USER_ID_INDEX_NAME: tables.sessionsByUserIdIndexName,
+        SESSION_MAX_AGE: sessionMaxAge,
+        SESSION_REFRESH_DRIFT: sessionRefreshDrift,
       },
       logGroupProps: props.logGroupProps,
     });
-    sessionsTable.grantReadWriteData(apiAuthorizer);
+    tables.sessionsTable.grantReadWriteData(apiAuthorizer);
     props.alarms?.reportLambdaErrors(apiAuthorizer);
     props.warmer?.keepActive(apiAuthorizer);
 
@@ -356,7 +237,6 @@ export class Auth extends Construct {
         removalPolicy: RemovalPolicy.DESTROY,
       });
 
-      // todo: review this
       const stage = this.api.defaultStage?.node.defaultChild;
       if (stage == null) throw Error(`Cannot set access logging - missing default stage.`);
       if (!(stage instanceof CfnStage))
@@ -377,118 +257,13 @@ export class Auth extends Construct {
       };
     }
 
-    const authHandlerEnv: Record<string, string> = {
-      STAGE: props.stage,
-      SESSIONS_TABLE_NAME: sessionsTable.tableName,
-      SESSIONS_USER_ID_INDEX_NAME: sessionsByUserIdIndexName,
-      ACCOUNTS_TABLE_NAME: accountsTable.tableName,
-      ACCOUNTS_REVERSE_INDEX_NAME: accountsReverseIndexName,
-      EVENT_BUS_ARN: eventBus.eventBusArn,
-      BASE_URI: props.frontendUri,
-      ALLOW_SIGN_UP: String(props.allowSignUp),
-      SESSION_MAX_AGE: String(Math.round((props.sessionDuration ?? Duration.days(30)).toSeconds())),
-      OTP_EXPIRY: String(Math.round((props.otpExpiry ?? Duration.minutes(10)).toSeconds())),
-      RESEND_COOLDOWN: String(
-        Math.round((props.resendCooldown ?? Duration.seconds(60)).toSeconds()),
-      ),
-      DRAIN_ON_RESEND: String(props.drainOnResend ?? true),
-    };
-    if (props.eventSource != null) {
-      authHandlerEnv["EVENT_SOURCE"] = props.eventSource;
-    }
-    if (props.dataToken === true) {
-      authHandlerEnv["DATA_TOKEN"] = "true";
-    }
-
-    const authHandler = new Nodejs24Function(this, "AuthHandler", {
-      entry: `${distDir}api.zip`,
-      handler: "api.handler",
-      memorySize: 1024,
-      timeout: Duration.seconds(10),
-      environment: authHandlerEnv,
+    const sdkHandler = createSdkHandler(this, {
+      ...tables,
       logGroupProps: props.logGroupProps,
-    });
-    sessionsTable.grantReadWriteData(authHandler);
-    actionTokens.grantAccess(authHandler);
-    accountsTable.grantReadWriteData(authHandler);
-    eventBus.grantPutEventsTo(authHandler);
-    props.alarms?.reportLambdaErrors(authHandler);
-    props.warmer?.keepActive(authHandler);
-
-    this.authUrl = authHandler.addFunctionUrl({
-      authType: FunctionUrlAuthType.AWS_IAM,
-      invokeMode: InvokeMode.BUFFERED,
-    });
-
-    this.edgeBodyHashAssetPath = `${distDir}edgeBodyHash.zip`;
-
-    const oac = new FunctionUrlOriginAccessControl(this, "AuthOAC");
-    this.authOrigin = FunctionUrlOrigin.withOriginAccessControl(this.authUrl, {
-      originAccessControl: oac,
-    });
-
-    // Edge function in same construct — safe when distribution is in the same stack.
-    const edgeBodyHash = new experimental.EdgeFunction(this, "EdgeBodyHash", {
-      runtime: Runtime.NODEJS_24_X,
-      architecture: Architecture.X86_64,
-      handler: "edgeBodyHash.handler",
-      code: Code.fromAsset(this.edgeBodyHashAssetPath),
-      description: "Computes x-amz-content-sha256 for OAC SigV4 signing",
-    });
-
-    this.authBehavior = {
-      origin: this.authOrigin,
-      allowedMethods: AllowedMethods.ALLOW_ALL,
-      cachePolicy: CachePolicy.CACHING_DISABLED,
-      originRequestPolicy: OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
-      viewerProtocolPolicy: ViewerProtocolPolicy.HTTPS_ONLY,
-      edgeLambdas: [
-        {
-          functionVersion: edgeBodyHash.currentVersion,
-          eventType: LambdaEdgeEventType.ORIGIN_REQUEST,
-          includeBody: true,
-        },
-      ],
-    };
-
-    const sqsHandler = new SqsHandler(this, "Tasks", {
-      handlerProps: {
-        entry: `${distDir}tasks.zip`,
-        handler: "tasks.handler",
-        memorySize: 256,
-        timeout: Duration.seconds(10),
-        environment: {
-          SESSIONS_TABLE_NAME: sessionsTable.tableName,
-          SESSIONS_USER_ID_INDEX_NAME: sessionsByUserIdIndexName,
-        },
-        logGroupProps: props.logGroupProps,
-      },
       alarms: props.alarms,
-      encryptionKey: props.encryptionKey,
+      warmer: props.warmer,
+      reservedConcurrency: props.sdkHandlerReservedConcurrency,
     });
-    sqsHandler.forEachHandler((h) => sessionsTable.grantReadWriteData(h));
-    sqsHandler.grantAccess(authHandler);
-
-    const sdkHandler = new Nodejs24Function(this, "SdkHandler", {
-      description: "SDK authorizer",
-      entry: `${distDir}sdkHandler.zip`,
-      handler: "sdkHandler.handler",
-      memorySize: 256,
-      timeout: Duration.seconds(5),
-      reservedConcurrentExecutions: props.sdkHandlerReservedConcurrency,
-      environment: {
-        SESSIONS_TABLE_NAME: sessionsTable.tableName,
-        SESSIONS_USER_ID_INDEX_NAME: sessionsByUserIdIndexName,
-        ACCOUNTS_TABLE_NAME: accountsTable.tableName,
-        ACCOUNTS_REVERSE_INDEX_NAME: accountsReverseIndexName,
-      },
-      logGroupProps: props.logGroupProps,
-    });
-    sessionsTable.grantReadWriteData(sdkHandler);
-    accountsTable.grantReadWriteData(sdkHandler);
-    props.alarms?.reportLambdaErrors(sdkHandler);
-    props.warmer?.keepActive(sdkHandler);
-
     this.sdkHandler = sdkHandler;
 
     if (!props.alarms) {
@@ -499,34 +274,10 @@ export class Auth extends Construct {
     }
 
     if (props.waf) {
-      this.wafRuleGroup = new CfnRuleGroup(this, "WafRuleGroup", {
-        capacity: 2,
-        scope: "CLOUDFRONT",
-        visibilityConfig: {
-          cloudWatchMetricsEnabled: true,
-          metricName: `${this.node.path}/waf/auth-rate-limit`,
-          sampledRequestsEnabled: true,
-        },
-        rules: [
-          {
-            name: "AuthRateLimit",
-            priority: 1,
-            action: { block: {} },
-            visibilityConfig: {
-              cloudWatchMetricsEnabled: true,
-              metricName: `${this.node.path}/waf/auth-rate-limit-rule`,
-              sampledRequestsEnabled: true,
-            },
-            statement: {
-              rateBasedStatement: {
-                limit: props.waf.rateLimit ?? 100,
-                aggregateKeyType: "IP",
-              },
-            },
-          },
-        ],
-      });
+      this.wafRuleGroup = createWafRuleGroup(this, props.waf.rateLimit ?? 100);
     }
+
+    this.createAuthBehavior = makeCreateAuthBehavior(this.authOrigin, this.edgeBodyHashAssetPath);
   }
 
   /**
@@ -534,46 +285,23 @@ export class Auth extends Construct {
    * Use this when the CloudFront distribution lives in a different stack than the Auth construct
    * to avoid CloudFormation cross-stack export issues with Lambda@Edge version ARNs.
    */
-  readonly createAuthBehavior = (scope: Construct): BehaviorOptions => {
-    const edgeBodyHash = new experimental.EdgeFunction(scope, "AuthEdgeBodyHash", {
-      runtime: Runtime.NODEJS_24_X,
-      architecture: Architecture.X86_64,
-      handler: "edgeBodyHash.handler",
-      code: Code.fromAsset(this.edgeBodyHashAssetPath),
-      description: "Computes x-amz-content-sha256 for OAC SigV4 signing",
-    });
-
-    return {
-      origin: this.authOrigin,
-      allowedMethods: AllowedMethods.ALLOW_ALL,
-      cachePolicy: CachePolicy.CACHING_DISABLED,
-      originRequestPolicy: OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
-      viewerProtocolPolicy: ViewerProtocolPolicy.HTTPS_ONLY,
-      edgeLambdas: [
-        {
-          functionVersion: edgeBodyHash.currentVersion,
-          eventType: LambdaEdgeEventType.ORIGIN_REQUEST,
-          includeBody: true,
-        },
-      ],
-    };
-  };
+  readonly createAuthBehavior: (scope: Construct) => BehaviorOptions;
 
   /**
    * Adds provided Lambda function behind API Gateway with authorizer.
    */
   readonly addAuthorizedEndpoint = (props: {
     /**
-     * Lambda function handling APIV1 requests
+     * Lambda function handling API requests.
      */
     lambda: Function;
     /**
-     * Proxy path for your function (optional)
+     * Proxy path for your function.
      * @default "/api/{proxy+}"
      */
     path?: string;
     /**
-     * Methods which will be handled by this endpoint (optional)
+     * Methods which will be handled by this endpoint.
      * @default [HttpMethod.ANY]
      */
     methods?: Array<HttpMethod>;
@@ -586,9 +314,458 @@ export class Auth extends Construct {
     });
   };
 
+  /**
+   * Adds provided Lambda function behind API Gateway without authorizer.
+   */
+  readonly addPublicEndpoint = (props: {
+    /**
+     * Lambda function handling API requests.
+     */
+    lambda: Function;
+    /**
+     * Proxy path for your function.
+     * @default "/{proxy+}"
+     */
+    path?: string;
+    /**
+     * Methods which will be handled by this endpoint.
+     * @default [HttpMethod.ANY]
+     */
+    methods?: Array<HttpMethod>;
+  }) => {
+    this.api.addRoutes({
+      integration: new HttpLambdaIntegration(props.path ?? "PublicIntegration", props.lambda),
+      path: props.path ?? "/{proxy+}",
+      methods: props.methods ?? [HttpMethod.ANY],
+    });
+  };
+
   readonly grantSdkAccess = (handler: Function) => {
     this.sdkHandler.grantInvoke(handler);
     handler.addEnvironment("BEESOLVE_AUTH_SDK_HANDLER_ARN", this.sdkHandler.functionArn);
+  };
+}
+
+export class AuthService extends Construct {
+  /**
+   * Unauthorized endpoint for sign-in/sign-out actions.
+   */
+  readonly authUrl: FunctionUrl;
+
+  /**
+   * WAF rule group for rate limiting auth endpoints. Only set when `waf` prop
+   * is provided.
+   */
+  readonly wafRuleGroup?: CfnRuleGroup;
+
+  /**
+   * CloudFront behavior options for the auth function URL.
+   * Includes OAC-signed origin and Lambda@Edge for POST body hashing.
+   *
+   * IMPORTANT: When using this across stacks, prefer `createAuthBehavior()` instead
+   * to avoid CloudFormation cross-stack export issues with Lambda@Edge versions.
+   */
+  readonly authBehavior: BehaviorOptions;
+
+  /**
+   * OAC-signed origin for the auth function URL.
+   * Use with `createAuthBehavior()` when creating the behavior in a different stack.
+   */
+  readonly authOrigin: IOrigin;
+
+  /**
+   * Path to the edgeBodyHash asset zip.
+   * Use with `createAuthBehavior()` when the distribution lives in a different stack.
+   */
+  readonly edgeBodyHashAssetPath: string;
+
+  private readonly sessionsTable: TableV2Type;
+  private readonly sessionsByUserIdIndexName: string;
+  private readonly sessionMaxAge: string;
+  private readonly sessionRefreshDrift: string;
+  private readonly sdkHandler: Function;
+
+  constructor(scope: Construct, id: string, props: CoreProps) {
+    super(scope, id);
+
+    const isProd = props.stage === "prod";
+    const deletionProtection = isProd;
+    const removalPolicy: RemovalPolicy = isProd ? RemovalPolicy.RETAIN : RemovalPolicy.DESTROY;
+    const contributorInsights = props.contributorInsights ?? isProd;
+
+    this.sessionMaxAge = String(
+      Math.round((props.sessionDuration ?? Duration.days(30)).toSeconds()),
+    );
+    this.sessionRefreshDrift = String(
+      Math.round((props.sessionRefreshDrift ?? Duration.seconds(15)).toMilliseconds()),
+    );
+
+    const tables = createTables(this, {
+      deletionProtection,
+      removalPolicy,
+      encryptionKey: props.encryptionKey,
+      contributorInsights,
+      isProd,
+    });
+    this.sessionsTable = tables.sessionsTable;
+    this.sessionsByUserIdIndexName = tables.sessionsByUserIdIndexName;
+
+    const actionTokens = new ActionTokens(this, "ActionTokens", {
+      deletionProtection,
+      removalPolicy,
+      pointInTimeRecoveryEnabled: isProd,
+      encryptionKey: props.encryptionKey,
+      contributorInsights,
+    });
+
+    const eventBus = props.eventBusArn
+      ? EventBus.fromEventBusArn(this, "CustomEventBus", props.eventBusArn)
+      : EventBus.fromEventBusName(this, "DefaultEventBus", "default");
+
+    const { authHandler, authUrl } = createAuthHandler(this, {
+      ...tables,
+      eventBus,
+      actionTokens,
+      coreProps: props,
+      logGroupProps: props.logGroupProps,
+      encryptionKey: props.encryptionKey,
+      alarms: props.alarms,
+      warmer: props.warmer,
+    });
+
+    this.authUrl = authUrl;
+
+    const behaviorResources = createAuthBehaviorResources(this, { authUrl, authHandler });
+    this.authOrigin = behaviorResources.authOrigin;
+    this.authBehavior = behaviorResources.authBehavior;
+    this.edgeBodyHashAssetPath = behaviorResources.edgeBodyHashAssetPath;
+
+    const sdkHandler = createSdkHandler(this, {
+      ...tables,
+      logGroupProps: props.logGroupProps,
+      alarms: props.alarms,
+      warmer: props.warmer,
+      reservedConcurrency: props.sdkHandlerReservedConcurrency,
+    });
+    this.sdkHandler = sdkHandler;
+
+    if (!props.alarms) {
+      Annotations.of(this).addWarningV2(
+        "@beesolve/auth-service:noAlarms",
+        "No alarms configured. DLQ messages (failed session invalidations) will go unnoticed. Pass `alarms` to enable monitoring.",
+      );
+    }
+
+    if (props.waf) {
+      this.wafRuleGroup = createWafRuleGroup(this, props.waf.rateLimit ?? 100);
+    }
+
+    this.createAuthBehavior = makeCreateAuthBehavior(this.authOrigin, this.edgeBodyHashAssetPath);
+  }
+
+  /**
+   * Creates auth behavior options with the edge function scoped to the provided construct.
+   * Use this when the CloudFront distribution lives in a different stack than the Auth construct
+   * to avoid CloudFormation cross-stack export issues with Lambda@Edge version ARNs.
+   */
+  readonly createAuthBehavior: (scope: Construct) => BehaviorOptions;
+
+  /**
+   * Grants a Lambda function direct access to the sessions table for in-process
+   * session verification and rotation via `SessionAuthorizer`.
+   */
+  readonly grantSessionAuthorizerAccess = (handler: Function) => {
+    this.sessionsTable.grantReadWriteData(handler);
+    handler.addEnvironment("BEESOLVE_AUTH_SESSIONS_TABLE_NAME", this.sessionsTable.tableName);
+    handler.addEnvironment(
+      "BEESOLVE_AUTH_SESSIONS_USER_ID_INDEX_NAME",
+      this.sessionsByUserIdIndexName,
+    );
+    handler.addEnvironment("BEESOLVE_AUTH_SESSION_MAX_AGE", this.sessionMaxAge);
+    handler.addEnvironment("BEESOLVE_AUTH_SESSION_REFRESH_DRIFT", this.sessionRefreshDrift);
+  };
+
+  readonly grantSdkAccess = (handler: Function) => {
+    this.sdkHandler.grantInvoke(handler);
+    handler.addEnvironment("BEESOLVE_AUTH_SDK_HANDLER_ARN", this.sdkHandler.functionArn);
+  };
+}
+
+function createTables(
+  scope: Construct,
+  props: {
+    deletionProtection: boolean;
+    removalPolicy: RemovalPolicy;
+    encryptionKey?: IKey;
+    contributorInsights: boolean;
+    isProd: boolean;
+  },
+) {
+  const sessionsTable = new TableV2(scope, "Sessions", {
+    partitionKey: { name: "id", type: AttributeType.STRING },
+    billing: Billing.onDemand(),
+    deletionProtection: props.deletionProtection,
+    encryption: props.encryptionKey
+      ? TableEncryptionV2.customerManagedKey(props.encryptionKey)
+      : TableEncryptionV2.awsManagedKey(),
+    removalPolicy: props.removalPolicy,
+    timeToLiveAttribute: "expiresAt",
+    pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: props.isProd },
+    contributorInsightsSpecification: props.contributorInsights ? { enabled: true } : undefined,
+  });
+  const sessionsByUserIdIndexName = "userIdGsi";
+  sessionsTable.addGlobalSecondaryIndex({
+    indexName: sessionsByUserIdIndexName,
+    partitionKey: { name: "userId", type: AttributeType.STRING },
+    sortKey: { name: "id", type: AttributeType.STRING },
+    projectionType: ProjectionType.KEYS_ONLY,
+  });
+
+  const accountsTable = new TableV2(scope, "Accounts", {
+    partitionKey: { name: "id", type: AttributeType.STRING },
+    sortKey: { name: "username", type: AttributeType.STRING },
+    billing: Billing.onDemand(),
+    deletionProtection: props.deletionProtection,
+    encryption: props.encryptionKey
+      ? TableEncryptionV2.customerManagedKey(props.encryptionKey)
+      : TableEncryptionV2.awsManagedKey(),
+    removalPolicy: props.removalPolicy,
+    pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: props.isProd },
+    contributorInsightsSpecification: props.contributorInsights ? { enabled: true } : undefined,
+  });
+  const accountsReverseIndexName = "reverseGsi";
+  accountsTable.addGlobalSecondaryIndex({
+    indexName: accountsReverseIndexName,
+    partitionKey: { name: "username", type: AttributeType.STRING },
+    sortKey: { name: "id", type: AttributeType.STRING },
+    projectionType: ProjectionType.ALL,
+  });
+
+  return { sessionsTable, sessionsByUserIdIndexName, accountsTable, accountsReverseIndexName };
+}
+
+function createAuthHandler(
+  scope: Construct,
+  props: {
+    sessionsTable: TableV2Type;
+    sessionsByUserIdIndexName: string;
+    accountsTable: TableV2Type;
+    accountsReverseIndexName: string;
+    eventBus: ReturnType<typeof EventBus.fromEventBusArn>;
+    actionTokens: ActionTokens;
+    coreProps: CoreProps;
+    logGroupProps?: LogGroupProps;
+    encryptionKey?: IKey;
+    alarms?: EmailAlarms;
+    warmer?: LambdaKeepActive;
+  },
+) {
+  const { coreProps } = props;
+  const sessionMaxAge = String(
+    Math.round((coreProps.sessionDuration ?? Duration.days(30)).toSeconds()),
+  );
+
+  const authHandlerEnv: Record<string, string> = {
+    STAGE: coreProps.stage,
+    SESSIONS_TABLE_NAME: props.sessionsTable.tableName,
+    SESSIONS_USER_ID_INDEX_NAME: props.sessionsByUserIdIndexName,
+    ACCOUNTS_TABLE_NAME: props.accountsTable.tableName,
+    ACCOUNTS_REVERSE_INDEX_NAME: props.accountsReverseIndexName,
+    EVENT_BUS_ARN: props.eventBus.eventBusArn,
+    BASE_URI: coreProps.frontendUri,
+    ALLOW_SIGN_UP: String(coreProps.allowSignUp),
+    SESSION_MAX_AGE: sessionMaxAge,
+    OTP_EXPIRY: String(Math.round((coreProps.otpExpiry ?? Duration.minutes(10)).toSeconds())),
+    RESEND_COOLDOWN: String(
+      Math.round((coreProps.resendCooldown ?? Duration.seconds(60)).toSeconds()),
+    ),
+    DRAIN_ON_RESEND: String(coreProps.drainOnResend ?? true),
+  };
+  if (coreProps.eventSource != null) {
+    authHandlerEnv["EVENT_SOURCE"] = coreProps.eventSource;
+  }
+  if (coreProps.dataToken === true) {
+    authHandlerEnv["DATA_TOKEN"] = "true";
+  }
+
+  const authHandler = new Nodejs24Function(scope, "AuthHandler", {
+    entry: `${distDir}api.zip`,
+    handler: "api.handler",
+    memorySize: 1024,
+    timeout: Duration.seconds(10),
+    environment: authHandlerEnv,
+    logGroupProps: props.logGroupProps,
+  });
+  props.sessionsTable.grantReadWriteData(authHandler);
+  props.actionTokens.grantAccess(authHandler);
+  props.accountsTable.grantReadWriteData(authHandler);
+  props.eventBus.grantPutEventsTo(authHandler);
+  props.alarms?.reportLambdaErrors(authHandler);
+  props.warmer?.keepActive(authHandler);
+
+  const sqsHandler = new SqsHandler(scope, "Tasks", {
+    handlerProps: {
+      entry: `${distDir}tasks.zip`,
+      handler: "tasks.handler",
+      memorySize: 256,
+      timeout: Duration.seconds(10),
+      environment: {
+        SESSIONS_TABLE_NAME: props.sessionsTable.tableName,
+        SESSIONS_USER_ID_INDEX_NAME: props.sessionsByUserIdIndexName,
+      },
+      logGroupProps: props.logGroupProps,
+    },
+    alarms: props.alarms,
+    encryptionKey: props.encryptionKey,
+  });
+  sqsHandler.forEachHandler((handler) => props.sessionsTable.grantReadWriteData(handler));
+  sqsHandler.grantAccess(authHandler);
+
+  const authUrl = authHandler.addFunctionUrl({
+    authType: FunctionUrlAuthType.AWS_IAM,
+    invokeMode: InvokeMode.BUFFERED,
+  });
+
+  return { authHandler, authUrl };
+}
+
+function createAuthBehaviorResources(
+  scope: Construct,
+  props: { authUrl: FunctionUrl; authHandler: Function },
+) {
+  const edgeBodyHashAssetPath = `${distDir}edgeBodyHash.zip`;
+
+  const oac = new FunctionUrlOriginAccessControl(scope, "AuthOAC");
+  const authOrigin = FunctionUrlOrigin.withOriginAccessControl(props.authUrl, {
+    originAccessControl: oac,
+  });
+
+  // Since October 2025, AWS requires both lambda:InvokeFunctionUrl (added by
+  // withOriginAccessControl above) AND lambda:InvokeFunction for Function URLs
+  // with AWS_IAM auth. Pre-existing Function URLs are grandfathered, but any
+  // newly created ones will fail with 403 without this second permission.
+  new CfnPermission(scope, "AuthHandlerCloudFrontInvoke", {
+    action: "lambda:InvokeFunction",
+    functionName: props.authHandler.functionArn,
+    principal: "cloudfront.amazonaws.com",
+  });
+
+  const edgeBodyHash = new experimental.EdgeFunction(scope, "EdgeBodyHash", {
+    runtime: Runtime.NODEJS_24_X,
+    architecture: Architecture.X86_64,
+    handler: "edgeBodyHash.handler",
+    code: Code.fromAsset(edgeBodyHashAssetPath),
+    description: "Computes x-amz-content-sha256 for OAC SigV4 signing",
+  });
+
+  const authBehavior: BehaviorOptions = {
+    origin: authOrigin,
+    allowedMethods: AllowedMethods.ALLOW_ALL,
+    cachePolicy: CachePolicy.CACHING_DISABLED,
+    originRequestPolicy: OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
+    viewerProtocolPolicy: ViewerProtocolPolicy.HTTPS_ONLY,
+    edgeLambdas: [
+      {
+        functionVersion: edgeBodyHash.currentVersion,
+        eventType: LambdaEdgeEventType.ORIGIN_REQUEST,
+        includeBody: true,
+      },
+    ],
+  };
+
+  return { authOrigin, authBehavior, edgeBodyHashAssetPath };
+}
+
+function createSdkHandler(
+  scope: Construct,
+  props: {
+    sessionsTable: TableV2Type;
+    sessionsByUserIdIndexName: string;
+    accountsTable: TableV2Type;
+    accountsReverseIndexName: string;
+    logGroupProps?: LogGroupProps;
+    alarms?: EmailAlarms;
+    warmer?: LambdaKeepActive;
+    reservedConcurrency?: number;
+  },
+) {
+  const sdkHandler = new Nodejs24Function(scope, "SdkHandler", {
+    description: "SDK handler",
+    entry: `${distDir}sdkHandler.zip`,
+    handler: "sdkHandler.handler",
+    memorySize: 256,
+    timeout: Duration.seconds(5),
+    reservedConcurrentExecutions: props.reservedConcurrency,
+    environment: {
+      SESSIONS_TABLE_NAME: props.sessionsTable.tableName,
+      SESSIONS_USER_ID_INDEX_NAME: props.sessionsByUserIdIndexName,
+      ACCOUNTS_TABLE_NAME: props.accountsTable.tableName,
+      ACCOUNTS_REVERSE_INDEX_NAME: props.accountsReverseIndexName,
+    },
+    logGroupProps: props.logGroupProps,
+  });
+  props.sessionsTable.grantReadWriteData(sdkHandler);
+  props.accountsTable.grantReadWriteData(sdkHandler);
+  props.alarms?.reportLambdaErrors(sdkHandler);
+  props.warmer?.keepActive(sdkHandler);
+
+  return sdkHandler;
+}
+
+function createWafRuleGroup(scope: Construct, rateLimit: number) {
+  return new CfnRuleGroup(scope, "WafRuleGroup", {
+    capacity: 2,
+    scope: "CLOUDFRONT",
+    visibilityConfig: {
+      cloudWatchMetricsEnabled: true,
+      metricName: `${scope.node.path}/waf/auth-rate-limit`,
+      sampledRequestsEnabled: true,
+    },
+    rules: [
+      {
+        name: "AuthRateLimit",
+        priority: 1,
+        action: { block: {} },
+        visibilityConfig: {
+          cloudWatchMetricsEnabled: true,
+          metricName: `${scope.node.path}/waf/auth-rate-limit-rule`,
+          sampledRequestsEnabled: true,
+        },
+        statement: {
+          rateBasedStatement: {
+            limit: rateLimit,
+            aggregateKeyType: "IP",
+          },
+        },
+      },
+    ],
+  });
+}
+
+function makeCreateAuthBehavior(authOrigin: IOrigin, edgeBodyHashAssetPath: string) {
+  return (scope: Construct): BehaviorOptions => {
+    const edgeBodyHash = new experimental.EdgeFunction(scope, "AuthEdgeBodyHash", {
+      runtime: Runtime.NODEJS_24_X,
+      architecture: Architecture.X86_64,
+      handler: "edgeBodyHash.handler",
+      code: Code.fromAsset(edgeBodyHashAssetPath),
+      description: "Computes x-amz-content-sha256 for OAC SigV4 signing",
+    });
+
+    return {
+      origin: authOrigin,
+      allowedMethods: AllowedMethods.ALLOW_ALL,
+      cachePolicy: CachePolicy.CACHING_DISABLED,
+      originRequestPolicy: OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
+      viewerProtocolPolicy: ViewerProtocolPolicy.HTTPS_ONLY,
+      edgeLambdas: [
+        {
+          functionVersion: edgeBodyHash.currentVersion,
+          eventType: LambdaEdgeEventType.ORIGIN_REQUEST,
+          includeBody: true,
+        },
+      ],
+    };
   };
 }
 
