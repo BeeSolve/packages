@@ -37,6 +37,12 @@
         "default": "./dist/events.js"
       }
     },
+    "./sessionAuthorizer": {
+      "import": {
+        "types": "./dist/sessionAuthorizer.d.ts",
+        "default": "./dist/sessionAuthorizer.js"
+      }
+    },
     "./dev": {
       "import": {
         "types": "./dist/dev.d.ts",

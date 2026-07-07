@@ -66,7 +66,7 @@ export default defineWorkspace([
     name: "@beesolve/auth-service",
     root: "packages/service-auth",
     config: {
-      entry: ["api.ts", "cdk.ts", "sdk.ts", "index.ts", "events.ts"],
+      entry: ["api.ts", "cdk.ts", "sdk.ts", "sessionAuthorizer.ts", "index.ts", "events.ts"],
       // tsconfig.dts.json excludes authorizer.ts and sdkHandler.ts (lambda-only
       // handlers not exported as modules). api.ts is included but its `handler`
       // export uses an explicit type annotation to avoid tsgo TS2883.

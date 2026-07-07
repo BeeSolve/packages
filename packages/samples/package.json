@@ -1,0 +1,32 @@
+{
+  "name": "@beesolve/samples",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "type-check": "tsc --noEmit",
+    "cdk": "cdk --app \"bun app.ts\" --profile shared-dev",
+    "deploy:authSimpleEmail": "cd authSimpleEmail/site && bun run vite build && cd - && bun run cdk deploy SamplesAuthEmailSimple --require-approval never"
+  },
+  "dependencies": {
+    "@beesolve/auth-service": "workspace:^",
+    "@beesolve/cdk-constructs": "workspace:^",
+    "@beesolve/cdk-email-alarms": "workspace:^",
+    "@beesolve/lambda-fetch-api": "workspace:^",
+    "@beesolve/sqs-handler": "workspace:^",
+    "aws-cdk": "catalog:",
+    "aws-cdk-lib": "catalog:",
+    "constructs": "catalog:",
+    "kit-on-lambda": "^0.6.0",
+    "valibot": "catalog:"
+  },
+  "devDependencies": {
+    "@sveltejs/kit": "^2.68.0",
+    "@sveltejs/vite-plugin-svelte": "^7.2.0",
+    "@types/aws-lambda": "catalog:",
+    "@types/node": "catalog:",
+    "svelte": "^5.0.0",
+    "typescript": "catalog:",
+    "vite": "^8.1.3"
+  }
+}
