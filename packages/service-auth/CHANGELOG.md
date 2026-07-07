@@ -1,5 +1,11 @@
 # @beesolve/auth-service
 
+## 0.9.0
+
+### Minor Changes
+
+- 39a97ac: Split `Auth` CDK construct into `AuthGateway` (with API Gateway authorizer) and `AuthService` (standalone, no API Gateway). Add `./sessionAuthorizer` export with `SessionAuthorizer` class and `withSession` wrapper for in-process session verification. Extract shared authorize logic into `src/authorize.ts` and refactor CDK code into composable helper functions.
+
 ## 0.8.0
 
 ### Minor Changes
@@ -36,19 +42,23 @@
 - c2bd8aa: Add optional `encryptionKey` prop for customer-managed KMS encryption on all data-at-rest resources (DynamoDB tables and SQS queues).
 
   **@beesolve/cdk-constructs**
+
   - `SqsWithDlq`: add `encryptionKey?: IKey` — uses KMS encryption when provided
   - `Nodejs24Function`: add VPC + DynamoDB Gateway Endpoint documentation
 
   **@beesolve/sqs-handler**
+
   - `SqsHandler`: add `encryptionKey?: IKey` — forwarded to SQS queues
 
   **@beesolve/action-tokens**
+
   - Add `encryptionKey?: IKey` for customer-managed table encryption
   - Add `contributorInsights?: boolean` for CloudWatch Contributor Insights
   - Default `deletionProtection` to `true` when `removalPolicy` is `RETAIN`
   - Default `pointInTimeRecoveryEnabled` to `true` when `deletionProtection` is `true`
 
   **@beesolve/auth-service**
+
   - Add `encryptionKey?: IKey` applied to all tables and SQS queues
   - Add `contributorInsights?: boolean` (default `true` in prod)
   - Add `accessLogging?: boolean` for HTTP API access logs (default `true` in prod)
@@ -98,6 +108,7 @@
 ### Minor Changes
 
 - 5628db5: Security hardening based on OWASP Top 10:2025 review:
+
   - **[Critical]** Fix open redirect via unvalidated `redirectTo` — decode + validate against `^/(?!/)`
   - **[High]** Add `requireSessionV1`/`requireSessionV2` middleware and `withDevSession` dev helper
   - **[High]** Add authorizer cache presets (`immediate`/`balanced`/`relaxed`) — default changed from 1h to `balanced` (45s)
