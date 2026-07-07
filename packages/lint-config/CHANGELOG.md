@@ -1,5 +1,11 @@
 # @beesolve/lint-config
 
+## 0.2.5
+
+### Patch Changes
+
+- 39a97ac: Upgrade oxlint-plugin-eslint from 1.72 to 1.73.
+
 ## 0.2.4
 
 ### Patch Changes

@@ -1,5 +1,11 @@
 # @beesolve/lambda-keep-active
 
+## 2.1.0
+
+### Minor Changes
+
+- 39a97ac: Add `./runtime` export entry point for the `keptActive` wrapper. Upgrade AWS SDK to 3.1080 and aws-cdk-lib to 2.261.
+
 ## 2.0.0
 
 ### Major Changes
