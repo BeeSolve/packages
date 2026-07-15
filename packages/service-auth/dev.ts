@@ -1,14 +1,14 @@
 import { runWithAwsContext } from "@beesolve/lambda-fetch-api";
 import type { APIGatewayProxyEventV2WithLambdaAuthorizer, Context } from "aws-lambda";
 
-import type { ValidSession } from "./src/requireSession.ts";
+import type { ValidSession } from "./src/sessionContext.ts";
 
 export type { ValidSession };
 
 /**
  * Wraps a fetch handler to simulate the Lambda authorizer context in local dev.
  * Runs the handler inside `runWithAwsContext` with a fake API Gateway v2 event
- * containing the provided session, so `requireSessionV2` works without AWS.
+ * containing the provided session, so `getSessionContext` works without AWS.
  *
  * @example
  * ```ts

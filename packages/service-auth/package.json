@@ -55,6 +55,12 @@
         "default": "./dist/api.js"
       }
     },
+    "./sveltekit": {
+      "import": {
+        "types": "./dist/sveltekit.d.ts",
+        "default": "./dist/sveltekit.js"
+      }
+    },
     "./package.json": "./package.json"
   },
   "scripts": {
@@ -85,9 +91,13 @@
     "@types/node": "catalog:"
   },
   "peerDependencies": {
+    "@sveltejs/kit": "^2.68.0",
     "typescript": "catalog:"
   },
   "peerDependenciesMeta": {
+    "@sveltejs/kit": {
+      "optional": true
+    },
     "typescript": {
       "optional": true
     }

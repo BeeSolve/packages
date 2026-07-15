@@ -271,16 +271,6 @@ import {
 
 Each class extends `Error` and carries a `stringified: boolean` property that is `true` when the constructor received a non-string argument (the `message` is then `JSON.stringify(argument)`).
 
-## FAQ
-
-**Q: How does the authorizer work?**
-
-The Lambda authorizer is attached to API Gateway as a `HttpLambdaAuthorizer` with a configurable result cache keyed on `$request.header.Cookie`. On each request it parses `__Host-SID` from the cookie, fetches the session from DynamoDB, and returns the session state to downstream Lambdas as `event.requestContext.authorizer.lambda.session`.
-
-**The authorizer always returns `Effect: "Allow"`** — this is intentional. Session state (`"valid"`, `"expired"`, or `"invalid"`) is serialized into the authorizer context, and enforcement happens at the handler level. This design allows handlers to differentiate between anonymous, expired, and authenticated requests (e.g., showing different content or returning a specific error).
-
-To enforce authentication in your handlers, use the `requireSessionV2` or `requireSessionV1` middleware (see below).
-
 ### 7 — Session middleware
 
 ```mermaid
@@ -302,33 +292,82 @@ sequenceDiagram
     CloudFront-->>Browser: 200
 ```
 
-The package exports middleware that validates the authorizer context and rejects unauthenticated requests. Import from `@beesolve/auth-service`:
+The package exports `getSessionContext` which retrieves and validates the session from the Lambda authorizer context. It auto-detects HTTP API (v2) vs REST API (v1):
 
 ```ts
-import { requireSessionV2 } from "@beesolve/auth-service";
+import { addSetCookies, getSessionContext } from "@beesolve/auth-service";
 
-// For HTTP API (API Gateway v2)
-export const fetch = requireSessionV2(async (request, session) => {
-  // session.userId and session.sessionId are guaranteed valid here
-  return new Response(JSON.stringify({ userId: session.userId }));
-});
+export async function handler(request: Request, resHeaders: Headers): Promise<Response> {
+  const session = await getSessionContext();
+  const userId = session.type === "valid" ? session.validSession.userId : null;
+
+  // Forward session refresh/clear cookies to the response
+  addSetCookies({ headers: resHeaders, cookies: session.setCookiesParams });
+
+  if (userId == null) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+
+  return new Response(JSON.stringify({ userId }));
+}
 ```
 
-For REST API (API Gateway v1):
+For explicit control over API version detection:
 
 ```ts
-import { requireSessionV1 } from "@beesolve/auth-service";
+import { getSessionContextV1, getSessionContextV2 } from "@beesolve/auth-service";
 
-export const fetch = requireSessionV1(async (request, session) => {
-  return new Response(JSON.stringify({ userId: session.userId }));
-});
+// HTTP API (v2) — reads event.requestContext.authorizer.lambda
+const session = await getSessionContextV2();
+
+// REST API (v1) — reads event.requestContext.authorizer
+const session = await getSessionContextV1();
 ```
 
-Handlers that need anonymous access (e.g., public pages that show different content for logged-in users) should skip the middleware and read the authorizer context directly via `getAwsLambdaAuthorizerContext()` from `@beesolve/lambda-fetch-api`.
+### 8 — Usage with tRPC
 
-### 8 — Local development
+When using `@trpc/server` with a fetch adapter, create a context factory that retrieves the session and forwards cookies:
 
-In local dev (e.g., a Bun server), there is no API Gateway or Lambda authorizer. The `@beesolve/auth-service/dev` export provides `withDevSession` which wraps your fetch handler and injects a fake authorizer context, so `requireSessionV2` works without AWS:
+```ts
+// context.ts
+import { addSetCookies, getSessionContext } from "@beesolve/auth-service";
+import type { FetchCreateContextFnOptions } from "@trpc/server/adapters/fetch";
+
+export async function createContext({ resHeaders }: FetchCreateContextFnOptions) {
+  const session = await getSessionContext();
+  const userId = session.type === "valid" ? session.validSession.userId : null;
+
+  return {
+    resHeaders: addSetCookies({ headers: resHeaders, cookies: session.setCookiesParams }),
+    userId,
+  };
+}
+
+export type Context = Awaited<ReturnType<typeof createContext>>;
+```
+
+Then use the context in your router:
+
+```ts
+// router.ts
+import { initTRPC, TRPCError } from "@trpc/server";
+import type { Context } from "./context";
+
+const t = initTRPC.context<Context>().create();
+
+const authed = t.middleware(({ ctx, next }) => {
+  if (ctx.userId == null) {
+    throw new TRPCError({ code: "UNAUTHORIZED" });
+  }
+  return next({ ctx: { ...ctx, userId: ctx.userId } });
+});
+
+export const protectedProcedure = t.procedure.use(authed);
+```
+
+### 9 — Local development
+
+In local dev (e.g., a Bun server), there is no API Gateway or Lambda authorizer. The `@beesolve/auth-service/dev` export provides `withDevSession` which wraps your fetch handler and injects a fake authorizer context, so `getSessionContext` works without AWS:
 
 ```ts
 import { withDevSession } from "@beesolve/auth-service/dev";
@@ -350,6 +389,138 @@ serve({
 - `session` — an object with at least `userId`. Optionally provide `sessionId` and `expiresAt`.
 
 The wrapper runs your handler inside `runWithAwsContext` with a fake API Gateway v2 event containing the session, so all middleware that reads from the authorizer context works transparently.
+
+### 10 — SvelteKit Integration
+
+Import from `@beesolve/auth-service/sveltekit` to wire up session handling in a SvelteKit app deployed with [kit-on-lambda](https://github.com/BeeSolve/kit-on-lambda).
+
+Works with both HTTP API (v2) and REST API (v1) — auto-detected at runtime.
+
+#### Setup
+
+**src/app.d.ts:**
+
+```ts
+import type { SessionContext } from "@beesolve/auth-service/sveltekit";
+
+declare global {
+  namespace App {
+    interface Locals {
+      session: SessionContext;
+    }
+  }
+}
+
+export {};
+```
+
+**src/hooks.server.ts:**
+
+```ts
+import { createSessionHandle } from "@beesolve/auth-service/sveltekit";
+import { redirect, type Handle } from "@sveltejs/kit";
+import { sequence } from "@sveltejs/kit/hooks";
+
+const publicPaths = new Set(["/sign-in", "/sign-in/verify", "/sign-out"]);
+
+const authGuard: Handle = async ({ event, resolve }) => {
+  const isPublic = publicPaths.has(event.url.pathname);
+
+  if (event.locals.session.type !== "valid" && !isPublic) {
+    redirect(303, "/sign-in");
+  }
+
+  return resolve(event);
+};
+
+export const handle = sequence(createSessionHandle(), authGuard);
+```
+
+`createSessionHandle` populates `event.locals.session` on every request. On Lambda it reads the authorizer context; locally (when `LAMBDA_TASK_ROOT` is not set) it falls back to a dev preset.
+
+#### Local development fallbacks
+
+When running `vite dev` there is no Lambda authorizer. By default `createSessionHandle` provides a valid dev session. Switch presets to simulate other states:
+
+```ts
+import {
+  createSessionHandle,
+  devExpiredSession,
+  devInvalidSession,
+  devValidSession,
+} from "@beesolve/auth-service/sveltekit";
+
+// Simulate an expired session locally
+export const handle = sequence(
+  createSessionHandle({ fallbackSession: devExpiredSession }),
+  authGuard,
+);
+```
+
+Available presets: `devValidSession` (default), `devInvalidSession`, `devExpiredSession`.
+
+You can also provide a custom fallback:
+
+```ts
+export const handle = sequence(
+  createSessionHandle({
+    fallbackSession: {
+      type: "valid",
+      validSession: { userId: "ivan", sessionId: "abc", expiresAt: "2099-01-01T00:00:00Z" },
+      setCookiesParams: [],
+    },
+  }),
+  authGuard,
+);
+```
+
+#### Accessing the session in routes
+
+```ts
+// +page.server.ts
+import { redirect } from "@sveltejs/kit";
+
+export function load({ locals }) {
+  if (locals.session.type !== "valid") {
+    redirect(303, "/sign-in");
+  }
+
+  return { userId: locals.session.validSession.userId };
+}
+```
+
+#### Direct access to session context
+
+For advanced use cases where you need full control over v1/v2 detection:
+
+```ts
+import {
+  getSessionContext,
+  getSessionContextV1,
+  getSessionContextV2,
+} from "@beesolve/auth-service/sveltekit";
+
+// Auto-detect (recommended)
+const session = await getSessionContext();
+
+// Explicit v2 (HTTP API)
+const session = await getSessionContextV2();
+
+// Explicit v1 (REST API)
+const session = await getSessionContextV1();
+```
+
+These functions work anywhere within a Lambda invocation (hooks, load functions, API routes) because the context is stored in `AsyncLocalStorage` by `@beesolve/lambda-fetch-api`.
+
+## FAQ
+
+**Q: How does the authorizer work?**
+
+The Lambda authorizer is attached to API Gateway as a `HttpLambdaAuthorizer` with a configurable result cache keyed on `$request.header.Cookie`. On each request it parses `__Host-SID` from the cookie, fetches the session from DynamoDB, and returns the session state to downstream Lambdas as `event.requestContext.authorizer.lambda.session`.
+
+**The authorizer always returns `Effect: "Allow"`** — this is intentional. Session state (`"valid"`, `"expired"`, or `"invalid"`) is serialized into the authorizer context, and enforcement happens at the handler level. This design allows handlers to differentiate between anonymous, expired, and authenticated requests (e.g., showing different content or returning a specific error).
+
+To enforce authentication in your handlers, use `getSessionContext` and check `session.type` (see section 7).
 
 **Q: What does `allowSignUp` control?**
 

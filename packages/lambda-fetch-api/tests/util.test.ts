@@ -235,9 +235,9 @@ describe("getAwsV2Event", () => {
   });
 
   test("throws NotInHandlerContextError when event is v1", async () => {
-    await expect(
-      runWithAwsContext(makeV1Event(), makeContext(), () => getAwsV2Event()),
-    ).rejects.toThrow(NotInHandlerContextError);
+    expect(runWithAwsContext(makeV1Event(), makeContext(), () => getAwsV2Event())).rejects.toThrow(
+      NotInHandlerContextError,
+    );
   });
 
   test("throws NotInHandlerContextError outside a handler", () => {
@@ -253,9 +253,9 @@ describe("getAwsV1Event", () => {
   });
 
   test("throws NotInHandlerContextError when event is v2", async () => {
-    await expect(
-      runWithAwsContext(makeV2Event(), makeContext(), () => getAwsV1Event()),
-    ).rejects.toThrow(NotInHandlerContextError);
+    expect(runWithAwsContext(makeV2Event(), makeContext(), () => getAwsV1Event())).rejects.toThrow(
+      NotInHandlerContextError,
+    );
   });
 
   test("throws NotInHandlerContextError outside a handler", () => {

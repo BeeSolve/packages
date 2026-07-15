@@ -1,7 +1,9 @@
+import type { SessionContext } from "@beesolve/auth-service/sveltekit";
+
 declare global {
   namespace App {
     interface Locals {
-      sessionId: string | null;
+      session: SessionContext;
     }
   }
 }

@@ -119,14 +119,6 @@ function makeV1EventWithCustomAuthorizer(
 const authSchema = v.object({ userId: v.string(), role: v.string() });
 
 describe("getAwsLambdaAuthorizerContext", () => {
-  test("returns raw payload without schema", async () => {
-    const event = makeV2EventWithLambdaAuthorizer({ userId: "u1", role: "admin" });
-    const payload = await runWithAwsContext(event, makeContext(), () =>
-      getAwsLambdaAuthorizerContext(),
-    );
-    expect(payload).toEqual({ userId: "u1", role: "admin" });
-  });
-
   test("validates and types payload with a Standard Schema", async () => {
     const event = makeV2EventWithLambdaAuthorizer({ userId: "u1", role: "admin" });
     const auth = await runWithAwsContext(event, makeContext(), () =>
@@ -144,19 +136,11 @@ describe("getAwsLambdaAuthorizerContext", () => {
   });
 
   test("throws NotInHandlerContextError outside a handler", () => {
-    expect(() => getAwsLambdaAuthorizerContext()).toThrow(NotInHandlerContextError);
+    expect(() => getAwsLambdaAuthorizerContext(authSchema)).toThrow(NotInHandlerContextError);
   });
 });
 
 describe("getAwsCustomAuthorizerContext", () => {
-  test("returns raw payload without schema", async () => {
-    const event = makeV1EventWithCustomAuthorizer({ userId: "u2", role: "editor" });
-    const payload = await runWithAwsContext(event, makeContext(), () =>
-      getAwsCustomAuthorizerContext(),
-    );
-    expect(payload).toMatchObject({ userId: "u2", role: "editor" });
-  });
-
   test("validates and types payload with a Standard Schema", async () => {
     const event = makeV1EventWithCustomAuthorizer({ userId: "u2", role: "editor" });
     const auth = await runWithAwsContext(event, makeContext(), () =>
@@ -174,7 +158,7 @@ describe("getAwsCustomAuthorizerContext", () => {
   });
 
   test("throws NotInHandlerContextError outside a handler", () => {
-    expect(() => getAwsCustomAuthorizerContext()).toThrow(NotInHandlerContextError);
+    expect(() => getAwsCustomAuthorizerContext(authSchema)).toThrow(NotInHandlerContextError);
   });
 });
 
@@ -188,7 +172,7 @@ describe("asLambdaAuthorizedHttpV2Handler", () => {
   test("authorizer context is accessible inside fetch via getAwsLambdaAuthorizerContext", async () => {
     let capturedAuth: unknown;
     const handler = asLambdaAuthorizedHttpV2Handler(async () => {
-      capturedAuth = getAwsLambdaAuthorizerContext();
+      capturedAuth = await getAwsLambdaAuthorizerContext(v.unknown());
       return new Response("");
     });
     await handler(makeV2EventWithLambdaAuthorizer({ userId: "u1", role: "admin" }), makeContext());
@@ -206,7 +190,7 @@ describe("asCustomAuthorizedHttpV1Handler", () => {
   test("authorizer context is accessible inside fetch via getAwsCustomAuthorizerContext", async () => {
     let capturedAuth: unknown;
     const handler = asCustomAuthorizedHttpV1Handler(async () => {
-      capturedAuth = getAwsCustomAuthorizerContext();
+      capturedAuth = await getAwsCustomAuthorizerContext(v.unknown());
       return new Response("");
     });
     await handler(makeV1EventWithCustomAuthorizer({ userId: "u2", role: "editor" }), makeContext());
