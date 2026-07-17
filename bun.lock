@@ -114,7 +114,7 @@
     },
     "packages/lambda-keep-active": {
       "name": "@beesolve/lambda-keep-active",
-      "version": "2.0.0",
+      "version": "2.1.0",
       "dependencies": {
         "@aws-sdk/client-lambda": "^3.1080.0",
         "@aws-sdk/client-resource-groups-tagging-api": "^3.1080.0",
@@ -125,7 +125,7 @@
     },
     "packages/lint-config": {
       "name": "@beesolve/lint-config",
-      "version": "0.2.4",
+      "version": "0.2.5",
       "bin": {
         "beesolve-lint-setup": "./scripts/setup.ts",
       },
@@ -147,7 +147,6 @@
     },
     "packages/samples": {
       "name": "@beesolve/samples",
-      "version": "0.0.0",
       "dependencies": {
         "@beesolve/auth-service": "workspace:^",
         "@beesolve/cdk-constructs": "workspace:^",
@@ -172,7 +171,7 @@
     },
     "packages/service-auth": {
       "name": "@beesolve/auth-service",
-      "version": "0.8.0",
+      "version": "0.9.0",
       "dependencies": {
         "@aws-sdk/client-dynamodb": "catalog:",
         "@aws-sdk/client-eventbridge": "catalog:",
@@ -196,9 +195,11 @@
         "@types/node": "catalog:",
       },
       "peerDependencies": {
+        "@sveltejs/kit": "^2.68.0",
         "typescript": "catalog:",
       },
       "optionalPeers": [
+        "@sveltejs/kit",
         "typescript",
       ],
     },

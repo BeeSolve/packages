@@ -5,21 +5,29 @@ import { Nodejs24Function } from "@beesolve/cdk-constructs";
 import { EmailAlarms } from "@beesolve/cdk-email-alarms";
 import type { App, StackProps } from "aws-cdk-lib";
 import { Duration, Fn, Stack } from "aws-cdk-lib";
+import type { CfnDistribution } from "aws-cdk-lib/aws-cloudfront";
 import { HttpOrigin } from "aws-cdk-lib/aws-cloudfront-origins";
 import { Rule } from "aws-cdk-lib/aws-events";
 import { LambdaFunction } from "aws-cdk-lib/aws-events-targets";
 import { InvokeMode } from "aws-cdk-lib/aws-lambda";
 import { SvelteKit } from "kit-on-lambda/cdk";
 
-export class EmailSimpleStack extends Stack {
+export class EmailAuthorizerStack extends Stack {
   constructor(scope: App, id: string, props: StackProps) {
     super(scope, id, props);
 
-    const alarms = new EmailAlarms(this, "Alarms", {
-      emailAddress: "test@dev.beesolve.com",
-    });
+    const emailAddress = process.env.SAMPLES_EMAIL_ADDRESS;
+    const frontendUri = process.env.SAMPLES_AUTH_EMAIL_AUTHORIZER_FRONTEND_URI;
 
-    const frontendUri = "https://d1sgwki4n6dbdp.cloudfront.net";
+    if (emailAddress == null || frontendUri == null) {
+      throw new Error(
+        "SAMPLES_EMAIL_ADDRESS and SAMPLES_AUTH_EMAIL_AUTHORIZER_FRONTEND_URI must be set (see mise.toml)",
+      );
+    }
+
+    const alarms = new EmailAlarms(this, "Alarms", {
+      emailAddress,
+    });
 
     const auth = new AuthGateway(this, "Auth", {
       stage: "dev",
@@ -33,15 +41,24 @@ export class EmailSimpleStack extends Stack {
       invokeMode: InvokeMode.BUFFERED,
       buildDirectory: resolve(__dirname, "./site/build"),
       toDefaultOrigin: ({ handler }) => {
-        auth.addAuthorizedEndpoint({ lambda: handler, path: "/admin/{proxy+}" });
-        auth.addPublicEndpoint({ lambda: handler });
+        auth.addAuthorizedEndpoint({ lambda: handler, path: "/{proxy+}" });
         auth.grantSdkAccess(handler);
 
         if (auth.api.url == null) throw Error(`Unexpected error - missing api url`);
-
         return new HttpOrigin(Fn.parseDomainName(auth.api.url));
       },
     });
+
+    // Attach ensureCookieFunction to the default behavior via L1 escape hatch.
+    // kit-on-lambda manages the default behavior internally, so we add the
+    // function association on the underlying CfnDistribution.
+    const cfnDist = site.distribution.node.defaultChild as CfnDistribution;
+    cfnDist.addPropertyOverride("DistributionConfig.DefaultCacheBehavior.FunctionAssociations", [
+      {
+        EventType: "viewer-request",
+        FunctionARN: auth.ensureCookieFunction.functionArn,
+      },
+    ]);
 
     const authBehaviour = auth.createAuthBehavior(site.distribution);
     site.distribution.addBehavior("/auth/*", authBehaviour.origin, authBehaviour);

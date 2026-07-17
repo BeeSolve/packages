@@ -396,6 +396,105 @@ Import from `@beesolve/auth-service/sveltekit` to wire up session handling in a 
 
 Works with both HTTP API (v2) and REST API (v1) — auto-detected at runtime.
 
+#### Integration Patterns
+
+There are three deployment patterns depending on your frontend architecture:
+
+##### Pattern 1: SPA + Lambda Authorizer (cached)
+
+Static frontend (S3/CloudFront) with a separate API Lambda. The gateway returns 401 for unauthenticated API calls — the SPA handles this client-side.
+
+```ts
+// CDK
+auth.addAuthorizedEndpoint({ lambda: apiHandler, path: "/api/{proxy+}" });
+```
+
+- Authorizer caching enabled via cookie identity source
+- Best for: React/Vue/Svelte SPAs with a REST API backend
+
+##### Pattern 2: SSR + Lambda Authorizer (cached) + CloudFront Function
+
+SvelteKit on Lambda via kit-on-lambda. A CloudFront Function injects a placeholder cookie (`__Host-SID=anonym`) on requests where the cookie is absent, ensuring API Gateway's `identitySource` is always satisfied. The authorizer caches normally — anonymous requests cache to "session invalid" context, and the SSR app handles redirects.
+
+```ts
+// CDK
+const site = new SvelteKit(this, "Site", {
+  toDefaultOrigin: ({ handler }) => {
+    auth.addAuthorizedEndpoint({ lambda: handler, path: "/{proxy+}" });
+    auth.grantSdkAccess(handler);
+    return new HttpOrigin(Fn.parseDomainName(auth.api.url!));
+  },
+});
+
+// Attach ensureCookieFunction to the default behavior
+const cfnDist = site.distribution.node.defaultChild as CfnDistribution;
+cfnDist.addPropertyOverride("DistributionConfig.DefaultCacheBehavior.FunctionAssociations", [
+  { EventType: "viewer-request", FunctionARN: auth.ensureCookieFunction.functionArn },
+]);
+```
+
+```ts
+// hooks.server.ts
+import { createSessionHandle } from "@beesolve/auth-service/sveltekit";
+export const handle = sequence(createSessionHandle(), authGuard);
+```
+
+- Pros: authorizer caching works, clean separation, no DynamoDB access on the handler
+- Cons: 2 Lambda invocations per request (mitigated by caching on repeat requests)
+- Best for: SSR apps that want authorizer separation with caching benefits
+
+> **Important:** Add `@beesolve/lambda-fetch-api` to Vite's SSR externals in your
+> `vite.config.ts` so that the `AsyncLocalStorage` instance is shared between the
+> handler and hooks (prevents esbuild deduplication issues):
+>
+> ```ts
+> export default defineConfig({
+>   plugins: [sveltekit()],
+>   ssr: {
+>     external: ["@beesolve/lambda-fetch-api"],
+>   },
+> });
+> ```
+
+> **Note:** If you don't need authorizer caching and prefer to skip the CloudFront Function,
+> set `authorizerCache: "disabled"` which removes the `identitySource` requirement entirely.
+> The authorizer is then invoked on every request without caching.
+
+##### Pattern 3: SSR + In-process session resolution (recommended for SSR)
+
+SvelteKit on Lambda via kit-on-lambda. The handler resolves the session from DynamoDB directly — no authorizer Lambda involved.
+
+```ts
+// CDK
+auth.addPublicEndpoint({ lambda: handler });
+auth.grantSessionAccess(handler);
+auth.grantSdkAccess(handler);
+```
+
+```ts
+// hooks.server.ts
+import { createInProcessSessionHandle } from "@beesolve/auth-service/sveltekit";
+import { redirect, type Handle } from "@sveltejs/kit";
+import { sequence } from "@sveltejs/kit/hooks";
+
+const publicPaths = new Set(["/sign-in", "/sign-in/verify", "/sign-out"]);
+
+const authGuard: Handle = async ({ event, resolve }) => {
+  if (event.locals.session.type !== "valid" && !publicPaths.has(event.url.pathname)) {
+    redirect(303, "/sign-in");
+  }
+  return resolve(event);
+};
+
+export const handle = sequence(createInProcessSessionHandle(), authGuard);
+```
+
+- Pros: single Lambda invocation, lowest latency
+- Cons: SvelteKit handler has DynamoDB access to the sessions table
+- Best for: most SvelteKit SSR applications
+
+See [ADR-002](docs/adr-002-ssr-authorizer-pattern.md) and [ADR-003](docs/adr-003-inprocess-session-resolution.md) for the architectural reasoning.
+
 #### Setup
 
 **src/app.d.ts:**
@@ -447,6 +546,7 @@ import {
   createSessionHandle,
   devExpiredSession,
   devInvalidSession,
+  devNoneSession,
   devValidSession,
 } from "@beesolve/auth-service/sveltekit";
 
@@ -457,7 +557,7 @@ export const handle = sequence(
 );
 ```
 
-Available presets: `devValidSession` (default), `devInvalidSession`, `devExpiredSession`.
+Available presets: `devValidSession` (default), `devInvalidSession`, `devExpiredSession`, `devNoneSession`.
 
 You can also provide a custom fallback:
 

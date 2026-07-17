@@ -40,7 +40,7 @@
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",
     "check": "oxfmt --check && oxlint packages/ scripts/",
-    "build": "bunup",
+    "build": "bunup && bun scripts/buildLambdas.ts",
     "dev": "bunup --watch",
     "test": "bun run --filter '*' test",
     "type-check": "bun run --filter '*' type-check",

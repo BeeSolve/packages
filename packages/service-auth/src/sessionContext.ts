@@ -2,6 +2,7 @@ import {
   getAwsCustomAuthorizerContext,
   getAwsEvent,
   getAwsLambdaAuthorizerContext,
+  hasAuthorizerContext,
   isAPIGatewayProxyEventV2,
 } from "@beesolve/lambda-fetch-api";
 import * as v from "valibot";
@@ -15,6 +16,7 @@ const validSessionSchema = v.object({
 });
 
 const sessionContextSchema = v.variant("type", [
+  v.object({ type: v.literal("none") }),
   v.object({
     type: v.literal("invalid"),
     error: v.string(),
@@ -45,25 +47,38 @@ export const sessionStringSchema = v.pipe(
   sessionContextSchema,
 );
 
+const authorizerContextSchema = v.object({ session: sessionStringSchema });
+
 /**
  * Retrieves the session context from the current Lambda authorizer payload.
  * Auto-detects whether the event is HTTP API (v2) or REST API (v1) and reads
  * the authorizer context from the appropriate location.
+ *
+ * Returns `{ type: "none" }` when no authorizer context is present (e.g.
+ * public endpoints where the authorizer did not run).
  */
-export function getSessionContext(): Promise<SessionContext> {
+export async function getSessionContext(): Promise<SessionContext> {
+  if (!hasAuthorizerContext()) {
+    return { type: "none" as const };
+  }
+
   const event = getAwsEvent();
   if (isAPIGatewayProxyEventV2(event)) {
-    return getAwsLambdaAuthorizerContext(sessionStringSchema);
+    const ctx = await getAwsLambdaAuthorizerContext(authorizerContextSchema);
+    return ctx.session;
   }
-  return getAwsCustomAuthorizerContext(sessionStringSchema);
+  const ctx = await getAwsCustomAuthorizerContext(authorizerContextSchema);
+  return ctx.session;
 }
 
 /** Retrieves the session context from an HTTP API (v2) Lambda authorizer payload. */
-export function getSessionContextV2(): Promise<SessionContext> {
-  return getAwsLambdaAuthorizerContext(sessionStringSchema);
+export async function getSessionContextV2(): Promise<SessionContext> {
+  const ctx = await getAwsLambdaAuthorizerContext(authorizerContextSchema);
+  return ctx.session;
 }
 
 /** Retrieves the session context from a REST API (v1) custom authorizer payload. */
-export function getSessionContextV1(): Promise<SessionContext> {
-  return getAwsCustomAuthorizerContext(sessionStringSchema);
+export async function getSessionContextV1(): Promise<SessionContext> {
+  const ctx = await getAwsCustomAuthorizerContext(authorizerContextSchema);
+  return ctx.session;
 }

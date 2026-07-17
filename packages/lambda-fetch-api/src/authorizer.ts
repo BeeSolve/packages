@@ -1,6 +1,23 @@
 import type { StandardSchemaV1 } from "@standard-schema/spec";
 
+import { isAPIGatewayProxyEventV2 } from "./runtime";
 import { getAwsEvent } from "./store";
+
+/**
+ * Returns true if the current Lambda event contains authorizer context
+ * (either v1 REST API or v2 HTTP API format).
+ *
+ * Use this to check whether the authorizer ran before attempting to parse
+ * the context — avoids throwing when the request was not authorized
+ * (e.g. public endpoints on SSR apps).
+ */
+export function hasAuthorizerContext(): boolean {
+  const event = getAwsEvent();
+  if (isAPIGatewayProxyEventV2(event)) {
+    return hasLambdaAuthorizer(event.requestContext);
+  }
+  return hasAuthorizer(event.requestContext);
+}
 
 /**
  * Returns the Lambda authorizer payload for HTTP API v2 events.

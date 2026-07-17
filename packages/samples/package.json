@@ -1,12 +1,12 @@
 {
   "name": "@beesolve/samples",
-  "version": "0.0.2",
   "private": true,
   "type": "module",
   "scripts": {
     "type-check": "tsc --noEmit",
     "cdk": "cdk --app \"bun app.ts\" --profile shared-dev",
-    "deploy:authSimpleEmail": "cd authSimpleEmail/site && bun run vite build && cd - && bun run cdk deploy SamplesAuthEmailSimple --require-approval never"
+    "deploy:authEmailSimple": "cd authEmailSimple/site && bun run vite build && cd - && bun run cdk deploy SamplesAuthEmailSimple --require-approval never",
+    "deploy:authEmailAuthorizer": "cd authEmailAuthorizer/site && bun run vite build && cd - && bun run cdk deploy SamplesAuthEmailAuthorizer --require-approval never"
   },
   "dependencies": {
     "@beesolve/auth-service": "workspace:^",

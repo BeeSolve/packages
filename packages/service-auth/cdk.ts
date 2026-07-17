@@ -13,6 +13,8 @@ import {
   AllowedMethods,
   type BehaviorOptions,
   CachePolicy,
+  Function as CloudFrontFunction,
+  FunctionCode,
   FunctionUrlOriginAccessControl,
   type IOrigin,
   LambdaEdgeEventType,
@@ -114,8 +116,22 @@ export class AuthGateway extends Construct {
    */
   readonly edgeBodyHashAssetPath: string;
 
+  /**
+   * CloudFront Function that injects a placeholder `__Host-SID=anonym` cookie
+   * on viewer requests when the cookie is absent.
+   *
+   * Attach this to the viewer-request event of your default behavior so that
+   * API Gateway's `identitySource` requirement is always satisfied — enabling
+   * SSR apps to use `addAuthorizedEndpoint` with authorizer caching.
+   */
+  readonly ensureCookieFunction: CloudFrontFunction;
+
   private readonly authorizer: HttpLambdaAuthorizer;
   private readonly sdkHandler: Function;
+  private readonly sessionsTable: TableV2Type;
+  private readonly sessionsByUserIdIndexName: string;
+  private readonly sessionMaxAge: string;
+  private readonly sessionRefreshDrift: string;
 
   constructor(
     scope: Construct,
@@ -128,12 +144,14 @@ export class AuthGateway extends Construct {
        * - `"immediate"` — no cache (0s). Sign-out takes effect instantly.
        * - `"balanced"` — short cache (45s). Sign-out effective within ~45s.
        * - `"relaxed"` — long cache (1h). Lowest cost, sign-out delayed up to 1h.
+       * - `"disabled"` — no cache AND no identity source. Required for SSR apps
+       *   where requests without cookies must still reach the Lambda authorizer.
        *
        * Or pass a `Duration` directly to override presets.
        *
        * @default "balanced"
        */
-      readonly authorizerCache?: "immediate" | "balanced" | "relaxed" | Duration;
+      readonly authorizerCache?: "immediate" | "balanced" | "relaxed" | "disabled" | Duration;
       /**
        * Enable access logging on the HTTP API (API Gateway).
        *
@@ -170,6 +188,11 @@ export class AuthGateway extends Construct {
       isProd,
     });
 
+    this.sessionMaxAge = sessionMaxAge;
+    this.sessionRefreshDrift = sessionRefreshDrift;
+    this.sessionsTable = tables.sessionsTable;
+    this.sessionsByUserIdIndexName = tables.sessionsByUserIdIndexName;
+
     const actionTokens = new ActionTokens(this, "ActionTokens", {
       deletionProtection,
       removalPolicy,
@@ -200,6 +223,8 @@ export class AuthGateway extends Construct {
     this.authBehavior = behaviorResources.authBehavior;
     this.edgeBodyHashAssetPath = behaviorResources.edgeBodyHashAssetPath;
 
+    this.ensureCookieFunction = createEnsureCookieFunction(this);
+
     const apiAuthorizer = new Nodejs24Function(this, "ApiAuthorizerHandler", {
       description: "API authorizer",
       entry: `${distDir}authorizer.zip`,
@@ -220,7 +245,7 @@ export class AuthGateway extends Construct {
     props.warmer?.keepActive(apiAuthorizer);
 
     this.authorizer = new HttpLambdaAuthorizer("ApiAuthorizer", apiAuthorizer, {
-      identitySource: ["$request.header.Cookie"],
+      identitySource: props.authorizerCache === "disabled" ? undefined : ["$request.header.Cookie"],
       resultsCacheTtl: resolveAuthorizerCacheTtl(props.authorizerCache),
     });
 
@@ -340,6 +365,24 @@ export class AuthGateway extends Construct {
     });
   };
 
+  /**
+   * Grants a Lambda function direct access to the sessions table for
+   * in-process session resolution via `createInProcessSessionHandle()`.
+   *
+   * Use this instead of `addAuthorizedEndpoint` for SSR apps where a single
+   * Lambda invocation per request is preferred over the authorizer pattern.
+   */
+  readonly grantSessionAccess = (handler: Function) => {
+    this.sessionsTable.grantReadWriteData(handler);
+    handler.addEnvironment("BEESOLVE_AUTH_SESSIONS_TABLE_NAME", this.sessionsTable.tableName);
+    handler.addEnvironment(
+      "BEESOLVE_AUTH_SESSIONS_USER_ID_INDEX_NAME",
+      this.sessionsByUserIdIndexName,
+    );
+    handler.addEnvironment("BEESOLVE_AUTH_SESSION_MAX_AGE", this.sessionMaxAge);
+    handler.addEnvironment("BEESOLVE_AUTH_SESSION_REFRESH_DRIFT", this.sessionRefreshDrift);
+  };
+
   readonly grantSdkAccess = (handler: Function) => {
     this.sdkHandler.grantInvoke(handler);
     handler.addEnvironment("BEESOLVE_AUTH_SDK_HANDLER_ARN", this.sdkHandler.functionArn);
@@ -378,6 +421,16 @@ export class AuthService extends Construct {
    * Use with `createAuthBehavior()` when the distribution lives in a different stack.
    */
   readonly edgeBodyHashAssetPath: string;
+
+  /**
+   * CloudFront Function that injects a placeholder `__Host-SID=anonym` cookie
+   * on viewer requests when the cookie is absent.
+   *
+   * Attach this to the viewer-request event of your default behavior so that
+   * API Gateway's `identitySource` requirement is always satisfied — enabling
+   * SSR apps to use `addAuthorizedEndpoint` with authorizer caching.
+   */
+  readonly ensureCookieFunction: CloudFrontFunction;
 
   private readonly sessionsTable: TableV2Type;
   private readonly sessionsByUserIdIndexName: string;
@@ -439,6 +492,8 @@ export class AuthService extends Construct {
     this.authOrigin = behaviorResources.authOrigin;
     this.authBehavior = behaviorResources.authBehavior;
     this.edgeBodyHashAssetPath = behaviorResources.edgeBodyHashAssetPath;
+
+    this.ensureCookieFunction = createEnsureCookieFunction(this);
 
     const sdkHandler = createSdkHandler(this, {
       ...tables,
@@ -770,13 +825,28 @@ function makeCreateAuthBehavior(authOrigin: IOrigin, edgeBodyHashAssetPath: stri
 }
 
 function resolveAuthorizerCacheTtl(
-  cache: "immediate" | "balanced" | "relaxed" | Duration = "balanced",
+  cache: "immediate" | "balanced" | "relaxed" | "disabled" | Duration = "balanced",
 ): Duration {
   if (cache instanceof Duration) return cache;
   const presets = {
     immediate: Duration.seconds(0),
     balanced: Duration.seconds(45),
     relaxed: Duration.hours(1),
+    disabled: Duration.seconds(0),
   };
   return presets[cache];
+}
+
+function createEnsureCookieFunction(scope: Construct): CloudFrontFunction {
+  return new CloudFrontFunction(scope, "EnsureCookieFunction", {
+    comment: "Injects placeholder __Host-SID cookie when absent for authorizer identity source",
+    code: FunctionCode.fromInline(`\
+function handler(event) {
+  var request = event.request;
+  if (!request.cookies['__Host-SID']) {
+    request.cookies['__Host-SID'] = { value: 'anonym' };
+  }
+  return request;
+}`),
+  });
 }

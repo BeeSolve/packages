@@ -21,3 +21,4 @@ yarn-error.log*
 
 cdk.out
 .svelte-kit
+mise.toml
