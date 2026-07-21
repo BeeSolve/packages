@@ -13,10 +13,6 @@
     const input = event.target as HTMLInputElement;
     value = input.value.replace(/[^0-9]/g, "").slice(0, length);
     input.value = value;
-
-    if (value.length === length) {
-      input.form?.requestSubmit();
-    }
   }
 </script>
 

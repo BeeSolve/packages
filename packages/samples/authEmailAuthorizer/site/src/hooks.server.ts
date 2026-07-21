@@ -2,7 +2,7 @@ import { createSessionHandle } from "@beesolve/auth-service/sveltekit";
 import { redirect, type Handle } from "@sveltejs/kit";
 import { sequence } from "@sveltejs/kit/hooks";
 
-const publicPaths = new Set(["/sign-in", "/sign-in/verify", "/sign-out"]);
+const publicPaths = new Set(["/sign-in", "/sign-in/verify"]);
 
 const authGuard: Handle = async ({ event, resolve }) => {
   const isPublic = publicPaths.has(event.url.pathname);

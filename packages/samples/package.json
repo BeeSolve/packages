@@ -6,12 +6,16 @@
     "type-check": "tsc --noEmit",
     "cdk": "cdk --app \"bun app.ts\" --profile shared-dev",
     "deploy:authEmailSimple": "cd authEmailSimple/site && bun run vite build && cd - && bun run cdk deploy SamplesAuthEmailSimple --require-approval never",
-    "deploy:authEmailAuthorizer": "cd authEmailAuthorizer/site && bun run vite build && cd - && bun run cdk deploy SamplesAuthEmailAuthorizer --require-approval never"
+    "deploy:authEmailAuthorizer": "cd authEmailAuthorizer/site && bun run vite build && cd - && bun run cdk deploy SamplesAuthEmailAuthorizer --require-approval never",
+    "deploy:authWithEmail": "cd authWithEmail/site && bun run vite build && cd - && bun run cdk deploy SamplesAuthWithEmail --require-approval never",
+    "deploy:emailVerify": "cd emailVerify/site && bun run vite build && cd - && bun run cdk deploy SamplesEmailVerify --require-approval never"
   },
   "dependencies": {
+    "@beesolve/action-tokens": "workspace:^",
     "@beesolve/auth-service": "workspace:^",
     "@beesolve/cdk-constructs": "workspace:^",
     "@beesolve/cdk-email-alarms": "workspace:^",
+    "@beesolve/email-service": "workspace:^",
     "@beesolve/lambda-fetch-api": "workspace:^",
     "@beesolve/sqs-handler": "workspace:^",
     "aws-cdk": "catalog:",

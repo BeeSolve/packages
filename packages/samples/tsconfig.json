@@ -1,4 +1,13 @@
 {
   "extends": "../../tsconfig.base.json",
-  "include": ["app.ts", "authSimpleEmail/consumer.ts", "authSimpleEmail/stack.ts"]
+  "include": [
+    "app.ts",
+    "authEmailAuthorizer/consumer.ts",
+    "authEmailAuthorizer/stack.ts",
+    "authEmailSimple/consumer.ts",
+    "authEmailSimple/stack.ts",
+    "authWithEmail/consumer.ts",
+    "authWithEmail/stack.ts",
+    "emailVerify/stack.ts"
+  ]
 }

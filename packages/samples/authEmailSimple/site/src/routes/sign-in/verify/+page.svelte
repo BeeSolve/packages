@@ -1,44 +1,37 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
-  import { page } from "$app/state";
   import CodeInput from "$shared/components/codeInput.svelte";
+  import { AuthError, signInComplete } from "$shared/utils/authClient";
+
+  let { data } = $props();
 
   let error = $state("");
   let loading = $state(false);
 
-  const token = $derived(page.url.searchParams.get("token"));
-
-  $effect(() => {
-    if (!token) goto("/sign-in");
-  });
+  let submitted = false;
 
   async function handleSubmit(event: SubmitEvent) {
     event.preventDefault();
+    if (submitted) return;
+    submitted = true;
     error = "";
     loading = true;
 
     const form = event.target as HTMLFormElement;
     const code = new FormData(form).get("code") as string;
 
-    const response = await fetch("/auth/signInComplete", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ token, code }),
-      credentials: "include",
-    });
-
-    if (!response.ok) {
+    try {
+      await signInComplete(data.token, code);
+      goto("/");
+    } catch (e) {
+      submitted = false;
       loading = false;
-      const data = await response.json();
-      if (data.type === "forbidden") {
+      if (e instanceof AuthError && e.type === "forbidden") {
         error = "Invalid code. Please try again.";
       } else {
         error = "Something went wrong. Please try again.";
       }
-      return;
     }
-
-    goto("/");
   }
 </script>
 

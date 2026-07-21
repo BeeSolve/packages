@@ -653,6 +653,27 @@ The `__Host-` prefix is a browser security mechanism. Browsers refuse to set or 
 
 The `aSID` companion cookie is set alongside `__Host-SID` on every session change. Unlike `__Host-SID`, `aSID` is not `HttpOnly`, so client-side JavaScript can read it. It holds `1` when a session is active and `0` (or a negative `Max-Age`) when the session is cleared. Your frontend reads `aSID` to show or hide the logged-in UI state — it never sees the real session token.
 
+For **SPA (Single Page Application)** deployments where there is no SSR to check session state server-side, `aSID` is the primary mechanism for client-side auth-aware routing:
+
+```ts
+// Check if the user has an active session
+function isAuthenticated(): boolean {
+  return document.cookie.includes("aSID=1");
+}
+
+// Example: redirect away from /sign-in if already authenticated
+if (isAuthenticated()) {
+  router.replace("/");
+}
+
+// Example: redirect to /sign-in if not authenticated
+if (!isAuthenticated()) {
+  router.replace("/sign-in");
+}
+```
+
+> **Important:** `aSID` is a UI hint, not a security boundary. The actual session validity is enforced server-side by the Lambda authorizer or in-process session resolution. A tampered `aSID` cookie cannot grant access — it only affects what the client renders before the next server round-trip.
+
 **Q: What are the session expiry and refresh rules?**
 
 Sessions expire after 30 days (`defaultMaxAge = 2_592_000` seconds). The authorizer refreshes the session on every request older than 15 seconds. A refresh creates a new session row and short-expires the old one, so the window where both are valid is at most 30 seconds.

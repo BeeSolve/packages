@@ -1,7 +1,12 @@
 import { randomUUID } from "node:crypto";
 
 import { EventBridge } from "@aws-sdk/client-eventbridge";
-import { TokenThrottledError } from "@beesolve/action-tokens/model";
+import {
+  ExpiredTokenError,
+  TokenAlreadyUsedUpError,
+  TokenInvalidError,
+  TokenThrottledError,
+} from "@beesolve/action-tokens/model";
 import { ActionTokensClient } from "@beesolve/action-tokens/sdk";
 import { asHttpV2Handler } from "@beesolve/lambda-fetch-api";
 import { keptActive } from "@beesolve/lambda-keep-active/runtime";
@@ -89,6 +94,9 @@ const errorResponseMap = new Map<Function, { readonly status: number; readonly t
   [UnauthorizedError, { status: 401, type: "unauthorized" }],
   [BadRequestError, { status: 400, type: "badRequest" }],
   [TokenThrottledError, { status: 429, type: "throttled" }],
+  [TokenInvalidError, { status: 403, type: "forbidden" }],
+  [ExpiredTokenError, { status: 403, type: "forbidden" }],
+  [TokenAlreadyUsedUpError, { status: 403, type: "forbidden" }],
 ]);
 
 const fetch = async (request: Request): Promise<Response> => {

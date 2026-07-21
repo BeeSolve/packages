@@ -1,3 +1,12 @@
+/**
+ * Appends `Set-Cookie` headers for the session.
+ *
+ * Sets two cookies per session entry:
+ * - `__Host-SID` — the actual session token. `HttpOnly` so JavaScript cannot read it.
+ * - `aSID` — a JavaScript-readable companion cookie (`1` = active, `0` = cleared).
+ *   SPAs use this to detect auth state client-side without exposing the session token.
+ *   It is a UI hint only — actual session enforcement happens server-side.
+ */
 export function addSetCookies(props: {
   headers: Headers;
   cookies: Array<{

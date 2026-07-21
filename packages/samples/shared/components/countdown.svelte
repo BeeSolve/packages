@@ -1,26 +1,15 @@
 <script lang="ts">
-  import { onDestroy } from "svelte";
+  import { createCooldown } from "$shared/utils/cooldown.svelte";
 
   interface Props {
-    seconds: number;
-    onComplete?: () => void;
+    targetTime: string;
   }
 
-  let { seconds, onComplete }: Props = $props();
+  let { targetTime }: Props = $props();
 
-  let remaining = $state(seconds);
-
-  const interval = setInterval(() => {
-    remaining--;
-    if (remaining <= 0) {
-      clearInterval(interval);
-      onComplete?.();
-    }
-  }, 1000);
-
-  onDestroy(() => clearInterval(interval));
+  const cooldown = createCooldown(() => targetTime);
 </script>
 
-{#if remaining > 0}
-  <span class="countdown">{remaining}s</span>
+{#if cooldown.active}
+  <span class="countdown">{cooldown.remaining}s</span>
 {/if}

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
   import EmailForm from "$shared/components/emailForm.svelte";
-  import { signInRequest } from "$shared/utils/authClient";
+  import { AuthError, signInRequest } from "$shared/utils/authClient";
 
   let error = $state("");
   let loading = $state(false);
@@ -16,8 +16,13 @@
 
     try {
       const data = await signInRequest(email);
-      goto(`/sign-in/verify?token=${data.token}`);
-    } catch {
+      const params = new URLSearchParams({
+        token: data.token,
+        ...(data.referenceCode != null && { referenceCode: data.referenceCode }),
+        ...(data.canResendAt != null && { canResendAt: data.canResendAt }),
+      });
+      goto(`/sign-in/verify?${params}`);
+    } catch (e) {
       loading = false;
       error = "Something went wrong. Please try again.";
     }

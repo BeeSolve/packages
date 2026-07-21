@@ -1,6 +1,7 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
   import EmailForm from "$shared/components/emailForm.svelte";
+  import { signInRequest } from "$shared/utils/authClient";
 
   let error = $state("");
   let loading = $state(false);
@@ -13,27 +14,13 @@
     const form = event.target as HTMLFormElement;
     const email = new FormData(form).get("email") as string;
 
-    console.log({
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ emailAddress: email }),
-    });
-
-    const response = await fetch("/auth/signInRequest", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ emailAddress: email }),
-    });
-
-    if (!response.ok) {
-      alert(await response.text())
+    try {
+      const data = await signInRequest(email);
+      goto(`/sign-in/verify?token=${data.token}`);
+    } catch {
       loading = false;
       error = "Something went wrong. Please try again.";
-      return;
     }
-
-    const data = await response.json();
-    goto(`/sign-in/verify?token=${data.token}`);
   }
 </script>
 

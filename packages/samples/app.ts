@@ -2,6 +2,8 @@ import { App } from "aws-cdk-lib";
 
 import { EmailAuthorizerStack } from "./authEmailAuthorizer/stack.ts";
 import { EmailSimpleStack } from "./authEmailSimple/stack.ts";
+import { AuthWithEmailStack } from "./authWithEmail/stack.ts";
+import { EmailVerifyStack } from "./emailVerify/stack.ts";
 
 const account = process.env.AWS_ACCOUNT;
 const region = process.env.AWS_REGION;
@@ -17,5 +19,13 @@ new EmailSimpleStack(app, "SamplesAuthEmailSimple", {
 });
 
 new EmailAuthorizerStack(app, "SamplesAuthEmailAuthorizer", {
+  env: { account, region },
+});
+
+new AuthWithEmailStack(app, "SamplesAuthWithEmail", {
+  env: { account, region },
+});
+
+new EmailVerifyStack(app, "SamplesEmailVerify", {
   env: { account, region },
 });
