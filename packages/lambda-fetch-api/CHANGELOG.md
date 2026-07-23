@@ -1,5 +1,11 @@
 # @beesolve/lambda-fetch-api
 
+## 2.0.2
+
+### Patch Changes
+
+- f1e4fc9: Improve documentation: rewrite READMEs for clarity, add ADR documents, and reorganize docs structure.
+
 ## 2.0.1
 
 ### Patch Changes

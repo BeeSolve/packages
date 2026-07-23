@@ -1,5 +1,11 @@
 # @beesolve/email-service
 
+## 0.3.3
+
+### Patch Changes
+
+- f1e4fc9: Improve documentation: rewrite READMEs for clarity, add ADR documents, and reorganize docs structure.
+
 ## 0.3.2
 
 ### Patch Changes
@@ -28,6 +34,7 @@
   **New: `@beesolve/email-service/events`**
 
   Typed EventBridge event types and runtime helpers for both event sources the email service emits:
+
   - `beesolve.email.api` — `EmailSentSuccess`, `EmailSentFailure`
   - `aws.ses` — `SES Delivery`, `SES Bounce`, `SES Complaint`, `SES Message Sent`, `SES Reject`
 
