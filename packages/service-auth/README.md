@@ -1,18 +1,36 @@
 # @beesolve/auth-service
 
-Email-code authentication system backed by AWS DynamoDB and EventBridge, deployable via CDK. Ships three Lambda handlers (API, authorizer, SDK bridge) and a framework-agnostic CDK construct that wires them together with API Gateway, DynamoDB tables, and IAM permissions.
+Passwordless email-code authentication for AWS. Cookie-based, same-domain, serverless.
 
-## Purpose
+- **Cookie-based** — session lives in a `__Host-SID` cookie, no tokens in frontend code
+- **Same-domain** — frontend, auth endpoints, and API all behind one CloudFront distribution
+- **AWS-native & serverless** — DynamoDB, Lambda, CloudFront, EventBridge, API Gateway
+- **Framework-agnostic** — works with any frontend (SPA or SSR), first-class SvelteKit support
 
-The package implements a passwordless, email-code ("magic code") sign-in flow:
+## What This Is
 
-1. The user submits their email address → an OTP code is generated and an `EmailCodeAuth` EventBridge event is emitted (your consumer sends the email).
-2. The user submits the code they received → the session is created and a `__Host-SID` cookie is set.
-3. A Lambda authorizer validates the session cookie on every subsequent request and refreshes the session transparently.
+A self-contained auth microservice you deploy into your AWS account via CDK. It handles:
 
-The auth logic is framework-agnostic — the API handler uses the standard Web `Request`/`Response` API so it can be adapted to any runtime. The CDK construct manages all AWS wiring so consumers only need to provide a frontend URI and a stage name.
+1. Email → OTP code generation → EventBridge event (you send the email)
+2. Code verification → session creation → `__Host-SID` cookie set
+3. Session validation on every request (via Lambda authorizer or in-process)
+4. Session refresh & rotation (transparent to the client)
+5. Sign-out → session invalidation
+
+## What This Is NOT
+
+- **Not an identity provider** — no OAuth, OIDC, SAML, or federation
+- **Not SSO** — sessions are scoped to a single domain/application
+- **Not a user management system** — no profiles, roles, permissions, or password resets
+- **Not multi-tenant** — single flat account table, no organizations
+- **Not a hosted service** — you deploy and own the infrastructure
+- **Not cross-domain** — the `__Host-` cookie prefix means it only works on the exact origin that set it
+
+If you need OAuth/OIDC/SAML or cross-domain SSO, use Cognito, Auth0, or similar. This package is for applications that want simple, self-owned, passwordless auth on a single domain.
 
 ## Installation
+
+Install with your preferred package manager:
 
 ```sh
 npm install @beesolve/auth-service
@@ -20,93 +38,116 @@ npm install @beesolve/auth-service
 bun add @beesolve/auth-service
 ```
 
-## Usage
+## Architecture
 
-### 1 — Infrastructure (CDK)
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     CloudFront Distribution                       │
+│                        app.example.com                            │
+├──────────────┬─────────────────────┬────────────────────────────┤
+│  /auth/*     │  /api/*             │  /*                         │
+│  OAC→Lambda  │  API Gateway        │  S3 or Lambda (your app)   │
+│  Function URL│  + Authorizer       │                             │
+└──────┬───────┴──────────┬──────────┴────────────────────────────┘
+       │                  │
+       ▼                  ▼
+  Auth Handler      Your Lambda(s)
+  (sign-in/out)     (authorized by session cookie)
+       │
+       ▼
+  EventBridge ──→ Your email consumer
+```
 
-Import from `@beesolve/auth-service/cdk` and add the `Auth` construct to your stack.
+Everything runs on a single domain. The browser includes `__Host-SID` automatically on every request — no CORS, no token management, no `Authorization` headers.
+
+## CDK Setup
+
+The package exports two CDK constructs from `@beesolve/auth-service/cdk`:
+
+| Construct     | Use case                                                                                                                             |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `AuthGateway` | Includes an HTTP API Gateway with Lambda authorizer. Use for SPA backends or SSR apps that want authorizer-based session validation. |
+| `AuthService` | Auth endpoints only (no API Gateway). Use for SSR apps doing in-process session resolution.                                          |
+
+### AuthGateway (recommended for SPAs)
 
 ```ts
-import { Auth } from "@beesolve/auth-service/cdk";
+import { AuthGateway } from "@beesolve/auth-service/cdk";
 
-const auth = new Auth(this, "Auth", {
+const auth = new AuthGateway(this, "Auth", {
   stage: "prod",
   frontendUri: "https://app.example.com",
   allowSignUp: true,
 });
+
+// Add your API behind the session authorizer.
+// Path defaults to "/api/{proxy+}" — override with `path` if needed.
+auth.addAuthorizedEndpoint({ lambda: apiHandler });
+
+// Grant SDK access to any Lambda that needs to manage accounts/sessions
+auth.grantSdkAccess(apiHandler);
 ```
 
-The construct provisions:
-
-- **DynamoDB tables** — `Sessions` (with a userId GSI) and `Accounts` (with a reverse-lookup GSI).
-- **Three Lambda functions** — the auth API handler, a Lambda authorizer, and an SDK bridge handler.
-- **Function URL** (`authUrl`) — an IAM-protected endpoint for `signInRequest`, `signInComplete`, `resendCode`, and `signOut`. Access is restricted via CloudFront Origin Access Control (OAC).
-- **Lambda@Edge** — computes `x-amz-content-sha256` for POST body SigV4 signing.
-- **`authBehavior`** — a ready-to-use CloudFront `BehaviorOptions` object that wires the OAC origin and Lambda@Edge together.
-- **`createAuthBehavior(scope)`** — creates the behavior with the edge function scoped to the provided construct, avoiding cross-stack CloudFormation export issues.
-- **HTTP API** (`api`) — an API Gateway HTTP API with the Lambda authorizer attached, used for all routes that require a valid session.
-
-#### Optional props
-
-| Prop                            | Type               | Description                                                                                                 |
-| ------------------------------- | ------------------ | ----------------------------------------------------------------------------------------------------------- |
-| `alarms`                        | `EmailAlarms`      | Attach a `@beesolve/cdk-email-alarms` instance to report Lambda errors by email.                            |
-| `eventBusArn`                   | `string`           | ARN of a custom EventBridge bus. Defaults to the `default` bus.                                             |
-| `warmer`                        | `LambdaKeepActive` | Pass a `@beesolve/lambda-keep-active` instance to keep handlers warm.                                       |
-| `eventSource`                   | `string`           | EventBridge source for all auth events. Defaults to `"beesolve.auth.api"`.                                  |
-| `dataToken`                     | `boolean`          | When `true`, reads `__Host-DataToken` cookie on sign-in and fires a `DataToken` event. Defaults to `false`. |
-| `logGroupProps`                 | `LogGroupProps`    | Override Lambda log group configuration. Defaults to `RemovalPolicy.DESTROY` / 2-week retention.            |
-| `encryptionKey`                 | `IKey`             | Customer-managed KMS key for all data-at-rest resources (DynamoDB tables and SQS queues).                   |
-| `contributorInsights`           | `boolean`          | CloudWatch Contributor Insights on DynamoDB tables. Defaults to `true` in prod.                             |
-| `accessLogging`                 | `boolean`          | Access logging on the HTTP API. Creates a CloudWatch Log Group. Defaults to `true` in prod.                 |
-| `authorizerReservedConcurrency` | `number`           | Reserved concurrent executions for the authorizer Lambda.                                                   |
-| `sdkHandlerReservedConcurrency` | `number`           | Reserved concurrent executions for the SDK handler Lambda.                                                  |
-| `resendCooldown`                | `Duration`         | Minimum time between code generations for the same email. Defaults to `Duration.seconds(60)`.               |
-| `drainOnResend`                 | `boolean`          | Whether the previous OTP token is invalidated on resend. Defaults to `true`.                                |
-
-> [!TIP]
-> When deploying in a VPC, add a DynamoDB VPC Gateway Endpoint to keep traffic off the public internet. Gateway endpoints are free.
-
-#### Adding authorized endpoints
+### AuthService (recommended for SSR)
 
 ```ts
-import { Function } from "aws-cdk-lib/aws-lambda";
+import { AuthService } from "@beesolve/auth-service/cdk";
 
-// Wire any Lambda behind the session-cookie authorizer
-auth.addAuthorizedEndpoint({
-  lambda: myApiLambda, // your Lambda
-  path: "/api/{proxy+}", // optional, defaults to "/api/{proxy+}"
-  methods: [HttpMethod.ANY], // optional, defaults to ANY
+const auth = new AuthService(this, "Auth", {
+  stage: "prod",
+  frontendUri: "https://app.example.com",
+  allowSignUp: true,
 });
+
+// Your SSR handler resolves sessions directly from DynamoDB
+auth.grantSessionAuthorizerAccess(handler);
+auth.grantSdkAccess(handler);
 ```
 
-#### Granting SDK access
+### CloudFront wiring
+
+Both constructs provide `authBehavior` (or `createAuthBehavior(scope)` for cross-stack) to add the `/auth/*` behavior to your CloudFront distribution:
 
 ```ts
-// Gives myLambda permission to invoke the SDK bridge and injects
-// BEESOLVE_AUTH_SDK_HANDLER_ARN into its environment
-auth.grantSdkAccess(myLambda);
+// auth = AuthGateway or AuthService instance from the examples above
+distribution.addBehavior("/auth/*", auth.authBehavior.origin, auth.authBehavior);
 ```
 
-#### Cross-stack usage
+### Authorizer cache presets (AuthGateway only)
 
-When the CloudFront distribution lives in a different stack, use `createAuthBehavior(scope)` instead of `authBehavior` to avoid CloudFormation cross-stack export issues with Lambda@Edge version ARNs:
+| Preset        | Cache TTL                    | Behavior                                                          |
+| ------------- | ---------------------------- | ----------------------------------------------------------------- |
+| `"immediate"` | 0s                           | No cache. Sign-out takes effect instantly.                        |
+| `"balanced"`  | 45s                          | Default. Good balance of cost and freshness.                      |
+| `"relaxed"`   | 1h                           | Lowest cost. Sign-out delayed up to 1h.                           |
+| `"disabled"`  | No cache, no identity source | Required when requests without cookies must reach the authorizer. |
 
-```ts
-// In a different stack from the Auth construct:
-const behavior = auth.createAuthBehavior(this);
-distribution.addBehavior("/auth/*", behavior.origin, behavior);
-```
+### CDK Props
 
-### 2 — Auth flow (client side)
+| Prop                            | Type                      | Description                                                            |
+| ------------------------------- | ------------------------- | ---------------------------------------------------------------------- |
+| `stage`                         | `string`                  | Environment name. `"prod"` enables deletion protection and PITR.       |
+| `frontendUri`                   | `string`                  | Your application URL (used as base URI in events).                     |
+| `allowSignUp`                   | `boolean`                 | Auto-create accounts on first sign-in.                                 |
+| `eventBusArn`                   | `string?`                 | Custom EventBridge bus ARN. Defaults to `default`.                     |
+| `eventSource`                   | `string?`                 | Event source string. Defaults to `"beesolve.auth.api"`.                |
+| `dataToken`                     | `boolean?`                | Read `__Host-DataToken` cookie and emit `DataToken` event on sign-in.  |
+| `sessionDuration`               | `Duration?`               | Session lifetime. Default 30 days.                                     |
+| `otpExpiry`                     | `Duration?`               | OTP code validity. Default 10 minutes.                                 |
+| `resendCooldown`                | `Duration?`               | Minimum time between resends. Default 60s.                             |
+| `drainOnResend`                 | `boolean?`                | Invalidate previous OTP on resend. Default `true`.                     |
+| `encryptionKey`                 | `IKey?`                   | Customer-managed KMS key for DynamoDB and SQS.                         |
+| `alarms`                        | `EmailAlarms?`            | `@beesolve/cdk-email-alarms` instance for error monitoring.            |
+| `warmer`                        | `LambdaKeepActive?`       | Keep handler Lambdas warm.                                             |
+| `waf`                           | `{ rateLimit?: number }?` | WAF rate limiting rule group.                                          |
+| `logGroupProps`                 | `LogGroupProps?`          | Override Lambda log group settings.                                    |
+| `contributorInsights`           | `boolean?`                | DynamoDB Contributor Insights. Default `true` in prod.                 |
+| `authorizerReservedConcurrency` | `number?`                 | Authorizer Lambda reserved concurrency.                                |
+| `sdkHandlerReservedConcurrency` | `number?`                 | SDK handler Lambda reserved concurrency.                               |
+| `authorizerCache`               | preset or `Duration`      | Authorizer cache behavior (AuthGateway only). Default `"balanced"`.    |
+| `accessLogging`                 | `boolean?`                | API Gateway access logging (AuthGateway only). Default `true` in prod. |
 
-The core design principle of this package is **same-domain, cookie-based authorization**. Your frontend, the auth endpoints, and your API all run behind a single CloudFront distribution at one domain (e.g. `app.example.com`). CloudFront routes `/auth/*` to the Lambda function URL and all other paths to your application and API.
-
-Because every request — page loads, auth calls, API calls — shares the same origin, the `__Host-SID` session cookie set by the auth handler is automatically included by the browser on every subsequent API request. There is no cross-origin cookie handling, no token plumbing in your frontend code, and no CORS configuration needed between your app and the API.
-
-Use `auth.authBehavior` to add the `/auth/*` behavior to your CloudFront distribution — it includes the OAC-signed origin and Lambda@Edge for body hashing. See [docs/cloudfront.md](docs/cloudfront.md) for a complete CDK example.
-
-All endpoints expect `POST`, `Content-Type: application/json`.
+## Auth Flow
 
 ```mermaid
 sequenceDiagram
@@ -116,318 +157,117 @@ sequenceDiagram
 
     Browser->>CloudFront: POST /auth/signInRequest {emailAddress}
     CloudFront->>AuthLambda: OAC-signed request
-    AuthLambda-->>CloudFront: 200 {token, referenceCode, canResendAt, expiresAt}
-    CloudFront-->>Browser: 200
+    AuthLambda-->>Browser: 200 {token, referenceCode, canResendAt, expiresAt}
 
     Note over Browser: User receives code via email
 
     Browser->>CloudFront: POST /auth/signInComplete {token, code, redirectTo}
-    CloudFront->>AuthLambda: OAC-signed request
-    AuthLambda-->>CloudFront: 301 + Set-Cookie: __Host-SID, aSID
-    CloudFront-->>Browser: 301 redirect → /dashboard
+    AuthLambda-->>Browser: 200 {redirectTo} + Set-Cookie (JSON mode)
+    Note over Browser: Or 303 + Location (form mode)
 ```
 
-#### Sign-in request
+All endpoints: `POST`. Accepts both `Content-Type: application/json` and `application/x-www-form-urlencoded`.
+
+### Endpoints
+
+**POST /auth/signInRequest**
 
 ```ts
-const res = await fetch("/auth/signInRequest", {
+const { token, referenceCode, canResendAt, expiresAt } = await fetch("/auth/signInRequest", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify({ emailAddress: "user@example.com" }),
-});
-const { token, referenceCode, canResendAt, expiresAt } = await res.json();
-// save `token` for signInComplete or resendCode
+}).then((r) => r.json());
 ```
 
-This emits an `EmailCodeAuth` EventBridge event. Your event consumer should send the code to the user's email address.
+Emits `EmailCodeAuth` event. Your consumer sends the email.
 
-#### Resend code
+**POST /auth/resendCode**
 
 ```ts
-const res = await fetch("/auth/resendCode", {
+const {
+  token: newToken,
+  referenceCode,
+  canResendAt,
+  expiresAt,
+} = await fetch("/auth/resendCode", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify({ token }),
-});
-const { token: newToken, referenceCode, canResendAt, expiresAt } = await res.json();
-// Replace stored token with newToken for signInComplete
+}).then((r) => r.json());
 ```
 
-Returns HTTP 429 if called before the cooldown (default 60s) has elapsed. The previous token is drained (invalidated) by default.
+Returns 429 if called before cooldown. Previous token is drained by default.
 
-#### Sign-in complete
+**POST /auth/signInComplete**
 
 ```ts
 const res = await fetch("/auth/signInComplete", {
   method: "POST",
-  headers: { "Content-Type": "application/json" },
+  headers: { "Content-Type": "application/json", Accept: "application/json" },
   body: JSON.stringify({ token, code: "123456", redirectTo: "/dashboard" }),
+  credentials: "include",
 });
-// 301 redirect with __Host-SID and aSID cookies set
+const { redirectTo } = await res.json();
+window.location.href = redirectTo;
+// → 200 JSON with redirectTo, __Host-SID and aSID cookies set
+// Without Accept: application/json → 303 redirect (for native form submissions)
 ```
 
-#### Sign out
+**POST /auth/signOut**
 
 ```ts
-await fetch("/auth/signOut", {
+const res = await fetch("/auth/signOut", {
   method: "POST",
-  headers: { "Content-Type": "application/json" },
+  headers: { "Content-Type": "application/json", Accept: "application/json" },
   body: JSON.stringify({ redirectTo: "/" }),
+  credentials: "include",
 });
-// 301 redirect with __Host-SID cookie cleared
+const { redirectTo } = await res.json();
+window.location.href = redirectTo;
+// → 200 JSON with redirectTo, cookies cleared
+// Without Accept: application/json → 303 redirect (for native form submissions)
 ```
 
-### 3 — SDK client (server-to-server)
+## Integration Patterns
 
-Use `AuthClient` from `@beesolve/auth-service/sdk` inside Lambdas that have been granted SDK access via `grantSdkAccess`. The client reads `BEESOLVE_AUTH_SDK_HANDLER_ARN` from the environment automatically.
+### Pattern 1: SPA + Lambda Authorizer
 
-```ts
-import { AuthClient } from "@beesolve/auth-service/sdk";
-
-const auth = new AuthClient();
-
-// Look up an account ID by email
-const result = await auth.invoke({
-  type: "accountIdByEmail",
-  request: { emailAddress: "user@example.com" },
-});
-// result: { id: string } | null
-
-// Create a new email account
-const { id } = await auth.invoke({
-  type: "newEmailAccount",
-  request: { emailAddress: "new@example.com" },
-});
-
-// List active sessions for an account
-const sessions = await auth.invoke({
-  type: "sessionList",
-  request: { accountId: id },
-});
-
-// Delete all sessions for an account (optionally keep one)
-await auth.invoke({
-  type: "deleteAllSessions",
-  request: { accountId: id, exceptSessionId: "keep-this-one" },
-});
-```
-
-### 4 — EventBridge events
-
-All events are emitted on the configured event bus with source `"beesolve.auth.api"` (or the value of `eventSource`).
-
-| `detail-type`          | Fired when                                | Key fields                                                                                                                                      |
-| ---------------------- | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `EmailCodeAuth`        | Sign-in requested or code resent          | `accountId` (null for new users), `code`, `expiresAt`, `emailAddress`, `referenceCode`, `baseUri`, `cookies`, `acceptLanguage`, `requestOrigin` |
-| `EmailAddressVerified` | New account created on first sign-in      | `accountId`, `emailAddress`, `verifiedAt`                                                                                                       |
-| `DataToken`            | Sign-in complete with `dataToken` enabled | `accountId`, `emailAddress`, `dataToken`                                                                                                        |
-| `SuccessfulAuth`       | _(reserved)_                              | `userId`                                                                                                                                        |
-| `UnsuccessfulAuth`     | Sign-in failed (invalid/expired code)     | `emailAddress`, `reason`                                                                                                                        |
-| `SessionInvalidated`   | Sign out                                  | `sessionId`                                                                                                                                     |
-| `EmailInvitation`      | _(reserved)_                              | `emailAddress`, `baseUri`                                                                                                                       |
-
-> **Important**: `EmailCodeAuth` is the integration point for email delivery. Subscribe an EventBridge rule to this event and implement your own email-sending logic (e.g. using `@beesolve/service-email`).
-
-### 5 — Public cookie utilities
-
-The main export (`@beesolve/auth-service`) exposes the cookie helpers used internally, which are useful for server-side middleware:
-
-```ts
-import {
-  addSetCookies,
-  parseSid,
-  parseDataTokenCookie,
-  toDataTokenCookie,
-} from "@beesolve/auth-service";
-
-// Parse the session ID from a Cookie header
-const sid = parseSid(request.headers.get("cookie")); // string | null
-
-// Parse the data token from a Cookie header
-const dataToken = parseDataTokenCookie(request.headers.get("cookie")); // string | null
-
-// Build a data-token Set-Cookie string (Max-Age 900s, SameSite=Strict)
-const setCookie = toDataTokenCookie("my-token");
-
-// Append __Host-SID and aSID Set-Cookie headers (pass maxAge=-1 to clear)
-addSetCookies({
-  headers: responseHeaders,
-  cookies: [{ sid: sessionId, maxAge: 2592000 }],
-});
-```
-
-### 6 — Error types
-
-The main export also exposes the HTTP error classes used by the API handler:
-
-```ts
-import {
-  BadRequestError,
-  ForbiddenError,
-  NotFoundError,
-  UnauthorizedError,
-} from "@beesolve/auth-service";
-```
-
-Each class extends `Error` and carries a `stringified: boolean` property that is `true` when the constructor received a non-string argument (the `message` is then `JSON.stringify(argument)`).
-
-### 7 — Session middleware
-
-```mermaid
-sequenceDiagram
-    participant Browser
-    participant CloudFront
-    participant APIGateway
-    participant Authorizer
-    participant YourLambda
-
-    Browser->>CloudFront: GET /api/data (Cookie: __Host-SID=...)
-    CloudFront->>APIGateway: forward request
-    APIGateway->>Authorizer: invoke (Cookie header)
-    Authorizer->>Authorizer: parse __Host-SID, lookup session in DynamoDB
-    Authorizer-->>APIGateway: Allow + session context {userId, sessionId, type: "valid"}
-    APIGateway->>YourLambda: invoke with authorizer context
-    YourLambda-->>APIGateway: 200 response
-    APIGateway-->>CloudFront: 200
-    CloudFront-->>Browser: 200
-```
-
-The package exports `getSessionContext` which retrieves and validates the session from the Lambda authorizer context. It auto-detects HTTP API (v2) vs REST API (v1):
-
-```ts
-import { addSetCookies, getSessionContext } from "@beesolve/auth-service";
-
-export async function handler(request: Request, resHeaders: Headers): Promise<Response> {
-  const session = await getSessionContext();
-  const userId = session.type === "valid" ? session.validSession.userId : null;
-
-  // Forward session refresh/clear cookies to the response
-  addSetCookies({ headers: resHeaders, cookies: session.setCookiesParams });
-
-  if (userId == null) {
-    return new Response("Unauthorized", { status: 401 });
-  }
-
-  return new Response(JSON.stringify({ userId }));
-}
-```
-
-For explicit control over API version detection:
-
-```ts
-import { getSessionContextV1, getSessionContextV2 } from "@beesolve/auth-service";
-
-// HTTP API (v2) — reads event.requestContext.authorizer.lambda
-const session = await getSessionContextV2();
-
-// REST API (v1) — reads event.requestContext.authorizer
-const session = await getSessionContextV1();
-```
-
-### 8 — Usage with tRPC
-
-When using `@trpc/server` with a fetch adapter, create a context factory that retrieves the session and forwards cookies:
-
-```ts
-// context.ts
-import { addSetCookies, getSessionContext } from "@beesolve/auth-service";
-import type { FetchCreateContextFnOptions } from "@trpc/server/adapters/fetch";
-
-export async function createContext({ resHeaders }: FetchCreateContextFnOptions) {
-  const session = await getSessionContext();
-  const userId = session.type === "valid" ? session.validSession.userId : null;
-
-  return {
-    resHeaders: addSetCookies({ headers: resHeaders, cookies: session.setCookiesParams }),
-    userId,
-  };
-}
-
-export type Context = Awaited<ReturnType<typeof createContext>>;
-```
-
-Then use the context in your router:
-
-```ts
-// router.ts
-import { initTRPC, TRPCError } from "@trpc/server";
-import type { Context } from "./context";
-
-const t = initTRPC.context<Context>().create();
-
-const authed = t.middleware(({ ctx, next }) => {
-  if (ctx.userId == null) {
-    throw new TRPCError({ code: "UNAUTHORIZED" });
-  }
-  return next({ ctx: { ...ctx, userId: ctx.userId } });
-});
-
-export const protectedProcedure = t.procedure.use(authed);
-```
-
-### 9 — Local development
-
-In local dev (e.g., a Bun server), there is no API Gateway or Lambda authorizer. The `@beesolve/auth-service/dev` export provides `withDevSession` which wraps your fetch handler and injects a fake authorizer context, so `getSessionContext` works without AWS:
-
-```ts
-import { withDevSession } from "@beesolve/auth-service/dev";
-import { serve } from "bun";
-import api from "./api";
-
-const devApi = withDevSession(api.fetch, { userId: "user-123" });
-
-serve({
-  routes: {
-    "/api/*": (request) => devApi(request),
-  },
-});
-```
-
-`withDevSession` accepts:
-
-- `handler` — your fetch handler (`(request: Request) => Promise<Response>`)
-- `session` — an object with at least `userId`. Optionally provide `sessionId` and `expiresAt`.
-
-The wrapper runs your handler inside `runWithAwsContext` with a fake API Gateway v2 event containing the session, so all middleware that reads from the authorizer context works transparently.
-
-### 10 — SvelteKit Integration
-
-Import from `@beesolve/auth-service/sveltekit` to wire up session handling in a SvelteKit app deployed with [kit-on-lambda](https://github.com/BeeSolve/kit-on-lambda).
-
-Works with both HTTP API (v2) and REST API (v1) — auto-detected at runtime.
-
-#### Integration Patterns
-
-There are three deployment patterns depending on your frontend architecture:
-
-##### Pattern 1: SPA + Lambda Authorizer (cached)
-
-Static frontend (S3/CloudFront) with a separate API Lambda. The gateway returns 401 for unauthenticated API calls — the SPA handles this client-side.
+Static frontend (S3/CloudFront) with a separate API Lambda behind API Gateway. Best for React, Vue, Angular, or any SPA.
 
 ```ts
 // CDK
-auth.addAuthorizedEndpoint({ lambda: apiHandler, path: "/api/{proxy+}" });
+const auth = new AuthGateway(this, "Auth", { stage, frontendUri, allowSignUp: true });
+auth.addAuthorizedEndpoint({ lambda: apiHandler }); // defaults to /api/{proxy+}
 ```
 
-- Authorizer caching enabled via cookie identity source
-- Best for: React/Vue/Svelte SPAs with a REST API backend
+**How it works:** The SPA calls `/auth/*` for sign-in (same domain, cookies set automatically). API calls to `/api/*` include the cookie; the Lambda authorizer validates the session. If the session is invalid, API Gateway returns the authorizer context with `type: "invalid"` — your handler returns 401.
 
-##### Pattern 2: SSR + Lambda Authorizer (cached) + CloudFront Function
+**Client-side auth detection via `aSID`:**
 
-SvelteKit on Lambda via kit-on-lambda. A CloudFront Function injects a placeholder cookie (`__Host-SID=anonym`) on requests where the cookie is absent, ensuring API Gateway's `identitySource` is always satisfied. The authorizer caches normally — anonymous requests cache to "session invalid" context, and the SSR app handles redirects.
+```ts
+// aSID is a non-HttpOnly companion cookie: "1" when logged in, "0" when not
+function isAuthenticated(): boolean {
+  return document.cookie.includes("aSID=1");
+}
+
+// Route guard
+if (!isAuthenticated()) router.replace("/sign-in");
+```
+
+> `aSID` is a UI hint, not a security boundary. Actual enforcement happens server-side.
+
+### Pattern 2: SSR + Lambda Authorizer + CloudFront Function
+
+SvelteKit (or any SSR framework) on Lambda. The authorizer validates sessions; a CloudFront Function injects `__Host-SID=anonym` on cookieless requests so the authorizer's `identitySource` is always satisfied.
 
 ```ts
 // CDK
-const site = new SvelteKit(this, "Site", {
-  toDefaultOrigin: ({ handler }) => {
-    auth.addAuthorizedEndpoint({ lambda: handler, path: "/{proxy+}" });
-    auth.grantSdkAccess(handler);
-    return new HttpOrigin(Fn.parseDomainName(auth.api.url!));
-  },
-});
+const auth = new AuthGateway(this, "Auth", { stage, frontendUri, allowSignUp: true });
+auth.addAuthorizedEndpoint({ lambda: svelteHandler, path: "/{proxy+}" });
 
 // Attach ensureCookieFunction to the default behavior
-const cfnDist = site.distribution.node.defaultChild as CfnDistribution;
+const cfnDist = distribution.node.defaultChild as CfnDistribution;
 cfnDist.addPropertyOverride("DistributionConfig.DefaultCacheBehavior.FunctionAssociations", [
   { EventType: "viewer-request", FunctionARN: auth.ensureCookieFunction.functionArn },
 ]);
@@ -439,35 +279,20 @@ import { createSessionHandle } from "@beesolve/auth-service/sveltekit";
 export const handle = sequence(createSessionHandle(), authGuard);
 ```
 
-- Pros: authorizer caching works, clean separation, no DynamoDB access on the handler
-- Cons: 2 Lambda invocations per request (mitigated by caching on repeat requests)
-- Best for: SSR apps that want authorizer separation with caching benefits
+### Pattern 3: SSR + In-process session resolution (recommended for SSR)
 
-> **Important:** Add `@beesolve/lambda-fetch-api` to Vite's SSR externals in your
-> `vite.config.ts` so that the `AsyncLocalStorage` instance is shared between the
-> handler and hooks (prevents esbuild deduplication issues):
->
-> ```ts
-> export default defineConfig({
->   plugins: [sveltekit()],
->   ssr: {
->     external: ["@beesolve/lambda-fetch-api"],
->   },
-> });
-> ```
-
-> **Note:** If you don't need authorizer caching and prefer to skip the CloudFront Function,
-> set `authorizerCache: "disabled"` which removes the `identitySource` requirement entirely.
-> The authorizer is then invoked on every request without caching.
-
-##### Pattern 3: SSR + In-process session resolution (recommended for SSR)
-
-SvelteKit on Lambda via kit-on-lambda. The handler resolves the session from DynamoDB directly — no authorizer Lambda involved.
+SvelteKit on Lambda. The handler resolves sessions from DynamoDB directly — no authorizer Lambda, single invocation per request, lowest latency.
 
 ```ts
-// CDK
+// CDK — using AuthGateway (when you also need API Gateway for other routes)
+const auth = new AuthGateway(this, "Auth", { stage, frontendUri, allowSignUp: true });
 auth.addPublicEndpoint({ lambda: handler });
-auth.grantSessionAccess(handler);
+auth.grantSessionAccess(handler); // grants DynamoDB access for in-process session resolution
+auth.grantSdkAccess(handler);
+
+// CDK — using AuthService (no API Gateway at all)
+const auth = new AuthService(this, "Auth", { stage, frontendUri, allowSignUp: true });
+auth.grantSessionAuthorizerAccess(handler); // equivalent to grantSessionAccess on AuthGateway
 auth.grantSdkAccess(handler);
 ```
 
@@ -489,207 +314,314 @@ const authGuard: Handle = async ({ event, resolve }) => {
 export const handle = sequence(createInProcessSessionHandle(), authGuard);
 ```
 
-- Pros: single Lambda invocation, lowest latency
-- Cons: SvelteKit handler has DynamoDB access to the sessions table
-- Best for: most SvelteKit SSR applications
+> **Vite config:** Add `@beesolve/lambda-fetch-api` to SSR externals to avoid `AsyncLocalStorage` deduplication:
+>
+> ```ts
+> export default defineConfig({
+>   plugins: [sveltekit()],
+>   ssr: { external: ["@beesolve/lambda-fetch-api"] },
+> });
+> ```
 
-See [ADR-002](docs/adr-002-ssr-authorizer-pattern.md) and [ADR-003](docs/adr-003-inprocess-session-resolution.md) for the architectural reasoning.
+### Pattern 4: Non-SvelteKit SSR / Custom handler
 
-#### Setup
-
-**src/app.d.ts:**
+Use `SessionAuthorizer` from `@beesolve/auth-service/sessionAuthorizer` directly:
 
 ```ts
-import type { SessionContext } from "@beesolve/auth-service/sveltekit";
+import { SessionAuthorizer, withSession } from "@beesolve/auth-service/sessionAuthorizer";
 
-declare global {
-  namespace App {
-    interface Locals {
-      session: SessionContext;
+const authorizer = new SessionAuthorizer();
+
+// Option A: withSession wrapper — rejects unauthenticated requests with 401 automatically
+export const handler = withSession(authorizer, async (request, session) => {
+  // session is guaranteed valid here (userId, sessionId, expiresAt)
+  return new Response(JSON.stringify({ userId: session.userId }));
+});
+
+// Option B: manual control inside your own handler for mixed public/protected routes
+export async function handler(request: Request): Promise<Response> {
+  const result = await authorizer.authorize(request.headers);
+
+  if (result.type !== "valid") {
+    return new Response("Unauthorized", { status: 401 });
+  }
+
+  return new Response(JSON.stringify({ userId: result.validSession.userId }));
+}
+```
+
+Requires `grantSessionAuthorizerAccess(handler)` (or `grantSessionAccess` on `AuthGateway`) on the CDK construct.
+
+## Session Middleware (API Gateway pattern)
+
+When using `AuthGateway` with `addAuthorizedEndpoint`, your handler receives session state via the authorizer context:
+
+```ts
+import { addSetCookies, getSessionContext } from "@beesolve/auth-service";
+
+export async function handler(request: Request, resHeaders: Headers): Promise<Response> {
+  const session = await getSessionContext();
+
+  // Forward session refresh cookies to the response
+  if (session.type !== "none") {
+    addSetCookies({ headers: resHeaders, cookies: session.setCookiesParams });
+  }
+
+  if (session.type !== "valid") {
+    return new Response("Unauthorized", { status: 401 });
+  }
+
+  return new Response(JSON.stringify({ userId: session.validSession.userId }));
+}
+```
+
+The authorizer always returns `Allow` — session state (`"valid"`, `"expired"`, `"invalid"`) is passed as context. This lets handlers differentiate between anonymous, expired, and authenticated requests.
+
+### tRPC example
+
+```ts
+import { addSetCookies, getSessionContext } from "@beesolve/auth-service";
+import type { FetchCreateContextFnOptions } from "@trpc/server/adapters/fetch";
+
+export async function createContext({ resHeaders }: FetchCreateContextFnOptions) {
+  const session = await getSessionContext();
+  const userId = session.type === "valid" ? session.validSession.userId : null;
+  return {
+    resHeaders: addSetCookies({ headers: resHeaders, cookies: session.setCookiesParams }),
+    userId,
+  };
+}
+```
+
+## SDK Client
+
+Use `AuthClient` from `@beesolve/auth-service/sdk` in Lambdas granted access via `grantSdkAccess`:
+
+```ts
+import { AuthClient } from "@beesolve/auth-service/sdk";
+
+const auth = new AuthClient();
+
+// Look up account by email
+const result = await auth.invoke({
+  type: "accountIdByEmail",
+  request: { emailAddress: "user@example.com" },
+});
+// → { id: string } | null
+
+// Create account
+const { id } = await auth.invoke({
+  type: "newEmailAccount",
+  request: { emailAddress: "new@example.com" },
+});
+
+// List active sessions
+const sessions = await auth.invoke({ type: "sessionList", request: { accountId: id } });
+
+// Delete all sessions (force sign-out everywhere)
+await auth.invoke({
+  type: "deleteAllSessions",
+  request: { accountId: id, exceptSessionId: "keep-this" },
+});
+```
+
+## EventBridge Events
+
+All events are emitted on the configured bus with source `"beesolve.auth.api"` (or your `eventSource` value).
+
+| Event                  | When                                    | Key fields                                                                   |
+| ---------------------- | --------------------------------------- | ---------------------------------------------------------------------------- |
+| `EmailCodeAuth`        | Sign-in requested / code resent         | `accountId`, `code`, `expiresAt`, `emailAddress`, `referenceCode`, `baseUri` |
+| `EmailAddressVerified` | New account created (first sign-in)     | `accountId`, `emailAddress`, `verifiedAt`                                    |
+| `DataToken`            | Sign-in complete with `dataToken: true` | `accountId`, `emailAddress`, `dataToken`                                     |
+| `SuccessfulAuth`       | Sign-in succeeded                       | `userId`                                                                     |
+| `UnsuccessfulAuth`     | Sign-in failed (invalid/expired code)   | `emailAddress`, `reason`                                                     |
+| `SessionInvalidated`   | Sign-out                                | `sessionId`                                                                  |
+
+> **You must subscribe to `EmailCodeAuth` and send the email yourself.** Use `@beesolve/email-service` or any email provider. See the `authWithEmail` sample for a complete implementation.
+
+### Consuming events
+
+```ts
+import type { SQSEvent } from "aws-lambda";
+import { parseAuthEvent, isEmailCodeAuth, isUnsuccessfulAuth } from "@beesolve/auth-service/events";
+
+export async function handler(event: SQSEvent): Promise<void> {
+  for (const record of event.Records) {
+    const authEvent = parseAuthEvent(record.body);
+    if (authEvent == null) continue;
+
+    if (isEmailCodeAuth(authEvent)) {
+      await sendVerificationEmail({
+        to: authEvent.detail.emailAddress,
+        code: authEvent.detail.code,
+        referenceCode: authEvent.detail.referenceCode,
+        expiresAt: authEvent.detail.expiresAt,
+      });
+    }
+
+    if (isUnsuccessfulAuth(authEvent)) {
+      console.warn(`Failed sign-in: ${authEvent.detail.reason}`);
     }
   }
 }
-
-export {};
 ```
 
-**src/hooks.server.ts:**
+## Local Development
 
-```ts
-import { createSessionHandle } from "@beesolve/auth-service/sveltekit";
-import { redirect, type Handle } from "@sveltejs/kit";
-import { sequence } from "@sveltejs/kit/hooks";
+### SvelteKit
 
-const publicPaths = new Set(["/sign-in", "/sign-in/verify", "/sign-out"]);
-
-const authGuard: Handle = async ({ event, resolve }) => {
-  const isPublic = publicPaths.has(event.url.pathname);
-
-  if (event.locals.session.type !== "valid" && !isPublic) {
-    redirect(303, "/sign-in");
-  }
-
-  return resolve(event);
-};
-
-export const handle = sequence(createSessionHandle(), authGuard);
-```
-
-`createSessionHandle` populates `event.locals.session` on every request. On Lambda it reads the authorizer context; locally (when `LAMBDA_TASK_ROOT` is not set) it falls back to a dev preset.
-
-#### Local development fallbacks
-
-When running `vite dev` there is no Lambda authorizer. By default `createSessionHandle` provides a valid dev session. Switch presets to simulate other states:
+`createSessionHandle` and `createInProcessSessionHandle` auto-detect Lambda vs local. Locally, they inject a dev session:
 
 ```ts
 import {
   createSessionHandle,
-  devExpiredSession,
-  devInvalidSession,
-  devNoneSession,
-  devValidSession,
+  devValidSession, // default — logged in as "dev-user"
+  devInvalidSession, // no session cookie
+  devExpiredSession, // expired session
+  devNoneSession, // authorizer didn't run
 } from "@beesolve/auth-service/sveltekit";
 
-// Simulate an expired session locally
+// Simulate expired session
 export const handle = sequence(
   createSessionHandle({ fallbackSession: devExpiredSession }),
   authGuard,
 );
 ```
 
-Available presets: `devValidSession` (default), `devInvalidSession`, `devExpiredSession`, `devNoneSession`.
+### Non-SvelteKit (Bun/Node server)
 
-You can also provide a custom fallback:
-
-```ts
-export const handle = sequence(
-  createSessionHandle({
-    fallbackSession: {
-      type: "valid",
-      validSession: { userId: "ivan", sessionId: "abc", expiresAt: "2099-01-01T00:00:00Z" },
-      setCookiesParams: [],
-    },
-  }),
-  authGuard,
-);
-```
-
-#### Accessing the session in routes
+Use `withDevSession` to wrap your fetch handler with a fake API Gateway context so `getSessionContext` works locally:
 
 ```ts
-// +page.server.ts
-import { redirect } from "@sveltejs/kit";
+import { serve } from "bun";
+import { withDevSession } from "@beesolve/auth-service/dev";
+import { myApiHandler } from "./api";
 
-export function load({ locals }) {
-  if (locals.session.type !== "valid") {
-    redirect(303, "/sign-in");
-  }
+const devApi = withDevSession(myApiHandler, { userId: "dev-user-123" });
 
-  return { userId: locals.session.validSession.userId };
-}
+serve({
+  port: 3000,
+  routes: {
+    "/api/*": (request) => devApi(request),
+  },
+});
 ```
 
-#### Direct access to session context
+## Samples
 
-For advanced use cases where you need full control over v1/v2 detection:
+See [`packages/samples`](../samples/) for deployable reference implementations:
 
-```ts
-import {
-  getSessionContext,
-  getSessionContextV1,
-  getSessionContextV2,
-} from "@beesolve/auth-service/sveltekit";
+| Sample                | Pattern          | Description                                                      |
+| --------------------- | ---------------- | ---------------------------------------------------------------- |
+| `authEmailSimple`     | SSR + in-process | Minimal auth, session check in SvelteKit hooks                   |
+| `authEmailAuthorizer` | SSR + authorizer | Session validation via Lambda authorizer                         |
+| `authWithEmail`       | SSR + in-process | Full auth with real email delivery via `@beesolve/email-service` |
 
-// Auto-detect (recommended)
-const session = await getSessionContext();
+## Caveats & Constraints
 
-// Explicit v2 (HTTP API)
-const session = await getSessionContextV2();
+1. **Single domain required.** Frontend, `/auth/*`, and `/api/*` must be behind one CloudFront distribution. The `__Host-` cookie prefix means the cookie cannot be shared across subdomains or origins.
 
-// Explicit v1 (REST API)
-const session = await getSessionContextV1();
-```
+2. **CloudFront is mandatory.** The auth endpoint is protected by Origin Access Control (OAC). Browsers cannot call the Lambda function URL directly.
 
-These functions work anywhere within a Lambda invocation (hooks, load functions, API routes) because the context is stored in `AsyncLocalStorage` by `@beesolve/lambda-fetch-api`.
+3. **You send the emails.** The auth service emits `EmailCodeAuth` events via EventBridge. You subscribe and implement email delivery — use `@beesolve/email-service` or any email provider (SES, Resend, etc.). See the `authWithEmail` sample.
+
+4. **No built-in UI.** You build your own sign-in form. See the samples for reference.
+
+5. **Email-only authentication.** Only email-code sign-in is currently supported.
+
+6. **`allowSignUp: false` requires pre-creating accounts.** Use the SDK (`newEmailAccount`) to provision accounts before users can sign in.
+
+7. **Session cookies require HTTPS.** The `__Host-` prefix mandates `Secure`. Local dev uses fallback sessions instead of real cookies. For local HTTPS testing (e.g. testing actual cookie behavior), use `devcert` or `mkcert` to generate a local certificate.
+
+8. **30-day sessions with transparent rotation.** Sessions auto-refresh on every request older than 15 seconds. A refresh creates a new session and short-expires the old one — both are valid for up to 30 seconds during rotation. This is conceptually similar to access+refresh token rotation in OAuth, but entirely server-side with no client-side token management. The cookie is the only credential the browser ever sees.
+
+## Troubleshooting
+
+**"403 Forbidden" on `/auth/*` requests**
+
+The browser is hitting the Lambda function URL directly (bypassing CloudFront) or OAC is misconfigured. Ensure requests go through your CloudFront distribution's `/auth/*` behavior.
+
+**Cookie not being sent on API requests**
+
+- Verify the API is on the same domain as the auth endpoints (same CloudFront distribution)
+- Check that you're not testing from `localhost` against a deployed API (different origin)
+- In local dev, use the fallback session mechanism instead of real cookies
+
+**Authorizer returns "invalid" immediately after sign-in**
+
+If using Pattern 2 with authorizer caching: the first cookieless request may have cached an "invalid" response. Ensure the `ensureCookieFunction` is attached to the CloudFront behavior. Alternatively, use `authorizerCache: "disabled"`.
+
+**`getSessionContext()` returns `{ type: "none" }`**
+
+- You're calling it outside a Lambda invocation context
+- `@beesolve/lambda-fetch-api` is not in Vite's SSR externals (causes `AsyncLocalStorage` instance duplication)
+- The route is behind `addPublicEndpoint` (no authorizer runs)
+
+**SDK invocation fails with "Cannot invoke synchronous action"**
+
+- `grantSdkAccess` was not called on the Lambda
+- `BEESOLVE_AUTH_SDK_HANDLER_ARN` environment variable is missing
+
+**"Email not registered" error on sign-in**
+
+`allowSignUp` is `false` and the email has no account. Create the account first via the SDK.
 
 ## FAQ
 
-**Q: How does the authorizer work?**
+**How does the frontend know if the user is logged in if `__Host-SID` is HttpOnly?**
 
-The Lambda authorizer is attached to API Gateway as a `HttpLambdaAuthorizer` with a configurable result cache keyed on `$request.header.Cookie`. On each request it parses `__Host-SID` from the cookie, fetches the session from DynamoDB, and returns the session state to downstream Lambdas as `event.requestContext.authorizer.lambda.session`.
+The `aSID` companion cookie is set alongside `__Host-SID`. It's not HttpOnly, so JavaScript can read it. It holds `1` when logged in. It's a UI hint — actual enforcement is server-side.
 
-**The authorizer always returns `Effect: "Allow"`** — this is intentional. Session state (`"valid"`, `"expired"`, or `"invalid"`) is serialized into the authorizer context, and enforcement happens at the handler level. This design allows handlers to differentiate between anonymous, expired, and authenticated requests (e.g., showing different content or returning a specific error).
+**Why does `signInComplete` support two response modes?**
 
-To enforce authentication in your handlers, use `getSessionContext` and check `session.type` (see section 7).
+When called with `Accept: application/json` (SPAs using `fetch()`), it returns a 200 JSON response with `{ redirectTo }` — the frontend reads this and navigates programmatically. When called without that header (native `<form>` submissions), it returns a 303 redirect with a `Location` header so the browser navigates automatically. This enables progressive enhancement: auth works without JavaScript via standard form submissions. See [ADR-005](docs/adr-005-dual-mode-request-response.md).
 
-**Q: What does `allowSignUp` control?**
+**What is the reference code?**
 
-When `allowSignUp: false`, users who complete the OTP flow but have no existing account receive a `400 BadRequest` (`"Email not registered."`). Set it to `true` to auto-create an account on first sign-in.
+A random string included in both the API response and the `EmailCodeAuth` event. Display it in the email subject so users can match multiple in-flight codes.
 
-**Q: What is the `dataToken` feature?**
+**Why does the authorizer always return "Allow"?**
 
-When `dataToken: true` is set on the CDK construct, the auth API reads a `__Host-DataToken` cookie from the sign-in request. On successful authentication it fires a `DataToken` EventBridge event containing the account ID, email, and the raw token value. This enables anonymous-to-authenticated data handoff (e.g. linking an anonymous shopping cart to a user account).
+Two reasons: (1) session state is passed as context, which lets handlers differentiate between anonymous, expired, and authenticated users (e.g. returning different content or specific error codes). (2) API Gateway strips `Set-Cookie` headers from denied responses — always allowing means the handler can send back session refresh/clear cookies on every response, keeping the session rotation working transparently.
 
-**Q: Can I use a custom EventBridge bus?**
+**Can I use a custom EventBridge bus?**
 
-Yes. Pass `eventBusArn` to the CDK construct. If omitted, the `default` event bus is used.
+Yes, pass `eventBusArn` to the CDK construct.
 
-**Q: Why do client examples use relative URLs with no base address?**
+**What is the `dataToken` feature?**
 
-Everything — the frontend, `/auth/*` endpoints, and `/api/*` routes — is served from a single CloudFront distribution on one domain. Because the browser is already on that domain, relative paths like `/auth/signInRequest` resolve to the same origin automatically. This also means `credentials: "include"` is unnecessary (same-origin requests include cookies by default) and there is zero CORS configuration. The `__Host-SID` cookie "just works" because the cookie's origin matches every request the browser makes.
+When enabled, the auth API reads a `__Host-DataToken` cookie on sign-in and emits a `DataToken` event with the account ID and token value. Use this for anonymous-to-authenticated data handoff (e.g. linking an anonymous cart to a user).
 
-**Q: Why does `signInComplete` return a redirect instead of JSON?**
+**What about VPC deployments?**
 
-The redirect (HTTP 301) sets `__Host-SID` and `aSID` cookies as part of the response. This allows the browser to store the session cookie in a single round-trip, then follow the redirect to the destination page.
+Add a DynamoDB VPC Gateway Endpoint (free) to keep traffic off the public internet.
 
-**Q: Why are session cookies prefixed with `__Host-`?**
+## Package Exports
 
-The `__Host-` prefix is a browser security mechanism. Browsers refuse to set or send a `__Host-` cookie unless it is `Secure`, has no `Domain` attribute, and has `Path=/`. This means:
+| Export                                     | Purpose                                                            |
+| ------------------------------------------ | ------------------------------------------------------------------ |
+| `@beesolve/auth-service`                   | Cookie utilities, session context, error types                     |
+| `@beesolve/auth-service/cdk`               | `AuthGateway` and `AuthService` CDK constructs                     |
+| `@beesolve/auth-service/sdk`               | `AuthClient` for server-to-server account/session management       |
+| `@beesolve/auth-service/events`            | Event types, `parseAuthEvent`, type guards                         |
+| `@beesolve/auth-service/sessionAuthorizer` | `SessionAuthorizer` for in-process session resolution              |
+| `@beesolve/auth-service/sveltekit`         | `createSessionHandle`, `createInProcessSessionHandle`, dev presets |
+| `@beesolve/auth-service/dev`               | `withDevSession` for local dev without Lambda                      |
 
-- The cookie cannot be set by a subdomain or a non-HTTPS response — the server can be confident the value came from the exact first-party origin it set it on.
-- `__Host-SID` is also `HttpOnly`, so JavaScript running in the browser (including third-party scripts) can never read the session token via `document.cookie`. Even if an XSS attack injects a script, the session token is not exfiltrated.
+## Further Reading
 
-**Q: How does the frontend know if the user is logged in if `__Host-SID` is hidden from JavaScript?**
+Detailed how-to guides:
 
-The `aSID` companion cookie is set alongside `__Host-SID` on every session change. Unlike `__Host-SID`, `aSID` is not `HttpOnly`, so client-side JavaScript can read it. It holds `1` when a session is active and `0` (or a negative `Max-Age`) when the session is cleared. Your frontend reads `aSID` to show or hide the logged-in UI state — it never sees the real session token.
+- [CloudFront CDK example](docs/how-to/cloudfront.md) — complete stack with S3 frontend, auth, and API behaviors
+- [Consuming auth events](docs/how-to/consuming-events.md) — CDK wiring, typed handler, locale detection
+- [Data token (anonymous-to-authenticated handoff)](docs/how-to/data-token.md) — enabling, setting the cookie, consuming the event
+- [WAF rate limiting](docs/how-to/waf.md) — enabling the rule group, adding to existing WebACL
 
-For **SPA (Single Page Application)** deployments where there is no SSR to check session state server-side, `aSID` is the primary mechanism for client-side auth-aware routing:
+Architecture Decision Records:
 
-```ts
-// Check if the user has an active session
-function isAuthenticated(): boolean {
-  return document.cookie.includes("aSID=1");
-}
-
-// Example: redirect away from /sign-in if already authenticated
-if (isAuthenticated()) {
-  router.replace("/");
-}
-
-// Example: redirect to /sign-in if not authenticated
-if (!isAuthenticated()) {
-  router.replace("/sign-in");
-}
-```
-
-> **Important:** `aSID` is a UI hint, not a security boundary. The actual session validity is enforced server-side by the Lambda authorizer or in-process session resolution. A tampered `aSID` cookie cannot grant access — it only affects what the client renders before the next server round-trip.
-
-**Q: What are the session expiry and refresh rules?**
-
-Sessions expire after 30 days (`defaultMaxAge = 2_592_000` seconds). The authorizer refreshes the session on every request older than 15 seconds. A refresh creates a new session row and short-expires the old one, so the window where both are valid is at most 30 seconds.
-
-**Q: Which account types are supported?**
-
-Currently only `email`. The schema includes `phone` and `passkey` as reserved values for future extension, but no handlers implement them yet.
-
-**Q: What is the reference code?**
-
-A random 10-byte base64url string generated alongside every OTP (both initial sign-in and resend). It's returned in the API response and included in the `EmailCodeAuth` event so you can display it in the email subject or body. This helps users identify which email corresponds to their sign-in attempt when multiple codes are in-flight.
-
-**Q: What format are date fields in?**
-
-All date fields (`expiresAt`, `createdAt`, `startedAt`, `updatedAt`) returned by the authorizer and SDK are ISO 8601 timestamp strings. Use `Date.parse(value)` for comparisons or `new Date(value)` to convert.
-
-**Q: How does OAC protect the auth endpoint?**
-
-CloudFront Origin Access Control signs requests to the Lambda function URL using SigV4. The function URL has `AuthType: AWS_IAM`, so direct access without a valid SigV4 signature is rejected at the IAM layer — the Lambda is never invoked. For POST requests, a Lambda@Edge function computes the body hash (`x-amz-content-sha256`) automatically. This is already wired into `auth.authBehavior`.
+- [ADR-001: OAC over origin token](docs/adr-001-oac-over-origin-token.md)
+- [ADR-002: SSR authorizer pattern](docs/adr-002-ssr-authorizer-pattern.md)
+- [ADR-003: In-process session resolution](docs/adr-003-inprocess-session-resolution.md)
+- [ADR-004: CloudFront Function ensure cookie](docs/adr-004-cloudfront-function-ensure-cookie.md)
+- [ADR-005: Dual-mode request/response handling](docs/adr-005-dual-mode-request-response.md)

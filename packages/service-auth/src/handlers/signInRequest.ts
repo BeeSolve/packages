@@ -14,8 +14,7 @@ interface Dependencies {
   readonly accounts: Pick<Accounts, "getOne">;
   readonly events: Pick<Events, "putEvents">;
   readonly baseUri: string;
-  // oxlint-disable-next-line typescript/no-explicit-any
-  readonly requestBody: () => Promise<any>;
+  readonly requestBody: () => Promise<unknown>;
   readonly cookies: Record<string, string>;
   readonly acceptLanguage: string | null;
   readonly requestOrigin: string | null;
@@ -92,7 +91,7 @@ export async function signInRequest({
     {
       status: 200,
       headers: new Headers({
-        "content-type": "application/json",
+        "Content-Type": "application/json",
       }),
     },
   );

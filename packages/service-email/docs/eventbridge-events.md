@@ -2,8 +2,6 @@
 
 The email service publishes events to EventBridge from two sources. This guide explains what events are emitted, how to subscribe to them, and how to handle them with full TypeScript types.
 
----
-
 ## Event sources
 
 ### `beesolve.email.api`
@@ -27,58 +25,51 @@ Published directly by SES when delivery events occur. The `Emails` CDK construct
 | `SES Complaint`    | Recipient marked the email as spam             |
 | `SES Reject`       | SES rejected the message (e.g. detected virus) |
 
----
-
 ## Subscribing in CDK
 
-Create an EventBridge rule that matches the relevant sources and routes events to your Lambda via SQS.
+Create an EventBridge rule that matches the relevant sources and routes events to your consumer.
 
 ```ts
 import { Emails } from "@beesolve/email-service/cdk";
-import { EventBus, Rule } from "aws-cdk-lib/aws-events";
-import { SqsQueue } from "aws-cdk-lib/aws-events-targets";
-import { Queue } from "aws-cdk-lib/aws-sqs";
-import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
+import { Nodejs24Function } from "@beesolve/cdk-constructs";
+import { Rule } from "aws-cdk-lib/aws-events";
+import { LambdaFunction } from "aws-cdk-lib/aws-events-targets";
 
-// Create the email service
 const emails = new Emails(this, "Emails", {
   defaultSender: { name: "My App", emailAddress: "no-reply@example.com" },
 });
 
-// Your event processor
-const processorQueue = new Queue(this, "EmailEventQueue");
-const processorLambda = new NodejsFunction(this, "EmailEventProcessor", { ... });
-processorQueue.grantConsumeMessages(processorLambda);
-processorLambda.addEventSource(new SqsEventSource(processorQueue));
-
-// EventBridge rule — matches both beesolve.email.api and aws.ses events
-const eventBus = EventBus.fromEventBusName(this, "DefaultBus", "default");
+const consumer = new Nodejs24Function(this, "EmailEventProcessor", {
+  entry: `${__dirname}/email-event-handler.ts`,
+  handler: "email-event-handler.handler",
+});
 
 new Rule(this, "EmailEventsRule", {
-  eventBus,
   eventPattern: {
     source: ["beesolve.email.api", "aws.ses"],
   },
-  targets: [new SqsQueue(processorQueue)],
+  targets: [new LambdaFunction(consumer)],
 });
 ```
 
 To narrow to specific event types:
 
 ```ts
-eventPattern: {
-  source: ["aws.ses"],
-  detailType: ["SES Bounce", "SES Complaint"],
-},
+new Rule(this, "BounceComplaintRule", {
+  eventPattern: {
+    source: ["aws.ses"],
+    detailType: ["SES Bounce", "SES Complaint"],
+  },
+  targets: [new LambdaFunction(consumer)],
+});
 ```
-
----
 
 ## Handling events in Lambda
 
-Import `parseEmailEvent` and the type guard helpers from `@beesolve/email-service/events`.
+Import `parseEmailEvent` and the type guard helpers from `@beesolve/email-service/events`:
 
 ```ts
+import type { SQSEvent } from "aws-lambda";
 import {
   isEmailSentFailure,
   isEmailSentSuccess,
@@ -89,12 +80,11 @@ import {
   isSesSend,
   parseEmailEvent,
 } from "@beesolve/email-service/events";
-import type { SQSEvent } from "aws-lambda";
 
 export const handler = async (event: SQSEvent): Promise<void> => {
   for (const record of event.Records) {
     const emailEvent = parseEmailEvent(record.body);
-    if (!emailEvent) continue;
+    if (emailEvent == null) continue;
 
     // beesolve.email.api events
     if (isEmailSentSuccess(emailEvent)) {
@@ -117,7 +107,6 @@ export const handler = async (event: SQSEvent): Promise<void> => {
       const { bounceType, bouncedRecipients } = emailEvent.detail.bounce;
       const emails = bouncedRecipients.map((r) => r.emailAddress);
       console.warn("Bounce", bounceType, emails);
-      // Suppress bounced addresses to protect sender reputation
       await suppressEmailAddresses(emails);
     }
 
@@ -138,38 +127,7 @@ export const handler = async (event: SQSEvent): Promise<void> => {
 };
 ```
 
----
-
-## Available types
-
-```ts
-import type {
-  // Union types
-  EmailEvent, // BeeSolveEmailEvent | SesEvent
-  BeeSolveEmailEvent,
-  SesEvent,
-
-  // beesolve.email.api
-  EmailSentSuccessEvent,
-  EmailSentFailureEvent,
-  EmailSentSuccessDetail,
-  EmailSentFailureDetail,
-
-  // aws.ses
-  SesDeliveryEvent,
-  SesBounceEvent,
-  SesComplaintEvent,
-  SesSendEvent,
-  SesRejectEvent,
-  SesDeliveryDetail,
-  SesBounceDetail,
-  SesComplaintDetail,
-  SesSendDetail,
-  SesRejectDetail,
-} from "@beesolve/email-service/events";
-```
-
----
+`parseEmailEvent` returns `null` for unknown or malformed records, so the loop safely skips events from other sources.
 
 ## Bounce and complaint handling
 
@@ -177,10 +135,10 @@ import type {
 
 AWS requires maintaining your bounce rate below 5% and complaint rate below 0.1% to avoid SES suspension. Implement suppression as soon as you start sending at volume.
 
-A minimal suppression pattern:
+A minimal suppression pattern using the SES account-level suppression list:
 
 ```ts
-import { SESv2Client, PutSuppressedDestinationCommand } from "@aws-sdk/client-sesv2";
+import { PutSuppressedDestinationCommand, SESv2Client } from "@aws-sdk/client-sesv2";
 
 const ses = new SESv2Client({});
 
@@ -198,8 +156,37 @@ async function suppressEmailAddresses(addresses: string[]): Promise<void> {
 }
 ```
 
----
+## Correlating events
 
-## Correlating beesolve.email.api and aws.ses events
+The `EmailSentSuccess` event includes both a `requestId` (generated by the SDK when you call `sendEmail`) and a `messageId` (assigned by SES). The `aws.ses` events carry the SES `messageId` in `detail.mail.messageId`.
 
-The `EmailSentSuccess` event includes both a `requestId` (generated by the SDK) and a `messageId` (assigned by SES). The `aws.ses` events carry the SES `messageId` in `detail.mail.messageId`. You can join on `messageId` to correlate your application's send request with the downstream delivery or bounce event.
+Join on `messageId` to correlate your application's send request with downstream delivery/bounce events:
+
+```
+sendEmail(requestId: "abc") → EmailSentSuccess { requestId: "abc", messageId: "ses-xyz" }
+                             → SES Delivery { mail.messageId: "ses-xyz" }
+```
+
+## Available types
+
+```ts
+import type {
+  EmailEvent, // BeeSolveEmailEvent | SesEvent
+  BeeSolveEmailEvent,
+  SesEvent,
+  EmailSentSuccessEvent,
+  EmailSentFailureEvent,
+  EmailSentSuccessDetail,
+  EmailSentFailureDetail,
+  SesDeliveryEvent,
+  SesBounceEvent,
+  SesComplaintEvent,
+  SesSendEvent,
+  SesRejectEvent,
+  SesDeliveryDetail,
+  SesBounceDetail,
+  SesComplaintDetail,
+  SesSendDetail,
+  SesRejectDetail,
+} from "@beesolve/email-service/events";
+```

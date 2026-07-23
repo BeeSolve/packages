@@ -16,8 +16,7 @@ import { generateOTP } from "../util.ts";
 interface Dependencies {
   readonly actionTokens: Pick<ActionTokensClient, "peek" | "drain" | "createNewWithThrottling">;
   readonly events: Pick<Events, "putEvents">;
-  // oxlint-disable-next-line typescript/no-explicit-any
-  readonly requestBody: () => Promise<any>;
+  readonly requestBody: () => Promise<unknown>;
   readonly otpExpirySeconds: number;
   readonly resendCooldownSeconds: number;
   readonly drainOnResend: boolean;
@@ -102,10 +101,10 @@ export async function resendCode({
       emailAddress: result.output.emailAddress,
       expiresAt: expiresAt.toISOString(),
       accountId: result.output.accountId,
-      baseUri: baseUri,
-      cookies: cookies,
-      acceptLanguage: acceptLanguage,
-      requestOrigin: requestOrigin,
+      baseUri,
+      cookies,
+      acceptLanguage,
+      requestOrigin,
     },
   });
 
@@ -118,7 +117,7 @@ export async function resendCode({
     }),
     {
       status: 200,
-      headers: { "content-type": "application/json" },
+      headers: { "Content-Type": "application/json" },
     },
   );
 }

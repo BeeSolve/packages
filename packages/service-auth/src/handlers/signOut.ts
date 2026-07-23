@@ -8,8 +8,7 @@ import type { Sessions } from "../session.ts";
 
 interface Dependencies {
   readonly headers: Headers;
-  // oxlint-disable-next-line typescript/no-explicit-any
-  readonly requestBody: () => Promise<any>;
+  readonly requestBody: () => Promise<unknown>;
   readonly sessions: Pick<Sessions, "delete">;
   readonly events: Pick<Events, "putEvents">;
   readonly retrySessionDelete?: (sid: string) => void;
@@ -50,12 +49,25 @@ export async function signOut({
     }),
   ]);
 
+  if (headers.get("accept")?.includes("application/json")) {
+    return new Response(JSON.stringify({ redirectTo: redirectTo ?? "/" }), {
+      status: 200,
+      headers: addSetCookies({
+        headers: new Headers({
+          "Cache-Control": "no-store",
+          "Content-Type": "application/json",
+        }),
+        cookies: [{ sid, maxAge: -1 }],
+      }),
+    });
+  }
+
   return new Response(null, {
-    status: 301,
+    status: 303,
     headers: addSetCookies({
       headers: new Headers({
-        Location: redirectTo ?? "/",
         "Cache-Control": "no-store",
+        Location: redirectTo ?? "/",
       }),
       cookies: [{ sid, maxAge: -1 }],
     }),

@@ -22,8 +22,7 @@ interface Dependencies {
   readonly accounts: Pick<Accounts, "getOne" | "createNew">;
   readonly events: Pick<Events, "putEvents">;
   readonly headers: Headers;
-  // oxlint-disable-next-line typescript/no-explicit-any
-  readonly requestBody: () => Promise<any>;
+  readonly requestBody: () => Promise<unknown>;
   readonly allowSignUp: boolean;
   readonly dataToken: string | undefined;
 }
@@ -91,8 +90,26 @@ export async function signInComplete({
     data: Sessions.dataFromCloudFrontHeaders(Object.fromEntries(headers.entries())),
   });
 
+  if (headers.get("accept")?.includes("application/json")) {
+    return new Response(JSON.stringify({ redirectTo: redirectTo ?? "/" }), {
+      status: 200,
+      headers: addSetCookies({
+        headers: new Headers({
+          "Cache-Control": "no-store",
+          "Content-Type": "application/json",
+        }),
+        cookies: [
+          {
+            sid: session.id,
+            maxAge: session.maxAge,
+          },
+        ],
+      }),
+    });
+  }
+
   return new Response(null, {
-    status: 301,
+    status: 303,
     headers: addSetCookies({
       headers: new Headers({
         "Cache-Control": "no-store",

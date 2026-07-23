@@ -1,6 +1,6 @@
 # WAF Rate Limiting
 
-The `Auth` construct can optionally create a WAF rule group for rate limiting requests to the auth endpoints. This is disabled by default due to additional AWS WAF costs.
+The `AuthGateway` and `AuthService` constructs can optionally create a WAF rule group for rate limiting requests to the auth endpoints. This is disabled by default due to additional AWS WAF costs.
 
 ## Why a rule group instead of a full WebACL?
 
@@ -11,7 +11,9 @@ Instead, the construct creates a **rule group** — a reusable set of rules that
 ## Enabling WAF
 
 ```ts
-const auth = new Auth(this, "Auth", {
+import { AuthGateway } from "@beesolve/auth-service/cdk";
+
+const auth = new AuthGateway(this, "Auth", {
   stage: "prod",
   frontendUri: "https://app.example.com",
   allowSignUp: true,
@@ -63,7 +65,6 @@ If you don't have a WAF yet, create one and attach it to your CloudFront distrib
 
 ```ts
 import { CfnWebACL } from "aws-cdk-lib/aws-wafv2";
-import { Distribution } from "aws-cdk-lib/aws-cloudfront";
 
 const webAcl = new CfnWebACL(this, "WebAcl", {
   defaultAction: { allow: {} },

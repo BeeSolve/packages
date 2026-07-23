@@ -22,7 +22,9 @@ const signInRequestSchema = v.object({
   canResendAt: v.optional(v.string()),
 });
 
-const signInCompleteSchema = v.object({});
+const signInCompleteSchema = v.object({
+  redirectTo: v.string(),
+});
 
 const resendCodeSchema = v.object({
   token: v.string(),
@@ -40,8 +42,9 @@ async function postJson<T>(
 ): Promise<T> {
   const response = await fetch(path, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify(body),
+    credentials: "include",
   });
 
   if (!response.ok) {
@@ -66,12 +69,12 @@ export async function signInRequest(emailAddress: string): Promise<SignInRequest
 export async function signInComplete(token: string, code: string): Promise<void> {
   const response = await fetch("/auth/signInComplete", {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify({ token, code }),
-    redirect: "manual",
+    credentials: "include",
   });
 
-  if (response.status >= 400) {
+  if (!response.ok) {
     let type = "unknown";
     try {
       const errorData = v.parse(authErrorSchema, await response.json());
@@ -81,6 +84,9 @@ export async function signInComplete(token: string, code: string): Promise<void>
     }
     throw new AuthError(response.status, type);
   }
+
+  const { redirectTo } = v.parse(signInCompleteSchema, await response.json());
+  window.location.href = redirectTo;
 }
 
 export async function resendCode(token: string): Promise<ResendCodeResult> {
@@ -88,10 +94,17 @@ export async function resendCode(token: string): Promise<ResendCodeResult> {
 }
 
 export async function signOut(): Promise<void> {
-  await fetch("/auth/signOut", {
+  const response = await fetch("/auth/signOut", {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify({}),
-    redirect: "manual",
+    credentials: "include",
   });
+
+  if (!response.ok) {
+    throw new AuthError(response.status, "unknown");
+  }
+
+  const { redirectTo } = await response.json();
+  window.location.href = redirectTo ?? "/";
 }

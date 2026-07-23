@@ -21,6 +21,7 @@ import { resendCode } from "./src/handlers/resendCode.ts";
 import { signInComplete } from "./src/handlers/signInComplete.ts";
 import { signInRequest } from "./src/handlers/signInRequest.ts";
 import { signOut } from "./src/handlers/signOut.ts";
+import { getBody } from "./src/request.ts";
 import { Sessions } from "./src/session.ts";
 import { tasks } from "./tasks.ts";
 
@@ -107,16 +108,12 @@ const fetch = async (request: Request): Promise<Response> => {
     if (request.method.toLowerCase() !== "post") {
       throw new BadRequestError("Invalid HTTP method.");
     }
-    if (request.headers.get("content-type") !== "application/json") {
-      throw new BadRequestError("Content-type must be application/json");
-    }
     if (request.body == null) {
-      throw new BadRequestError("Body must be object.");
+      throw new BadRequestError("Body must be present.");
     }
 
     const path = new URL(request.url).pathname.replace(stagePrefixPattern, "");
-
-    const requestBody = () => request.json();
+    const requestBody = () => getBody(request);
 
     if (path === "/auth/signInRequest") {
       const { cookies, acceptLanguage, requestOrigin } = parseHeaders(request);

@@ -6,12 +6,18 @@ This example shows a complete CDK stack that places a CloudFront distribution in
 
 `__Host-SID` and `__Host-DataToken` are `__Host-` prefixed cookies. Browsers only send them to the exact origin that set them — there is no `Domain` attribute, so they cannot be shared across subdomains. By routing `/auth/*`, `/api/*`, and the frontend through a single CloudFront distribution, every request shares the same origin and cookies flow automatically without any manual token handling in your frontend code.
 
-## Stack
+## Stack (SPA with API Gateway)
 
 ```ts
-import { Auth } from "@beesolve/auth-service/cdk";
+import { AuthGateway } from "@beesolve/auth-service/cdk";
 import { Fn, Stack, type StackProps } from "aws-cdk-lib";
-import { Distribution, ViewerProtocolPolicy } from "aws-cdk-lib/aws-cloudfront";
+import {
+  AllowedMethods,
+  CachePolicy,
+  Distribution,
+  OriginRequestPolicy,
+  ViewerProtocolPolicy,
+} from "aws-cdk-lib/aws-cloudfront";
 import { HttpOrigin, S3StaticWebsiteOrigin } from "aws-cdk-lib/aws-cloudfront-origins";
 import { Bucket } from "aws-cdk-lib/aws-s3";
 import { Function, Runtime, Code } from "aws-cdk-lib/aws-lambda";
@@ -36,7 +42,7 @@ export class AppStack extends Stack {
     const frontendUri = `https://${distribution.distributionDomainName}`;
 
     // --- Auth ------------------------------------------------------------
-    const auth = new Auth(this, "Auth", {
+    const auth = new AuthGateway(this, "Auth", {
       stage: "prod",
       frontendUri,
       allowSignUp: true,
@@ -49,7 +55,7 @@ export class AppStack extends Stack {
       code: Code.fromInline(`exports.handler = async () => ({ statusCode: 200, body: "ok" })`),
     });
 
-    auth.addAuthorizedEndpoint({ lambda: apiHandler });
+    auth.addAuthorizedEndpoint({ lambda: apiHandler }); // defaults to /api/{proxy+}
 
     // --- CloudFront behaviors --------------------------------------------
 
@@ -81,32 +87,13 @@ CloudFront Origin Access Control (OAC) signs requests to the Lambda function URL
 
 For POST requests, SigV4 requires the body hash (`x-amz-content-sha256`). A Lambda@Edge function (origin-request, `includeBody: true`) computes this header automatically. This is already wired into `auth.authBehavior`.
 
-## CORS
+## Cross-stack usage
 
-With `AWS_IAM` auth type, CORS configured on the function URL is not applied. Add a CloudFront response headers policy to your `/auth/*` behavior if you need CORS headers:
+When the CloudFront distribution lives in a different stack, use `createAuthBehavior(scope)` to avoid CloudFormation cross-stack export issues with Lambda@Edge version ARNs:
 
 ```ts
-import {
-  ResponseHeadersPolicy,
-  HeadersFrameOption,
-  HeadersReferrerPolicy,
-} from "aws-cdk-lib/aws-cloudfront";
-
-const corsPolicy = new ResponseHeadersPolicy(this, "AuthCors", {
-  corsBehavior: {
-    accessControlAllowOrigins: [frontendUri],
-    accessControlAllowMethods: ["POST"],
-    accessControlAllowHeaders: ["content-type", "cookie"],
-    accessControlAllowCredentials: true,
-    originOverride: true,
-  },
-});
-
-// Add to the auth behavior:
-distribution.addBehavior("/auth/*", auth.authBehavior.origin, {
-  ...auth.authBehavior,
-  responseHeadersPolicy: corsPolicy,
-});
+const behavior = auth.createAuthBehavior(this);
+distribution.addBehavior("/auth/*", behavior.origin, behavior);
 ```
 
 ## Custom domain
@@ -116,14 +103,14 @@ Replace `distribution.distributionDomainName` with your domain name and point an
 ```ts
 const frontendUri = "https://app.example.com";
 
-const auth = new Auth(this, "Auth", {
+const auth = new AuthGateway(this, "Auth", {
   stage: "prod",
   frontendUri,
   allowSignUp: true,
 });
 ```
 
-## Tip: keeping Lambdas warm
+## Keeping Lambdas warm
 
 Pass a `@beesolve/lambda-keep-active` instance to avoid cold starts on auth and API handlers:
 
@@ -132,7 +119,7 @@ import { LambdaKeepActive } from "@beesolve/lambda-keep-active";
 
 const warmer = new LambdaKeepActive(this, "Warmer");
 
-const auth = new Auth(this, "Auth", {
+const auth = new AuthGateway(this, "Auth", {
   stage: "prod",
   frontendUri,
   allowSignUp: true,

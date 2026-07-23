@@ -1,11 +1,15 @@
 # Passkeys Authentication Plan for `service-auth`
 
+> **Last updated:** 2026-07-24 — aligned with `@beesolve/auth-service@0.11.0`
+
 ## Current Architecture Summary
 
 - **Email OTP flow**: `signInRequest` → emits code via EventBridge → `signInComplete` verifies code via action-tokens → creates session
-- **Accounts table**: already supports `type: "passkey"` in the schema (partition key: `id`, sort key: `username`)
+- **Accounts table**: already supports `type: "passkey"` in the `accountTypes` picklist (partition key: `id`, sort key: `username`)
 - **Sessions**: created on successful auth, stored in DynamoDB with TTL
-- **CDK**: single Lambda behind CloudFront with function URL + OAC
+- **CDK**: `AuthGateway` (with API Gateway authorizer) or `AuthService` (standalone) — single Lambda behind CloudFront with function URL + OAC
+- **Session verification**: two paths — authorizer-based (`createSessionHandle`) or in-process (`createInProcessSessionHandle` / `withSession`)
+- **Content negotiation**: auth endpoints return JSON `{ redirectTo }` when `Accept: application/json` is sent, otherwise 3xx redirect
 
 ---
 
@@ -15,7 +19,7 @@ Reuse the existing accounts table (PK: `id`, SK: `username`, reverse GSI on `use
 
 No prefix on the credential ID — it's a random byte sequence (32-64 bytes, base64url-encoded) that cannot collide with email addresses or phone numbers. The `type` discriminator is sufficient to distinguish record kinds.
 
-The Valibot schema becomes a discriminated union:
+**Current state:** The schema already lists `"passkey"` in the `accountTypes` picklist but uses a flat `v.object` with shared fields. The migration changes this to a `v.variant` discriminated union to add passkey-specific fields:
 
 ```ts
 const baseFields = { id: v.string(), createdAt: dateSchema, updatedAt: dateSchema };
@@ -124,7 +128,7 @@ Client                                Server
   |                                      |  - Verify counter > stored counter, update counter
   |                                      |  - Create session (same as signInComplete)
   |                                      |  - Emit SuccessfulAuth event
-  |<---- 301 + Set-Cookie: __Host-SID --|
+  |<---- 200 { redirectTo } or 301 -----|  (content negotiation via Accept header)
 ```
 
 ## 7. Events

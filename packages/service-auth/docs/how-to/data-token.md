@@ -13,9 +13,9 @@ The data token feature lets you carry anonymous-session data across the sign-in 
 Set `dataToken: true` on the CDK construct:
 
 ```ts
-import { Auth } from "@beesolve/auth-service/cdk";
+import { AuthGateway } from "@beesolve/auth-service/cdk";
 
-const auth = new Auth(this, "Auth", {
+const auth = new AuthGateway(this, "Auth", {
   stage: "prod",
   frontendUri: "https://app.example.com",
   allowSignUp: true,
@@ -25,20 +25,25 @@ const auth = new Auth(this, "Auth", {
 
 This instructs the auth Lambda to read `__Host-DataToken` on every `signInComplete` call.
 
-## Setting the cookie (client side)
+## Setting the cookie (server side)
 
-Write the cookie before the user initiates sign-in. The cookie must use the `__Host-` prefix and match the security constraints the auth service expects (`Secure`, `SameSite=Lax`, `HttpOnly`):
+Write the cookie before the user initiates sign-in. Use the `toDataTokenCookie` helper which sets `__Host-` prefix, `Secure`, `SameSite=Strict`, `HttpOnly`, and `Path=/`:
 
 ```ts
-// server-side helper (e.g. in your SSR framework's middleware)
 import { toDataTokenCookie } from "@beesolve/auth-service";
 
 const token = generateAnonymousSessionId(); // your own ID
-const setCookie = toDataTokenCookie(token); // Max-Age 900 by default
+const setCookie = toDataTokenCookie(token); // Max-Age 900s (15 min) by default
 response.headers.append("Set-Cookie", setCookie);
 ```
 
 Store your anonymous state server-side keyed by `token`.
+
+Custom max age:
+
+```ts
+const setCookie = toDataTokenCookie(token, 1800); // 30 minutes
+```
 
 ## Consuming the `DataToken` event
 
@@ -46,13 +51,14 @@ Store your anonymous state server-side keyed by `token`.
 import { isDataToken, parseAuthEvent } from "@beesolve/auth-service/events";
 import type { SQSEvent } from "aws-lambda";
 
-export const handler = async (event: SQSEvent) => {
+export const handler = async (event: SQSEvent): Promise<void> => {
   for (const record of event.Records) {
     const authEvent = parseAuthEvent(record.body);
+    if (authEvent == null) continue;
 
     if (isDataToken(authEvent)) {
       const { accountId, emailAddress, dataToken } = authEvent.detail;
-      // merge anonymous data into accountId
+      // Merge anonymous data into the authenticated account
       await mergeCart({ anonymousToken: dataToken, accountId });
     }
   }

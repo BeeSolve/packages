@@ -1,5 +1,7 @@
 # Implementation Plan — Impersonation Feature
 
+> **Last updated:** 2026-07-24 — aligned with `@beesolve/auth-service@0.11.0`
+
 ## Problem Statement
 
 Operators (admins, support staff) need the ability to act as another user for debugging and support purposes. The current auth-service has no mechanism to create a session on behalf of another user while preserving an audit trail of who initiated it.
@@ -10,7 +12,7 @@ This plan adds impersonation support: an SDK command to start an impersonation s
 
 1. **`userId` stays as the effective user** — handlers that don't care about impersonation continue reading `session.userId` and work unchanged. The impersonation metadata is additive.
 
-2. **Discriminated union in the authorizer context** — the session identity is `{ userId, impersonating: false }` or `{ userId, impersonating: true, impersonatedBy }`. Handlers pattern-match on `impersonating` to guard sensitive actions or show UI indicators.
+2. **Discriminated union in session context** — the valid session identity is `{ userId, impersonating: false }` or `{ userId, impersonating: true, impersonatedBy }`. Handlers pattern-match on `impersonating` to guard sensitive actions or show UI indicators. This applies to both the authorizer-based path (`getSessionContext()` / `createSessionHandle()`) and the in-process path (`createInProcessSessionHandle()` / `withSession()`).
 
 3. **Flat `impersonatedBy` field in DynamoDB** — a single optional string on the session row. When absent → normal session. When present → the value is the account ID of whoever initiated the impersonation. The existing `userId` GSI still works (queries by effective user).
 
@@ -20,7 +22,7 @@ This plan adds impersonation support: an SDK command to start an impersonation s
 
 6. **Authorization is the caller's responsibility** — the auth-service is an authentication layer. It doesn't know who is an "admin." The calling service must verify the operator has permission to impersonate before invoking the SDK command.
 
-7. **Breaking change to session context** — `ValidSession` changes from `{ userId, sessionId, expiresAt }` to a discriminated union. This is a `0.9.0` release. All consumers must update their session reading code.
+7. **Breaking change to session context** — `ValidSession` changes from `{ userId, sessionId, expiresAt }` to a discriminated union. This will be a minor version bump (0.12.0). All consumers must update their session reading code.
 
 ## DynamoDB Schema Change
 
@@ -32,19 +34,22 @@ No table or index changes. A single optional attribute is added to session items
 
 Existing sessions without this field are naturally the `impersonating: false` case — zero migration needed.
 
-## Authorizer Context Shape
+## Session Context Shape
 
-The `validSession` object in the authorizer context changes from a flat object to a discriminated union:
+The `validSession` object in the session context changes from a flat object to a discriminated union. This applies to both paths:
+
+- **Authorizer-based** (`createSessionHandle()` / `getSessionContext()`): the authorizer Lambda serializes the session into the authorizer context JSON
+- **In-process** (`createInProcessSessionHandle()` / `withSession()`): the session is resolved directly from DynamoDB
 
 ```ts
-// Before (0.8.x)
+// Before (0.11.x)
 type ValidSession = {
   userId: string;
   sessionId: string;
   expiresAt: string;
 };
 
-// After (0.9.0)
+// After (0.12.0)
 type ValidSession =
   | { userId: string; sessionId: string; expiresAt: string; impersonating: false }
   | {
@@ -56,20 +61,20 @@ type ValidSession =
     };
 ```
 
-The authorizer builds this by checking the session row:
+Both the authorizer Lambda (`src/authorize.ts`) and the in-process authorizer (`sessionAuthorizer.ts`) build this by checking the session row:
 
 ```ts
-// In authorizer.ts, after fetching the session:
+// In authorize logic, after fetching the session:
 const validSession =
   session.impersonatedBy != null
     ? {
         userId: session.userId,
         sessionId,
         expiresAt,
-        impersonating: true,
+        impersonating: true as const,
         impersonatedBy: session.impersonatedBy,
       }
-    : { userId: session.userId, sessionId, expiresAt, impersonating: false };
+    : { userId: session.userId, sessionId, expiresAt, impersonating: false as const };
 ```
 
 ## SDK Command — `impersonate`
@@ -179,7 +184,7 @@ export async function endImpersonation({
   sessions,
   events,
   requestBody,
-  session, // ValidSession from authorizer context
+  session, // ValidSession from session context
   headers,
 }: Dependencies): Promise<Response> {
   if (!session.impersonating) {
@@ -206,6 +211,26 @@ export async function endImpersonation({
     },
   });
 
+  const cookies = [
+    { sid: session.sessionId, maxAge: -1 }, // clear impersonation cookie
+    { sid: newSession.id, maxAge: newSession.maxAge }, // set operator's cookie
+  ];
+
+  // Content negotiation: JSON response for SPA clients, redirect for traditional apps
+  const acceptsJson = headers.get("accept")?.includes("application/json");
+  if (acceptsJson) {
+    return new Response(JSON.stringify({ redirectTo: redirectTo ?? "/" }), {
+      status: 200,
+      headers: addSetCookies({
+        headers: new Headers({
+          "Content-Type": "application/json",
+          "Cache-Control": "no-store",
+        }),
+        cookies,
+      }),
+    });
+  }
+
   return new Response(null, {
     status: 301,
     headers: addSetCookies({
@@ -213,10 +238,7 @@ export async function endImpersonation({
         "Cache-Control": "no-store",
         Location: redirectTo ?? "/",
       }),
-      cookies: [
-        { sid: session.sessionId, maxAge: -1 }, // clear impersonation cookie
-        { sid: newSession.id, maxAge: newSession.maxAge }, // set operator's cookie
-      ],
+      cookies,
     }),
   });
 }
@@ -369,26 +391,28 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     participant Browser as Operator Browser
-    participant Auth as Authorizer Lambda
+    participant Auth as Authorizer / In-process Session Handler
     participant DDB as DynamoDB Sessions
-    participant EB as EventBridge
 
     Browser->>Auth: request with expired impersonation cookie
     Auth->>DDB: GetItem(id=sid)
     DDB-->>Auth: {userId: target, impersonatedBy: operator, expiresAt: past}
-    Auth->>EB: ImpersonationExpired {currentUserId: operator, targetUserId: target}
     Auth-->>Browser: context {type: "expired", ...}
     Note over Browser: Handler returns 401 / redirect to login
+    Note over DDB: TTL eventually deletes the item
+    Note over DDB: If impersonationExpiredEvents enabled:<br/>DDB Stream → Lambda → EventBridge ImpersonationExpired
 ```
 
 ## Handler Usage Examples
 
-### Detecting impersonation in a handler
+### Detecting impersonation in a handler (in-process pattern)
 
 ```ts
-import { requireSessionV2, type ValidSession } from "@beesolve/auth-service";
+import { SessionAuthorizer, withSession } from "@beesolve/auth-service/sessionAuthorizer";
 
-export const fetch = requireSessionV2(async (request, session) => {
+const authorizer = new SessionAuthorizer();
+
+export const fetch = withSession(authorizer, async (request, session) => {
   // session.userId is always the effective user (the target)
   const data = await loadUserData(session.userId);
 
@@ -401,10 +425,26 @@ export const fetch = requireSessionV2(async (request, session) => {
 });
 ```
 
+### Detecting impersonation in a SvelteKit hook
+
+```ts
+// hooks.server.ts
+const authGuard: Handle = async ({ event, resolve }) => {
+  const session = event.locals.session;
+
+  if (session.type === "valid" && session.validSession.impersonating) {
+    // Add impersonation indicator to page data
+    event.locals.impersonatedBy = session.validSession.impersonatedBy;
+  }
+
+  return resolve(event);
+};
+```
+
 ### Blocking sensitive actions during impersonation
 
 ```ts
-export const fetch = requireSessionV2(async (request, session) => {
+export const fetch = withSession(authorizer, async (request, session) => {
   if (session.impersonating) {
     return new Response(
       JSON.stringify({ message: "Cannot perform this action while impersonating." }),
@@ -420,12 +460,13 @@ export const fetch = requireSessionV2(async (request, session) => {
 
 ```ts
 import { AuthClient } from "@beesolve/auth-service/sdk";
-import { requireSessionV2 } from "@beesolve/auth-service";
+import { SessionAuthorizer, withSession } from "@beesolve/auth-service/sessionAuthorizer";
 import { addSetCookies } from "@beesolve/auth-service";
 
 const auth = new AuthClient();
+const authorizer = new SessionAuthorizer();
 
-export const fetch = requireSessionV2(async (request, session) => {
+export const fetch = withSession(authorizer, async (request, session) => {
   // Your own permission check — auth-service doesn't enforce this
   if (!(await isOperator(session.userId))) {
     return new Response("Forbidden", { status: 403 });
@@ -471,19 +512,19 @@ async function endImpersonation() {
 }
 ```
 
-## `requireSession` Middleware Changes
+## `withSession` and `SessionContext` Type Changes
 
-The `ValidSession` type becomes a discriminated union. The middleware itself doesn't change behavior — it still rejects invalid/expired sessions. But the type signature changes:
+The `ValidSession` type becomes a discriminated union. The `withSession` wrapper and `getSessionContext()` function continue working — they still reject invalid/expired sessions. But the type signature changes:
 
 ```ts
-// Before
+// Before (0.11.x)
 export type ValidSession = {
   userId: string;
   sessionId: string;
   expiresAt: string;
 };
 
-// After
+// After (0.12.0)
 export type ValidSession =
   | { userId: string; sessionId: string; expiresAt: string; impersonating: false }
   | {
@@ -495,7 +536,15 @@ export type ValidSession =
     };
 ```
 
-Consumers that only access `session.userId` will get a type error because TypeScript can't narrow the union without checking `impersonating`. Two upgrade paths:
+This affects:
+
+- `withSession(authorizer, handler)` in `sessionAuthorizer.ts` — the `session` param becomes the wider union
+- `getSessionContext()` / `getSessionContextV2()` / `getSessionContextV1()` in `src/sessionContext.ts` — the `validSession` field within `SessionContext` becomes the wider union
+- `createSessionHandle()` and `createInProcessSessionHandle()` in `sveltekit.ts` — `event.locals.session.validSession` becomes the wider union
+
+Consumers that only access `session.userId` will continue working because `userId`, `sessionId`, `expiresAt` are present on both variants. The type error only appears if the consumer destructures or spreads the entire session object.
+
+Upgrade paths:
 
 1. **Pattern match** (recommended for handlers that care):
 
@@ -505,27 +554,69 @@ Consumers that only access `session.userId` will get a type error because TypeSc
    }
    ```
 
-2. **Access common fields directly** — `userId`, `sessionId`, `expiresAt` are present on both variants, so `session.userId` still works without narrowing. The type error only appears if the consumer destructures or spreads the entire session object.
+2. **Access common fields directly** — `session.userId` still works without narrowing.
 
-## Session Schema Changes (`session.ts`)
+## Session Schema Changes (`session.ts` + `sessionContext.ts` + `sessionAuthorizer.ts`)
+
+In `src/session.ts`, add the optional field to the DynamoDB item schema:
 
 ```ts
-// Add to authorizerSchema:
-const authorizerSchema = v.object({
-  id: v.string(),
-  sessionId: v.string(),
-  userId: v.string(),
-  impersonatedBy: v.optional(v.string()), // ← NEW
-  startedAt: v.pipe(v.string(), v.isoTimestamp()),
-  createdAt: v.pipe(v.string(), v.isoTimestamp()),
-  expiresAt: v.pipe(
-    v.number(),
-    v.transform((value) => new Date(value * 1000).toISOString()),
-    v.isoTimestamp(),
-  ),
-});
+// Add to session schema:
+impersonatedBy: v.optional(v.string()), // ← NEW
+```
 
-// Sessions.createOne gains an optional impersonatedBy param:
+In `src/sessionContext.ts`, update `validSessionSchema`:
+
+```ts
+const validSessionSchema = v.variant("impersonating", [
+  v.object({
+    userId: v.string(),
+    sessionId: v.string(),
+    expiresAt: v.string(),
+    impersonating: v.literal(false),
+  }),
+  v.object({
+    userId: v.string(),
+    sessionId: v.string(),
+    expiresAt: v.string(),
+    impersonating: v.literal(true),
+    impersonatedBy: v.string(),
+  }),
+]);
+```
+
+In `sessionAuthorizer.ts`, update the `ValidSession` type to match:
+
+```ts
+export type ValidSession =
+  | { userId: string; sessionId: string; expiresAt: string; impersonating: false }
+  | {
+      userId: string;
+      sessionId: string;
+      expiresAt: string;
+      impersonating: true;
+      impersonatedBy: string;
+    };
+```
+
+In `src/authorize.ts`, build the discriminated context:
+
+```ts
+const validSession =
+  session.impersonatedBy != null
+    ? {
+        userId,
+        sessionId,
+        expiresAt,
+        impersonating: true as const,
+        impersonatedBy: session.impersonatedBy,
+      }
+    : { userId, sessionId, expiresAt, impersonating: false as const };
+```
+
+`Sessions.createOne` gains an optional `impersonatedBy` param:
+
+```ts
 readonly createOne = async (props: {
   readonly userId: string;
   readonly maxAge?: number;
@@ -570,32 +661,34 @@ When enabled, the construct creates:
 - A Lambda that filters for `eventName: "REMOVE"` items where `impersonatedBy` was present
 - EventBridge `events:PutEvents` permission for the stream Lambda
 
-## Breaking Changes (0.8.x → 0.9.0)
+## Breaking Changes (0.11.x → 0.12.0)
 
-| Change                                                    | Impact                                                                                                                             |
-| --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `ValidSession` becomes a discriminated union              | All consumers reading session must handle or acknowledge the union. `session.userId` still accessible without narrowing.           |
-| `requireSessionV2` / `requireSessionV1` handler signature | Same — receives `ValidSession` but type is wider now.                                                                              |
-| Authorizer context JSON shape                             | Adds `impersonating` and optionally `impersonatedBy` fields. Existing consumers that only destructure known fields are unaffected. |
+| Change                                           | Impact                                                                                                                             |
+| ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `ValidSession` becomes a discriminated union     | All consumers reading session must handle or acknowledge the union. `session.userId` still accessible without narrowing.           |
+| `withSession` handler signature                  | Same — receives `ValidSession` but type is wider now.                                                                              |
+| Authorizer context JSON shape                    | Adds `impersonating` and optionally `impersonatedBy` fields. Existing consumers that only destructure known fields are unaffected. |
+| `SessionContext.validSession` in SvelteKit hooks | Same union applies — `event.locals.session.validSession` is wider.                                                                 |
 
 ## Task Breakdown
 
 ### Task 1: Add `impersonatedBy` to session schema and `createOne`
 
-- Add `impersonatedBy: v.optional(v.string())` to `authorizerSchema` and full `schema`
+- Add `impersonatedBy: v.optional(v.string())` to session DynamoDB schema
 - Add optional `impersonatedBy` param to `Sessions.createOne` and `toNewSession`
 - Include in `getOne` projection expression
 
-### Task 2: Update authorizer to build discriminated context
+### Task 2: Update authorize logic to build discriminated context
 
-- Read `impersonatedBy` from session row
-- Build `validSession` as discriminated union
+- In `src/authorize.ts`: read `impersonatedBy` from session row, build `validSession` as discriminated union
+- In `sessionAuthorizer.ts`: update `ValidSession` type export to match
 - (Optional) Emit `ImpersonationExpired` event on expired impersonation sessions
 
-### Task 3: Update `requireSession` and `ValidSession` type
+### Task 3: Update `ValidSession` and `SessionContext` types
 
-- Change `validSessionSchema` to a discriminated union with valibot `v.variant`
+- Change `validSessionSchema` in `src/sessionContext.ts` to a `v.variant("impersonating", [...])` discriminated union
 - Export updated `ValidSession` type
+- Update `sveltekit.ts` dev fallback presets to include `impersonating: false`
 
 ### Task 4: Add `impersonate` SDK command
 
@@ -608,7 +701,7 @@ When enabled, the construct creates:
 - New handler `src/handlers/endImpersonation.ts`
 - Wire into `api.ts` router
 - Emit `ImpersonationEnded` event
-- Return redirect with cookie swap
+- Return redirect with cookie swap (supports content negotiation: JSON `{ redirectTo }` when `Accept: application/json`, otherwise 301)
 
 ### Task 6: Add event types
 
@@ -626,8 +719,9 @@ When enabled, the construct creates:
 
 - Unit test `impersonate` SDK command
 - Unit test `endImpersonation` handler
-- Unit test authorizer discriminated context building
-- Unit test `requireSessionV2` with both variants
+- Unit test `authorize.ts` discriminated context building
+- Unit test `withSession` with both variants
+- Unit test SvelteKit handle with impersonation session
 
 ### Task 9: Update documentation
 
@@ -640,7 +734,7 @@ When enabled, the construct creates:
 
 - [ ] Task 1: Session schema + `createOne` changes
 - [ ] Task 2: Authorizer context discrimination
-- [ ] Task 3: `requireSession` / `ValidSession` type update
+- [ ] Task 3: `ValidSession` / `SessionContext` type update
 - [ ] Task 4: `impersonate` SDK command
 - [ ] Task 5: `/auth/endImpersonation` endpoint
 - [ ] Task 6: Event types (Started, Ended, Expired)

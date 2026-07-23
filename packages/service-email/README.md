@@ -1,29 +1,36 @@
 # @beesolve/email-service
 
-CDK construct and runtime SDK for sending transactional email via AWS SES. Provides an SQS-backed queue for reliable delivery, DynamoDB request tracking, S3 attachment storage, and EventBridge notifications on send success or failure.
+CDK construct and runtime SDK for sending transactional email via AWS SES.
+
+- SQS-backed queue for reliable delivery with automatic retries and DLQ
+- DynamoDB request tracking with configurable TTL
+- S3 attachment storage (supports both uploaded buffers and public URLs)
+- EventBridge notifications on send success/failure and SES delivery events
+- Pre-built React email templating (no React in your Lambda bundle)
+- Typed EventBridge event helpers with Valibot-validated parsing
+
+## What This Is
+
+A turnkey email infrastructure package. Deploy the CDK construct, call `grantAccess` on your Lambda, and send emails via the SDK. The construct provisions SQS, DynamoDB, S3, SES configuration, and the queue-processing Lambda — you don't manage any of that directly.
+
+## What This Is NOT
+
+- Not a marketing/bulk email service — designed for transactional email (welcome emails, notifications, receipts)
+- Not a template design tool — use `@react-email/components` for authoring and `bunx email dev` for previewing
+- Not an email receiving service — only handles outbound sending
+- Does not manage SES domain/identity verification — you must verify your sending domain separately in SES
 
 ## Installation
 
 ```bash
 npm install @beesolve/email-service
-# or
+```
+
+```bash
 bun add @beesolve/email-service
 ```
 
-## Exports
-
-| Entry point                          | Use in                 | Purpose                                                          |
-| ------------------------------------ | ---------------------- | ---------------------------------------------------------------- |
-| `@beesolve/email-service/cdk`        | CDK stack              | `Emails` construct — creates all AWS resources                   |
-| `@beesolve/email-service/sdk`        | Lambda / server        | `Email` class — queues emails for sending                        |
-| `@beesolve/email-service/templating` | Build scripts & Lambda | `renderEmail`, `hydrateTemplate`, `buildTemplates`, `BaseLayout` |
-| `@beesolve/email-service/events`     | Lambda event handlers  | Typed EventBridge event types and helpers                        |
-
----
-
-## CDK setup
-
-Add the `Emails` construct to your stack and call `grantAccess` on any Lambda that needs to send email.
+## CDK Setup
 
 ```ts
 import { Emails } from "@beesolve/email-service/cdk";
@@ -33,43 +40,46 @@ const emails = new Emails(this, "Emails", {
     name: "My App",
     emailAddress: "no-reply@example.com",
   },
-  isProd: true,
+  isProd: true, // enables DynamoDB point-in-time recovery
 });
 
-// Grants IAM access and injects environment variables automatically
+// Grants IAM permissions and injects env vars automatically
 emails.grantAccess(myLambdaFunction);
 ```
 
-`grantAccess` injects `BEESOLVE_EMAILS_QUEUE_URL`, `BEESOLVE_EMAILS_TABLE_NAME`, and `BEESOLVE_EMAILS_ATTACHMENTS_BUCKET` into the Lambda environment — you never set these manually.
+`grantAccess` injects `BEESOLVE_EMAILS_QUEUE_URL`, `BEESOLVE_EMAILS_TABLE_NAME`, and `BEESOLVE_EMAILS_ATTACHMENTS_BUCKET` into the Lambda environment. You never set these manually.
 
-### Construct options
+### Construct Props
 
-| Option                     | Default                                     | Description                                                                                   |
-| -------------------------- | ------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| `defaultSender`            | required                                    | `{ name, emailAddress }` used when no per-request sender is set                               |
-| `fromArn`                  | —                                           | Restrict sending to a specific SES verified identity ARN                                      |
-| `defaultConfigurationSet`  | auto-created                                | Attach an existing SES configuration set                                                      |
-| `eventsToTrack`            | `SEND, BOUNCE, COMPLAINT, DELIVERY, REJECT` | SES events forwarded to EventBridge                                                           |
-| `messagesRetentionDays`    | `14`                                        | How long email requests are kept in DynamoDB (set to `0` to disable)                          |
-| `attachmentsRetentionDays` | `180`                                       | How long attachments are kept in S3                                                           |
-| `eventBusName`             | `"default"`                                 | EventBridge bus to publish events to                                                          |
-| `isProd`                   | `false`                                     | Enables DynamoDB point-in-time recovery                                                       |
-| `handler`                  | —                                           | Override `memorySize`, `timeout`, `reservedConcurrentExecutions` for the queue handler Lambda |
+| Prop                       | Default                                                              | Description                                                                      |
+| -------------------------- | -------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `defaultSender`            | required                                                             | `{ name, emailAddress }` used when no per-request sender is set                  |
+| `fromArn`                  | —                                                                    | Restrict sending to a specific SES verified identity ARN                         |
+| `defaultConfigurationSet`  | auto-created                                                         | Attach an existing SES configuration set                                         |
+| `eventsToTrack`            | `SEND, BOUNCE, COMPLAINT, DELIVERY, REJECT`                          | SES events forwarded to EventBridge                                              |
+| `messagesRetentionDays`    | `14`                                                                 | How long email requests are kept in DynamoDB (set to `0` to disable persistence) |
+| `attachmentsRetentionDays` | `180`                                                                | How long attachments are kept in S3                                              |
+| `eventBusName`             | `"default"`                                                          | EventBridge bus to publish events to                                             |
+| `isProd`                   | `false`                                                              | Enables DynamoDB point-in-time recovery                                          |
+| `handler`                  | `{ memorySize: 256, timeout: 30s, reservedConcurrentExecutions: 2 }` | Override Lambda handler settings                                                 |
+| `removalPolicy`            | `RETAIN`                                                             | CloudFormation removal policy for the DynamoDB table                             |
+| `deletionProtection`       | `false`                                                              | DynamoDB deletion protection                                                     |
+| `logGroupProps`            | `{ removalPolicy: DESTROY, retention: TWO_WEEKS }`                   | CloudWatch log group settings for the handler                                    |
 
----
+## Usage
 
-## Sending an email
+### Sending an email
 
 ```ts
 import { Email } from "@beesolve/email-service/sdk";
 
 const email = new Email();
 
-await email.sendEmail({
-  recipients: ["alice@example.com"],
+const { requestId } = await email.sendEmail({
+  recipients: ["alice@example.com"], // normalised to lowercase automatically
   subject: "Welcome!",
   html: "<p>Hello, Alice!</p>",
-  text: "Hello, Alice!",
+  text: "Hello, Alice!", // optional plain-text fallback
 });
 ```
 
@@ -95,13 +105,13 @@ await email.sendEmail({
   text: "See attached.",
   attachments: [
     {
-      type: "s3",
+      type: "s3", // uploaded to S3, fetched by the handler at send time
       mimeType: "application/pdf",
       body: pdfBuffer,
       customName: "report.pdf",
     },
     {
-      type: "public",
+      type: "public", // fetched from URL by the handler at send time
       mimeType: "image/png",
       publicUrl: "https://cdn.example.com/logo.png",
       customName: "logo.png",
@@ -116,46 +126,50 @@ await email.sendEmail({
 const { requestId } = await email.sendEmail({ ... });
 
 const message = await email.getMessage(requestId);
-// message.messageId — SES message ID
+// message.messageId — SES message ID (for correlating with SES events)
 // message.request   — original send request
 // message.expiresAt — when the record is removed from DynamoDB
 ```
 
----
-
-## Email templates
-
-See [docs/react-email-templates.md](docs/react-email-templates.md) for a complete tutorial covering:
-
-- Writing templates with `BaseLayout` and `@react-email/components`
-- Why you should always **pre-build** templates (Lambda bundle size)
-- Using `buildTemplates()` in your build script
-- Using `hydrateTemplate()` at runtime
-
-### Quick example
-
-**Build script (`build.ts`)**
+### Overriding the SES configuration set per-send
 
 ```ts
-import { buildTemplates } from "@beesolve/email-service/templating";
-import { join } from "node:path";
-
-await buildTemplates({
-  templatesDir: join(__dirname, "src/templates"),
-  outDir: join(__dirname, "build"),
-  locales: ["en", "fr"],
+await email.sendEmail({
+  recipients: ["alice@example.com"],
+  subject: "Hello",
+  html: "<p>Hi</p>",
+  configurationSetName: "my-custom-config-set",
 });
 ```
 
-**Template (`src/templates/welcome.tsx`)**
+### Custom SDK clients
+
+```ts
+import { Email } from "@beesolve/email-service/sdk";
+import { S3Client } from "@aws-sdk/client-s3";
+import { SQSClient } from "@aws-sdk/client-sqs";
+
+const email = new Email({
+  s3Client: new S3Client({ region: "eu-west-1" }),
+  sqsClient: new SQSClient({ region: "eu-west-1" }),
+});
+```
+
+## Email Templates
+
+Templates use React Email components, pre-rendered at build time to avoid shipping React in your Lambda.
+
+### Writing a template
 
 ```tsx
+// src/templates/welcome.tsx
 import { BaseLayout } from "@beesolve/email-service/templating";
-import { Button, Text } from "@react-email/components";
+import { Button, Heading, Text } from "@react-email/components";
 
 interface Props {
   name: string;
   baseUri: string;
+  locale: string;
 }
 
 export default function WelcomeEmail({ name, baseUri }: Props) {
@@ -163,7 +177,8 @@ export default function WelcomeEmail({ name, baseUri }: Props) {
     <BaseLayout previewText={`Welcome, ${name}`} project={{ name: "My App", baseUri }}>
       {(styles) => (
         <>
-          <Text style={styles.text}>Hi {name}, welcome aboard!</Text>
+          <Heading style={styles.h1}>Welcome aboard!</Heading>
+          <Text style={styles.text}>Hi {name}, your account is ready.</Text>
           <Button href={`${baseUri}/app`} style={styles.button}>
             Open app
           </Button>
@@ -173,13 +188,29 @@ export default function WelcomeEmail({ name, baseUri }: Props) {
   );
 }
 
+// Keys here become $$$__KEY__$$$ placeholders in the pre-built output
 WelcomeEmail.PreviewProps = {
   name: "Alice",
   baseUri: "https://example.com",
+  locale: "en",
 };
 ```
 
-**Lambda handler**
+### Build script
+
+```ts
+// build.ts
+import { buildTemplates } from "@beesolve/email-service/templating";
+import { join } from "node:path";
+
+await buildTemplates({
+  templatesDir: join(__dirname, "src/templates"),
+  outDir: join(__dirname, "build"), // produces welcome_en.json, welcome_fr.json, etc.
+  locales: ["en", "fr"],
+});
+```
+
+### Hydrating at runtime
 
 ```ts
 import { hydrateTemplate } from "@beesolve/email-service/templating";
@@ -189,7 +220,7 @@ import welcomeEn from "./build/welcome_en.json";
 const emailClient = new Email();
 
 const { subject, html, text } = hydrateTemplate({
-  template: welcomeEn,
+  template: welcomeEn, // pre-built { html, text } with $$$__KEY__$$$ placeholders
   subject: "Welcome!",
   props: { name: user.name, baseUri: process.env.BASE_URI! },
 });
@@ -197,13 +228,30 @@ const { subject, html, text } = hydrateTemplate({
 await emailClient.sendEmail({ recipients: [user.email], subject, html, text });
 ```
 
----
+### `BaseLayout` props
 
-## EventBridge events
+| Prop                   | Required | Description                                               |
+| ---------------------- | -------- | --------------------------------------------------------- |
+| `previewText`          | yes      | Short preview text shown in email clients                 |
+| `project.name`         | yes      | Used in the header and footer                             |
+| `project.baseUri`      | yes      | Base URL for links                                        |
+| `project.logo`         | no       | ReactNode to replace the text name in the header          |
+| `children`             | yes      | Function receiving the style object, returns body content |
+| `notice`               | no       | Override the default security notice in the footer        |
+| `notificationSettings` | no       | Override the notification settings footer                 |
+| `enhanceStyles`        | no       | Extend the default style object with custom tokens        |
 
-See [docs/eventbridge-events.md](docs/eventbridge-events.md) for a complete tutorial.
+### Previewing locally
 
-The service publishes two families of events to EventBridge:
+```bash
+bunx email dev --dir src/templates
+```
+
+Opens a browser at `http://localhost:3000` to preview templates with their `PreviewProps`.
+
+## EventBridge Events
+
+The service publishes events from two sources:
 
 | Source               | `detail-type`      | When                                       |
 | -------------------- | ------------------ | ------------------------------------------ |
@@ -215,47 +263,105 @@ The service publishes two families of events to EventBridge:
 | `aws.ses`            | `SES Message Sent` | SES accepted the message for sending       |
 | `aws.ses`            | `SES Reject`       | SES rejected the message                   |
 
-Use the typed helpers from `@beesolve/email-service/events`:
+### Handling events
 
 ```ts
-import { parseEmailEvent, isSesDelivery, isSesBounce } from "@beesolve/email-service/events";
+import {
+  parseEmailEvent,
+  isEmailSentSuccess,
+  isSesBounce,
+  isSesComplaint,
+  isSesDelivery,
+} from "@beesolve/email-service/events";
 import type { SQSEvent } from "aws-lambda";
 
 export const handler = async (event: SQSEvent) => {
   for (const record of event.Records) {
-    const emailEvent = parseEmailEvent(record.body);
+    const emailEvent = parseEmailEvent(record.body); // returns null for unrecognised events
     if (!emailEvent) continue;
 
-    if (isSesDelivery(emailEvent)) {
-      console.log("Delivered to", emailEvent.detail.delivery.recipients);
+    if (isEmailSentSuccess(emailEvent)) {
+      console.log("Sent", emailEvent.detail.requestId, emailEvent.detail.messageId);
     }
 
     if (isSesBounce(emailEvent)) {
       const bounced = emailEvent.detail.bounce.bouncedRecipients.map((r) => r.emailAddress);
-      console.log("Bounced:", bounced);
+      console.warn("Bounced:", bounced);
+    }
+
+    if (isSesComplaint(emailEvent)) {
+      const addresses = emailEvent.detail.complaint.complainedRecipients.map((r) => r.emailAddress);
+      console.warn("Complaint from", addresses);
+    }
+
+    if (isSesDelivery(emailEvent)) {
+      console.log("Delivered to", emailEvent.detail.delivery.recipients);
     }
   }
 };
 ```
 
----
+### Correlating events
+
+`EmailSentSuccess` includes both `requestId` (from the SDK) and `messageId` (from SES). SES events carry the same `messageId` in `detail.mail.messageId`. Join on `messageId` to correlate your send request with downstream delivery/bounce events.
+
+## Caveats & Constraints
+
+- **SES sandbox**: New AWS accounts start in the SES sandbox. You can only send to verified addresses until you request production access.
+- **Attachment size limit**: 25 MB per attachment (binary). The SES raw message limit is 40 MB post-base64 encoding.
+- **Public URL attachments**: Fetched by the handler Lambda with a 10-second timeout. Ensure URLs are accessible from the Lambda's network.
+- **Recipient validation**: Email addresses are validated with Valibot and normalised to lowercase. Invalid addresses cause the SQS message to fail.
+- **`getMessage()` requires persistence**: If `messagesRetentionDays: 0` is set, the DynamoDB table is not written to and `getMessage()` will throw.
+- **Single region**: The construct deploys to one region. SES must be configured in that region.
+
+## Troubleshooting
+
+**"It seems that Emails service has not been set up correctly"**
+The SDK validates that `BEESOLVE_EMAILS_QUEUE_URL`, `BEESOLVE_EMAILS_TABLE_NAME`, and `BEESOLVE_EMAILS_ATTACHMENTS_BUCKET` are present in `process.env`. Ensure you called `emails.grantAccess(yourLambda)` in CDK.
+
+**Emails are queued but never sent**
+Check the queue handler Lambda's CloudWatch logs. Common causes: SES identity not verified, SES sandbox restrictions, or the handler Lambda doesn't have `ses:SendEmail` permission (should be granted automatically by the construct).
+
+**`EmailSentFailure` events appearing**
+The handler Lambda failed to process the message. Check logs for the specific error. The SQS message will retry automatically; after max retries it moves to the DLQ.
+
+**Attachments not found**
+For `type: "s3"` attachments, the buffer is uploaded to S3 by the SDK at send time. The handler fetches it later. If the attachment S3 object has been deleted (past `attachmentsRetentionDays`), retried messages will fail.
+
+**Template placeholders not replaced**
+Ensure your `props` keys in `hydrateTemplate()` match the keys in `PreviewProps` exactly (case-sensitive). The token format is `$$$__KEY__$$$`.
 
 ## FAQ
 
 **Can I send to multiple recipients?**
-Yes — pass an array to `recipients`. Each address is normalised to lowercase automatically.
-
-**What happens if the Lambda fails to send?**
-The SQS message is retried (with the dead-letter queue as a safety net) and an `EmailSentFailure` event is published to EventBridge.
+Yes. Pass an array to `recipients`. Each address is validated and normalised to lowercase.
 
 **Are environment variables set automatically?**
-Yes. `grantAccess(lambda)` grants the necessary IAM permissions and injects all three required env vars (`BEESOLVE_EMAILS_QUEUE_URL`, `BEESOLVE_EMAILS_TABLE_NAME`, `BEESOLVE_EMAILS_ATTACHMENTS_BUCKET`) — you do not configure them yourself.
+Yes. `grantAccess(lambda)` grants IAM permissions and injects all three required env vars.
 
 **How do I disable DynamoDB message persistence?**
-Pass `messagesRetentionDays: 0` to the `Emails` construct. The `getMessage()` SDK method will not be usable in that case.
+Pass `messagesRetentionDays: 0` to the `Emails` construct. `getMessage()` will not work.
 
-**Why shouldn't I import react-email templates directly in my Lambda?**
-Bundling React, react-dom, and all `@react-email/*` packages into a Lambda significantly inflates bundle size and cold-start time. The pre-build pattern (rendering to static JSON at deploy time) eliminates this: your Lambda ships only the pre-rendered HTML/text strings and calls `hydrateTemplate()` to fill in runtime values. See [docs/react-email-templates.md](docs/react-email-templates.md).
+**Why pre-build templates instead of rendering at runtime?**
+Bundling React + react-dom + @react-email into a Lambda adds several MB and increases cold-start time. Pre-building produces static HTML/text JSON files; the Lambda only calls `hydrateTemplate()` to fill in runtime values.
 
 **Can I use a custom SES configuration set?**
-Yes. Pass `defaultConfigurationSet` to the construct. You can also override per-send by passing `configurationSetName` to `sendEmail()`.
+Yes. Pass `defaultConfigurationSet` to the construct for all sends, or `configurationSetName` per-send in `sendEmail()`.
+
+**How do I handle bounces and complaints?**
+Subscribe to `SES Bounce` and `SES Complaint` events via EventBridge and suppress those addresses. AWS requires bounce rate below 5% and complaint rate below 0.1%.
+
+## Package Exports
+
+| Entry point                          | Use in                 | Purpose                                                          |
+| ------------------------------------ | ---------------------- | ---------------------------------------------------------------- |
+| `@beesolve/email-service/cdk`        | CDK stack              | `Emails` construct — creates all AWS resources                   |
+| `@beesolve/email-service/sdk`        | Lambda / server        | `Email` class — queues emails for sending                        |
+| `@beesolve/email-service/templating` | Build scripts & Lambda | `renderEmail`, `hydrateTemplate`, `buildTemplates`, `BaseLayout` |
+| `@beesolve/email-service/events`     | Lambda event handlers  | `parseEmailEvent` and typed event guards                         |
+
+## Further Reading
+
+- [EventBridge events](docs/eventbridge-events.md) — full CDK wiring, all event types, bounce/complaint handling, event correlation
+- [React email templates](docs/react-email-templates.md) — writing templates, build script, multi-locale workflow, local preview
+- [ADR-001: Pre-build templates](docs/adr-001-prebuild-templates.md) — why templates are compiled at build time instead of rendered in Lambda
