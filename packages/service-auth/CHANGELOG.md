@@ -1,5 +1,18 @@
 # @beesolve/auth-service
 
+## 0.12.0
+
+### Minor Changes
+
+- f1e4fc9: Add dual-mode request/response support. Handlers now accept both `application/json` and `application/x-www-form-urlencoded` request bodies via the new `getBody` helper. Sign-in and sign-out handlers return a JSON response when the client sends `Accept: application/json`, falling back to a 303 redirect otherwise. Fix redirect status from 301 to 303 (correct semantics for POST→redirect).
+
+### Patch Changes
+
+- Updated dependencies [f1e4fc9]
+  - @beesolve/action-tokens@0.5.1
+  - @beesolve/sqs-handler@0.2.1
+  - @beesolve/lambda-fetch-api@2.0.2
+
 ## 0.11.0
 
 ### Minor Changes
