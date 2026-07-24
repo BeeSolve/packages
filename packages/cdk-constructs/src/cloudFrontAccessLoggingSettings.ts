@@ -159,7 +159,7 @@ export class CloudFrontAccessLoggingSettings extends Construct {
           tableType: "EXTERNAL_TABLE",
         },
       });
-      glueTable.addDependency(glueDatabase);
+      glueTable.addResourceDependency(glueDatabase);
 
       const athenaBucket = new Bucket(this, "AthenaBucket");
       const workgroup = new CfnWorkGroup(this, "Workgroup", {
@@ -178,7 +178,7 @@ export class CloudFrontAccessLoggingSettings extends Construct {
           database: databaseName,
           workGroup: workgroup.name,
         });
-        sampleQuery.addDependency(workgroup);
+        sampleQuery.addResourceDependency(workgroup);
       }
     }
 
