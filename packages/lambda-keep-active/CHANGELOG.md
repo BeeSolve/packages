@@ -1,5 +1,13 @@
 # @beesolve/lambda-keep-active
 
+## 2.1.2
+
+### Patch Changes
+
+- 0615a63: Move aws-cdk-lib and constructs from dependencies to peerDependencies to prevent duplicate package instances in consuming projects
+- Updated dependencies [0615a63]
+  - @beesolve/cdk-constructs@0.2.1
+
 ## 2.1.1
 
 ### Patch Changes

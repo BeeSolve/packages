@@ -1,5 +1,16 @@
 # @beesolve/auth-service
 
+## 0.12.1
+
+### Patch Changes
+
+- 0615a63: Move aws-cdk-lib and constructs from dependencies to peerDependencies to prevent duplicate package instances in consuming projects
+- Updated dependencies [0615a63]
+  - @beesolve/cdk-constructs@0.2.1
+  - @beesolve/cdk-email-alarms@0.1.5
+  - @beesolve/sqs-handler@0.2.2
+  - @beesolve/action-tokens@0.5.2
+
 ## 0.12.0
 
 ### Minor Changes
