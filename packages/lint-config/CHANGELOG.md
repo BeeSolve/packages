@@ -1,5 +1,11 @@
 # @beesolve/lint-config
 
+## 0.2.6
+
+### Patch Changes
+
+- f9ac4e7: chore: upgrade dependencies
+
 ## 0.2.5
 
 ### Patch Changes

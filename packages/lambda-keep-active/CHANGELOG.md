@@ -1,5 +1,11 @@
 # @beesolve/lambda-keep-active
 
+## 2.1.1
+
+### Patch Changes
+
+- f9ac4e7: chore: upgrade dependencies
+
 ## 2.1.0
 
 ### Minor Changes
