@@ -1,5 +1,11 @@
 # @beesolve/action-tokens
 
+## 0.5.2
+
+### Patch Changes
+
+- 0615a63: Move aws-cdk-lib and constructs from dependencies to peerDependencies to prevent duplicate package instances in consuming projects
+
 ## 0.5.1
 
 ### Patch Changes

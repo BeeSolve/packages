@@ -1,5 +1,13 @@
 # @beesolve/email-service
 
+## 0.3.4
+
+### Patch Changes
+
+- 0615a63: Move aws-cdk-lib and constructs from dependencies to peerDependencies to prevent duplicate package instances in consuming projects
+- Updated dependencies [0615a63]
+  - @beesolve/cdk-constructs@0.2.1
+
 ## 0.3.3
 
 ### Patch Changes
