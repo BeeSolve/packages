@@ -82,16 +82,18 @@
     "@beesolve/lambda-fetch-api": "workspace:^",
     "@beesolve/lambda-keep-active": "catalog:",
     "@beesolve/sqs-handler": "workspace:^",
-    "aws-cdk-lib": "catalog:",
-    "constructs": "catalog:",
     "valibot": "catalog:"
   },
   "devDependencies": {
     "@types/aws-lambda": "catalog:",
-    "@types/node": "catalog:"
+    "@types/node": "catalog:",
+    "aws-cdk-lib": "catalog:",
+    "constructs": "catalog:"
   },
   "peerDependencies": {
     "@sveltejs/kit": "^2.68.0",
+    "aws-cdk-lib": "catalog:",
+    "constructs": "catalog:",
     "typescript": "catalog:"
   },
   "peerDependenciesMeta": {

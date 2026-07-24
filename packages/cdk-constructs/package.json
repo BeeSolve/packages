@@ -29,15 +29,17 @@
   },
   "dependencies": {
     "@beesolve/helpers": "workspace:^",
-    "aws-cdk-lib": "catalog:",
-    "constructs": "catalog:",
     "esbuild": "catalog:"
   },
   "devDependencies": {
     "@types/bun": "catalog:",
-    "@types/node": "catalog:"
+    "@types/node": "catalog:",
+    "aws-cdk-lib": "catalog:",
+    "constructs": "catalog:"
   },
   "peerDependencies": {
+    "aws-cdk-lib": "catalog:",
+    "constructs": "catalog:",
     "typescript": "catalog:"
   },
   "peerDependenciesMeta": {

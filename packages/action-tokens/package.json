@@ -41,14 +41,16 @@
     "@aws-sdk/client-dynamodb": "catalog:",
     "@aws-sdk/credential-providers": "catalog:",
     "@aws-sdk/lib-dynamodb": "catalog:",
-    "aws-cdk-lib": "catalog:",
-    "constructs": "catalog:",
     "valibot": "catalog:"
   },
   "devDependencies": {
-    "@types/node": "catalog:"
+    "@types/node": "catalog:",
+    "aws-cdk-lib": "catalog:",
+    "constructs": "catalog:"
   },
   "peerDependencies": {
+    "aws-cdk-lib": "catalog:",
+    "constructs": "catalog:",
     "typescript": "catalog:"
   },
   "peerDependenciesMeta": {

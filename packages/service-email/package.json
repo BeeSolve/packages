@@ -54,8 +54,6 @@
     "@beesolve/cdk-constructs": "workspace:^",
     "@beesolve/helpers": "workspace:^",
     "@react-email/components": "catalog:",
-    "aws-cdk-lib": "catalog:",
-    "constructs": "catalog:",
     "mimetext": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
@@ -65,9 +63,13 @@
     "@types/aws-lambda": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
+    "aws-cdk-lib": "catalog:",
+    "constructs": "catalog:",
     "esbuild": "catalog:"
   },
   "peerDependencies": {
+    "aws-cdk-lib": "catalog:",
+    "constructs": "catalog:",
     "typescript": "catalog:"
   },
   "peerDependenciesMeta": {

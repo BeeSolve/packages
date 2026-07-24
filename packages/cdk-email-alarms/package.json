@@ -27,14 +27,14 @@
     "type-check": "tsc --noEmit",
     "test": "bun test"
   },
-  "dependencies": {
+  "devDependencies": {
+    "@types/bun": "catalog:",
     "aws-cdk-lib": "catalog:",
     "constructs": "catalog:"
   },
-  "devDependencies": {
-    "@types/bun": "catalog:"
-  },
   "peerDependencies": {
+    "aws-cdk-lib": "catalog:",
+    "constructs": "catalog:",
     "typescript": "catalog:"
   },
   "peerDependenciesMeta": {
