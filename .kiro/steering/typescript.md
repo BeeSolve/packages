@@ -1,5 +1,9 @@
 # TypeScript Overrides — @beesolve/packages
 
+## Workflow
+
+- Always start with `git pull --rebase origin main` before making any changes
+
 ## Runtime
 
 - Packages target both Bun and Node.js consumers
