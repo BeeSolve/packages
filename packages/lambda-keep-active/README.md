@@ -20,9 +20,7 @@ import { LambdaKeepActive } from "@beesolve/lambda-keep-active";
 
 const warmer = new LambdaKeepActive(this, "KeepAliveLambda");
 
-const handler = new NodejsFunction(this, "Handler", {
-  /** your props */
-});
+const handler = new NodejsFunction(this, "Handler", {/** your props */});
 
 warmer.keepActive(handler);
 ```
