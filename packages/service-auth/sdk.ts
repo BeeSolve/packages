@@ -51,6 +51,7 @@ export class AuthClient {
       throw new Error(`SDK handler error: ${raw.errorMessage}`);
     }
 
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
     return raw as Response;
   };
 }

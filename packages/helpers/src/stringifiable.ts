@@ -16,10 +16,9 @@ const tokens = {
 const maxDepth = 30;
 
 // oxlint-disable-next-line typescript/no-explicit-any
-export function encodeToStringifiable(value: any) {
+export function encodeToStringifiable(value: any): { encodedValue: any; ___encoded: string } {
   return {
-    // oxlint-disable-next-line typescript/no-explicit-any
-    encodedValue: encodeValue(value) as any,
+    encodedValue: encodeValue(value),
     ___encoded: "v1",
   };
 }
@@ -35,7 +34,7 @@ export function decodeFromStringifiable<T = any>(value: any): T {
     return decodeValue(encodedValue);
   }
 
-  throw Error(`Unsupported version: "${{ ___encoded }}"`);
+  throw Error(`Unsupported version: "${String(___encoded)}"`);
 }
 
 // oxlint-disable-next-line typescript/no-explicit-any
@@ -63,7 +62,7 @@ function decodeValue(value: any): any {
     if (token === tokens.formData) {
       const formData = new FormData();
       for (const [key, value] of Object.entries(JSON.parse(val))) {
-        // oxlint-disable-next-line typescript/no-explicit-any
+        // oxlint-disable-next-line typescript/no-explicit-any, typescript/no-unsafe-type-assertion
         formData.append(key, value as any);
       }
       return formData;

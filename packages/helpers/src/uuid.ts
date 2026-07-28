@@ -78,6 +78,7 @@ export function base36Encode(data: Uint8Array): string {
  * Alphabet is an extension of HEX encoding.
  */
 export function base36Decode(str: string): Uint8Array {
+  // oxlint-disable-next-line typescript/no-misused-spread
   const bigint = [...str].reduce((acc, curr) => BigInt(parseInt(curr, 36)) + BigInt(36) * acc, 0n);
 
   let hex = bigint.toString(16);

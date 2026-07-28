@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import type {
-  APIGatewayProxyEvent,
+  APIGatewayEventLambdaAuthorizerContext,
   APIGatewayProxyEventV2WithLambdaAuthorizer,
   APIGatewayProxyWithLambdaAuthorizerEvent,
   Context,
@@ -29,9 +29,6 @@ function makeContext(): Context {
     logGroupName: "/aws/lambda/test-fn",
     logStreamName: "2024/01/01/[$LATEST]abc",
     getRemainingTimeInMillis: () => 10_000,
-    done: () => {},
-    fail: () => {},
-    succeed: () => {},
   };
 }
 
@@ -67,10 +64,18 @@ function makeV2EventWithLambdaAuthorizer<T>(
   };
 }
 
+function makeAuthorizerContext(
+  payload: Record<string, string>,
+): APIGatewayEventLambdaAuthorizerContext<Record<string, string>> {
+  // The AWS type intersection (Record<string, string> & { integrationLatency: number })
+  // is not constructable from a literal. We use Object.assign to satisfy the runtime shape.
+  return Object.assign({ principalId: "user", integrationLatency: 0 }, payload);
+}
+
 function makeV1EventWithCustomAuthorizer(
   authPayload: Record<string, string>,
 ): APIGatewayProxyWithLambdaAuthorizerEvent<Record<string, string>> {
-  const base: APIGatewayProxyEvent = {
+  return {
     httpMethod: "GET",
     path: "/hello",
     resource: "/hello",
@@ -83,7 +88,7 @@ function makeV1EventWithCustomAuthorizer(
     requestContext: {
       accountId: "123",
       apiId: "abc",
-      authorizer: authPayload,
+      authorizer: makeAuthorizerContext(authPayload),
       httpMethod: "GET",
       identity: {
         accessKey: null,
@@ -113,7 +118,6 @@ function makeV1EventWithCustomAuthorizer(
     body: null,
     isBase64Encoded: false,
   };
-  return base as unknown as APIGatewayProxyWithLambdaAuthorizerEvent<Record<string, string>>;
 }
 
 const authSchema = v.object({ userId: v.string(), role: v.string() });
@@ -130,7 +134,7 @@ describe("getAwsLambdaAuthorizerContext", () => {
 
   test("throws AuthorizerContextValidationError when schema fails", async () => {
     const event = makeV2EventWithLambdaAuthorizer({ bad: "data" });
-    await expect(
+    expect(
       runWithAwsContext(event, makeContext(), () => getAwsLambdaAuthorizerContext(authSchema)),
     ).rejects.toThrow(AuthorizerContextValidationError);
   });
@@ -152,7 +156,7 @@ describe("getAwsCustomAuthorizerContext", () => {
 
   test("throws AuthorizerContextValidationError when schema fails", async () => {
     const event = makeV1EventWithCustomAuthorizer({});
-    await expect(
+    expect(
       runWithAwsContext(event, makeContext(), () => getAwsCustomAuthorizerContext(authSchema)),
     ).rejects.toThrow(AuthorizerContextValidationError);
   });

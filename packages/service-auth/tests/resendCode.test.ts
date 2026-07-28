@@ -50,14 +50,14 @@ function createDeps(overrides = {}) {
 }
 
 // oxlint-disable-next-line typescript/no-explicit-any
-function mockCalls(fn: unknown): Array<Array<any>> {
-  return (fn as { mock: { calls: Array<Array<unknown>> } }).mock.calls;
+function mockCalls(fn: { mock: { calls: Array<Array<any>> } }): Array<Array<any>> {
+  return fn.mock.calls;
 }
 
 describe("resendCode", () => {
   test("happy path: returns new token, referenceCode, canResendAt, expiresAt", async () => {
     const deps = createDeps();
-    const res = await resendCode(deps as Parameters<typeof resendCode>[0]);
+    const res = await resendCode(deps);
     const body = await res.json();
 
     expect(res.status).toBe(200);
@@ -70,7 +70,7 @@ describe("resendCode", () => {
 
   test("drains old token when drainOnResend is true", async () => {
     const deps = createDeps();
-    await resendCode(deps as Parameters<typeof resendCode>[0]);
+    await resendCode(deps);
 
     expect(deps.actionTokens.drain).toHaveBeenCalledWith({
       owner: "old-token",
@@ -80,14 +80,14 @@ describe("resendCode", () => {
 
   test("does not drain old token when drainOnResend is false", async () => {
     const deps = createDeps({ drainOnResend: false });
-    await resendCode(deps as Parameters<typeof resendCode>[0]);
+    await resendCode(deps);
 
     expect(deps.actionTokens.drain).not.toHaveBeenCalled();
   });
 
   test("passes accountId from token data to event", async () => {
     const deps = createDeps();
-    await resendCode(deps as Parameters<typeof resendCode>[0]);
+    await resendCode(deps);
 
     const eventCall = mockCalls(deps.events.putEvents)[0]?.[0];
     expect(eventCall.detail.accountId).toBe("acc-123");
@@ -95,7 +95,7 @@ describe("resendCode", () => {
 
   test("stores accountId in new token data", async () => {
     const deps = createDeps();
-    await resendCode(deps as Parameters<typeof resendCode>[0]);
+    await resendCode(deps);
 
     const call = mockCalls(deps.actionTokens.createNewWithThrottling)[0]?.[0];
     expect(call.data).toEqual({ emailAddress: "user@example.com", accountId: "acc-123" });
@@ -110,9 +110,7 @@ describe("resendCode", () => {
       },
     });
 
-    expect(resendCode(deps as Parameters<typeof resendCode>[0])).rejects.toBeInstanceOf(
-      BadRequestError,
-    );
+    expect(resendCode(deps)).rejects.toBeInstanceOf(BadRequestError);
   });
 
   test("throws BadRequestError when token expired", async () => {
@@ -124,9 +122,7 @@ describe("resendCode", () => {
       },
     });
 
-    expect(resendCode(deps as Parameters<typeof resendCode>[0])).rejects.toBeInstanceOf(
-      BadRequestError,
-    );
+    expect(resendCode(deps)).rejects.toBeInstanceOf(BadRequestError);
   });
 
   test("throws BadRequestError when token used up", async () => {
@@ -138,9 +134,7 @@ describe("resendCode", () => {
       },
     });
 
-    expect(resendCode(deps as Parameters<typeof resendCode>[0])).rejects.toBeInstanceOf(
-      BadRequestError,
-    );
+    expect(resendCode(deps)).rejects.toBeInstanceOf(BadRequestError);
   });
 
   test("throws TokenThrottledError when throttled", async () => {
@@ -152,16 +146,12 @@ describe("resendCode", () => {
       },
     });
 
-    expect(resendCode(deps as Parameters<typeof resendCode>[0])).rejects.toBeInstanceOf(
-      TokenThrottledError,
-    );
+    expect(resendCode(deps)).rejects.toBeInstanceOf(TokenThrottledError);
   });
 
   test("throws BadRequestError for empty token", async () => {
     const deps = createDeps({ requestBody: () => Promise.resolve({ token: "" }) });
-    expect(resendCode(deps as Parameters<typeof resendCode>[0])).rejects.toBeInstanceOf(
-      BadRequestError,
-    );
+    expect(resendCode(deps)).rejects.toBeInstanceOf(BadRequestError);
   });
 
   test("throws BadRequestError when token data has no emailAddress", async () => {
@@ -173,8 +163,6 @@ describe("resendCode", () => {
       },
     });
 
-    expect(resendCode(deps as Parameters<typeof resendCode>[0])).rejects.toBeInstanceOf(
-      BadRequestError,
-    );
+    expect(resendCode(deps)).rejects.toBeInstanceOf(BadRequestError);
   });
 });

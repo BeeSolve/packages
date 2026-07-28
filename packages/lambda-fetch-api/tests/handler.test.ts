@@ -1,12 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import type {
-  APIGatewayProxyEvent,
-  APIGatewayProxyEventV2,
-  APIGatewayProxyResult,
-  APIGatewayProxyStructuredResultV2,
-  Context,
-} from "aws-lambda";
+import type { APIGatewayProxyEvent, APIGatewayProxyEventV2, Context } from "aws-lambda";
 
 import { asHttpV1Handler, asHttpV2Handler } from "../index";
 
@@ -21,9 +15,6 @@ function makeContext(): Context {
     logGroupName: "/aws/lambda/test-fn",
     logStreamName: "2024/01/01/[$LATEST]abc",
     getRemainingTimeInMillis: () => 10_000,
-    done: () => {},
-    fail: () => {},
-    succeed: () => {},
   };
 }
 
@@ -137,7 +128,7 @@ describe("asHttpV1Handler", () => {
       headers.append("set-cookie", "theme=dark; Path=/");
       return new Response("", { headers });
     });
-    const result = (await handler(makeV1Event(), makeContext())) as APIGatewayProxyResult;
+    const result = await handler(makeV1Event(), makeContext());
     expect(result.multiValueHeaders?.["set-cookie"]).toEqual([
       "session=abc; Path=/",
       "theme=dark; Path=/",
@@ -160,10 +151,7 @@ describe("asHttpV1Handler", () => {
 describe("asHttpV2Handler", () => {
   test("passes status code through", async () => {
     const handler = asHttpV2Handler(async () => new Response("", { status: 201 }));
-    const result = (await handler(
-      makeV2Event(),
-      makeContext(),
-    )) as APIGatewayProxyStructuredResultV2;
+    const result = await handler(makeV2Event(), makeContext());
     expect(result.statusCode).toBe(201);
   });
 
@@ -174,10 +162,7 @@ describe("asHttpV2Handler", () => {
           headers: { "content-type": "application/json" },
         }),
     );
-    const result = (await handler(
-      makeV2Event(),
-      makeContext(),
-    )) as APIGatewayProxyStructuredResultV2;
+    const result = await handler(makeV2Event(), makeContext());
     expect(result.body).toBe('{"ok":true}');
     expect(result.isBase64Encoded).toBeUndefined();
   });
@@ -190,10 +175,7 @@ describe("asHttpV2Handler", () => {
           headers: { "content-type": "application/octet-stream" },
         }),
     );
-    const result = (await handler(
-      makeV2Event(),
-      makeContext(),
-    )) as APIGatewayProxyStructuredResultV2;
+    const result = await handler(makeV2Event(), makeContext());
     expect(result.isBase64Encoded).toBe(true);
     expect(result.body).toBe(Buffer.from([0, 1, 2]).toString("base64"));
   });
@@ -205,10 +187,7 @@ describe("asHttpV2Handler", () => {
       headers.append("set-cookie", "theme=dark; Path=/");
       return new Response("", { headers });
     });
-    const result = (await handler(
-      makeV2Event(),
-      makeContext(),
-    )) as APIGatewayProxyStructuredResultV2;
+    const result = await handler(makeV2Event(), makeContext());
     expect(result.cookies).toEqual(["session=abc; Path=/", "theme=dark; Path=/"]);
     expect(result.headers?.["set-cookie"]).toBeUndefined();
   });

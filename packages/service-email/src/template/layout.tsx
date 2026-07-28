@@ -25,6 +25,7 @@ export function BaseLayout<TStyles extends EmailBaseStyles>(props: {
   readonly notice?: (styles: TStyles) => ReactNode;
   readonly notificationSettings?: (styles: TStyles) => ReactNode;
 }): JSX.Element {
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   const styles = props.enhanceStyles?.(baseStyles) ?? (baseStyles as TStyles);
 
   return (

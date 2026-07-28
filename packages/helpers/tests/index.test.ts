@@ -11,6 +11,7 @@ import {
 
 describe("assertUnreachable", () => {
   test("throws an error", () => {
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
     expect(() => assertUnreachable("x" as never)).toThrow("An unreachable state reached!");
   });
 });

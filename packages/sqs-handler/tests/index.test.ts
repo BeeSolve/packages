@@ -1,5 +1,6 @@
 import { describe, expect, mock, test } from "bun:test";
 
+import { SendMessageCommand } from "@aws-sdk/client-sqs";
 import { encodeToStringifiable } from "@beesolve/helpers";
 import type { SQSEvent } from "aws-lambda";
 
@@ -154,23 +155,17 @@ describe("createSqsHandlers — queued functions", () => {
       fifo: false,
     });
 
-    functions.process("payload");
+    await functions.process("payload");
 
     expect(sendMock).toHaveBeenCalledTimes(1);
-    const command = sendMock.mock.calls[0]?.[0] as unknown as {
-      input: {
-        QueueUrl: string;
-        MessageBody: string;
-        MessageDeduplicationId?: string;
-        MessageGroupId?: string;
-      };
-    };
+    const command = sendMock.mock.calls[0]?.[0];
+    if (!(command instanceof SendMessageCommand)) throw new Error("Expected SendMessageCommand");
     expect(command.input.QueueUrl).toBe("https://sqs.us-east-1.amazonaws.com/123/queue");
-    const body = JSON.parse(command.input.MessageBody);
+    const body = JSON.parse(command.input.MessageBody ?? "");
     expect(body.fn).toBe("process");
   });
 
-  test("invokes function directly when localInvocation is true", () => {
+  test("invokes function directly when localInvocation is true", async () => {
     const process = mock(async (_data: string) => {});
     const [, functions] = createSqsHandlers({
       functions: { process },
@@ -180,7 +175,7 @@ describe("createSqsHandlers — queued functions", () => {
       fifo: false,
     });
 
-    functions.process("local-data");
+    await functions.process("local-data");
 
     expect(process).toHaveBeenCalledWith("local-data");
   });

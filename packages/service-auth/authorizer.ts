@@ -53,7 +53,7 @@ export const handler = keptActive(async (event: AuthorizationEvent) => {
     if (error instanceof Error) {
       console.error(error.message);
     } else {
-      console.error(`Unknown error ${error}`);
+      console.error("Unknown error", error);
     }
 
     return toIamPolicy(event.methodArn, {

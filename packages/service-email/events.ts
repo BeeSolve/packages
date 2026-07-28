@@ -164,29 +164,36 @@ export function parseEmailEvent(body: string): EmailEvent | null {
 }
 
 export function isEmailSentSuccess(event: unknown): event is EmailSentSuccessEvent {
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   return (event as Record<string, unknown> | null)?.["detail-type"] === "EmailSentSuccess";
 }
 
 export function isEmailSentFailure(event: unknown): event is EmailSentFailureEvent {
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   return (event as Record<string, unknown> | null)?.["detail-type"] === "EmailSentFailure";
 }
 
 export function isSesDelivery(event: unknown): event is SesDeliveryEvent {
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   return (event as Record<string, unknown> | null)?.["detail-type"] === "SES Delivery";
 }
 
 export function isSesBounce(event: unknown): event is SesBounceEvent {
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   return (event as Record<string, unknown> | null)?.["detail-type"] === "SES Bounce";
 }
 
 export function isSesComplaint(event: unknown): event is SesComplaintEvent {
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   return (event as Record<string, unknown> | null)?.["detail-type"] === "SES Complaint";
 }
 
 export function isSesSend(event: unknown): event is SesSendEvent {
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   return (event as Record<string, unknown> | null)?.["detail-type"] === "SES Message Sent";
 }
 
 export function isSesReject(event: unknown): event is SesRejectEvent {
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   return (event as Record<string, unknown> | null)?.["detail-type"] === "SES Reject";
 }

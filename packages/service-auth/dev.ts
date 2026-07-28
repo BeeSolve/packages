@@ -81,9 +81,6 @@ export function withDevSession(
     logStreamName: "dev",
     callbackWaitsForEmptyEventLoop: false,
     getRemainingTimeInMillis: () => 30000,
-    done: () => {},
-    fail: () => {},
-    succeed: () => {},
   };
 
   return (request) => runWithAwsContext(fakeEvent, fakeContext, () => handler(request));

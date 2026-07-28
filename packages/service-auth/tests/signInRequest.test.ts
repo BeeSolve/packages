@@ -38,14 +38,14 @@ function createDeps(overrides = {}) {
 }
 
 // oxlint-disable-next-line typescript/no-explicit-any
-function mockCalls(fn: unknown): Array<Array<any>> {
-  return (fn as { mock: { calls: Array<Array<unknown>> } }).mock.calls;
+function mockCalls(fn: { mock: { calls: Array<Array<any>> } }): Array<Array<any>> {
+  return fn.mock.calls;
 }
 
 describe("signInRequest", () => {
   test("returns token, referenceCode, canResendAt, expiresAt", async () => {
     const deps = createDeps();
-    const res = await signInRequest(deps as Parameters<typeof signInRequest>[0]);
+    const res = await signInRequest(deps);
     const body = await res.json();
 
     expect(res.status).toBe(200);
@@ -59,7 +59,7 @@ describe("signInRequest", () => {
 
   test("normalizes email to lowercase and passes to throttle", async () => {
     const deps = createDeps();
-    await signInRequest(deps as Parameters<typeof signInRequest>[0]);
+    await signInRequest(deps);
 
     const call = mockCalls(deps.actionTokens.createNewWithThrottling)[0]?.[0];
     expect(call.throttle).toEqual({ id: "user@example.com", windowSeconds: 60 });
@@ -68,7 +68,7 @@ describe("signInRequest", () => {
 
   test("emits event with referenceCode and accountId", async () => {
     const deps = createDeps();
-    await signInRequest(deps as Parameters<typeof signInRequest>[0]);
+    await signInRequest(deps);
 
     const eventCall = mockCalls(deps.events.putEvents)[0]?.[0];
     expect(eventCall.type).toBe("EmailCodeAuth");
@@ -81,7 +81,7 @@ describe("signInRequest", () => {
     const deps = createDeps({
       accounts: { getOne: mock(() => Promise.reject(new Error("not found"))) },
     });
-    await signInRequest(deps as Parameters<typeof signInRequest>[0]);
+    await signInRequest(deps);
 
     const call = mockCalls(deps.actionTokens.createNewWithThrottling)[0]?.[0];
     expect(call.data).toEqual({ emailAddress: "user@example.com", accountId: null });
@@ -99,13 +99,11 @@ describe("signInRequest", () => {
       },
     });
 
-    expect(signInRequest(deps as Parameters<typeof signInRequest>[0])).rejects.toBeInstanceOf(
-      TokenThrottledError,
-    );
+    expect(signInRequest(deps)).rejects.toBeInstanceOf(TokenThrottledError);
   });
 
   test("throws BadRequestError for invalid email", async () => {
     const deps = createDeps({ requestBody: () => Promise.resolve({ emailAddress: "not-email" }) });
-    expect(signInRequest(deps as Parameters<typeof signInRequest>[0])).rejects.toThrow();
+    expect(signInRequest(deps)).rejects.toThrow();
   });
 });

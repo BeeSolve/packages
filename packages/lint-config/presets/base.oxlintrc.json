@@ -1,5 +1,8 @@
 {
   "$schema": "https://raw.githubusercontent.com/oxc-project/oxc/main/npm/oxlint/configuration_schema.json",
+  "options": {
+    "typeAware": true
+  },
   "jsPlugins": [
     { "name": "eslint-js", "specifier": "oxlint-plugin-eslint" },
     "../plugins/beesolve.js"
@@ -9,6 +12,19 @@
     "typescript/consistent-type-imports": "error",
     "typescript/no-non-null-assertion": "warn",
     "typescript/no-empty-object-type": "error",
+
+    "typescript/consistent-type-exports": "error",
+    "typescript/no-floating-promises": ["error", { "ignoreVoid": true }],
+    "typescript/no-misused-promises": "error",
+    "typescript/await-thenable": "error",
+    "typescript/return-await": ["error", "in-try-catch"],
+    "typescript/no-unnecessary-type-assertion": "warn",
+    "typescript/only-throw-error": "error",
+    "typescript/prefer-promise-reject-errors": "error",
+    "typescript/no-deprecated": "warn",
+    "typescript/restrict-template-expressions": ["warn", { "allowNumber": true }],
+    "typescript/no-base-to-string": "warn",
+    "typescript/no-unsafe-type-assertion": "warn",
 
     "eslint-js/no-restricted-syntax": [
       "error",

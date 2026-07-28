@@ -22,7 +22,7 @@ export const handle: Handle = async ({ event, resolve }) => {
   event.locals.actionTokens = actionTokens;
   event.locals.emailService = emailService;
 
-  return await resolve(event);
+  return resolve(event);
 };
 
 export const init: ServerInit = async () => {};

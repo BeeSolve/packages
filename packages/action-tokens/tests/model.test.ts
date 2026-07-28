@@ -2,10 +2,10 @@ import { describe, expect, mock, test } from "bun:test";
 
 import { ConditionalCheckFailedException } from "@aws-sdk/client-dynamodb";
 import {
-  type DeleteCommand,
+  DeleteCommand,
   type DynamoDBDocumentClient,
   GetCommand,
-  type PutCommand,
+  PutCommand,
   QueryCommand,
   UpdateCommand,
 } from "@aws-sdk/lib-dynamodb";
@@ -32,9 +32,31 @@ function makeRawToken(overrides: Record<string, unknown> = {}) {
   };
 }
 
+type MockSend = ReturnType<typeof mock<(command: unknown) => Promise<unknown>>>;
+
+function getCommand<T>(
+  send: MockSend,
+  CommandClass: new (...args: Array<never>) => T,
+  index = 0,
+): T {
+  const call = send.mock.calls[index]?.[0];
+  if (!(call instanceof CommandClass)) {
+    throw new Error(`Expected call[${index}] to be instance of ${CommandClass.name}`);
+  }
+  return call;
+}
+
+function findCommand<T>(send: MockSend, CommandClass: new (...args: Array<never>) => T): T {
+  const call = send.mock.calls.find(([c]) => c instanceof CommandClass)?.[0];
+  if (!(call instanceof CommandClass)) {
+    throw new Error(`No call found matching ${CommandClass.name}`);
+  }
+  return call;
+}
+
 function makeClient(send: (command: unknown) => Promise<unknown>) {
   return new ActionTokens({
-    dynamo: { send } as unknown as Pick<DynamoDBDocumentClient, "send">,
+    dynamo: { send } as Pick<DynamoDBDocumentClient, "send">,
     tableName: "tokens",
     valueIndexName: "value-index",
   });
@@ -78,7 +100,7 @@ describe("ActionTokens.createNew", () => {
       overwrite: false,
     });
 
-    const command = send.mock.calls[0]?.[0] as unknown as PutCommand;
+    const command = getCommand(send, PutCommand);
     expect(command.input.ConditionExpression).toContain("attribute_not_exists");
   });
 
@@ -96,7 +118,7 @@ describe("ActionTokens.createNew", () => {
       overwrite: true,
     });
 
-    const command = send.mock.calls[0]?.[0] as unknown as PutCommand;
+    const command = getCommand(send, PutCommand);
     expect(command.input.ConditionExpression).toBeUndefined();
   });
 
@@ -115,7 +137,7 @@ describe("ActionTokens.createNew", () => {
       overwrite: false,
     });
 
-    const command = send.mock.calls[0]?.[0] as unknown as PutCommand;
+    const command = getCommand(send, PutCommand);
     expect(command.input.Item?.data).toEqual(data);
   });
 
@@ -134,7 +156,7 @@ describe("ActionTokens.createNew", () => {
       overwrite: false,
     });
 
-    const command = send.mock.calls[0]?.[0] as unknown as PutCommand;
+    const command = getCommand(send, PutCommand);
     expect(typeof command.input.Item?.expiresAt).toBe("number");
     expect(command.input.Item?.expiresAt).toBe(Math.round(expiresAt.getTime() / 1000));
   });
@@ -178,9 +200,7 @@ describe("ActionTokens.use — owner provided (GetCommand path)", () => {
       drainWhenValid: true,
     });
 
-    const updateCommand = send.mock.calls.find(
-      ([c]) => c instanceof UpdateCommand,
-    )?.[0] as unknown as UpdateCommand;
+    const updateCommand = findCommand(send, UpdateCommand);
     expect(updateCommand.input.ExpressionAttributeValues?.[":newRemainingUses"]).toBe(0);
   });
 
@@ -200,9 +220,7 @@ describe("ActionTokens.use — owner provided (GetCommand path)", () => {
       drainWhenValid: false,
     });
 
-    const updateCommand = send.mock.calls.find(
-      ([c]) => c instanceof UpdateCommand,
-    )?.[0] as unknown as UpdateCommand;
+    const updateCommand = findCommand(send, UpdateCommand);
     expect(updateCommand.input.ExpressionAttributeValues?.[":newRemainingUses"]).toBe(4);
   });
 
@@ -261,7 +279,7 @@ describe("ActionTokens.use — owner provided (GetCommand path)", () => {
     });
     const client = makeClient(send);
 
-    await expect(
+    expect(
       client.use({
         owner: "user-1",
         action: "verify-email",
@@ -286,7 +304,7 @@ describe("ActionTokens.use — owner provided (GetCommand path)", () => {
     });
     const client = makeClient(send);
 
-    await expect(
+    expect(
       client.use({
         owner: "user-1",
         action: "verify-email",
@@ -360,7 +378,7 @@ describe("ActionTokens.drain", () => {
     await client.drain({ owner: "user-1", action: "verify-email" });
 
     expect(send).toHaveBeenCalledTimes(1);
-    const command = send.mock.calls[0]?.[0] as unknown as DeleteCommand;
+    const command = getCommand(send, DeleteCommand);
     expect(command.input.Key).toEqual({
       owner: "user-1",
       action: "verify-email",

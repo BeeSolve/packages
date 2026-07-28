@@ -139,6 +139,7 @@ export class Sessions {
       }),
     );
 
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
     return items as Array<{ id: string; userId: string }>;
   };
 
@@ -412,9 +413,10 @@ export class Sessions {
 
       const errorKeys = Object.keys(issues.nested ?? {});
       return Object.fromEntries(
-        Object.entries(result.output as Record<string, unknown>).filter(
-          ([key]) => !errorKeys.includes(key),
-        ),
+        Object.entries(
+          // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+          result.output as Record<string, unknown>,
+        ).filter(([key]) => !errorKeys.includes(key)),
       );
     }
 

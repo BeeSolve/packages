@@ -27,9 +27,6 @@ function makeContext(): Context {
     logGroupName: "/aws/lambda/test-fn",
     logStreamName: "2024/01/01/[$LATEST]abc",
     getRemainingTimeInMillis: () => 10_000,
-    done: () => {},
-    fail: () => {},
-    succeed: () => {},
   };
 }
 
@@ -172,19 +169,18 @@ describe("awsResponseHeaders", () => {
     });
     const result = awsResponseHeaders(response, "v1");
     expect(result.headers["content-type"]).toBe("text/plain");
-    expect((result as unknown as Record<string, unknown>).multiValueHeaders).toBeUndefined();
-    expect((result as unknown as Record<string, unknown>).cookies).toBeUndefined();
+    expect(result).not.toHaveProperty("multiValueHeaders");
+    expect(result).not.toHaveProperty("cookies");
   });
 
   test("v1: returns multiValueHeaders for set-cookie and omits it from headers", () => {
     const headers = new Headers({ "content-type": "text/html" });
     headers.append("set-cookie", "session=abc; Path=/");
     const response = new Response("", { headers });
-    const result = awsResponseHeaders(response, "v1") as {
-      headers: Record<string, string>;
-      multiValueHeaders: { "set-cookie": Array<string> };
-    };
-    expect(result.multiValueHeaders["set-cookie"]).toEqual(["session=abc; Path=/"]);
+    const result = awsResponseHeaders(response, "v1");
+    expect("multiValueHeaders" in result && result.multiValueHeaders).toEqual({
+      "set-cookie": ["session=abc; Path=/"],
+    });
     expect(result.headers["set-cookie"]).toBeUndefined();
   });
 
@@ -192,11 +188,8 @@ describe("awsResponseHeaders", () => {
     const headers = new Headers({ "content-type": "text/html" });
     headers.append("set-cookie", "session=abc; Path=/");
     const response = new Response("", { headers });
-    const result = awsResponseHeaders(response, "v2") as {
-      headers: Record<string, string>;
-      cookies: Array<string>;
-    };
-    expect(result.cookies).toEqual(["session=abc; Path=/"]);
+    const result = awsResponseHeaders(response, "v2");
+    expect("cookies" in result && result.cookies).toEqual(["session=abc; Path=/"]);
     expect(result.headers["set-cookie"]).toBeUndefined();
   });
 });

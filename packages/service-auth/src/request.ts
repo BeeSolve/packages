@@ -6,7 +6,7 @@ export async function getBody(request: Request): Promise<unknown> {
   const contentType = request.headers.get("content-type") ?? "";
 
   if (contentType.includes("application/json")) {
-    return await request.json();
+    return request.json();
   }
   if (contentType.includes("application/x-www-form-urlencoded")) {
     const text = await request.text();

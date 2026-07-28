@@ -4,6 +4,8 @@
 import { assertUnreachable } from "@beesolve/helpers";
 import type { APIGatewayProxyEvent, APIGatewayProxyEventV2 } from "aws-lambda";
 
+import { isAPIGatewayProxyEvent } from "./runtime.js";
+
 // Incoming (AWS => Web)
 
 export function awsRequest(event: APIGatewayProxyEvent | APIGatewayProxyEventV2): Request {
@@ -15,18 +17,17 @@ export function awsRequest(event: APIGatewayProxyEvent | APIGatewayProxyEventV2)
 }
 
 function awsEventMethod(event: APIGatewayProxyEvent | APIGatewayProxyEventV2): string {
-  return (
-    (event as APIGatewayProxyEvent).httpMethod ||
-    (event as APIGatewayProxyEventV2).requestContext?.http?.method ||
-    "GET"
-  );
+  if (isAPIGatewayProxyEvent(event)) {
+    return event.httpMethod;
+  }
+  return event.requestContext?.http?.method || "GET";
 }
 
 function awsEventURL(event: APIGatewayProxyEvent | APIGatewayProxyEventV2): URL {
   const hostname =
     event.headers.host || event.headers.Host || event.requestContext?.domainName || ".";
 
-  const path = (event as APIGatewayProxyEvent).path || (event as APIGatewayProxyEventV2).rawPath;
+  const path = "path" in event ? event.path : event.rawPath;
 
   const query = awsEventQuery(event);
 
@@ -39,17 +40,17 @@ function awsEventURL(event: APIGatewayProxyEvent | APIGatewayProxyEventV2): URL 
 }
 
 function awsEventQuery(event: APIGatewayProxyEvent | APIGatewayProxyEventV2) {
-  if (typeof (event as APIGatewayProxyEventV2).rawQueryString === "string") {
-    return (event as APIGatewayProxyEventV2).rawQueryString;
+  if ("rawQueryString" in event && typeof event.rawQueryString === "string") {
+    return event.rawQueryString;
   }
 
   const searchParams = new URLSearchParams();
 
-  for (const [name, values] of Object.entries(
-    (event as APIGatewayProxyEvent).multiValueQueryStringParameters ?? {},
-  )) {
-    for (const value of values ?? []) {
-      searchParams.append(name, value);
+  if ("multiValueQueryStringParameters" in event) {
+    for (const [name, values] of Object.entries(event.multiValueQueryStringParameters ?? {})) {
+      for (const value of values ?? []) {
+        searchParams.append(name, value);
+      }
     }
   }
 
@@ -162,7 +163,7 @@ function toBuffer(data: ReadableStream): Promise<Buffer> {
             resolve(Buffer.concat(chunks));
           },
           abort(reason) {
-            reject(reason);
+            reject(reason instanceof Error ? reason : new Error(String(reason)));
           },
         }),
       )

@@ -10,7 +10,7 @@ type PkgJson = {
   peerDependencies?: Record<string, string>;
 };
 
-const pkgJsonPaths = [...new Bun.Glob("packages/*/package.json").scanSync(ROOT)].sort();
+const pkgJsonPaths = [...new Bun.Glob("packages/*/package.json").scanSync(ROOT)].sort(ascending);
 const packageDirs = pkgJsonPaths.map((p) => p.replace("/package.json", ""));
 
 const nameToDir = new Map<string, string>();
@@ -40,12 +40,13 @@ for (const { dir, pkg } of packages) {
   }
 }
 
-const queue = packageDirs.filter((d) => inDegree.get(d) === 0).sort();
+const queue = packageDirs.filter((d) => inDegree.get(d) === 0).sort(ascending);
 const result: Array<string> = [];
 
 while (queue.length > 0) {
-  queue.sort();
-  const current = queue.shift() as string;
+  queue.sort(ascending);
+  const current = queue.shift();
+  if (current == null) continue;
   result.push(current);
 
   for (const dependent of reverseDeps.get(current) ?? []) {
@@ -64,4 +65,8 @@ await Bun.write(join(ROOT, "dependencies.json"), JSON.stringify(result, null, 2)
 console.log("Updated dependencies.json:");
 for (const dir of result) {
   console.log(`  ${dir}`);
+}
+
+function ascending(left: string, right: string) {
+  return left.localeCompare(right);
 }

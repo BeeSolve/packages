@@ -25,12 +25,16 @@ export const actions: Actions = {
     });
 
     if (!result.success) {
+      const field = (key: string) => {
+        const value = formData.get(key);
+        return typeof value === "string" ? value : "";
+      };
       return fail(400, {
         error: "Please fill in all fields correctly.",
-        name: formData.get("name") as string,
-        email: formData.get("email") as string,
-        subject: formData.get("subject") as string,
-        message: formData.get("message") as string,
+        name: field("name"),
+        email: field("email"),
+        subject: field("subject"),
+        message: field("message"),
       });
     }
 

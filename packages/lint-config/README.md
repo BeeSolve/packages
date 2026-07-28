@@ -5,7 +5,7 @@ Shared Oxlint + Oxfmt configuration and custom lint rules for beesolve projects.
 ## Quick Setup
 
 ```bash
-bun add -D oxlint oxfmt nano-staged husky @beesolve/lint-config
+bun add -D oxlint oxlint-tsgolint oxfmt nano-staged husky @beesolve/lint-config
 bunx @beesolve/lint-config setup --type package --internal "@beesolve/*"
 ```
 
@@ -43,6 +43,23 @@ Set `--internal` to match your workspace packages:
 - `typescript/no-non-null-assertion` — warn
 - `typescript/no-empty-object-type` — error
 - `oxc/no-accumulating-spread` — warn
+
+#### Type-Aware Rules (requires `oxlint-tsgolint`)
+
+| Rule                            | Severity | Description                                                                   |
+| ------------------------------- | -------- | ----------------------------------------------------------------------------- |
+| `consistent-type-exports`       | error    | Enforce `export type` for type-only exports                                   |
+| `no-floating-promises`          | error    | Promises must be awaited, caught, or explicitly voided                        |
+| `no-misused-promises`           | error    | Prevents passing async functions where sync callbacks are expected            |
+| `await-thenable`                | error    | Catches `await` on non-Promise values                                         |
+| `return-await`                  | error    | Requires `return await` inside try/catch, bare return otherwise               |
+| `only-throw-error`              | error    | Only `Error` objects may be thrown                                            |
+| `prefer-promise-reject-errors`  | error    | `Promise.reject()` must receive an Error                                      |
+| `no-unnecessary-type-assertion` | warn     | Flags redundant `as X` casts                                                  |
+| `no-unsafe-type-assertion`      | warn     | Flags narrowing type assertions                                               |
+| `no-deprecated`                 | warn     | Flags usage of deprecated APIs                                                |
+| `restrict-template-expressions` | warn     | Prevents interpolating objects/unknown in template literals (numbers allowed) |
+| `no-base-to-string`             | warn     | Catches implicit `[object Object]` stringification                            |
 
 #### Banned Syntax (`no-restricted-syntax`)
 

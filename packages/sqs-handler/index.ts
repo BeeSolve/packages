@@ -70,7 +70,7 @@ export function createSqsHandlers<
     (result, [functionName]) => ({
       // oxlint-disable-next-line oxc/no-accumulating-spread
       ...result,
-      [functionName](...args) {
+      async [functionName](...args) {
         const originalFunction = props.functions[functionName];
         if (originalFunction == null) {
           throw Error(`Cannot invoke "${functionName}". Make sure the function is defined.`);
@@ -87,12 +87,12 @@ export function createSqsHandlers<
           | undefined = args[originalFunction.length];
 
         if (props.localInvocation) {
-          originalFunction(...functionArgs);
+          await originalFunction(...functionArgs);
         } else {
           const queueUrl =
             options?.queueName ?? props.queueUrls[props.queueUrlOverride?.[functionName] ?? "main"];
 
-          props.sqsClient.send(
+          await props.sqsClient.send(
             new SendMessageCommand({
               QueueUrl: queueUrl,
               MessageBody: JSON.stringify({
@@ -106,6 +106,7 @@ export function createSqsHandlers<
         }
       },
     }),
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
     {} as TFunctions,
   );
 

@@ -100,7 +100,7 @@ export const handler = async (
                       `Attachment exceeds size limit (${attachmentMaxSizeInBytes} bytes)`,
                     );
                   }
-                  return response.arrayBuffer();
+                  return await response.arrayBuffer();
                 } finally {
                   clearTimeout(timeout);
                 }

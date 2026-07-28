@@ -114,29 +114,36 @@ export function parseAuthEvent(body: string): AuthEvent | null {
 }
 
 export function isEmailCodeAuth(event: unknown): event is EmailCodeAuthEvent {
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   return (event as Record<string, unknown> | null)?.["detail-type"] === "EmailCodeAuth";
 }
 
 export function isEmailAddressVerified(event: unknown): event is EmailAddressVerifiedEvent {
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   return (event as Record<string, unknown> | null)?.["detail-type"] === "EmailAddressVerified";
 }
 
 export function isDataToken(event: unknown): event is DataTokenEvent {
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   return (event as Record<string, unknown> | null)?.["detail-type"] === "DataToken";
 }
 
 export function isSuccessfulAuth(event: unknown): event is SuccessfulAuthEvent {
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   return (event as Record<string, unknown> | null)?.["detail-type"] === "SuccessfulAuth";
 }
 
 export function isUnsuccessfulAuth(event: unknown): event is UnsuccessfulAuthEvent {
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   return (event as Record<string, unknown> | null)?.["detail-type"] === "UnsuccessfulAuth";
 }
 
 export function isSessionInvalidated(event: unknown): event is SessionInvalidatedEvent {
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   return (event as Record<string, unknown> | null)?.["detail-type"] === "SessionInvalidated";
 }
 
 export function isEmailInvitation(event: unknown): event is EmailInvitationEvent {
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   return (event as Record<string, unknown> | null)?.["detail-type"] === "EmailInvitation";
 }

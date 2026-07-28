@@ -21,8 +21,11 @@ const { values } = parseArgs({
   strict: false,
 });
 
-const projectType = values.type as "package" | "monorepo" | "sveltekit";
-const internalPattern = values.internal as string;
+const projectType = values.type ?? "package";
+if (projectType !== "package" && projectType !== "monorepo" && projectType !== "sveltekit") {
+  throw new Error(`Invalid type: ${projectType}. Must be "package", "monorepo", or "sveltekit".`);
+}
+const internalPattern = values.internal ?? "@beesolve/*";
 const cwd = process.cwd();
 
 const oxfmtConfig = {

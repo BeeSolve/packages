@@ -172,7 +172,7 @@ const fetch = async (request: Request): Promise<Response> => {
         events,
         requestBody,
         headers: request.headers,
-        retrySessionDelete: (sid) => tasks.deleteSession(sid),
+        retrySessionDelete: (sid) => void tasks.deleteSession(sid),
       });
     }
 
@@ -214,9 +214,7 @@ function parseHeaders(request: Request) {
   return { cookies, acceptLanguage, requestOrigin };
 }
 
-type LambdaHandler = (event: unknown, context: unknown) => Promise<unknown> | undefined;
-
-export const handler = keptActive(asHttpV2Handler(fetch)) as unknown as LambdaHandler;
+export const handler = keptActive(asHttpV2Handler(fetch));
 
 export default {
   fetch,

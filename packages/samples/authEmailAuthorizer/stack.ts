@@ -52,6 +52,7 @@ export class EmailAuthorizerStack extends Stack {
     // Attach ensureCookieFunction to the default behavior via L1 escape hatch.
     // kit-on-lambda manages the default behavior internally, so we add the
     // function association on the underlying CfnDistribution.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
     const cfnDist = site.distribution.node.defaultChild as CfnDistribution;
     cfnDist.addPropertyOverride("DistributionConfig.DefaultCacheBehavior.FunctionAssociations", [
       {
