@@ -1,5 +1,11 @@
 # @beesolve/email-service
 
+## 0.3.5
+
+### Patch Changes
+
+- 834140e: Fix return-await in try/finally block to preserve stack traces on attachment fetch errors
+
 ## 0.3.4
 
 ### Patch Changes

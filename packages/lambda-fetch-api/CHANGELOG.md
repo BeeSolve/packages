@@ -1,5 +1,11 @@
 # @beesolve/lambda-fetch-api
 
+## 2.0.3
+
+### Patch Changes
+
+- 834140e: Fix promise rejection to always wrap abort reason in Error object
+
 ## 2.0.2
 
 ### Patch Changes
