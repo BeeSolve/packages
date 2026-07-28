@@ -1,6 +1,6 @@
 {
   "name": "@beesolve/sqs-handler",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "",
   "homepage": "https://github.com/beesolve/packages/tree/main/packages/sqs-handler#readme",
   "license": "MIT",

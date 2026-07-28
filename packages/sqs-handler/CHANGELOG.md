@@ -1,5 +1,14 @@
 # @beesolve/sqs-handler
 
+## 0.2.3
+
+### Patch Changes
+
+- 834140e: Fix floating promises in queued function invocations
+
+  - `localInvocation` mode now properly awaits the handler function
+  - SQS `send()` is now awaited, ensuring message delivery errors are caught
+
 ## 0.2.2
 
 ### Patch Changes
