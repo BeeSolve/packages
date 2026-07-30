@@ -31,7 +31,15 @@ bun run deploy:authWithEmail
 bun run deploy:emailVerify
 ```
 
-Environment variables are configured in `mise.toml`.
+### Environment setup
+
+Copy the example configuration and fill in your values:
+
+```bash
+cp mise.toml.example mise.toml
+```
+
+See [`mise.toml.example`](mise.toml.example) for the required environment variables. The `mise.toml` file is gitignored.
 
 ## Structure
 
@@ -43,6 +51,6 @@ samples/
 ├── emailVerify/           # Standalone email verification (action-tokens)
 ├── shared/components/     # Reusable Svelte components
 ├── app.ts                 # CDK app entry — registers all stacks
-├── mise.toml              # Environment variables
+├── mise.toml.example      # Environment variable template
 └── package.json
 ```

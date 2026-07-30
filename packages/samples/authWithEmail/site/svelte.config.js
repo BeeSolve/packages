@@ -1,6 +1,6 @@
 import adapter from "kit-on-lambda";
 
-const originUrl = "https://dwm15mhrb0qh0.cloudfront.net";
+const originUrl = process.env.SAMPLES_AUTH_WITH_EMAIL_FRONTEND_URI;
 
 /** @type {import('@sveltejs/kit').Config} */
 const config = {
