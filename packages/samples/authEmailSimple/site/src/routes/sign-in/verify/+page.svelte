@@ -18,7 +18,8 @@
     loading = true;
 
     const form = event.target as HTMLFormElement;
-    const code = new FormData(form).get("code") as string;
+    const code = new FormData(form).get("code");
+        if (typeof code !== "string") return;
 
     try {
       await signInComplete(data.token, code);

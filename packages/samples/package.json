@@ -8,7 +8,9 @@
     "deploy:authEmailSimple": "cd authEmailSimple/site && bun run vite build && cd - && bun run cdk deploy SamplesAuthEmailSimple --require-approval never",
     "deploy:authEmailAuthorizer": "cd authEmailAuthorizer/site && bun run vite build && cd - && bun run cdk deploy SamplesAuthEmailAuthorizer --require-approval never",
     "deploy:authWithEmail": "cd authWithEmail/site && bun run vite build && cd - && bun run cdk deploy SamplesAuthWithEmail --require-approval never",
-    "deploy:emailVerify": "cd emailVerify/site && bun run vite build && cd - && bun run cdk deploy SamplesEmailVerify --require-approval never"
+    "deploy:emailVerify": "cd emailVerify/site && bun run vite build && cd - && bun run cdk deploy SamplesEmailVerify --require-approval never",
+    "deploy:authCookieFunction": "cd authCookieFunction/site && bun run vite build && cd - && bun run cdk deploy SamplesAuthCookieFunction --require-approval never",
+    "deploy:authSpaWithApi": "cd authSpaWithApi/site && bun run vite build && cd - && bun run cdk deploy SamplesAuthSpaWithApi --require-approval never"
   },
   "dependencies": {
     "@beesolve/action-tokens": "workspace:^",
@@ -18,10 +20,16 @@
     "@beesolve/email-service": "workspace:^",
     "@beesolve/lambda-fetch-api": "workspace:^",
     "@beesolve/sqs-handler": "workspace:^",
+    "@tanstack/react-query": "^5.100.1",
+    "@trpc/client": "^11.18.0",
+    "@trpc/server": "^11.18.0",
+    "@trpc/tanstack-react-query": "^11.18.0",
     "aws-cdk": "catalog:",
     "aws-cdk-lib": "catalog:",
     "constructs": "catalog:",
     "kit-on-lambda": "^0.6.1",
+    "react": "catalog:",
+    "react-dom": "^19.2.8",
     "valibot": "catalog:"
   },
   "devDependencies": {
@@ -29,6 +37,9 @@
     "@sveltejs/vite-plugin-svelte": "^7.2.0",
     "@types/aws-lambda": "catalog:",
     "@types/node": "catalog:",
+    "@types/react": "^19.2.3",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^4.5.2",
     "svelte": "^5.56.8",
     "typescript": "catalog:",
     "vite": "^8.1.5"

@@ -1,7 +1,9 @@
 import { App } from "aws-cdk-lib";
 
+import { CookieFunctionStack } from "./authCookieFunction/stack.ts";
 import { EmailAuthorizerStack } from "./authEmailAuthorizer/stack.ts";
 import { EmailSimpleStack } from "./authEmailSimple/stack.ts";
+import { SpaWithApiStack } from "./authSpaWithApi/stack.ts";
 import { AuthWithEmailStack } from "./authWithEmail/stack.ts";
 import { EmailVerifyStack } from "./emailVerify/stack.ts";
 
@@ -27,5 +29,13 @@ new AuthWithEmailStack(app, "SamplesAuthWithEmail", {
 });
 
 new EmailVerifyStack(app, "SamplesEmailVerify", {
+  env: { account, region },
+});
+
+new CookieFunctionStack(app, "SamplesAuthCookieFunction", {
+  env: { account, region },
+});
+
+new SpaWithApiStack(app, "SamplesAuthSpaWithApi", {
   env: { account, region },
 });

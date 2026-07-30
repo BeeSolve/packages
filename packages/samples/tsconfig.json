@@ -2,10 +2,15 @@
   "extends": "../../tsconfig.base.json",
   "include": [
     "app.ts",
+    "authCookieFunction/stack.ts",
     "authEmailAuthorizer/consumer.ts",
     "authEmailAuthorizer/stack.ts",
     "authEmailSimple/consumer.ts",
     "authEmailSimple/stack.ts",
+    "authSpaWithApi/api/context.ts",
+    "authSpaWithApi/api/handler.ts",
+    "authSpaWithApi/api/router.ts",
+    "authSpaWithApi/stack.ts",
     "authWithEmail/consumer.ts",
     "authWithEmail/stack.ts",
     "emailVerify/stack.ts"

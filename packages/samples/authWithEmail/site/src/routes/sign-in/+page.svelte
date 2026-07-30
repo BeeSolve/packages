@@ -12,7 +12,8 @@
     loading = true;
 
     const form = event.target as HTMLFormElement;
-    const email = new FormData(form).get("email") as string;
+    const email = new FormData(form).get("email");
+        if (typeof email !== "string") return;
 
     try {
       const data = await signInRequest(email);
