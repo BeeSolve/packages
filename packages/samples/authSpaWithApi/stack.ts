@@ -58,6 +58,7 @@ export class SpaWithApiStack extends Stack {
         connectSrc: ["'self'"],
         requireTrustedTypesFor: [],
       },
+      deploymentLambdaMemoryLimit: 3008,
     });
 
     if (auth.api.url == null) throw Error(`Unexpected error - missing api url`);

@@ -1,5 +1,4 @@
 import { useQuery } from "@tanstack/react-query";
-import { useEffect } from "react";
 
 import { signOut } from "../authClient";
 import { trpc } from "../trpc";
@@ -9,20 +8,18 @@ interface Props {
 }
 
 export function Dashboard({ onUnauthorized }: Props) {
-  const identityQuery = useQuery(trpc.identity.queryOptions());
+  const identityQuery = useQuery({ ...trpc.identity.queryOptions(), retry: false });
 
-  useEffect(() => {
-    if (identityQuery.error != null) {
-      onUnauthorized();
-    }
-  }, [identityQuery.error, onUnauthorized]);
+  if (identityQuery.isLoading) return <p>Loading...</p>;
+
+  if (identityQuery.error != null) {
+    onUnauthorized();
+    return null;
+  }
 
   function handleSignOut() {
     void signOut();
   }
-
-  if (identityQuery.isLoading) return <p>Loading...</p>;
-  if (identityQuery.error != null) return null;
 
   return (
     <div>

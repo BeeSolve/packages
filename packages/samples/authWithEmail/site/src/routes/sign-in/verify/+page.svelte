@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { goto } from "$app/navigation";
   import CodeInput from "$shared/components/codeInput.svelte";
   import { AuthError, resendCode, signInComplete } from "$shared/utils/authClient";
   import { createCooldown } from "$shared/utils/cooldown.svelte";
@@ -57,7 +56,6 @@
 
     try {
       await signInComplete(token, code);
-      goto("/");
     } catch (e) {
       submitted = false;
       loading = false;

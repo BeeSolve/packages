@@ -10,10 +10,10 @@ const config = {
       "$shared/*": "../../shared/*",
     },
     csrf: {
-      trustedOrigins: [originUrl],
+      trustedOrigins: originUrl ? [originUrl] : [],
     },
     paths: {
-      assets: originUrl,
+      assets: originUrl || "",
     },
   },
 };

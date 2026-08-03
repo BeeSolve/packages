@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { goto } from "$app/navigation";
   import CodeInput from "$shared/components/codeInput.svelte";
   import { AuthError, signInComplete } from "$shared/utils/authClient";
 
@@ -23,7 +22,6 @@
 
     try {
       await signInComplete(data.token, code);
-      goto("/");
     } catch (e) {
       submitted = false;
       loading = false;
@@ -36,8 +34,6 @@
   }
 </script>
 
-<svelte:document onsubmit={handleSubmit} />
-
 <h1>Enter code</h1>
 
 {#if error}
@@ -46,4 +42,4 @@
 
 <p>Check your email for a verification code.</p>
 
-<CodeInput disabled={loading} />
+<CodeInput disabled={loading} onsubmit={handleSubmit} />

@@ -1,5 +1,5 @@
 import { assertUnreachable } from "@beesolve/helpers";
-import { Duration, RemovalPolicy, Size } from "aws-cdk-lib";
+import { CfnOutput, Duration, RemovalPolicy, Size } from "aws-cdk-lib";
 import { Certificate } from "aws-cdk-lib/aws-certificatemanager";
 import {
   AllowedMethods,
@@ -263,6 +263,10 @@ export class StaticWebsite extends Construct {
       sources: [props.source],
       memoryLimit: props.deploymentLambdaMemoryLimit ?? 10_240,
       ephemeralStorageSize: props.deploymentLambdaEphemeralStorageSize ?? Size.mebibytes(512),
+    });
+
+    new CfnOutput(this, "DistributionUrl", {
+      value: `https://${distribution.distributionDomainName}`,
     });
 
     if (props.domain != null && props.domain.createDnsRecords !== false) {

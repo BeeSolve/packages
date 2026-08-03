@@ -12,6 +12,9 @@ export default defineConfig({
       $shared: sharedDir,
     },
   },
+  ssr: {
+    external: ["@beesolve/lambda-fetch-api"],
+  },
   server: {
     fs: {
       allow: [sharedDir],

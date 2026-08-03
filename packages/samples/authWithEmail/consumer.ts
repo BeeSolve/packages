@@ -10,7 +10,7 @@ export async function handler(event: EventBridgeEvent<string, unknown>): Promise
 
     await email.sendEmail({
       recipients: [emailAddress],
-      subject: `Your sign-in code: ${code} (ref: ${referenceCode})`,
+      subject: `Your sign-in code (ref: ${referenceCode})`,
       html: `
         <h2>Your sign-in code</h2>
         <p style="font-size: 32px; font-weight: bold; letter-spacing: 4px;">${code}</p>

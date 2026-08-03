@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { goto } from "$app/navigation";
   import CodeInput from "$shared/components/codeInput.svelte";
   import { AuthError, signInComplete } from "$shared/utils/authClient";
 
@@ -23,7 +22,6 @@
 
     try {
       await signInComplete(data.token, code);
-      goto("/");
     } catch (e) {
       submitted = false;
       loading = false;

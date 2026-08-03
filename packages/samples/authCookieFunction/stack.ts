@@ -43,7 +43,7 @@ export class CookieFunctionStack extends Stack {
     const auth = new AuthGateway(this, "Auth", {
       stage: "dev",
       frontendUri,
-      allowSignUp: false,
+      allowSignUp: true,
       alarms,
       authorizerCache: "disabled",
     });
@@ -83,5 +83,9 @@ export class CookieFunctionStack extends Stack {
 
     const authBehaviour = auth.createAuthBehavior(site.distribution);
     site.distribution.addBehavior("/auth/*", authBehaviour.origin, authBehaviour);
+
+    // new CfnOutput(this, "FrontendUrl", {
+    //   value: `https://${site.distribution.distributionDomainName}`,
+    // });
   }
 }

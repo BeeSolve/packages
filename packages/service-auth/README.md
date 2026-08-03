@@ -552,11 +552,22 @@ The browser is hitting the Lambda function URL directly (bypassing CloudFront) o
 
 If using Pattern 2 with authorizer caching: the first cookieless request may have cached an "invalid" response. Ensure the `ensureCookieFunction` is attached to the CloudFront behavior. Alternatively, use `authorizerCache: "disabled"`.
 
-**`getSessionContext()` returns `{ type: "none" }`**
+_*`getSessionContext()` returns `{ type: "none" }` or throws "getAws* called outside of a handler invocation"_*
 
 - You're calling it outside a Lambda invocation context
-- `@beesolve/lambda-fetch-api` is not in Vite's SSR externals (causes `AsyncLocalStorage` instance duplication)
 - The route is behind `addPublicEndpoint` (no authorizer runs)
+- `@beesolve/lambda-fetch-api` is not in Vite's SSR externals — this is the most common cause when using `kit-on-lambda`. Add the following to your `vite.config.ts`:
+
+```ts
+export default defineConfig({
+  plugins: [sveltekit()],
+  ssr: {
+    external: ["@beesolve/lambda-fetch-api"],
+  },
+});
+```
+
+Without this, Vite bundles `@beesolve/lambda-fetch-api` into the SSR output, creating a duplicate `AsyncLocalStorage` instance. The `kit-on-lambda` handler and SvelteKit hooks end up with separate stores — `runWithAwsContext()` sets the event on one instance, but `getAwsEvent()` reads from another. This only affects `createSessionHandle()` (Pattern 2); `createInProcessSessionHandle()` (Pattern 3) doesn't use `getAwsEvent()` and is unaffected.
 
 **SDK invocation fails with "Cannot invoke synchronous action"**
 

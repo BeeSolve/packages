@@ -25,14 +25,12 @@
   }
 </script>
 
-<svelte:document onsubmit={handleSubmit} />
-
 <h1>Sign in</h1>
 
 {#if error}
   <p class="error">{error}</p>
 {/if}
 
-<EmailForm label="Email address" buttonText="Send code" disabled={loading} />
+<EmailForm label="Email address" buttonText="Send code" disabled={loading} onsubmit={handleSubmit} />
 
 <p>Enter your email to receive a sign-in code.</p>

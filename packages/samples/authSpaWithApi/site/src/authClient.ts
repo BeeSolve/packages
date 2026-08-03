@@ -1,5 +1,9 @@
 import * as v from "valibot";
 
+export function isAuthenticated(): boolean {
+  return document.cookie.includes("aSID=1");
+}
+
 export class AuthError extends Error {
   readonly status: number;
   readonly type: string;

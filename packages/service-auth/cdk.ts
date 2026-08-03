@@ -245,7 +245,7 @@ export class AuthGateway extends Construct {
     props.warmer?.keepActive(apiAuthorizer);
 
     this.authorizer = new HttpLambdaAuthorizer("ApiAuthorizer", apiAuthorizer, {
-      identitySource: props.authorizerCache === "disabled" ? undefined : ["$request.header.Cookie"],
+      identitySource: props.authorizerCache === "disabled" ? [] : ["$request.header.Cookie"],
       resultsCacheTtl: resolveAuthorizerCacheTtl(props.authorizerCache),
     });
 
