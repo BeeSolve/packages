@@ -1,0 +1,48 @@
+{
+  "name": "@beesolve/dmarc-parser",
+  "version": "0.0.1",
+  "description": "DMARC aggregate report parser — XML parsing, decompression, and MIME extraction",
+  "homepage": "https://github.com/beesolve/packages/tree/main/packages/dmarc-parser#readme",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/beesolve/packages.git"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "test": "bun test",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "fast-xml-parser": "^5.2.3",
+    "mailparser": "^3.7.2",
+    "valibot": "catalog:"
+  },
+  "devDependencies": {
+    "@types/bun": "catalog:",
+    "@types/mailparser": "^3.4.5",
+    "@types/node": "catalog:"
+  },
+  "peerDependencies": {
+    "typescript": "catalog:"
+  },
+  "peerDependenciesMeta": {
+    "typescript": {
+      "optional": true
+    }
+  }
+}

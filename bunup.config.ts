@@ -4,6 +4,17 @@ import { defineWorkspace } from "bunup";
 
 export default defineWorkspace([
   {
+    name: "@beesolve/dmarc-parser",
+    root: "packages/dmarc-parser",
+    config: {
+      entry: ["index.ts"],
+      dts: {
+        inferTypes: true,
+        tsgo: true,
+      },
+    },
+  },
+  {
     name: "@beesolve/helpers",
     root: "packages/helpers",
     config: {
