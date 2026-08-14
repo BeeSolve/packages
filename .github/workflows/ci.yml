@@ -14,8 +14,6 @@ jobs:
 
       - run: bun install
 
-      - run: bun run --cwd packages/dmarc-dashboard svelte-kit sync
-
       - run: bun run lint
 
       - run: bun run build
