@@ -1,5 +1,11 @@
 # @beesolve/dmarc-dashboard
 
+## 0.0.7
+
+### Patch Changes
+
+- 747300c: Run vite build in prepublishOnly to include SvelteKit output in published package, remove buildDirectory prop
+
 ## 0.0.6
 
 ### Patch Changes
