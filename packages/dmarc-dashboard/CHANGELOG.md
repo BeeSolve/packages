@@ -1,5 +1,12 @@
 # @beesolve/dmarc-dashboard
 
+## 0.0.3
+
+### Patch Changes
+
+- 67f4065: Pin TypeScript to v6 for svelte-check compatibility (svelte-check does not yet support TS7 as sole version)
+- @beesolve/dmarc-consumer@0.0.3
+
 ## 0.0.2
 
 ### Patch Changes

@@ -1,5 +1,11 @@
 # @beesolve/dmarc-reports
 
+## 0.0.3
+
+### Patch Changes
+
+- 67f4065: Fix CDK handler entry path from `handler/` to `dist/handler/` to match actual build output location
+
 ## 0.0.2
 
 ### Patch Changes
