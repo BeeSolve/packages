@@ -36,10 +36,10 @@
   },
   "type": "module",
   "scripts": {
-    "lint": "oxlint packages/ scripts/",
+    "lint": "oxlint packages/ scripts/ --ignore-pattern packages/samples/",
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",
-    "check": "oxfmt --check && oxlint packages/ scripts/",
+    "check": "oxfmt --check && oxlint packages/ scripts/ --ignore-pattern packages/samples/",
     "build": "bunup && bun scripts/buildLambdas.ts",
     "dev": "bunup --watch",
     "test": "bun run --filter '*' test",
