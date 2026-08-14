@@ -27,7 +27,7 @@
     "build": "DMARC_TABLE_NAME=build-placeholder DMARC_REVERSE_INDEX=build-placeholder vite build",
     "type-check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "test": "bun test",
-    "prepublishOnly": "bun build.ts"
+    "prepublishOnly": "bun build.ts && bun run build"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "catalog:",

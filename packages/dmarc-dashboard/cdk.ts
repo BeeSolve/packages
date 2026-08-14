@@ -1,4 +1,3 @@
-import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import type { AuthGateway } from "@beesolve/auth-service/cdk";
@@ -21,12 +20,6 @@ export interface DmarcDashboardProps {
     readonly name: string;
     readonly emailAddress: string;
   };
-  /**
-   * Path to the SvelteKit build output directory.
-   *
-   * @default resolve("./dist/build")
-   */
-  readonly buildDirectory?: string;
 }
 
 export class DmarcDashboard extends Construct {
@@ -36,7 +29,7 @@ export class DmarcDashboard extends Construct {
     super(scope, id);
 
     const dir = fileURLToPath(new URL(".", import.meta.url));
-    const buildDirectory = props.buildDirectory ?? resolve("./dist/build");
+    const buildDirectory = `${dir}build`;
 
     const site = new SvelteKit(this, "Site", {
       runtime: "node",

@@ -3,6 +3,7 @@
 ## Workflow
 
 - Always start with `git pull --rebase origin main` before making any changes
+- Never push without explicit user approval — always show the diff and wait for confirmation before `git push`
 
 ## Runtime
 
