@@ -1,5 +1,10 @@
 import { runWithAwsContext } from "@beesolve/lambda-fetch-api";
-import type { APIGatewayProxyEventV2WithLambdaAuthorizer, Context } from "aws-lambda";
+import type {
+  APIGatewayProxyEventV2WithLambdaAuthorizer,
+  Context as LambdaContext,
+} from "aws-lambda";
+
+type Context = Omit<LambdaContext, "done" | "succeed" | "fail">;
 
 import type { ValidSession } from "./src/sessionContext.ts";
 
