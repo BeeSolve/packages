@@ -131,4 +131,16 @@ export default defineWorkspace([
       // },
     },
   },
+  {
+    name: "@beesolve/dmarc-dashboard",
+    root: "packages/dmarc-dashboard",
+    config: {
+      entry: ["cdk.ts"],
+      preferredTsconfig: "./tsconfig.cdk.json",
+      dts: {
+        inferTypes: true,
+        tsgo: true,
+      },
+    },
+  },
 ]);

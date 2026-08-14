@@ -28,8 +28,8 @@ export class DmarcDashboard extends Construct {
   constructor(scope: Construct, id: string, props: DmarcDashboardProps) {
     super(scope, id);
 
-    const distDir = fileURLToPath(new URL(".", import.meta.url));
-    const buildDirectory = `${distDir}build`;
+    const dir = fileURLToPath(new URL(".", import.meta.url));
+    const buildDirectory = `${dir}build`;
 
     const site = new SvelteKit(this, "Site", {
       runtime: "node",
@@ -63,7 +63,8 @@ export class DmarcDashboard extends Construct {
 
     const authConsumer = new Nodejs24Function(this, "AuthConsumer", {
       description: "DMARC dashboard auth events consumer — sends OTP emails",
-      entry: `${distDir}src/authConsumer.ts`,
+      entry: `${dir}authConsumer/`,
+      handler: "authConsumer.handler",
       memorySize: 256,
       timeout: Duration.seconds(10),
     });

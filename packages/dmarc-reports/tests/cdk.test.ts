@@ -1,9 +1,14 @@
-import { describe, it } from "bun:test";
+import { beforeAll, describe, it } from "bun:test";
+import { mkdirSync } from "node:fs";
 
 import { App, Duration, Stack } from "aws-cdk-lib";
 import { Match, Template } from "aws-cdk-lib/assertions";
 
 import { DmarcReports } from "../cdk.ts";
+
+beforeAll(() => {
+  mkdirSync(new URL("../handler", import.meta.url), { recursive: true });
+});
 
 function makeStack() {
   const app = new App();
