@@ -17,7 +17,13 @@ SvelteKit dashboard for viewing DMARC reports — deployed on AWS Lambda behind 
 ## Prerequisites
 
 ```bash
-npm install @beesolve/dmarc-dashboard @beesolve/dmarc-reports @beesolve/dmarc-consumer @beesolve/auth-service aws-cdk-lib constructs
+npm install \
+  @beesolve/dmarc-dashboard \
+  @beesolve/dmarc-reports \
+  @beesolve/dmarc-consumer \
+  @beesolve/auth-service \
+  aws-cdk-lib \
+  constructs
 ```
 
 - [`@beesolve/dmarc-reports`](../dmarc-reports) — ingests DMARC emails into EventBridge
