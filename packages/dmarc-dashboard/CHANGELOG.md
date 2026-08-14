@@ -1,5 +1,11 @@
 # @beesolve/dmarc-dashboard
 
+## 0.0.5
+
+### Patch Changes
+
+- Fix published files — include cdk.ts, src/authConsumer.ts, and build directory instead of empty dist
+
 ## 0.0.4
 
 ### Patch Changes
