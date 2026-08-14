@@ -1,5 +1,12 @@
 # @beesolve/dmarc-consumer
 
+## 0.0.4
+
+### Patch Changes
+
+- Updated dependencies [c0d250e]
+  - @beesolve/dmarc-reports@0.0.4
+
 ## 0.0.3
 
 ### Patch Changes

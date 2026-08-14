@@ -1,5 +1,12 @@
 # @beesolve/dmarc-dashboard
 
+## 0.0.6
+
+### Patch Changes
+
+- c0d250e: Build cdk.ts via bunup, pre-build authConsumer lambda, output SvelteKit to dist/build via adapter config
+- @beesolve/dmarc-consumer@0.0.4
+
 ## 0.0.5
 
 ### Patch Changes
