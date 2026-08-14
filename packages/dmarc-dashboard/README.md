@@ -17,7 +17,7 @@ SvelteKit dashboard for viewing DMARC reports — deployed on AWS Lambda behind 
 ## Prerequisites
 
 ```bash
-npm install @beesolve/dmarc-reports @beesolve/dmarc-consumer @beesolve/auth-service
+npm install @beesolve/dmarc-dashboard @beesolve/dmarc-reports @beesolve/dmarc-consumer @beesolve/auth-service aws-cdk-lib constructs
 ```
 
 - [`@beesolve/dmarc-reports`](../dmarc-reports) — ingests DMARC emails into EventBridge
@@ -27,24 +27,34 @@ npm install @beesolve/dmarc-reports @beesolve/dmarc-consumer @beesolve/auth-serv
 ## CDK Setup
 
 ```typescript
+import { App, Stack } from "aws-cdk-lib";
 import { DmarcDashboard } from "@beesolve/dmarc-dashboard/cdk";
 import { DmarcConsumer } from "@beesolve/dmarc-consumer/cdk";
 import { DmarcReports } from "@beesolve/dmarc-reports/cdk";
 import { AuthGateway } from "@beesolve/auth-service/cdk";
 
-// 1. Set up report ingestion
-const dmarcReports = new DmarcReports(this, "DmarcReports", {
+const app = new App();
+const stack = new Stack(app, "DmarcStack", {
+  env: { account: "123456789012", region: "eu-central-1" },
+});
+
+// 1. Set up report ingestion (SES → S3 → EventBridge)
+const dmarcReports = new DmarcReports(stack, "DmarcReports", {
   recipient: "rua@dmarc.example.com",
 });
 
-// 2. Set up consumer (persists to DynamoDB)
-const consumer = new DmarcConsumer(this, "DmarcConsumer");
+// 2. Set up consumer (EventBridge → SQS → Lambda → DynamoDB)
+const consumer = new DmarcConsumer(stack, "DmarcConsumer");
 
 // 3. Set up authentication
-const auth = new AuthGateway(this, "Auth", {/* ... */});
+const auth = new AuthGateway(stack, "Auth", {
+  stage: "prod",
+  frontendUri: process.env.FRONTEND_URI!,
+  allowSignUp: false,
+});
 
 // 4. Deploy the dashboard
-const dashboard = new DmarcDashboard(this, "DmarcDashboard", {
+const dashboard = new DmarcDashboard(stack, "DmarcDashboard", {
   auth,
   consumer,
   emailSender: {
