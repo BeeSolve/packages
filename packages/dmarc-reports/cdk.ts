@@ -101,7 +101,7 @@ export class DmarcReports extends Construct {
 
     const handler = new Nodejs24Function(this, "Handler", {
       description: "DMARC report parser — processes emails from S3 and emits parsed events",
-      entry: `${fileURLToPath(new URL(".", import.meta.url))}handler/`,
+      entry: `${fileURLToPath(new URL(".", import.meta.url))}dist/handler/`,
       handler: "handler.handler",
       memorySize: props.handlerProps?.memorySize ?? 256,
       timeout: props.handlerProps?.timeout ?? Duration.seconds(30),
