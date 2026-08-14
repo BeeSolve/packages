@@ -1,5 +1,12 @@
 # @beesolve/sqs-handler
 
+## 0.2.4
+
+### Patch Changes
+
+- Updated dependencies [d54dca7]
+  - @beesolve/cdk-constructs@0.3.0
+
 ## 0.2.3
 
 ### Patch Changes
