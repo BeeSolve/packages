@@ -24,7 +24,8 @@
     "./package.json": "./package.json"
   },
   "scripts": {
-    "dev": "svelte-kit sync && vite dev",
+    "prepare": "svelte-kit sync || true",
+    "dev": "vite dev",
     "build": "DMARC_TABLE_NAME=build-placeholder DMARC_REVERSE_INDEX=build-placeholder vite build",
     "type-check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "test": "bun test"
