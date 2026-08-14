@@ -1,6 +1,6 @@
 {
   "name": "@beesolve/dmarc-consumer",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "DMARC consumer — persists parsed DMARC reports from EventBridge to DynamoDB",
   "homepage": "https://github.com/beesolve/packages/tree/main/packages/dmarc-consumer#readme",
   "license": "MIT",
