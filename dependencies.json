@@ -11,6 +11,5 @@
   "packages/lint-config",
   "packages/service-email",
   "packages/sqs-handler",
-  "packages/service-auth",
-  "packages/samples"
+  "packages/service-auth"
 ]
