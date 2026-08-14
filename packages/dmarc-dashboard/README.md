@@ -60,11 +60,11 @@ The `DmarcDashboard` construct provisions:
 
 ## First Deployment
 
-The SvelteKit build requires environment variables that reference the CloudFront URL, which doesn't exist until after the first deploy:
+The SvelteKit build requires a `FRONTEND_URI` environment variable (the CloudFront URL), which doesn't exist until after the first deploy:
 
-1. Set a placeholder `FRONTEND_URI` in `mise.toml`
+1. Set `FRONTEND_URI` to a placeholder URL
 2. Deploy — note the CloudFront URL from CDK output
-3. Update `mise.toml` with the real URL and redeploy
+3. Update `FRONTEND_URI` with the real URL and redeploy
 
 ## Local Development
 
