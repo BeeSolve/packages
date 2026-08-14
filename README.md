@@ -16,6 +16,9 @@ All packages target Node.js 24+ and are published as ESM.
 | [`@beesolve/cdk-constructs`](packages/cdk-constructs)         | Opinionated CDK constructs: Nodejs24Function, SqsWithDlq, StaticWebsite                         |
 | [`@beesolve/cdk-email-alarms`](packages/cdk-email-alarms)     | CDK construct for email-based CloudWatch alarms                                                 |
 | [`@beesolve/lambda-keep-active`](packages/lambda-keep-active) | Lambda warmer — periodic invocations to prevent cold starts                                     |
+| [`@beesolve/dmarc-parser`](packages/dmarc-parser)             | DMARC aggregate report parser — XML parsing, decompression, and MIME extraction                 |
+| [`@beesolve/dmarc-reports`](packages/dmarc-reports)           | DMARC report ingestion pipeline — SES to S3 to EventBridge via Lambda                           |
+| [`@beesolve/dmarc-consumer`](packages/dmarc-consumer)         | DMARC consumer — persists parsed DMARC reports from EventBridge to DynamoDB                     |
 | [`@beesolve/helpers`](packages/helpers)                       | Shared TypeScript utilities (serialization, retry, type guards)                                 |
 | [`@beesolve/lint-config`](packages/lint-config)               | Shared Oxlint + Oxfmt linting and formatting configuration                                      |
 | [`@beesolve/samples`](packages/samples)                       | Deployable reference implementations showcasing the packages above (not published to npm)       |
