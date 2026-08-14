@@ -5,6 +5,7 @@ import { EmailAuthorizerStack } from "./authEmailAuthorizer/stack.ts";
 import { EmailSimpleStack } from "./authEmailSimple/stack.ts";
 import { SpaWithApiStack } from "./authSpaWithApi/stack.ts";
 import { AuthWithEmailStack } from "./authWithEmail/stack.ts";
+import { DmarcReportsStack } from "./dmarcReports/stack.ts";
 import { EmailVerifyStack } from "./emailVerify/stack.ts";
 
 const account = process.env.AWS_ACCOUNT;
@@ -37,5 +38,9 @@ new CookieFunctionStack(app, "SamplesAuthCookieFunction", {
 });
 
 new SpaWithApiStack(app, "SamplesAuthSpaWithApi", {
+  env: { account, region },
+});
+
+new DmarcReportsStack(app, "SamplesDmarcReports", {
   env: { account, region },
 });

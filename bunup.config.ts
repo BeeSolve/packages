@@ -15,6 +15,28 @@ export default defineWorkspace([
     },
   },
   {
+    name: "@beesolve/dmarc-reports",
+    root: "packages/dmarc-reports",
+    config: {
+      entry: ["index.ts", "cdk.ts"],
+      dts: {
+        inferTypes: true,
+        tsgo: true,
+      },
+    },
+  },
+  {
+    name: "@beesolve/dmarc-consumer",
+    root: "packages/dmarc-consumer",
+    config: {
+      entry: ["report.ts", "domain.ts", "cdk.ts"],
+      dts: {
+        inferTypes: true,
+        tsgo: true,
+      },
+    },
+  },
+  {
     name: "@beesolve/helpers",
     root: "packages/helpers",
     config: {

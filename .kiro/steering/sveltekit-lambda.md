@@ -34,3 +34,30 @@ Sample stacks require a `FRONTEND_URI` env var (the CloudFront URL) which doesn'
 1. Set a placeholder URL in `mise.toml`
 2. Deploy — note the CloudFront URL from CDK output
 3. Update `mise.toml` with the real URL and redeploy
+
+## Service Instantiation Pattern
+
+All shared services (DynamoDB clients, SDK clients, domain models) must be created once in `hooks.server.ts` and passed to routes via `event.locals`. Route files (`+page.server.ts`, `+layout.server.ts`) must **never** instantiate their own DynamoDB clients, SDK clients, or service classes.
+
+This ensures:
+
+- A single DynamoDB connection is reused across the request lifecycle
+- No duplicate env parsing or client construction in each route
+- Consistent service configuration in one place
+- Easier testing and mocking
+
+```ts
+// hooks.server.ts — create services here
+const users = new Users({
+  dynamo,
+  tableName: env.DMARC_TABLE_NAME,
+  reverseIndexName: env.DMARC_REVERSE_INDEX,
+});
+event.locals.services = { users, domains, reports, setup, authClient };
+
+// +page.server.ts — access services directly (no destructuring)
+export const load: PageServerLoad = async ({ locals }) => {
+  const allDomains = await locals.services.domains.list();
+  // ...
+};
+```

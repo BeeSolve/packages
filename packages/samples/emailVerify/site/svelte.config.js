@@ -1,6 +1,6 @@
 import adapter from "kit-on-lambda";
 
-const originUrl = process.env.SAMPLES_EMAIL_VERIFY_FRONTEND_URI;
+// const originUrl = process.env.SAMPLES_EMAIL_VERIFY_FRONTEND_URI;
 
 /** @type {import('@sveltejs/kit').Config} */
 const config = {
@@ -9,12 +9,12 @@ const config = {
     alias: {
       "$shared/*": "../../shared/*",
     },
-    csrf: {
-      trustedOrigins: [originUrl],
-    },
-    paths: {
-      assets: originUrl,
-    },
+    // csrf: {
+    //   trustedOrigins: [originUrl],
+    // },
+    // paths: {
+    //   assets: originUrl,
+    // },
   },
 };
 

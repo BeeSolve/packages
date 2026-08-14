@@ -44,7 +44,6 @@ async function postJson<T>(
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify(body),
-    credentials: "include",
   });
 
   if (!response.ok) {
@@ -71,7 +70,6 @@ export async function signInComplete(token: string, code: string): Promise<void>
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify({ token, code }),
-    credentials: "include",
   });
 
   if (!response.ok) {
@@ -98,7 +96,6 @@ export async function signOut(): Promise<void> {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify({}),
-    credentials: "include",
   });
 
   if (!response.ok) {

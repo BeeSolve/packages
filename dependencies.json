@@ -1,12 +1,16 @@
 [
   "packages/action-tokens",
   "packages/cdk-email-alarms",
+  "packages/dmarc-parser",
   "packages/helpers",
   "packages/cdk-constructs",
+  "packages/dmarc-reports",
+  "packages/dmarc-consumer",
   "packages/lambda-fetch-api",
   "packages/lambda-keep-active",
   "packages/lint-config",
   "packages/service-email",
   "packages/sqs-handler",
-  "packages/service-auth"
+  "packages/service-auth",
+  "packages/samples"
 ]

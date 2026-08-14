@@ -81,6 +81,69 @@
         "typescript",
       ],
     },
+    "packages/dmarc-consumer": {
+      "name": "@beesolve/dmarc-consumer",
+      "version": "0.0.1",
+      "dependencies": {
+        "@aws-sdk/client-dynamodb": "catalog:",
+        "@aws-sdk/lib-dynamodb": "catalog:",
+        "@beesolve/cdk-constructs": "workspace:^",
+        "@beesolve/dmarc-reports": "workspace:^",
+        "@beesolve/helpers": "workspace:^",
+        "valibot": "catalog:",
+      },
+      "devDependencies": {
+        "@types/aws-lambda": "catalog:",
+        "@types/node": "catalog:",
+        "aws-cdk-lib": "catalog:",
+        "constructs": "catalog:",
+      },
+      "peerDependencies": {
+        "aws-cdk-lib": "catalog:",
+        "constructs": "catalog:",
+        "typescript": "catalog:",
+      },
+      "optionalPeers": [
+        "typescript",
+      ],
+    },
+    "packages/dmarc-dashboard": {
+      "name": "@beesolve/dmarc-dashboard",
+      "version": "0.0.1",
+      "dependencies": {
+        "@aws-sdk/client-dynamodb": "catalog:",
+        "@aws-sdk/lib-dynamodb": "catalog:",
+        "@beesolve/auth-service": "workspace:^",
+        "@beesolve/cdk-constructs": "workspace:^",
+        "@beesolve/dmarc-consumer": "workspace:^",
+        "@beesolve/email-service": "workspace:^",
+        "@beesolve/lambda-fetch-api": "workspace:^",
+        "@drop-in/graffiti": "^0.3.0",
+        "kit-on-lambda": "^0.6.1",
+        "valibot": "catalog:",
+      },
+      "devDependencies": {
+        "@sveltejs/kit": "^2.70.1",
+        "@sveltejs/vite-plugin-svelte": "^7.2.0",
+        "@types/aws-lambda": "catalog:",
+        "@types/bun": "catalog:",
+        "@types/node": "catalog:",
+        "aws-cdk-lib": "catalog:",
+        "constructs": "catalog:",
+        "svelte": "^5.56.8",
+        "svelte-check": "^4.2.1",
+        "typescript": "^6.0.0",
+        "vite": "^8.1.5",
+      },
+      "peerDependencies": {
+        "aws-cdk-lib": "catalog:",
+        "constructs": "catalog:",
+      },
+      "optionalPeers": [
+        "aws-cdk-lib",
+        "constructs",
+      ],
+    },
     "packages/dmarc-parser": {
       "name": "@beesolve/dmarc-parser",
       "version": "0.0.1",
@@ -95,6 +158,32 @@
         "@types/node": "catalog:",
       },
       "peerDependencies": {
+        "typescript": "catalog:",
+      },
+      "optionalPeers": [
+        "typescript",
+      ],
+    },
+    "packages/dmarc-reports": {
+      "name": "@beesolve/dmarc-reports",
+      "version": "0.0.1",
+      "dependencies": {
+        "@aws-sdk/client-eventbridge": "catalog:",
+        "@aws-sdk/client-s3": "catalog:",
+        "@beesolve/cdk-constructs": "workspace:^",
+        "@beesolve/dmarc-parser": "workspace:^",
+        "@beesolve/lambda-keep-active": "workspace:^",
+        "valibot": "catalog:",
+      },
+      "devDependencies": {
+        "@types/node": "catalog:",
+        "aws-cdk-lib": "catalog:",
+        "constructs": "catalog:",
+        "esbuild": "catalog:",
+      },
+      "peerDependencies": {
+        "aws-cdk-lib": "catalog:",
+        "constructs": "catalog:",
         "typescript": "catalog:",
       },
       "optionalPeers": [
@@ -185,6 +274,9 @@
         "@beesolve/auth-service": "workspace:^",
         "@beesolve/cdk-constructs": "workspace:^",
         "@beesolve/cdk-email-alarms": "workspace:^",
+        "@beesolve/dmarc-consumer": "workspace:^",
+        "@beesolve/dmarc-dashboard": "workspace:^",
+        "@beesolve/dmarc-reports": "workspace:^",
         "@beesolve/email-service": "workspace:^",
         "@beesolve/lambda-fetch-api": "workspace:^",
         "@beesolve/sqs-handler": "workspace:^",
@@ -457,7 +549,13 @@
 
     "@beesolve/cdk-email-alarms": ["@beesolve/cdk-email-alarms@workspace:packages/cdk-email-alarms"],
 
+    "@beesolve/dmarc-consumer": ["@beesolve/dmarc-consumer@workspace:packages/dmarc-consumer"],
+
+    "@beesolve/dmarc-dashboard": ["@beesolve/dmarc-dashboard@workspace:packages/dmarc-dashboard"],
+
     "@beesolve/dmarc-parser": ["@beesolve/dmarc-parser@workspace:packages/dmarc-parser"],
+
+    "@beesolve/dmarc-reports": ["@beesolve/dmarc-reports@workspace:packages/dmarc-reports"],
 
     "@beesolve/email-service": ["@beesolve/email-service@workspace:packages/service-email"],
 
@@ -512,6 +610,8 @@
     "@changesets/types": ["@changesets/types@6.1.0", "", {}, "sha512-rKQcJ+o1nKNgeoYRHKOS07tAMNd3YSN0uHaJOZYjBAgxfV7TUE7JE+z4BzZdQwb5hKaYbayKN5KrYV7ODb2rAA=="],
 
     "@changesets/write": ["@changesets/write@0.4.0", "", { "dependencies": { "@changesets/types": "^6.1.0", "fs-extra": "^7.0.1", "human-id": "^4.1.1", "prettier": "^2.7.1" } }, "sha512-CdTLvIOPiCNuH71pyDu3rA+Q0n65cmAbXnwWH84rKGiFumFzkmHNT8KHTMEchcxN+Kl8I54xGUhJ7l3E7X396Q=="],
+
+    "@drop-in/graffiti": ["@drop-in/graffiti@0.3.4", "", { "bin": { "graffiti": "bin.js" } }, "sha512-QztxAvTSTTP0MZmpEllhC2IQvewzaNmWgVl6xu5fUH4r8vID3/kqpEgQhP+PXkFpg4CdWDPn3H+TGOZoo6LMHw=="],
 
     "@emnapi/core": ["@emnapi/core@1.11.1", "", { "dependencies": { "@emnapi/wasi-threads": "1.2.2", "tslib": "^2.4.0" } }, "sha512-RSvbQmHzdKzNsLYa/wHrbc3KN4sYLKAdPZxqiM2HATqv/SBk2/ENSHpvXGaLOMcsAyz0poEGqkmmKYG3OWiJEQ=="],
 
@@ -882,6 +982,8 @@
     "@sveltejs/acorn-typescript": ["@sveltejs/acorn-typescript@1.0.10", "", { "peerDependencies": { "acorn": "^8.9.0" } }, "sha512-4WfKk68eTih+MiJD4fSbxN7E8kVBmTMPWHUPYjvl2N0rMs53YLTT8/YjKU5Dtnz5LqDjl7LEw4U7lXR2W3J5WA=="],
 
     "@sveltejs/kit": ["@sveltejs/kit@2.70.1", "", { "dependencies": { "@standard-schema/spec": "^1.0.0", "@sveltejs/acorn-typescript": "^1.0.9", "@types/cookie": "^0.6.0", "acorn": "^8.16.0", "cookie": "^0.6.0", "devalue": "^5.8.1", "esm-env": "^1.2.2", "kleur": "^4.1.5", "magic-string": "^0.30.5", "mrmime": "^2.0.0", "set-cookie-parser": "^3.0.0", "sirv": "^3.0.0" }, "peerDependencies": { "@opentelemetry/api": "^1.0.0", "@sveltejs/vite-plugin-svelte": "^3.0.0 || ^4.0.0-next.1 || ^5.0.0 || ^6.0.0-next.0 || ^7.0.0", "svelte": "^4.0.0 || ^5.0.0-next.0", "typescript": "^5.3.3 || ^6.0.0", "vite": "^5.0.3 || ^6.0.0 || ^7.0.0-beta.0 || ^8.0.0" }, "optionalPeers": ["@opentelemetry/api", "typescript"], "bin": { "svelte-kit": "svelte-kit.js" } }, "sha512-nY9SPHGOZro3doud9vZXDBwl9tCZIouuJztjgSHs6PAIrv9M/z5O7eOhPV5xU7CgVHA976Jwu3BA1hIFvXztkA=="],
+
+    "@sveltejs/load-config": ["@sveltejs/load-config@0.2.3", "", {}, "sha512-VT3qmUb8pRV2QrZjd8iAmtg8lf4W0TIjZbvXtz5MKei/q96teWZgGJyyidJzOjzZzvdq616eSRVeMYIQChUTAQ=="],
 
     "@sveltejs/vite-plugin-svelte": ["@sveltejs/vite-plugin-svelte@7.2.0", "", { "dependencies": { "deepmerge": "^4.3.1", "magic-string": "^0.30.21", "obug": "^2.1.0", "vitefu": "^1.1.2" }, "peerDependencies": { "svelte": "^5.46.4", "vite": "^8.0.0-beta.7 || ^8.0.0" } }, "sha512-1SpkuMSRLfugrVX+IrKfE1RUegzo8AQzKQ6qQPfVzbcWi5IhuTPaKb5ZrLpucleFznkc4/RTeSPoRnGWFxX+EQ=="],
 
@@ -1307,6 +1409,8 @@
 
     "run-parallel": ["run-parallel@1.2.0", "", { "dependencies": { "queue-microtask": "^1.2.2" } }, "sha512-5l4VyZR86LZ/lDxZTR6jqL8AFE2S0IFLMP26AbjsLVADxHdhB/c0GUsH+y39UfCi3dzz8OlQuPmnaJOMoDHQBA=="],
 
+    "sade": ["sade@1.8.1", "", { "dependencies": { "mri": "^1.1.0" } }, "sha512-xal3CZX1Xlo/k4ApwCFrHVACi9fBqJ7V+mwhBsuf/1IOKbBy098Fex+Wa/5QMubw09pSZ/u8EY8PWgevJsXp1A=="],
+
     "safer-buffer": ["safer-buffer@2.1.2", "", {}, "sha512-YZo3K82SD7Riyi0E1EQPojLz7kpepnSQI9IyPbHHg1XXXevb5dJI7tpyN2ADxGcQbHG7vcyRHk0cbwqcQriUtg=="],
 
     "scheduler": ["scheduler@0.27.0", "", {}, "sha512-eNv+WrVbKu1f3vbYJT/xtiF5syA5HPIMtf9IgY/nKg0sWqzAUEvqY/xm7OcZc/qafLx/iO9FgOmeSAp4v5ti/Q=="],
@@ -1344,6 +1448,8 @@
     "strnum": ["strnum@2.4.1", "", { "dependencies": { "anynum": "^1.0.1" } }, "sha512-M9eUSMT2dCB2cTNPG7UYj6KuK7RJR2SN2+yCV/fTW3xzTCS6EaGZ5pSMgDIjB7r8zSfTGk+dvvn9rTjpVS9Mwg=="],
 
     "svelte": ["svelte@5.56.8", "", { "dependencies": { "@jridgewell/remapping": "^2.3.4", "@jridgewell/sourcemap-codec": "^1.5.0", "@sveltejs/acorn-typescript": "^1.0.10", "@types/estree": "^1.0.5", "@types/trusted-types": "^2.0.7", "acorn": "^8.12.1", "aria-query": "5.3.1", "axobject-query": "^4.1.0", "clsx": "^2.1.1", "devalue": "^5.8.1", "esm-env": "^1.2.1", "esrap": "^2.2.12", "is-reference": "^3.0.3", "locate-character": "^3.0.0", "magic-string": "^0.30.11", "zimmerframe": "^1.1.2" } }, "sha512-PY8LOw7xP6c8IOiVqdo0sbbZVYhXRSfklOQLAUyGBKqjTX0wx/z4l/9J+PmBpmlLnxzEb1NqltxQ5/wZme/Cmg=="],
+
+    "svelte-check": ["svelte-check@4.7.6", "", { "dependencies": { "@jridgewell/trace-mapping": "^0.3.25", "@sveltejs/load-config": "^0.2.3", "chokidar": "^4.0.1", "fdir": "^6.2.0", "picocolors": "^1.0.0", "sade": "^1.7.4" }, "peerDependencies": { "svelte": "^4.0.0 || ^5.0.0-next.0", "typescript": "^5.0.0 || ^6.0.0" }, "bin": { "svelte-check": "bin/svelte-check" } }, "sha512-t2scM//ZuVbSY/T2w6FSBw1v9s2NEmh/g+sy1lqtosW5ylBV5AF4wFb1Ts9Kf3MbfPDUDJDZ9L436YT0SPTdvw=="],
 
     "tailwindcss": ["tailwindcss@4.1.18", "", {}, "sha512-4+Z+0yiYyEtUVCScyfHCxOYP06L5Ne+JiHhY2IjR2KWMIWhJOYZKLSGZaP5HkZ8+bY0cxfzwDE5uOmzFXyIwxw=="],
 
@@ -1410,6 +1516,8 @@
     "@babel/template/@babel/parser": ["@babel/parser@7.29.7", "", { "dependencies": { "@babel/types": "^7.29.7" }, "bin": "./bin/babel-parser.js" }, "sha512-hnORnjP/1P/zFEndoeX+n+t1RwWRJiJpM/jO7FW32Kn9r5+sJB2JWOdYo4L6k78j15eCwY3Gm/7364B1EMwtNg=="],
 
     "@babel/traverse/@babel/parser": ["@babel/parser@7.29.7", "", { "dependencies": { "@babel/types": "^7.29.7" }, "bin": "./bin/babel-parser.js" }, "sha512-hnORnjP/1P/zFEndoeX+n+t1RwWRJiJpM/jO7FW32Kn9r5+sJB2JWOdYo4L6k78j15eCwY3Gm/7364B1EMwtNg=="],
+
+    "@beesolve/dmarc-dashboard/typescript": ["typescript@6.0.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-y2TvuxSZPDyQakkFRPZHKFm+KKVqIisdg9/CZwm9ftvKXLP8NRWj38/ODjNbr43SsoXqNuAisEf1GdCxqWcdBw=="],
 
     "@beesolve/samples/typescript": ["typescript@6.0.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-y2TvuxSZPDyQakkFRPZHKFm+KKVqIisdg9/CZwm9ftvKXLP8NRWj38/ODjNbr43SsoXqNuAisEf1GdCxqWcdBw=="],
 
@@ -1497,6 +1605,8 @@
 
     "rolldown/@rolldown/pluginutils": ["@rolldown/pluginutils@1.0.1", "", {}, "sha512-2j9bGt5Jh8hj+vPtgzPtl72j0yRxHAyumoo6TNfAjsLB04UtpSvPbPcDcBMxz7n+9CYB0c1GxQFxYRg2jimqGw=="],
 
+    "svelte-check/chokidar": ["chokidar@4.0.3", "", { "dependencies": { "readdirp": "^4.0.1" } }, "sha512-Qgzu8kfBvo+cA4962jnP1KkS6Dop5NS6g7R5LFYJr4b8Ub94PPQXUksCw9PvXoeXPRRddRNC5C1JQUR2SMGtnA=="],
+
     "@babel/parser/@babel/types/@babel/helper-string-parser": ["@babel/helper-string-parser@7.27.1", "", {}, "sha512-qMlSxKbpRlAridDExk92nSobyDdpPijUq2DW6oDnUqd0iOGxmQjyqhMIihI9+zv4LPyZdRje2cavWPbCbWm3eA=="],
 
     "@babel/parser/@babel/types/@babel/helper-validator-identifier": ["@babel/helper-validator-identifier@7.28.5", "", {}, "sha512-qSs4ifwzKJSV39ucNjsvc6WVHs6b7S03sOh2OcHF9UHfVPqWWALUsNUVzhSBiItjRZoLHx7nIarVjqKVusUZ1Q=="],
@@ -1532,6 +1642,8 @@
     "bun-types/@types/node/undici-types": ["undici-types@7.18.2", "", {}, "sha512-AsuCzffGHJybSaRrmr5eHr81mwJU3kjw6M+uprWvCXiNeN9SOGwQ3Jn8jb8m3Z6izVgknn1R0FTCEAP2QrLY/w=="],
 
     "read-yaml-file/js-yaml/argparse": ["argparse@1.0.10", "", { "dependencies": { "sprintf-js": "~1.0.2" } }, "sha512-o5Roy6tNG4SL/FOkCAN6RzjiakZS25RLYFrcMttJqbdd8BWrnA+fGz57iN5Pb06pvBGvl5gQ0B48dJlslXvoTg=="],
+
+    "svelte-check/chokidar/readdirp": ["readdirp@4.1.2", "", {}, "sha512-GDhwkLfywWL2s6vEjyhri+eXmfH6j1L7JE27WhqLeYzoh/A3DBaYGEj2H/HFZCn/kMfim73FXxEJTw06WtxQwg=="],
 
     "@oxc-minify/binding-wasm32-wasi/@napi-rs/wasm-runtime/@emnapi/core/@emnapi/wasi-threads": ["@emnapi/wasi-threads@1.1.0", "", { "dependencies": { "tslib": "^2.4.0" } }, "sha512-WI0DdZ8xFSbgMjR1sFsKABJ/C5OnRrjT06JXbZKexJGrDuPTzZdDYfFlsgcCXCyf+suG5QU2e/y1Wo2V/OapLQ=="],
 
