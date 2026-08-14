@@ -22,6 +22,7 @@ npm install \
   @beesolve/dmarc-reports \
   @beesolve/dmarc-consumer \
   @beesolve/auth-service \
+  aws-cdk \
   aws-cdk-lib \
   constructs
 ```
