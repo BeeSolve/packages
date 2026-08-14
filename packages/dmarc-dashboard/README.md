@@ -39,6 +39,9 @@ import { DmarcConsumer } from "@beesolve/dmarc-consumer/cdk";
 import { DmarcReports } from "@beesolve/dmarc-reports/cdk";
 import { AuthGateway } from "@beesolve/auth-service/cdk";
 
+const frontendUri = process.env.FRONTEND_URI;
+if (frontendUri == null) throw new Error("FRONTEND_URI environment variable is required");
+
 const app = new App();
 const stack = new Stack(app, "DmarcStack", {
   env: { account: "123456789012", region: "eu-central-1" },
@@ -55,8 +58,9 @@ const consumer = new DmarcConsumer(stack, "DmarcConsumer");
 // 3. Set up authentication
 const auth = new AuthGateway(stack, "Auth", {
   stage: "prod",
-  frontendUri: process.env.FRONTEND_URI!,
+  frontendUri,
   allowSignUp: false,
+  authorizerCache: "disabled",
 });
 
 // 4. Deploy the dashboard
