@@ -14,6 +14,7 @@ const envSchema = v.object({
   BEESOLVE_AUTH_SESSIONS_USER_ID_INDEX_NAME: v.string(),
   BEESOLVE_AUTH_SESSION_MAX_AGE: v.pipe(v.string(), v.transform(Number)),
   BEESOLVE_AUTH_SESSION_REFRESH_DRIFT: v.pipe(v.string(), v.transform(Number)),
+  BEESOLVE_AUTH_SESSION_REFRESH_INTERVAL: v.pipe(v.string(), v.transform(Number)),
 });
 const env = v.parse(envSchema, process.env);
 
@@ -31,6 +32,7 @@ export class SessionAuthorizer {
       userIdIndexName: env.BEESOLVE_AUTH_SESSIONS_USER_ID_INDEX_NAME,
       defaultMaxAge: env.BEESOLVE_AUTH_SESSION_MAX_AGE,
       refreshDrift: env.BEESOLVE_AUTH_SESSION_REFRESH_DRIFT,
+      refreshInterval: env.BEESOLVE_AUTH_SESSION_REFRESH_INTERVAL,
     });
   }
 

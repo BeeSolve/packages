@@ -81,6 +81,8 @@ export class Sessions {
       readonly defaultMaxAge?: number;
       /** Rotation grace window in milliseconds — sessions younger than this are not rotated. @default 15_000 (15 s) */
       readonly refreshDrift?: number;
+      /** Minimum time between session rotations in milliseconds. @default 3_600_000 (1 hour) */
+      readonly refreshInterval?: number;
     },
   ) {}
 
@@ -178,23 +180,29 @@ export class Sessions {
     try {
       const start = new Date();
       const drift = this.props.refreshDrift ?? 15_000;
+      const interval = this.props.refreshInterval ?? 3_600_000;
 
-      const difference = start.getTime() - Date.parse(props.session.createdAt);
-      if (difference < drift) {
+      const age = start.getTime() - Date.parse(props.session.createdAt);
+
+      if (age < drift) {
         // Session record is very young — skip rotation and return the existing session.
         // maxAge is capped to the remaining session lifetime so the cookie
         // expiry stays in sync. This cannot go negative in practice: the caller
         // (authorizer) guards against expired sessions before calling refresh,
         // and a session younger than `drift` (15 s) always has substantial time
         // remaining given the 30-day default TTL.
-        const maxAge = Math.min(
-          props.maxAge ?? this.props.defaultMaxAge ?? 2_592_000,
-          Math.round((Date.parse(props.session.expiresAt) - start.getTime()) / 1000),
-        );
-
         return {
           newSession: props.session,
-          maxAge,
+          maxAge: this.remainingMaxAge(props, start),
+        };
+      }
+
+      if (age < interval) {
+        // Not time to rotate yet — session is still within the refresh interval.
+        // Return existing session with recalculated cookie expiry.
+        return {
+          newSession: props.session,
+          maxAge: this.remainingMaxAge(props, start),
         };
       }
 
@@ -259,6 +267,16 @@ export class Sessions {
 
       throw new BadRequestError(`Unexpected error while refreshing session.`);
     }
+  };
+
+  private readonly remainingMaxAge = (
+    props: { session: Session; maxAge?: number },
+    start: Date,
+  ): number => {
+    return Math.min(
+      props.maxAge ?? this.props.defaultMaxAge ?? 2_592_000,
+      Math.round((Date.parse(props.session.expiresAt) - start.getTime()) / 1000),
+    );
   };
 
   readonly delete = async (id: string) => {

@@ -70,6 +70,16 @@ interface CoreProps {
   readonly drainOnResend?: boolean;
   /** @default Duration.seconds(15) */
   readonly sessionRefreshDrift?: Duration;
+  /**
+   * Minimum time between session rotations. When the authorizer runs and the
+   * current session record is younger than this interval, rotation is skipped.
+   *
+   * This is independent of authorizer cache — the authorizer can run on every
+   * request, but the session is only rotated at this interval.
+   *
+   * @default Duration.hours(1)
+   */
+  readonly sessionRefreshInterval?: Duration;
   readonly logGroupProps?: LogGroupProps;
   readonly waf?: { readonly rateLimit?: number };
   readonly encryptionKey?: IKey;
@@ -132,6 +142,7 @@ export class AuthGateway extends Construct {
   private readonly sessionsByUserIdIndexName: string;
   private readonly sessionMaxAge: string;
   private readonly sessionRefreshDrift: string;
+  private readonly sessionRefreshInterval: string;
 
   constructor(
     scope: Construct,
@@ -179,6 +190,9 @@ export class AuthGateway extends Construct {
     const sessionRefreshDrift = String(
       Math.round((props.sessionRefreshDrift ?? Duration.seconds(15)).toMilliseconds()),
     );
+    const sessionRefreshInterval = String(
+      Math.round((props.sessionRefreshInterval ?? Duration.hours(1)).toMilliseconds()),
+    );
 
     const tables = createTables(this, {
       deletionProtection,
@@ -190,6 +204,7 @@ export class AuthGateway extends Construct {
 
     this.sessionMaxAge = sessionMaxAge;
     this.sessionRefreshDrift = sessionRefreshDrift;
+    this.sessionRefreshInterval = sessionRefreshInterval;
     this.sessionsTable = tables.sessionsTable;
     this.sessionsByUserIdIndexName = tables.sessionsByUserIdIndexName;
 
@@ -237,6 +252,7 @@ export class AuthGateway extends Construct {
         SESSIONS_USER_ID_INDEX_NAME: tables.sessionsByUserIdIndexName,
         SESSION_MAX_AGE: sessionMaxAge,
         SESSION_REFRESH_DRIFT: sessionRefreshDrift,
+        SESSION_REFRESH_INTERVAL: sessionRefreshInterval,
       },
       logGroupProps: props.logGroupProps,
     });
@@ -302,7 +318,10 @@ export class AuthGateway extends Construct {
       this.wafRuleGroup = createWafRuleGroup(this, props.waf.rateLimit ?? 100);
     }
 
-    this.createAuthBehavior = makeCreateAuthBehavior(this.authOrigin, this.edgeBodyHashAssetPath);
+    this.createAuthBehavior = makeCreateAuthBehavior(
+      this.authOrigin,
+      behaviorResources.edgeBodyHash,
+    );
   }
 
   /**
@@ -381,6 +400,7 @@ export class AuthGateway extends Construct {
     );
     handler.addEnvironment("BEESOLVE_AUTH_SESSION_MAX_AGE", this.sessionMaxAge);
     handler.addEnvironment("BEESOLVE_AUTH_SESSION_REFRESH_DRIFT", this.sessionRefreshDrift);
+    handler.addEnvironment("BEESOLVE_AUTH_SESSION_REFRESH_INTERVAL", this.sessionRefreshInterval);
   };
 
   readonly grantSdkAccess = (handler: Function) => {
@@ -436,6 +456,7 @@ export class AuthService extends Construct {
   private readonly sessionsByUserIdIndexName: string;
   private readonly sessionMaxAge: string;
   private readonly sessionRefreshDrift: string;
+  private readonly sessionRefreshInterval: string;
   private readonly sdkHandler: Function;
 
   constructor(scope: Construct, id: string, props: CoreProps) {
@@ -451,6 +472,9 @@ export class AuthService extends Construct {
     );
     this.sessionRefreshDrift = String(
       Math.round((props.sessionRefreshDrift ?? Duration.seconds(15)).toMilliseconds()),
+    );
+    this.sessionRefreshInterval = String(
+      Math.round((props.sessionRefreshInterval ?? Duration.hours(1)).toMilliseconds()),
     );
 
     const tables = createTables(this, {
@@ -515,7 +539,10 @@ export class AuthService extends Construct {
       this.wafRuleGroup = createWafRuleGroup(this, props.waf.rateLimit ?? 100);
     }
 
-    this.createAuthBehavior = makeCreateAuthBehavior(this.authOrigin, this.edgeBodyHashAssetPath);
+    this.createAuthBehavior = makeCreateAuthBehavior(
+      this.authOrigin,
+      behaviorResources.edgeBodyHash,
+    );
   }
 
   /**
@@ -538,6 +565,7 @@ export class AuthService extends Construct {
     );
     handler.addEnvironment("BEESOLVE_AUTH_SESSION_MAX_AGE", this.sessionMaxAge);
     handler.addEnvironment("BEESOLVE_AUTH_SESSION_REFRESH_DRIFT", this.sessionRefreshDrift);
+    handler.addEnvironment("BEESOLVE_AUTH_SESSION_REFRESH_INTERVAL", this.sessionRefreshInterval);
   };
 
   readonly grantSdkAccess = (handler: Function) => {
@@ -728,7 +756,7 @@ function createAuthBehaviorResources(
     ],
   };
 
-  return { authOrigin, authBehavior, edgeBodyHashAssetPath };
+  return { authOrigin, authBehavior, edgeBodyHashAssetPath, edgeBodyHash };
 }
 
 function createSdkHandler(
@@ -797,16 +825,8 @@ function createWafRuleGroup(scope: Construct, rateLimit: number) {
   });
 }
 
-function makeCreateAuthBehavior(authOrigin: IOrigin, edgeBodyHashAssetPath: string) {
-  return (scope: Construct): BehaviorOptions => {
-    const edgeBodyHash = new experimental.EdgeFunction(scope, "AuthEdgeBodyHash", {
-      runtime: Runtime.NODEJS_24_X,
-      architecture: Architecture.X86_64,
-      handler: "edgeBodyHash.handler",
-      code: Code.fromAsset(edgeBodyHashAssetPath),
-      description: "Computes x-amz-content-sha256 for OAC SigV4 signing",
-    });
-
+function makeCreateAuthBehavior(authOrigin: IOrigin, edgeBodyHash: experimental.EdgeFunction) {
+  return (_scope: Construct): BehaviorOptions => {
     return {
       origin: authOrigin,
       allowedMethods: AllowedMethods.ALLOW_ALL,

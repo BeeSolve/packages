@@ -18,6 +18,10 @@ const envSchema = v.object({
     v.pipe(v.string(), v.transform(Number)),
     "15000", // 15 seconds
   ),
+  SESSION_REFRESH_INTERVAL: v.optional(
+    v.pipe(v.string(), v.transform(Number)),
+    "3600000", // 1 hour
+  ),
 });
 const env = v.parse(envSchema, process.env);
 
@@ -28,6 +32,7 @@ const sessions = new Sessions({
   userIdIndexName: env.SESSIONS_USER_ID_INDEX_NAME,
   defaultMaxAge: env.SESSION_MAX_AGE,
   refreshDrift: env.SESSION_REFRESH_DRIFT,
+  refreshInterval: env.SESSION_REFRESH_INTERVAL,
 });
 
 interface AuthorizationEvent {
