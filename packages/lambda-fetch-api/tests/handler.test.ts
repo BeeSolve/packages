@@ -4,7 +4,7 @@ import type { APIGatewayProxyEvent, APIGatewayProxyEventV2, Context } from "aws-
 
 import { asHttpV1Handler, asHttpV2Handler } from "../index";
 
-function makeContext(): Context {
+function makeContext(): Omit<Context, "done" | "succeed" | "fail"> {
   return {
     callbackWaitsForEmptyEventLoop: false,
     functionName: "test-fn",

@@ -1,8 +1,14 @@
 import { AsyncLocalStorage } from "async_hooks";
 
-import type { APIGatewayProxyEvent, APIGatewayProxyEventV2, Context } from "aws-lambda";
+import type {
+  APIGatewayProxyEvent,
+  APIGatewayProxyEventV2,
+  Context as LambdaContext,
+} from "aws-lambda";
 
 import { isAPIGatewayProxyEvent, isAPIGatewayProxyEventV2 } from "./runtime";
+
+type Context = Omit<LambdaContext, "done" | "succeed" | "fail">;
 
 type Store = {
   event: APIGatewayProxyEvent | APIGatewayProxyEventV2;

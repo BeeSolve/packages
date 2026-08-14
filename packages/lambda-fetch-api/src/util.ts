@@ -24,8 +24,11 @@ function awsEventMethod(event: APIGatewayProxyEvent | APIGatewayProxyEventV2): s
 }
 
 function awsEventURL(event: APIGatewayProxyEvent | APIGatewayProxyEventV2): URL {
+  const origin = event.headers.origin || event.headers.Origin;
   const hostname =
-    event.headers.host || event.headers.Host || event.requestContext?.domainName || ".";
+    origin != null
+      ? new URL(origin).host
+      : event.headers.host || event.headers.Host || event.requestContext?.domainName || ".";
 
   const path = "path" in event ? event.path : event.rawPath;
 
@@ -99,9 +102,7 @@ export function awsResponseHeaders(
     } {
   const headers: Record<string, string> = {};
   for (const [key, value] of response.headers.entries()) {
-    if (value != null) {
-      headers[key] = Array.isArray(value) ? value.join(",") : String(value);
-    }
+    headers[key] = value;
   }
 
   const cookies = response.headers.getSetCookie();

@@ -5,7 +5,7 @@ import type {
   APIGatewayProxyStructuredResultV2,
   APIGatewayProxyWithLambdaAuthorizerEvent,
   APIGatewayProxyEventV2WithLambdaAuthorizer,
-  Context,
+  Context as LambdaContext,
   StreamifyHandler,
 } from "aws-lambda";
 
@@ -18,6 +18,7 @@ export * from "./src/store";
 export * from "./src/util";
 
 type Fetch = (request: Request) => Promise<Response>;
+type Context = Omit<LambdaContext, "done" | "succeed" | "fail">;
 
 export function asHttpV1Handler(fetch: Fetch) {
   return async function handler(

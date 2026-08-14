@@ -16,7 +16,7 @@ import {
   runWithAwsContext,
 } from "../index";
 
-function makeContext(): Context {
+function makeContext(): Omit<Context, "done" | "succeed" | "fail"> {
   return {
     callbackWaitsForEmptyEventLoop: false,
     functionName: "test-fn",
