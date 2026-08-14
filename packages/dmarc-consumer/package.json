@@ -1,0 +1,66 @@
+{
+  "name": "@beesolve/dmarc-consumer",
+  "version": "0.0.1",
+  "description": "DMARC consumer — persists parsed DMARC reports from EventBridge to DynamoDB",
+  "homepage": "https://github.com/beesolve/packages/tree/main/packages/dmarc-consumer#readme",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/beesolve/packages.git"
+  },
+  "files": [
+    "dist",
+    "consumer"
+  ],
+  "type": "module",
+  "exports": {
+    "./cdk": {
+      "import": {
+        "types": "./dist/cdk.d.ts",
+        "default": "./dist/cdk.js"
+      }
+    },
+    "./domain": {
+      "import": {
+        "types": "./dist/domain.d.ts",
+        "default": "./dist/domain.js"
+      }
+    },
+    "./report": {
+      "import": {
+        "types": "./dist/report.d.ts",
+        "default": "./dist/report.js"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "type-check": "tsc --noEmit",
+    "test": "bun test",
+    "prepublishOnly": "bun build.ts"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "catalog:",
+    "@aws-sdk/lib-dynamodb": "catalog:",
+    "@beesolve/cdk-constructs": "workspace:^",
+    "@beesolve/dmarc-reports": "workspace:^",
+    "@beesolve/helpers": "workspace:^",
+    "valibot": "catalog:"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "catalog:",
+    "@types/node": "catalog:",
+    "aws-cdk-lib": "catalog:",
+    "constructs": "catalog:"
+  },
+  "peerDependencies": {
+    "aws-cdk-lib": "catalog:",
+    "constructs": "catalog:",
+    "typescript": "catalog:"
+  },
+  "peerDependenciesMeta": {
+    "typescript": {
+      "optional": true
+    }
+  }
+}

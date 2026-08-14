@@ -1,0 +1,5 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": { "declaration": true, "isolatedDeclarations": false },
+  "include": ["domain.ts", "report.ts", "cdk.ts", "src/**/*", "tests/**/*"]
+}
