@@ -11,5 +11,6 @@
   "packages/lint-config",
   "packages/service-email",
   "packages/sqs-handler",
-  "packages/service-auth"
+  "packages/service-auth",
+  "packages/dmarc-dashboard"
 ]
