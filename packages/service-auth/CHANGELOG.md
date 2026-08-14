@@ -1,5 +1,20 @@
 # @beesolve/auth-service
 
+## 0.13.0
+
+### Minor Changes
+
+- f8e3f7b: Add `sessionRefreshInterval` prop to `AuthGateway` and `AuthService` constructs. The authorizer now skips session rotation when the current session is younger than the configured interval (default: 1 hour), reducing unnecessary DynamoDB writes while still running the authorizer on every request.
+
+### Patch Changes
+
+- d54dca7: Fix `identitySource` for `authorizerCache: "disabled"` — use empty array instead of `undefined` so CDK doesn't fall back to the default `$request.header.Authorization`, which caused API Gateway to return 401 without invoking the authorizer Lambda.
+- Updated dependencies [d54dca7]
+- Updated dependencies [d674ccd]
+  - @beesolve/cdk-constructs@0.3.0
+  - @beesolve/lambda-fetch-api@2.1.0
+  - @beesolve/sqs-handler@0.2.4
+
 ## 0.12.1
 
 ### Patch Changes

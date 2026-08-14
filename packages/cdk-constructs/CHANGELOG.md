@@ -1,5 +1,11 @@
 # @beesolve/cdk-constructs
 
+## 0.3.0
+
+### Minor Changes
+
+- d54dca7: Add `CfnOutput` with the CloudFront distribution URL to `StaticWebsite` construct. The URL is output as `DistributionUrl` after deployment.
+
 ## 0.2.2
 
 ### Patch Changes
