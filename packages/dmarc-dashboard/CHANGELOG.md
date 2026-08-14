@@ -1,5 +1,11 @@
 # @beesolve/dmarc-dashboard
 
+## 0.0.4
+
+### Patch Changes
+
+- Fix dependency version ranges for workspace packages (dmarc-consumer was unresolvable at ^0.0.1)
+
 ## 0.0.3
 
 ### Patch Changes
