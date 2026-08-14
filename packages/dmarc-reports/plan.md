@@ -157,7 +157,7 @@ interface DmarcReport {
 
 ### Phase 2: `@beesolve/dmarc-reports`
 
-#### Task 6: Scaffold the reports package
+#### Task 6: Scaffold the reports package ✅
 
 - Create `packages/dmarc-reports/` structure (note: `plan.md` and `samples/` already exist here)
 - `package.json`, `tsconfig.json`, `index.ts`, `cdk.ts`
@@ -165,7 +165,7 @@ interface DmarcReport {
 - Add bunup config entry
 - **Demo:** Package exists, installs, type-checks
 
-#### Task 7: Lambda handler
+#### Task 7: Lambda handler ✅
 
 - Create `src/handler.ts` — Lambda triggered by S3 EventBridge notification
 - Flow: receive S3 event → fetch object from S3 → use `@beesolve/dmarc-parser` to extract + parse → emit `PutEvents` to EventBridge with parsed report as detail
@@ -176,7 +176,7 @@ interface DmarcReport {
 - Write integration test mocking S3 + EventBridge clients
 - **Demo:** `bun test` passes, handler processes mock event end-to-end
 
-#### Task 8: CDK construct
+#### Task 8: CDK construct ✅
 
 - Create `cdk.ts` — CDK construct `DmarcReports`:
   - S3 bucket (lifecycle: 90 days, SSL enforced, block public access, EventBridge notifications enabled)
@@ -189,7 +189,7 @@ interface DmarcReport {
 - Write CDK template assertion test
 - **Demo:** `bun test` passes, construct synthesizes valid CloudFormation
 
-#### Task 9: End-to-end validation
+#### Task 9: End-to-end validation ✅
 
 - Ensure both packages build: `bun run build`
 - Ensure `bun run type-check`, `bun run lint`, `bun run fmt:check` pass
@@ -267,25 +267,42 @@ Different DMARC recipient addresses (one per project/domain) all route through t
 
 ## Future Phases
 
-### Phase 3: `@beesolve/dmarc-dashboard`
+### Phase 3: `@beesolve/dmarc-consumer` ✅
 
 - EventBridge → SQS → consumer Lambda → DynamoDB (flat: one item per report)
 - DynamoDB schema: `PK: domain#<domain>`, `SK: <timestamp>#<orgName>#<reportId>`
 - Valibot-validated model (same pattern as `@beesolve/action-tokens`)
+- Pre-computed aggregates per report: `totalMessages`, `totalPass`, `totalFail`
+- Cursor-based pagination for queries
+- CDK construct: EventBridge rule + SQS (with DLQ) + consumer Lambda + DynamoDB table
+
+### Phase 4: `@beesolve/dmarc-dashboard` (SvelteKit UI)
+
 - SvelteKit dashboard via kit-on-lambda
 - Auth via `@beesolve/auth-service`
+- Depends on `@beesolve/dmarc-consumer` for DynamoDB model + CDK
 - Views: timeline, per-source breakdown, pass rates, failure alerts
 - Filter by date range, reporting org, domain
 
-### Phase 4: Multi-account support
+### Phase 5: Multi-account support
 
 - Module 1 accepts `eventBusArn` prop pointing to dashboard account's bus
 - Cross-account EventBridge resource policy on dashboard bus allows source accounts
 - Dashboard's SQS consumer processes events from all source accounts
 - Source management UI in dashboard (add/remove source accounts)
 
-### Phase 5: Alerting
+### Phase 6: Alerting
 
 - Detect failures (disposition != "none", unknown source IPs)
 - Notify via `@beesolve/email-service` or SNS
 - Configurable thresholds per domain
+
+### Future: Package consolidation
+
+Consider merging all DMARC packages into a single `@beesolve/dmarc-reports` with subpath exports:
+
+- `@beesolve/dmarc-reports/parser` — zero AWS deps, standalone XML/MIME parsing
+- `@beesolve/dmarc-reports/ingest` — SES → S3 → EventBridge handler + CDK
+- `@beesolve/dmarc-reports/consumer` — EventBridge → DynamoDB model + CDK
+
+Deferred because: the parser has zero AWS deps (useful standalone), the ingest deploys per-account independently, and the consumer deploys only in the dashboard account. Merging would create a heavy package with mixed dependencies that every consumer pulls in.
