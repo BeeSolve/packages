@@ -95,6 +95,71 @@
     text-decoration: underline;
   }
 
+  :global(label) {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-2);
+    margin-bottom: 1rem;
+  }
+
+  :global(input[type="email"]),
+  :global(input[type="text"]),
+  :global(input[type="password"]),
+  :global(input[type="number"]) {
+    display: block;
+    width: 100%;
+    margin-top: 0.375rem;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.9rem;
+    color: var(--text-1);
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 0.375rem;
+    box-sizing: border-box;
+  }
+
+  :global(input:focus) {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+  }
+
+  :global(input:disabled) {
+    background: var(--surface-1);
+    color: var(--text-3);
+    cursor: not-allowed;
+  }
+
+  :global(button[type="submit"]) {
+    display: inline-block;
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #fff;
+    background: #2563eb;
+    border: none;
+    border-radius: 0.375rem;
+    cursor: pointer;
+  }
+
+  :global(button[type="submit"]:hover) {
+    background: #1d4ed8;
+  }
+
+  :global(button[type="submit"]:disabled) {
+    background: var(--text-3);
+    cursor: not-allowed;
+  }
+
+  :global(.error) {
+    color: var(--color-fail);
+    background: var(--color-fail-bg);
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+  }
+
   .app {
     min-height: 100vh;
     display: flex;
