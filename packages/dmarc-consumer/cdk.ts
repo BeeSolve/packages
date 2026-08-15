@@ -6,7 +6,7 @@ import { Duration, RemovalPolicy } from "aws-cdk-lib";
 import { AttributeType, Billing, ProjectionType, TableV2 } from "aws-cdk-lib/aws-dynamodb";
 import { Rule } from "aws-cdk-lib/aws-events";
 import { SqsQueue } from "aws-cdk-lib/aws-events-targets";
-import type { FunctionOptions } from "aws-cdk-lib/aws-lambda";
+import type { Function as LambdaFunction, FunctionOptions } from "aws-cdk-lib/aws-lambda";
 import { Construct } from "constructs";
 
 export interface DmarcConsumerProps {
@@ -25,6 +25,12 @@ export interface DmarcConsumerProps {
 export class DmarcConsumer extends Construct {
   readonly table: TableV2;
   readonly reverseIndexName = "reverse";
+
+  grantReadWrite(handler: LambdaFunction): void {
+    this.table.grantReadWriteData(handler);
+    handler.addEnvironment("TABLE_NAME", this.table.tableName);
+    handler.addEnvironment("REVERSE_INDEX_NAME", this.reverseIndexName);
+  }
 
   constructor(scope: Construct, id: string, props?: DmarcConsumerProps) {
     super(scope, id);
