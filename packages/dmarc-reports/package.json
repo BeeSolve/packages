@@ -1,6 +1,6 @@
 {
   "name": "@beesolve/dmarc-reports",
-  "version": "0.0.4",
+  "version": "0.1.0",
   "description": "DMARC report ingestion pipeline — SES to S3 to EventBridge via Lambda",
   "homepage": "https://github.com/beesolve/packages/tree/main/packages/dmarc-reports#readme",
   "license": "MIT",
