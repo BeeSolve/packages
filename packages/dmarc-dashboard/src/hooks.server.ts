@@ -5,6 +5,7 @@ import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { AuthClient } from "@beesolve/auth-service/sdk";
 import { createSessionHandle } from "@beesolve/auth-service/sveltekit";
 import { Domains } from "@beesolve/dmarc-consumer/domain";
+import { ProcessingStats } from "@beesolve/dmarc-consumer/processing-stats";
 import { Reports } from "@beesolve/dmarc-consumer/report";
 import { redirect, type Handle } from "@sveltejs/kit";
 import { sequence } from "@sveltejs/kit/hooks";
@@ -35,12 +36,13 @@ const domains = new Domains({
   reverseIndexName: env.DMARC_REVERSE_INDEX,
 });
 const reports = new Reports({ dynamo, tableName: env.DMARC_TABLE_NAME });
+const stats = new ProcessingStats({ dynamo, tableName: env.DMARC_TABLE_NAME });
 const authClient = new AuthClient();
 
 const publicPaths = new Set(["/sign-in", "/sign-in/verify", "/setup"]);
 
 const authGuard: Handle = async ({ event, resolve }) => {
-  event.locals.services = { users, setup, domains, reports, authClient };
+  event.locals.services = { users, setup, domains, reports, stats, authClient };
 
   const isPublic = publicPaths.has(event.url.pathname);
 

@@ -35,6 +35,7 @@
     "@beesolve/auth-service": "workspace:^",
     "@beesolve/cdk-constructs": "workspace:^",
     "@beesolve/dmarc-consumer": "workspace:^",
+    "@beesolve/dmarc-parser": "workspace:^",
     "@beesolve/email-service": "workspace:^",
     "@beesolve/lambda-fetch-api": "workspace:^",
     "@drop-in/graffiti": "^4.30.0",

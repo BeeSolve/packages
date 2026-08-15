@@ -1,11 +1,15 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import type { DmarcReport } from "@beesolve/dmarc-reports";
-import { dmarcReportParsedEventSchema } from "@beesolve/dmarc-reports";
+import {
+  dmarcProcessingStatsEventSchema,
+  dmarcReportParsedEventSchema,
+} from "@beesolve/dmarc-reports";
 import type { SQSBatchItemFailure, SQSEvent } from "aws-lambda";
 import * as v from "valibot";
 
 import { Domains } from "../domain.ts";
+import { ProcessingStats } from "../processingStats.ts";
 import { Reports } from "../report.ts";
 
 const envSchema = v.object({
@@ -26,6 +30,7 @@ const domains = new Domains({
   tableName: env.TABLE_NAME,
   reverseIndexName: env.REVERSE_INDEX_NAME,
 });
+const stats = new ProcessingStats({ dynamo, tableName: env.TABLE_NAME });
 
 export async function handler(
   event: SQSEvent,
@@ -38,6 +43,16 @@ export async function handler(
   for (const record of event.Records) {
     try {
       const body = JSON.parse(record.body) as unknown;
+
+      const statsResult = v.safeParse(dmarcProcessingStatsEventSchema, body);
+      if (statsResult.success) {
+        await stats.increment({
+          counter: statsResult.output.detail.counter,
+          value: statsResult.output.detail.value,
+        });
+        continue;
+      }
+
       const parsed = v.parse(dmarcReportParsedEventSchema, body);
       parsedReports.push(parsed.detail);
     } catch (error) {

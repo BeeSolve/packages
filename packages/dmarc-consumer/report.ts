@@ -1,5 +1,6 @@
 import type { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
-import { BatchWriteCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
+import { BatchWriteCommand, GetCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
+import { dmarcRecordSchema } from "@beesolve/dmarc-parser";
 import type { DmarcReport } from "@beesolve/dmarc-reports";
 import { splitArrayToChunks } from "@beesolve/helpers";
 import * as v from "valibot";
@@ -25,6 +26,16 @@ export const schema = v.object({
 });
 
 export type Report = v.InferOutput<typeof schema>;
+
+export interface DailyAggregate {
+  domain: string;
+  date: string;
+  totalMessages: number;
+  totalPass: number;
+  totalFail: number;
+  reportCount: number;
+  topFailingIps: Array<{ ip: string; count: number; spfResult: string; dkimResult: string }>;
+}
 
 const cursorSchema = v.object({
   pk: v.string(),
@@ -90,6 +101,103 @@ export class Reports {
     return { reports, cursor };
   };
 
+  readonly getReport = async (props: {
+    readonly domain: string;
+    readonly timestamp: number;
+    readonly orgName: string;
+    readonly reportId: string;
+  }): Promise<Report> => {
+    const { Item: item } = await this.props.dynamo.send(
+      new GetCommand({
+        TableName: this.props.tableName,
+        Key: {
+          pk: `domain#${props.domain}`,
+          sk: `report#${String(props.timestamp)}#${props.orgName}#${props.reportId}`,
+        },
+      }),
+    );
+
+    if (item == null) {
+      throw new ReportNotFoundError(props.domain, props.orgName, props.reportId);
+    }
+    return this.parseOne(item);
+  };
+
+  readonly getDailyAggregate = async (props: {
+    readonly domain: string;
+    readonly date: string;
+  }): Promise<DailyAggregate> => {
+    const dayStart = Date.parse(`${props.date}T00:00:00Z`) / 1000;
+    const dayEnd = dayStart + 86399;
+
+    const { reports } = await this.queryByDomain({
+      domain: props.domain,
+      startTime: dayStart,
+      endTime: dayEnd,
+      limit: 1000,
+    });
+
+    let totalMessages = 0;
+    let totalPass = 0;
+    let totalFail = 0;
+
+    const ipMap = new Map<string, { count: number; spfResult: string; dkimResult: string }>();
+
+    for (const report of reports) {
+      totalMessages += report.totalMessages;
+      totalPass += report.totalPass;
+      totalFail += report.totalFail;
+
+      for (const rawRecord of report.records) {
+        const record = v.parse(dmarcRecordSchema, rawRecord);
+        if (record.policyEvaluated.disposition === "none") continue;
+
+        const existing = ipMap.get(record.sourceIp);
+        if (existing != null) {
+          existing.count += record.count;
+        } else {
+          ipMap.set(record.sourceIp, {
+            count: record.count,
+            spfResult: record.policyEvaluated.spf,
+            dkimResult: record.policyEvaluated.dkim,
+          });
+        }
+      }
+    }
+
+    const topFailingIps = Array.from(ipMap.entries())
+      .map(([ip, data]) => ({
+        ip,
+        count: data.count,
+        spfResult: data.spfResult,
+        dkimResult: data.dkimResult,
+      }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+
+    return {
+      domain: props.domain,
+      date: props.date,
+      totalMessages,
+      totalPass,
+      totalFail,
+      reportCount: reports.length,
+      topFailingIps,
+    };
+  };
+
+  // Fetches all domains in parallel — may need batching/chunking for large numbers of domains
+  readonly getDailyAggregateAllDomains = async (props: {
+    readonly domains: Array<string>;
+    readonly date: string;
+  }): Promise<Array<DailyAggregate>> => {
+    const results = await Promise.all(
+      props.domains.map((domain) => this.getDailyAggregate({ domain, date: props.date })),
+    );
+
+    return results.filter((aggregate) => aggregate.totalMessages > 0);
+  };
+
   private readonly toItem = (report: DmarcReport): Report => {
     const domain = report.policyPublished.domain;
     const timestamp = report.reportMetadata.dateRange.begin;
@@ -130,6 +238,13 @@ export class Reports {
     }
     return result.output;
   };
+}
+
+export class ReportNotFoundError extends Error {
+  constructor(domain: string, orgName: string, reportId: string) {
+    super(`Report not found: ${domain}/${orgName}/${reportId}`);
+    this.name = "ReportNotFoundError";
+  }
 }
 
 function buildKeyCondition(props: {

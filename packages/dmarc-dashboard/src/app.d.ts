@@ -3,6 +3,7 @@ import type { Users } from "$lib/server/users";
 import type { AuthClient } from "@beesolve/auth-service/sdk";
 import type { SessionContext } from "@beesolve/auth-service/sveltekit";
 import type { Domains } from "@beesolve/dmarc-consumer/domain";
+import type { ProcessingStats } from "@beesolve/dmarc-consumer/processing-stats";
 import type { Reports } from "@beesolve/dmarc-consumer/report";
 
 declare global {
@@ -19,6 +20,7 @@ declare global {
         setup: Setup;
         domains: Domains;
         reports: Reports;
+        stats: ProcessingStats;
         authClient: AuthClient;
       };
     }

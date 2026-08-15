@@ -83,11 +83,12 @@
     },
     "packages/dmarc-consumer": {
       "name": "@beesolve/dmarc-consumer",
-      "version": "0.0.3",
+      "version": "0.0.4",
       "dependencies": {
         "@aws-sdk/client-dynamodb": "catalog:",
         "@aws-sdk/lib-dynamodb": "catalog:",
         "@beesolve/cdk-constructs": "workspace:^",
+        "@beesolve/dmarc-parser": "workspace:^",
         "@beesolve/dmarc-reports": "workspace:^",
         "@beesolve/helpers": "workspace:^",
         "valibot": "catalog:",
@@ -109,13 +110,14 @@
     },
     "packages/dmarc-dashboard": {
       "name": "@beesolve/dmarc-dashboard",
-      "version": "0.0.3",
+      "version": "0.0.7",
       "dependencies": {
         "@aws-sdk/client-dynamodb": "catalog:",
         "@aws-sdk/lib-dynamodb": "catalog:",
         "@beesolve/auth-service": "workspace:^",
         "@beesolve/cdk-constructs": "workspace:^",
         "@beesolve/dmarc-consumer": "workspace:^",
+        "@beesolve/dmarc-parser": "workspace:^",
         "@beesolve/email-service": "workspace:^",
         "@beesolve/lambda-fetch-api": "workspace:^",
         "@drop-in/graffiti": "^4.30.0",
@@ -166,7 +168,7 @@
     },
     "packages/dmarc-reports": {
       "name": "@beesolve/dmarc-reports",
-      "version": "0.0.3",
+      "version": "0.0.4",
       "dependencies": {
         "@aws-sdk/client-eventbridge": "catalog:",
         "@aws-sdk/client-s3": "catalog:",

@@ -1,7 +1,7 @@
 export { parseXml } from "./src/parseXml.ts";
 export { decompress, decompressGzip, decompressZip } from "./src/decompress.ts";
 export { extractFromEmail } from "./src/extractFromEmail.ts";
-export { dmarcReportSchema } from "./src/schema.ts";
+export { dmarcRecordSchema, dmarcReportSchema } from "./src/schema.ts";
 export type {
   AuthResults,
   DkimAuthResult,

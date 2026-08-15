@@ -1,12 +1,12 @@
 import { fileURLToPath } from "node:url";
 
 import { Nodejs24Function, SqsWithDlq } from "@beesolve/cdk-constructs";
-import { detailType, eventSource } from "@beesolve/dmarc-reports";
+import { detailType, eventSource, statsDetailType } from "@beesolve/dmarc-reports";
 import { Duration, RemovalPolicy } from "aws-cdk-lib";
 import { AttributeType, Billing, ProjectionType, TableV2 } from "aws-cdk-lib/aws-dynamodb";
 import { Rule } from "aws-cdk-lib/aws-events";
 import { SqsQueue } from "aws-cdk-lib/aws-events-targets";
-import type { Function, FunctionOptions } from "aws-cdk-lib/aws-lambda";
+import type { FunctionOptions } from "aws-cdk-lib/aws-lambda";
 import { Construct } from "constructs";
 
 export interface DmarcConsumerProps {
@@ -63,21 +63,9 @@ export class DmarcConsumer extends Construct {
     new Rule(this, "EventRule", {
       eventPattern: {
         source: [eventSource],
-        detailType: [detailType],
+        detailType: [detailType, statsDetailType],
       },
       targets: [new SqsQueue(queue)],
     });
   }
-
-  readonly grantRead = (grantee: Function): void => {
-    this.table.grantReadData(grantee);
-    grantee.addEnvironment("DMARC_TABLE_NAME", this.table.tableName);
-    grantee.addEnvironment("DMARC_REVERSE_INDEX", this.reverseIndexName);
-  };
-
-  readonly grantReadWrite = (grantee: Function): void => {
-    this.table.grantReadWriteData(grantee);
-    grantee.addEnvironment("DMARC_TABLE_NAME", this.table.tableName);
-    grantee.addEnvironment("DMARC_REVERSE_INDEX", this.reverseIndexName);
-  };
 }
