@@ -129,6 +129,32 @@ export class Users {
     }
   };
 
+  readonly updateType = async ({
+    email,
+    type,
+  }: {
+    readonly email: string;
+    readonly type: UserType;
+  }): Promise<void> => {
+    try {
+      await this.props.dynamo.send(
+        new UpdateCommand({
+          TableName: this.props.tableName,
+          Key: { pk: `user#${email}`, sk: "user" },
+          UpdateExpression: "SET #type = :type",
+          ConditionExpression: "attribute_exists(pk) AND attribute_exists(sk)",
+          ExpressionAttributeNames: { "#type": "type" },
+          ExpressionAttributeValues: { ":type": type },
+        }),
+      );
+    } catch (error) {
+      if (error instanceof Error && error.name === "ConditionalCheckFailedException") {
+        throw new UserNotFoundError(email);
+      }
+      throw error;
+    }
+  };
+
   readonly delete = async ({ email }: { readonly email: string }): Promise<void> => {
     await this.props.dynamo.send(
       new DeleteCommand({

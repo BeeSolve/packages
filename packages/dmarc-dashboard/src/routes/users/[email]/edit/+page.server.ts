@@ -1,3 +1,4 @@
+import { userTypes } from "$lib/server/users";
 import { error, fail, redirect } from "@sveltejs/kit";
 import * as v from "valibot";
 
@@ -27,6 +28,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
       domains: targetUser.domains,
     },
     availableDomains: allDomains.map((domain) => domain.domain),
+    userTypes,
   };
 };
 
@@ -39,23 +41,35 @@ export const actions: Actions = {
 
     const targetEmail = decodeURIComponent(params.email);
 
+    if (targetEmail === user.email) {
+      return fail(400, { error: "You cannot change your own role." });
+    }
+
     const formData = await request.formData();
     const selectedDomains = formData.getAll("domains");
+    const selectedType = formData.get("type");
 
     const domainsResult = v.safeParse(v.array(v.string()), selectedDomains);
     if (!domainsResult.success) {
       return fail(400, { error: "Invalid domain selection." });
     }
 
+    const typeResult = v.safeParse(v.picklist(userTypes), selectedType);
+    if (!typeResult.success) {
+      return fail(400, { error: "Invalid user type." });
+    }
+
     const validDomains = domainsResult.output;
+    const validType = typeResult.output;
 
     try {
       await locals.services.users.updateDomains({ email: targetEmail, domains: validDomains });
+      await locals.services.users.updateType({ email: targetEmail, type: validType });
     } catch (updateError) {
       if (updateError instanceof Error && updateError.name === "UserNotFoundError") {
         error(404, "User not found");
       }
-      return fail(500, { error: "Failed to update user domains. Please try again." });
+      return fail(500, { error: "Failed to update user. Please try again." });
     }
 
     redirect(303, "/users");

@@ -42,6 +42,11 @@ export const actions: Actions = {
       return fail(400, { error: "You cannot delete your own account." });
     }
 
+    await locals.services.authClient.invoke({
+      type: "deleteAllSessions",
+      request: { accountId: targetEmail },
+    });
+
     await locals.services.users.delete({ email: targetEmail });
     redirect(303, "/users");
   },

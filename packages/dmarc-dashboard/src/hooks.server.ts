@@ -7,6 +7,7 @@ import { createSessionHandle } from "@beesolve/auth-service/sveltekit";
 import { Domains } from "@beesolve/dmarc-consumer/domain";
 import { ProcessingStats } from "@beesolve/dmarc-consumer/processing-stats";
 import { Reports } from "@beesolve/dmarc-consumer/report";
+import { Email } from "@beesolve/email-service/sdk";
 import { redirect, type Handle } from "@sveltejs/kit";
 import { sequence } from "@sveltejs/kit/hooks";
 import * as v from "valibot";
@@ -38,11 +39,12 @@ const domains = new Domains({
 const reports = new Reports({ dynamo, tableName: env.DMARC_TABLE_NAME });
 const stats = new ProcessingStats({ dynamo, tableName: env.DMARC_TABLE_NAME });
 const authClient = new AuthClient();
+const email = new Email();
 
 const publicPaths = new Set(["/sign-in", "/sign-in/verify", "/setup"]);
 
 const authGuard: Handle = async ({ event, resolve }) => {
-  event.locals.services = { users, setup, domains, reports, stats, authClient };
+  event.locals.services = { users, setup, domains, reports, stats, authClient, email };
 
   const isPublic = publicPaths.has(event.url.pathname);
 

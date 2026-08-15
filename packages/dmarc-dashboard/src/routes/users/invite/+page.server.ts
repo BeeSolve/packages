@@ -70,6 +70,16 @@ export const actions: Actions = {
       return fail(500, { error: "Failed to create user record. Please try again." });
     }
 
+    await locals.services.email.sendEmail({
+      recipients: [validEmail],
+      subject: "You've been invited to DMARC Dashboard",
+      html: `<p>Hi,</p>
+<p>You've been invited to the DMARC Dashboard. You can sign in at any time using your email address — a one-time code will be sent to verify your identity.</p>
+<p>Your assigned domains: <strong>${validDomains.join(", ")}</strong></p>
+<p>— DMARC Dashboard</p>`,
+      text: `Hi,\n\nYou've been invited to the DMARC Dashboard. You can sign in at any time using your email address — a one-time code will be sent to verify your identity.\n\nYour assigned domains: ${validDomains.join(", ")}\n\n— DMARC Dashboard`,
+    });
+
     redirect(303, "/users");
   },
 };

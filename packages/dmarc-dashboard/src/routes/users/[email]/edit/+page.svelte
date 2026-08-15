@@ -7,7 +7,7 @@
 
 <h1>Edit User</h1>
 
-<p>Editing domain access for <strong>{data.targetUser.email}</strong></p>
+<p>Editing <strong>{data.targetUser.email}</strong></p>
 
 {#if form?.error}
   <p class="error">{form.error}</p>
@@ -23,6 +23,21 @@
     };
   }}
 >
+  <fieldset>
+    <legend>Role</legend>
+    {#each data.userTypes as userType}
+      <label>
+        <input
+          type="radio"
+          name="type"
+          value={userType}
+          checked={data.targetUser.type === userType}
+        />
+        {userType}
+      </label>
+    {/each}
+  </fieldset>
+
   <fieldset>
     <legend>Domains</legend>
     {#if data.availableDomains.length === 0}
@@ -40,6 +55,7 @@
         </label>
       {/each}
     {/if}
+    <p class="hint">Admins have access to all domains regardless of selection.</p>
   </fieldset>
 
   <button type="submit" disabled={loading}>
@@ -48,3 +64,11 @@
 </form>
 
 <p><a href="/users">Back to users</a></p>
+
+<style>
+  .hint {
+    font-size: 0.8rem;
+    color: var(--text-3);
+    margin-top: 0.5rem;
+  }
+</style>

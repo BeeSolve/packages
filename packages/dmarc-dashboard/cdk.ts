@@ -61,6 +61,8 @@ export class DmarcDashboard extends Construct {
       defaultSender: props.emailSender,
     });
 
+    emails.grantAccess(site.handler);
+
     const authConsumer = new Nodejs24Function(this, "AuthConsumer", {
       description: "DMARC dashboard auth events consumer — sends OTP emails",
       entry: `${dir}authConsumer/`,

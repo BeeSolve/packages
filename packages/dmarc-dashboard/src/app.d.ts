@@ -5,6 +5,7 @@ import type { SessionContext } from "@beesolve/auth-service/sveltekit";
 import type { Domains } from "@beesolve/dmarc-consumer/domain";
 import type { ProcessingStats } from "@beesolve/dmarc-consumer/processing-stats";
 import type { Reports } from "@beesolve/dmarc-consumer/report";
+import type { Email } from "@beesolve/email-service/sdk";
 
 declare global {
   namespace App {
@@ -22,6 +23,7 @@ declare global {
         reports: Reports;
         stats: ProcessingStats;
         authClient: AuthClient;
+        email: Email;
       };
     }
   }
