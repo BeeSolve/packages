@@ -184,7 +184,7 @@ DynamoDB UpdateCommand (ADD counters)
 
 ## Task Breakdown
 
-### Task 1: Create ProcessingStats entity class in dmarc-reports
+### Task 1: Create ProcessingStats entity class in dmarc-reports ✅
 
 **Objective:** Create a `ProcessingStats` class that tracks daily pipeline processing counters using DynamoDB atomic increments.
 
@@ -207,7 +207,7 @@ DynamoDB UpdateCommand (ADD counters)
 
 ---
 
-### Task 2: Refactor dmarc-reports handler to track stats instead of throwing
+### Task 2: Refactor dmarc-reports handler to track stats instead of throwing ✅
 
 **Objective:** Modify the handler to catch authentication/spam/virus failures, increment the appropriate stats counter, and return early instead of throwing. Track successful processing and manual uploads too.
 
@@ -242,7 +242,7 @@ DynamoDB UpdateCommand (ADD counters)
 
 ---
 
-### Task 3: Wire stats table access in CDK constructs
+### Task 3: Wire stats table access in CDK constructs ✅
 
 **Objective:** Connect the dmarc-reports handler to the dmarc-consumer table for stats writes, and expose stats read for the dashboard.
 
@@ -262,7 +262,7 @@ DynamoDB UpdateCommand (ADD counters)
 
 ---
 
-### Task 4: Apply visual theme and layout improvements
+### Task 4: Apply visual theme and layout improvements ✅
 
 **Objective:** Improve dashboard appearance with graffiti theming and layout.
 
@@ -285,7 +285,7 @@ DynamoDB UpdateCommand (ADD counters)
 
 ---
 
-### Task 5: Add source IP analysis and summary cards to domain detail
+### Task 5: Add source IP analysis and summary cards to domain detail ✅
 
 **Objective:** Compute and display per-IP authentication breakdown on the domain detail page.
 
@@ -310,7 +310,7 @@ DynamoDB UpdateCommand (ADD counters)
 
 ---
 
-### Task 6: Add report detail drill-down page
+### Task 6: Add report detail drill-down page ✅
 
 **Objective:** Create a detail page showing all records for a single report.
 
@@ -332,7 +332,7 @@ DynamoDB UpdateCommand (ADD counters)
 
 ---
 
-### Task 7: Add daily grouping and calendar date filter
+### Task 7: Add daily grouping and calendar date filter ✅
 
 **Objective:** Add date-based filtering with a calendar UI component.
 
@@ -362,7 +362,7 @@ DynamoDB UpdateCommand (ADD counters)
 
 ---
 
-### Task 8: Add processing stats admin page
+### Task 8: Add processing stats admin page ✅
 
 **Objective:** Create an admin-only page displaying pipeline processing metrics.
 
@@ -387,7 +387,7 @@ DynamoDB UpdateCommand (ADD counters)
 
 ---
 
-### Task 9: Add daily aggregate query for future email alerts
+### Task 9: Add daily aggregate query for future email alerts ✅
 
 **Objective:** Create the data-layer methods needed for the future daily alert email Lambda.
 

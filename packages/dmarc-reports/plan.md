@@ -284,18 +284,20 @@ Different DMARC recipient addresses (one per project/domain) all route through t
 - Views: timeline, per-source breakdown, pass rates, failure alerts
 - Filter by date range, reporting org, domain
 
-### Phase 5: Multi-account support
+### Phase 5: Multi-account support ✅ (renamed to "Self-Service User Management")
 
-- Module 1 accepts `eventBusArn` prop pointing to dashboard account's bus
-- Cross-account EventBridge resource policy on dashboard bus allows source accounts
-- Dashboard's SQS consumer processes events from all source accounts
-- Source management UI in dashboard (add/remove source accounts)
+- Zero-CLI onboarding via `/setup` route
+- Admin/user roles with domain whitelisting
+- User management pages (`/users`, `/users/invite`, `/users/[email]/edit`)
+- See `phase5-plan.md` for details
 
-### Phase 6: Alerting
+### Phase 6: Alerting ✅ (renamed to "Dashboard UX, Processing Stats & Daily Aggregation")
 
-- Detect failures (disposition != "none", unknown source IPs)
-- Notify via `@beesolve/email-service` or SNS
-- Configurable thresholds per domain
+- Processing stats tracking via EventBridge → DynamoDB atomic counters
+- Dashboard visual improvements (summary cards, status badges, calendar filter)
+- Source IP analysis and report drill-down pages
+- Daily aggregate queries (data layer ready for future alert emails)
+- See `phase6-plan.md` for details
 
 ### Future: Package consolidation
 

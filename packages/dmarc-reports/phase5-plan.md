@@ -113,48 +113,48 @@ The `authGuard` in `hooks.server.ts` needs to:
 
 ### Task 1: Update User schema and model
 
-- Add `type` and `createdAt` fields
-- Add `hasAnyUsers()` method (query reverse GSI for `sk = "user"`, limit 1)
-- Add `listAll()` method for admin user management page
-- Add `updateDomains({ email, domains })` method
-- Add `delete({ email })` method
+- ✅ Add `type` and `createdAt` fields
+- ✅ Add `hasAnyUsers()` method (query reverse GSI for `sk = "user"`, limit 1)
+- ✅ Add `listAll()` method for admin user management page
+- ✅ Add `updateDomains({ email, domains })` method
+- ✅ Add `delete({ email })` method
 
 ### Task 2: Implement setup gate
 
-- Create system config entity (`pk: "system#config"`, `sk: "setup"`)
-- `isSetupComplete()` method — GetCommand, returns boolean
-- `markSetupComplete({ adminEmail })` method — PutCommand with condition
+- ✅ Create system config entity (`pk: "system#config"`, `sk: "setup"`)
+- ✅ `isSetupComplete()` method — GetCommand, returns boolean
+- ✅ `markSetupComplete({ adminEmail })` method — PutCommand with condition
 
 ### Task 3: Create `/setup` route
 
-- `+page.server.ts`: load checks `isSetupComplete()`, redirects if done
-- `+page.svelte`: simple email form
-- Default form action: validates, creates admin account + user + marks setup complete
-- Public route (add to `publicPaths` in hooks)
+- ✅ `+page.server.ts`: load checks `isSetupComplete()`, redirects if done
+- ✅ `+page.svelte`: simple email form
+- ✅ Default form action: validates, creates admin account + user + marks setup complete
+- ✅ Public route (add to `publicPaths` in hooks)
 
 ### Task 4: Update auth guard for user types
 
-- Load `user.type` into locals
-- Admin: set `domains` to all available (or special marker)
-- Update home page to not filter for admin
+- ✅ Load `user.type` into locals
+- ✅ Admin: set `domains` to all available (or special marker)
+- ✅ Update home page to not filter for admin
 
 ### Task 5: Create admin user management pages
 
-- `/users` — list all users (admin only, 403 for non-admin)
-- `/users/invite` — invite form with email + domain multi-select
-- `/users/[email]/edit` — edit domain whitelist
-- Delete user action
+- ✅ `/users` — list all users (admin only, 403 for non-admin)
+- ✅ `/users/invite` — invite form with email + domain multi-select
+- ✅ `/users/[email]/edit` — edit domain whitelist
+- ✅ Delete user action
 
 ### Task 6: Remove CLI script
 
-- Delete `scripts/create-user.ts`
-- Remove `create-user` script from `package.json`
-- Update any documentation referencing the script
+- ✅ Delete `scripts/create-user.ts`
+- ✅ Remove `create-user` script from `package.json`
+- ✅ Update any documentation referencing the script
 
 ### Task 7: End-to-end validation
 
-- Build, type-check, lint, test
-- Deploy and test the full flow: setup → sign-in → view domains → invite user
+- ✅ Build, type-check, lint, test
+- ✅ Deploy and test the full flow: setup → sign-in → view domains → invite user
 
 ## Open Questions
 
