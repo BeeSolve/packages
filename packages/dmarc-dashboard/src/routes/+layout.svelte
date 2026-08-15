@@ -15,6 +15,12 @@
           <a href="/users" class="nav-link">Users</a>
         {/if}
       </div>
+      {#if data.user}
+        <form method="POST" action="/auth/signOut" class="nav-sign-out">
+          <input type="hidden" name="redirectTo" value="/sign-in" />
+          <button type="submit" class="sign-out-btn">Sign out</button>
+        </form>
+      {/if}
     </nav>
   </header>
 
@@ -135,6 +141,25 @@
   .nav-link:hover {
     color: var(--text-1);
     text-decoration: none;
+  }
+
+  .nav-sign-out {
+    margin-left: auto;
+  }
+
+  .sign-out-btn {
+    background: none;
+    border: none;
+    font-size: 0.875rem;
+    color: var(--text-2);
+    cursor: pointer;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+  }
+
+  .sign-out-btn:hover {
+    color: var(--text-1);
+    background: var(--surface-1);
   }
 
   .app-main {
