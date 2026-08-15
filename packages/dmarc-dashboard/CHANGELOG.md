@@ -1,5 +1,11 @@
 # @beesolve/dmarc-dashboard
 
+## 0.1.1
+
+### Patch Changes
+
+- bd74fdf: Add sign out button to the navigation header
+
 ## 0.1.0
 
 ### Minor Changes
