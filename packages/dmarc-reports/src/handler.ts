@@ -5,7 +5,8 @@ import { decompress, extractFromEmail, parseXml } from "@beesolve/dmarc-parser";
 import { keptActive } from "@beesolve/lambda-keep-active/runtime";
 import * as v from "valibot";
 
-import { detailType, eventSource } from "../index.ts";
+import type { StatsCounter } from "../index.ts";
+import { detailType, eventSource, statsDetailType } from "../index.ts";
 
 const envSchema = v.object({
   EVENT_BUS_ARN: v.string(),
@@ -22,6 +23,13 @@ const s3EventSchema = v.object({
   }),
 });
 
+type AuthResult =
+  | { status: "pass" }
+  | { status: "manual" }
+  | { status: "authRejected" }
+  | { status: "spamRejected" }
+  | { status: "virusRejected" };
+
 export const handler = keptActive(async (event: unknown, _context: unknown): Promise<void> => {
   const { detail } = v.parse(s3EventSchema, event);
   const bucketName = detail.bucket.name;
@@ -29,12 +37,58 @@ export const handler = keptActive(async (event: unknown, _context: unknown): Pro
 
   const body = await fetchObject({ bucket: bucketName, key: objectKey });
 
-  checkEmailAuthentication({ body });
+  const authResult = checkEmailAuthentication({ body });
+
+  if (authResult.status === "authRejected") {
+    console.warn("Skipping email: authentication failed");
+    await emitStats({ counter: "authRejected", value: 1 });
+    return;
+  }
+
+  if (authResult.status === "spamRejected") {
+    console.warn("Skipping email: flagged as spam by SES");
+    await emitStats({ counter: "spamRejected", value: 1 });
+    return;
+  }
+
+  if (authResult.status === "virusRejected") {
+    console.warn("Skipping email: flagged as containing a virus by SES");
+    await emitStats({ counter: "virusRejected", value: 1 });
+    return;
+  }
+
+  if (authResult.status === "manual") {
+    await emitStats({ counter: "manualUpload", value: 1 });
+  }
 
   const reports = await parseReports({ body, objectKey });
 
   await emitEvents({ reports });
+
+  if (reports.length > 0) {
+    await emitStats({ counter: "processed", value: reports.length });
+  }
 });
+
+interface EmitStatsProps {
+  counter: StatsCounter;
+  value: number;
+}
+
+async function emitStats(props: EmitStatsProps): Promise<void> {
+  await eventBridge.send(
+    new PutEventsCommand({
+      Entries: [
+        {
+          Source: eventSource,
+          DetailType: statsDetailType,
+          Detail: JSON.stringify({ counter: props.counter, value: props.value }),
+          EventBusName: env.EVENT_BUS_ARN,
+        },
+      ],
+    }),
+  );
+}
 
 interface FetchObjectProps {
   bucket: string;
@@ -55,13 +109,13 @@ interface CheckEmailAuthenticationProps {
   body: Buffer;
 }
 
-function checkEmailAuthentication(props: CheckEmailAuthenticationProps): void {
+function checkEmailAuthentication(props: CheckEmailAuthenticationProps): AuthResult {
   const headerSection = props.body.subarray(0, 8192).toString("utf-8");
 
   const authResults = extractAuthenticationResults({ headers: headerSection });
 
   if (authResults == null) {
-    return;
+    return { status: "manual" };
   }
 
   const spfResult = extractAuthMethod({ value: authResults, method: "spf" });
@@ -71,21 +125,21 @@ function checkEmailAuthentication(props: CheckEmailAuthenticationProps): void {
   const dkimPass = dkimResult === "pass";
 
   if (!spfPass && !dkimPass) {
-    throw new Error(
-      `Skipping email: neither SPF nor DKIM passed (spf=${spfResult ?? "none"}, dkim=${dkimResult ?? "none"})`,
-    );
+    return { status: "authRejected" };
   }
 
   const spamVerdict = extractSesVerdict({ headers: headerSection, name: "X-SES-Spam-Verdict" });
   const virusVerdict = extractSesVerdict({ headers: headerSection, name: "X-SES-Virus-Verdict" });
 
   if (spamVerdict === "FAIL") {
-    throw new Error("Skipping email: flagged as spam by SES");
+    return { status: "spamRejected" };
   }
 
   if (virusVerdict === "FAIL") {
-    throw new Error("Skipping email: flagged as containing a virus by SES");
+    return { status: "virusRejected" };
   }
+
+  return { status: "pass" };
 }
 
 interface ExtractAuthenticationResultsProps {

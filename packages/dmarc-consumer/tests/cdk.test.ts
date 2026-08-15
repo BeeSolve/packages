@@ -83,7 +83,7 @@ describe("DmarcConsumer construct", () => {
     template.hasResourceProperties("AWS::Events::Rule", {
       EventPattern: {
         source: ["dmarc-reports"],
-        "detail-type": ["DmarcReportParsed"],
+        "detail-type": ["DmarcReportParsed", "DmarcProcessingStats"],
       },
     });
   });

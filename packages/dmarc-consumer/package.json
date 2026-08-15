@@ -26,6 +26,12 @@
         "default": "./dist/domain.js"
       }
     },
+    "./processing-stats": {
+      "import": {
+        "types": "./dist/processingStats.d.ts",
+        "default": "./dist/processingStats.js"
+      }
+    },
     "./report": {
       "import": {
         "types": "./dist/report.d.ts",
@@ -43,6 +49,7 @@
     "@aws-sdk/client-dynamodb": "catalog:",
     "@aws-sdk/lib-dynamodb": "catalog:",
     "@beesolve/cdk-constructs": "workspace:^",
+    "@beesolve/dmarc-parser": "workspace:^",
     "@beesolve/dmarc-reports": "workspace:^",
     "@beesolve/helpers": "workspace:^",
     "valibot": "catalog:"

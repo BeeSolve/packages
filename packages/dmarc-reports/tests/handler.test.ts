@@ -96,6 +96,33 @@ const sampleXml = `<?xml version="1.0" encoding="UTF-8"?>
   </record>
 </feedback>`;
 
+function findStatsEvent(counter: string): PutEventsEntry | undefined {
+  for (const call of putEventsCalls) {
+    for (const entry of call.Entries) {
+      if (entry.DetailType === "DmarcProcessingStats") {
+        // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- bun:test mock calls are untyped; narrowing confirms shape
+        const detail = JSON.parse(entry.Detail) as { counter: string; value: number };
+        if (detail.counter === counter) {
+          return entry;
+        }
+      }
+    }
+  }
+  return undefined;
+}
+
+function findReportEvents(): Array<PutEventsEntry> {
+  const results: Array<PutEventsEntry> = [];
+  for (const call of putEventsCalls) {
+    for (const entry of call.Entries) {
+      if (entry.DetailType === "DmarcReportParsed") {
+        results.push(entry);
+      }
+    }
+  }
+  return results;
+}
+
 describe("handler", () => {
   let consoleSpy: ReturnType<typeof spyOn>;
   let consoleWarnSpy: ReturnType<typeof spyOn>;
@@ -127,15 +154,10 @@ describe("handler", () => {
       {},
     );
 
-    expect(putEventsCalls.length).toBe(1);
+    const reportEvents = findReportEvents();
+    expect(reportEvents.length).toBe(1);
 
-    const putInput = putEventsCalls[0];
-    expect(putInput).toBeDefined();
-    if (putInput == null) return;
-
-    expect(putInput.Entries.length).toBe(1);
-
-    const entry = putInput.Entries[0];
+    const entry = reportEvents[0];
     expect(entry).toBeDefined();
     if (entry == null) return;
 
@@ -147,6 +169,28 @@ describe("handler", () => {
     expect(detail.reportMetadata.orgName).toBe("Example Corp");
     expect(detail.policyPublished.domain).toBe("example.org");
     expect(detail.records[0].sourceIp).toBe("192.0.2.1");
+  });
+
+  it("emits manualUpload and processed stats events for a direct upload (no auth header)", async () => {
+    s3Body = gzipSync(Buffer.from(sampleXml));
+
+    const { handler } = await import("../src/handler.ts");
+
+    await handler(
+      {
+        detail: {
+          bucket: { name: "test-bucket" },
+          object: { key: "inbox/report.xml.gz" },
+        },
+      },
+      {},
+    );
+
+    const manualEntry = findStatsEvent("manualUpload");
+    const processedEntry = findStatsEvent("processed");
+
+    expect(manualEntry).toBeDefined();
+    expect(processedEntry).toBeDefined();
   });
 
   it("processes a raw email (MIME) from S3", async () => {
@@ -186,13 +230,10 @@ describe("handler", () => {
       {},
     );
 
-    expect(putEventsCalls.length).toBe(1);
+    const reportEvents = findReportEvents();
+    expect(reportEvents.length).toBe(1);
 
-    const putInput = putEventsCalls[0];
-    expect(putInput).toBeDefined();
-    if (putInput == null) return;
-
-    const entry = putInput.Entries[0];
+    const entry = reportEvents[0];
     expect(entry).toBeDefined();
     if (entry == null) return;
 
@@ -207,7 +248,7 @@ describe("handler", () => {
     expect(result).rejects.toThrow();
   });
 
-  it("throws when neither SPF nor DKIM passes", async () => {
+  it("does not emit report events and emits authRejected stats when neither SPF nor DKIM passes", async () => {
     const gzipped = gzipSync(Buffer.from(sampleXml));
     const boundary = "----=_Part_123";
     const mimeEmail = [
@@ -237,7 +278,7 @@ describe("handler", () => {
 
     const { handler } = await import("../src/handler.ts");
 
-    const result = handler(
+    await handler(
       {
         detail: {
           bucket: { name: "test-bucket" },
@@ -246,7 +287,12 @@ describe("handler", () => {
       },
       {},
     );
-    expect(result).rejects.toThrow("neither SPF nor DKIM passed");
+
+    const reportEvents = findReportEvents();
+    expect(reportEvents.length).toBe(0);
+
+    const authRejectedEntry = findStatsEvent("authRejected");
+    expect(authRejectedEntry).toBeDefined();
   });
 
   it("processes email when SPF fails but DKIM passes", async () => {
@@ -287,7 +333,8 @@ describe("handler", () => {
       {},
     );
 
-    expect(putEventsCalls.length).toBe(1);
+    const reportEvents = findReportEvents();
+    expect(reportEvents.length).toBe(1);
   });
 
   it("processes email when both SPF and DKIM pass", async () => {
@@ -328,7 +375,8 @@ describe("handler", () => {
       {},
     );
 
-    expect(putEventsCalls.length).toBe(1);
+    const reportEvents = findReportEvents();
+    expect(reportEvents.length).toBe(1);
   });
 
   it("skips auth check when Authentication-Results is not from amazonses.com", async () => {
@@ -369,10 +417,11 @@ describe("handler", () => {
       {},
     );
 
-    expect(putEventsCalls.length).toBe(1);
+    const reportEvents = findReportEvents();
+    expect(reportEvents.length).toBe(1);
   });
 
-  it("throws when email is flagged as spam", async () => {
+  it("does not emit report events and emits spamRejected stats when email is flagged as spam", async () => {
     const gzipped = gzipSync(Buffer.from(sampleXml));
     const boundary = "----=_Part_123";
     const mimeEmail = [
@@ -402,7 +451,7 @@ describe("handler", () => {
 
     const { handler } = await import("../src/handler.ts");
 
-    const result = handler(
+    await handler(
       {
         detail: {
           bucket: { name: "test-bucket" },
@@ -411,10 +460,15 @@ describe("handler", () => {
       },
       {},
     );
-    expect(result).rejects.toThrow("flagged as spam");
+
+    const reportEvents = findReportEvents();
+    expect(reportEvents.length).toBe(0);
+
+    const spamEntry = findStatsEvent("spamRejected");
+    expect(spamEntry).toBeDefined();
   });
 
-  it("throws when email contains a virus", async () => {
+  it("does not emit report events and emits virusRejected stats when email contains a virus", async () => {
     const gzipped = gzipSync(Buffer.from(sampleXml));
     const boundary = "----=_Part_123";
     const mimeEmail = [
@@ -444,7 +498,7 @@ describe("handler", () => {
 
     const { handler } = await import("../src/handler.ts");
 
-    const result = handler(
+    await handler(
       {
         detail: {
           bucket: { name: "test-bucket" },
@@ -453,6 +507,57 @@ describe("handler", () => {
       },
       {},
     );
-    expect(result).rejects.toThrow("flagged as containing a virus");
+
+    const reportEvents = findReportEvents();
+    expect(reportEvents.length).toBe(0);
+
+    const virusEntry = findStatsEvent("virusRejected");
+    expect(virusEntry).toBeDefined();
+  });
+
+  it("emits processed stats event with the number of reports", async () => {
+    const gzipped = gzipSync(Buffer.from(sampleXml));
+    const boundary = "----=_Part_123";
+    const mimeEmail = [
+      "Authentication-Results: amazonses.com; spf=pass; dkim=pass",
+      "From: noreply@example.com",
+      "To: dmarc@example.org",
+      "Subject: DMARC Report",
+      "MIME-Version: 1.0",
+      `Content-Type: multipart/mixed; boundary="${boundary}"`,
+      "",
+      `--${boundary}`,
+      "Content-Type: application/gzip",
+      `Content-Disposition: attachment; filename="report.xml.gz"`,
+      "Content-Transfer-Encoding: base64",
+      "",
+      gzipped.toString("base64"),
+      `--${boundary}--`,
+    ].join("\r\n");
+
+    s3Body = Buffer.from(mimeEmail);
+
+    const { handler } = await import("../src/handler.ts");
+
+    await handler(
+      {
+        detail: {
+          bucket: { name: "test-bucket" },
+          object: { key: "inbox/abc123def456" },
+        },
+      },
+      {},
+    );
+
+    const reportEvents = findReportEvents();
+    expect(reportEvents.length).toBe(1);
+
+    const processedEntry = findStatsEvent("processed");
+    expect(processedEntry).toBeDefined();
+    if (processedEntry == null) return;
+
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- bun:test mock calls are untyped; narrowing confirms shape
+    const detail = JSON.parse(processedEntry.Detail) as { counter: string; value: number };
+    expect(detail.value).toBe(1);
   });
 });

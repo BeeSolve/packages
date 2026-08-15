@@ -68,7 +68,7 @@ const authResultsSchema = v.object({
   spf: v.array(spfAuthResultSchema),
 });
 
-const dmarcRecordSchema = v.object({
+export const dmarcRecordSchema = v.object({
   sourceIp: v.string(),
   count: v.number(),
   policyEvaluated: policyEvaluatedSchema,
