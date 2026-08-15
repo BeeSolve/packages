@@ -1,5 +1,11 @@
 # @beesolve/dmarc-reports
 
+## 0.1.1
+
+### Patch Changes
+
+- 6c35fb0: Fix Authentication-Results header parsing for CRLF line endings (real SES emails use `\r\n`, not `\n`)
+
 ## 0.1.0
 
 ### Minor Changes
