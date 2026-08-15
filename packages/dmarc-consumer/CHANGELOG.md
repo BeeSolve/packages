@@ -1,5 +1,11 @@
 # @beesolve/dmarc-consumer
 
+## 0.1.2
+
+### Patch Changes
+
+- 211293f: Fix `grantReadWrite` to inject correct env var names (`DMARC_TABLE_NAME`, `DMARC_REVERSE_INDEX`) expected by the dashboard
+
 ## 0.1.1
 
 ### Patch Changes
