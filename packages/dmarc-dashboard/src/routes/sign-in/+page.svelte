@@ -22,7 +22,7 @@
       }
 
       const data = await response.json();
-      goto(`/sign-in/verify?token=${data.token}`);
+      goto(`/sign-in/verify?token=${data.token}&ref=${data.referenceCode}&expires=${encodeURIComponent(data.expiresAt)}`);
     } catch {
       loading = false;
       error = "Something went wrong. Please try again.";

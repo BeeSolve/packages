@@ -5,6 +5,13 @@
   let error = $state("");
   let loading = $state(false);
 
+  const expiryMinutes = $derived(() => {
+    if (data.expiresAt == null) return undefined;
+    const diffMs = Date.parse(data.expiresAt) - Date.now();
+    if (diffMs <= 0) return 0;
+    return Math.ceil(diffMs / 60_000);
+  });
+
   async function handleSubmit(event: SubmitEvent) {
     event.preventDefault();
     error = "";
@@ -42,6 +49,14 @@
 
 <p>Check your email for a verification code.</p>
 
+{#if data.referenceCode}
+  <p class="meta">Reference code: <code>{data.referenceCode}</code></p>
+{/if}
+
+{#if expiryMinutes() != null}
+  <p class="meta">Code expires in {expiryMinutes()} {expiryMinutes() === 1 ? "minute" : "minutes"}.</p>
+{/if}
+
 <form onsubmit={handleSubmit}>
   <label>
     Verification code
@@ -51,3 +66,19 @@
     {loading ? "Verifying..." : "Verify"}
   </button>
 </form>
+
+<style>
+  .meta {
+    font-size: 0.85rem;
+    color: var(--text-2, #64748b);
+    margin: 0.25rem 0;
+  }
+
+  .meta code {
+    font-size: 0.85rem;
+    padding: 0.1rem 0.4rem;
+    background: var(--surface-1, #f8f9fa);
+    border-radius: 0.25rem;
+    font-weight: 600;
+  }
+</style>

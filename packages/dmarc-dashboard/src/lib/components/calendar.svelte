@@ -63,11 +63,20 @@
           href="/domains/{domain}?date={cell.date}"
           class="cell"
           class:selected={selectedDate === cell.date}
+          class:in-range={selectedDate == null}
         >
           {cell.day}
         </a>
       {/if}
     {/each}
+  </div>
+
+  <div class="calendar-footer">
+    {#if selectedDate != null}
+      <a href="/domains/{domain}" class="clear-link">Show all dates</a>
+    {:else}
+      <span class="range-label">Showing entire month</span>
+    {/if}
   </div>
 </div>
 
@@ -146,7 +155,36 @@
     font-weight: 600;
   }
 
+  .cell.in-range {
+    background: rgba(37, 99, 235, 0.08);
+  }
+
+  .cell.in-range:hover {
+    background: rgba(37, 99, 235, 0.15);
+  }
+
   .cell.empty {
     pointer-events: none;
+  }
+
+  .calendar-footer {
+    margin-top: 0.5rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--border, #e2e8f0);
+    text-align: center;
+    font-size: 0.75rem;
+  }
+
+  .range-label {
+    color: var(--text-3, #94a3b8);
+  }
+
+  .clear-link {
+    color: #2563eb;
+    text-decoration: none;
+  }
+
+  .clear-link:hover {
+    text-decoration: underline;
   }
 </style>

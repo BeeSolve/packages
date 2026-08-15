@@ -133,6 +133,7 @@
 
   :global(button[type="submit"]) {
     display: inline-block;
+    margin-top: 1rem;
     padding: 0.5rem 1rem;
     font-size: 0.875rem;
     font-weight: 500;
@@ -158,6 +159,28 @@
     padding: 0.5rem 0.75rem;
     border-radius: 0.375rem;
     font-size: 0.875rem;
+  }
+
+  :global(fieldset) {
+    border: 1px solid var(--border);
+    border-radius: 0.375rem;
+    padding: 0.75rem 1rem;
+    margin: 0 0 1rem;
+  }
+
+  :global(fieldset legend) {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-1);
+    padding: 0 0.25rem;
+  }
+
+  :global(fieldset label) {
+    margin-bottom: 0.5rem;
+  }
+
+  :global(fieldset label:last-of-type) {
+    margin-bottom: 0;
   }
 
   .app {
@@ -213,8 +236,7 @@
   }
 
   .sign-out-btn {
-    background: none;
-    border: none;
+    all: unset;
     font-size: 0.875rem;
     color: var(--text-2);
     cursor: pointer;

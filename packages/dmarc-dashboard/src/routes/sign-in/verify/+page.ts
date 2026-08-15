@@ -6,5 +6,8 @@ export const load: PageLoad = ({ url }) => {
   const token = url.searchParams.get("token");
   if (!token) redirect(303, "/sign-in");
 
-  return { token };
+  const referenceCode = url.searchParams.get("ref") ?? undefined;
+  const expiresAt = url.searchParams.get("expires") ?? undefined;
+
+  return { token, referenceCode, expiresAt };
 };
