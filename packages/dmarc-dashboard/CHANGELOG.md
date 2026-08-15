@@ -1,5 +1,11 @@
 # @beesolve/dmarc-dashboard
 
+## 0.1.3
+
+### Patch Changes
+
+- ce36c9d: UI fixes: sign-out button styling, calendar month selection indicator, form spacing, verify page reference code and expiry timer
+
 ## 0.1.2
 
 ### Patch Changes
