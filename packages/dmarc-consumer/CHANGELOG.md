@@ -1,5 +1,11 @@
 # @beesolve/dmarc-consumer
 
+## 0.1.1
+
+### Patch Changes
+
+- 132cb8b: Add `grantReadWrite` method to `DmarcConsumer` CDK construct for granting Lambda handlers read/write access to the consumer table
+
 ## 0.1.0
 
 ### Minor Changes
