@@ -28,8 +28,8 @@ export class DmarcConsumer extends Construct {
 
   grantReadWrite(handler: LambdaFunction): void {
     this.table.grantReadWriteData(handler);
-    handler.addEnvironment("TABLE_NAME", this.table.tableName);
-    handler.addEnvironment("REVERSE_INDEX_NAME", this.reverseIndexName);
+    handler.addEnvironment("DMARC_TABLE_NAME", this.table.tableName);
+    handler.addEnvironment("DMARC_REVERSE_INDEX", this.reverseIndexName);
   }
 
   constructor(scope: Construct, id: string, props?: DmarcConsumerProps) {
