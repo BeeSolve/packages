@@ -1,5 +1,11 @@
 # @beesolve/dmarc-dashboard
 
+## 0.1.2
+
+### Patch Changes
+
+- b81b76f: Add admin promotion/demotion, invite email notification, and session revocation on user deletion
+
 ## 0.1.1
 
 ### Patch Changes
