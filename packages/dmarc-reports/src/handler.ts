@@ -149,14 +149,14 @@ interface ExtractAuthenticationResultsProps {
 function extractAuthenticationResults(
   props: ExtractAuthenticationResultsProps,
 ): string | undefined {
-  const regex = /^Authentication-Results:\s*(.+(?:\n[ \t]+.+)*)/im;
+  const regex = /^Authentication-Results:\s*(.+(?:\r?\n[ \t]+.+)*)/im;
   const match = regex.exec(props.headers);
 
   if (match?.[1] == null) {
     return undefined;
   }
 
-  const value = match[1].replace(/\n[ \t]+/g, " ").trim();
+  const value = match[1].replace(/\r?\n[ \t]+/g, " ").trim();
 
   if (!value.startsWith("amazonses.com")) {
     return undefined;
