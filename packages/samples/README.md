@@ -16,6 +16,12 @@ Same flow as authEmailSimple but uses an HTTP API Gateway Lambda authorizer for 
 
 Full-featured email code authentication with real email delivery via `@beesolve/email-service`. Includes sign-in, code verification with resend + countdown, and sign-out. The EventBridge consumer sends actual verification code emails.
 
+### authWithPasskeys
+
+Email code authentication with passkey (WebAuthn) support. Demonstrates the full
+passkey lifecycle: sign up via email → register a passkey → sign in with passkey.
+Uses `rpId` on the AuthGateway construct to enable passkey endpoints.
+
 ### emailVerify
 
 Standalone email verification form (contact form pattern). Demonstrates `@beesolve/action-tokens` directly — no auth system involved. Submitting the form sends a verification code to the user's email; entering the code sends the contact message to the recipient.
@@ -36,6 +42,7 @@ Each sample deploys independently:
 bun run deploy:authEmailSimple
 bun run deploy:authEmailAuthorizer
 bun run deploy:authWithEmail
+bun run deploy:authWithPasskeys
 bun run deploy:emailVerify
 bun run deploy:authCookieFunction
 bun run deploy:authSpaWithApi
@@ -90,6 +97,7 @@ samples/
 ├── authEmailSimple/       # Auth with in-process session check in hooks
 ├── authEmailAuthorizer/   # Auth with Lambda authorizer
 ├── authWithEmail/         # Auth with email delivery
+├── authWithPasskeys/      # Auth with passkey (WebAuthn) support
 ├── authCookieFunction/    # Auth with ensureCookieFunction + disabled cache
 ├── authSpaWithApi/        # React SPA with tRPC API
 ├── emailVerify/           # Standalone email verification (action-tokens)

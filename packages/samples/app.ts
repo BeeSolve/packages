@@ -5,6 +5,7 @@ import { EmailAuthorizerStack } from "./authEmailAuthorizer/stack.ts";
 import { EmailSimpleStack } from "./authEmailSimple/stack.ts";
 import { SpaWithApiStack } from "./authSpaWithApi/stack.ts";
 import { AuthWithEmailStack } from "./authWithEmail/stack.ts";
+import { AuthWithPasskeysStack } from "./authWithPasskeys/stack.ts";
 import { DmarcReportsStack } from "./dmarcReports/stack.ts";
 import { EmailVerifyStack } from "./emailVerify/stack.ts";
 
@@ -26,6 +27,10 @@ new EmailAuthorizerStack(app, "SamplesAuthEmailAuthorizer", {
 });
 
 new AuthWithEmailStack(app, "SamplesAuthWithEmail", {
+  env: { account, region },
+});
+
+new AuthWithPasskeysStack(app, "SamplesAuthWithPasskeys", {
   env: { account, region },
 });
 

@@ -8,6 +8,7 @@
     "deploy:authEmailSimple": "cd authEmailSimple/site && bun run vite build && cd - && bun run cdk deploy SamplesAuthEmailSimple --require-approval never",
     "deploy:authEmailAuthorizer": "cd authEmailAuthorizer/site && bun run vite build && cd - && bun run cdk deploy SamplesAuthEmailAuthorizer --require-approval never",
     "deploy:authWithEmail": "cd authWithEmail/site && bun run vite build && cd - && bun run cdk deploy SamplesAuthWithEmail --require-approval never",
+    "deploy:authWithPasskeys": "cd authWithPasskeys/site && bun run vite build && cd - && bun run cdk deploy SamplesAuthWithPasskeys --require-approval never",
     "deploy:emailVerify": "cd emailVerify/site && bun run vite build && cd - && bun run cdk deploy SamplesEmailVerify --require-approval never",
     "deploy:authCookieFunction": "cd authCookieFunction/site && bun run vite build && cd - && bun run cdk deploy SamplesAuthCookieFunction --require-approval never",
     "deploy:authSpaWithApi": "cd authSpaWithApi/site && bun run vite build && cd - && bun run cdk deploy SamplesAuthSpaWithApi --require-approval never",

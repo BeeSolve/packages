@@ -199,3 +199,17 @@ tests/
 7. CDK changes (add `RP_ID` env var)
 8. Update consumer-facing event types
 9. Integration tests
+
+---
+
+## Implementation Progress
+
+- [x] Step 1: CBOR decoder + tests — DONE
+- [x] Step 2: COSE key parser + authenticator data parser + tests — DONE
+- [x] Step 3: Account model discriminated union + passkey methods — DONE
+
+- [x] Step 4: Registration handlers — DONE
+- [x] Step 5: Authentication handlers — DONE
+
+- [x] Step 6: Router wiring + consumer events + CDK changes — DONE
+- [x] Step 7: Final verification (type-check, lint, fmt, tests) — ALL PASS

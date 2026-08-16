@@ -13,10 +13,14 @@ import { keptActive } from "@beesolve/lambda-keep-active/runtime";
 import * as v from "valibot";
 
 import { Accounts } from "./src/account.ts";
-import { parseDataTokenCookie } from "./src/cookie.ts";
+import { parseDataTokenCookie, parseSid } from "./src/cookie.ts";
 import { toDynamoClient } from "./src/dynamo.ts";
 import { BadRequestError, ForbiddenError, NotFoundError, UnauthorizedError } from "./src/errors.ts";
 import { Events } from "./src/events.ts";
+import { passkeyAuthComplete } from "./src/handlers/passkeyAuthComplete.ts";
+import { passkeyAuthOptions } from "./src/handlers/passkeyAuthOptions.ts";
+import { passkeyRegisterComplete } from "./src/handlers/passkeyRegisterComplete.ts";
+import { passkeyRegisterOptions } from "./src/handlers/passkeyRegisterOptions.ts";
 import { resendCode } from "./src/handlers/resendCode.ts";
 import { signInComplete } from "./src/handlers/signInComplete.ts";
 import { signInRequest } from "./src/handlers/signInRequest.ts";
@@ -64,6 +68,8 @@ const envSchema = v.object({
     ),
     "true",
   ),
+  RP_ID: v.optional(v.string()),
+  RP_NAME: v.optional(v.string(), "Auth"),
 });
 const env = v.parse(envSchema, process.env);
 
@@ -176,6 +182,62 @@ const fetch = async (request: Request): Promise<Response> => {
       });
     }
 
+    if (path === "/auth/passkey/registerOptions") {
+      if (env.RP_ID == null) throw new NotFoundError(`Path not found. ${path}`);
+      const userId = await resolveSessionUserId(request);
+
+      return await passkeyRegisterOptions({
+        actionTokens,
+        accounts,
+        requestBody,
+        userId,
+        rpId: env.RP_ID,
+        rpName: env.RP_NAME,
+        baseUri: env.BASE_URI,
+      });
+    }
+
+    if (path === "/auth/passkey/registerComplete") {
+      if (env.RP_ID == null) throw new NotFoundError(`Path not found. ${path}`);
+      const userId = await resolveSessionUserId(request);
+
+      return await passkeyRegisterComplete({
+        actionTokens,
+        accounts,
+        events,
+        requestBody,
+        userId,
+        rpId: env.RP_ID,
+        baseUri: env.BASE_URI,
+      });
+    }
+
+    if (path === "/auth/passkey/authOptions") {
+      if (env.RP_ID == null) throw new NotFoundError(`Path not found. ${path}`);
+
+      return await passkeyAuthOptions({
+        actionTokens,
+        accounts,
+        requestBody,
+        rpId: env.RP_ID,
+      });
+    }
+
+    if (path === "/auth/passkey/authComplete") {
+      if (env.RP_ID == null) throw new NotFoundError(`Path not found. ${path}`);
+
+      return await passkeyAuthComplete({
+        actionTokens,
+        accounts,
+        sessions,
+        events,
+        requestBody,
+        headers: request.headers,
+        rpId: env.RP_ID,
+        baseUri: env.BASE_URI,
+      });
+    }
+
     throw new NotFoundError(`Path not found. ${path}`);
   } catch (error) {
     if (error instanceof Error) {
@@ -212,6 +274,13 @@ function parseHeaders(request: Request) {
   const requestOrigin = request.headers.get("origin");
 
   return { cookies, acceptLanguage, requestOrigin };
+}
+
+async function resolveSessionUserId(request: Request): Promise<string> {
+  const sid = parseSid(request.headers.get("cookie"));
+  if (sid == null) throw new UnauthorizedError("Not authenticated.");
+  const session = await sessions.getOne(sid);
+  return session.userId;
 }
 
 export const handler = keptActive(asHttpV2Handler(fetch));

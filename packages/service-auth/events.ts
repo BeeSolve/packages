@@ -76,6 +76,24 @@ const emailInvitationSchema = v.object({
   }),
 });
 
+const passkeyRegisteredSchema = v.object({
+  "detail-type": v.literal("PasskeyRegistered"),
+  source: v.string(),
+  detail: v.object({
+    userId: v.string(),
+    credentialId: v.string(),
+  }),
+});
+
+const passkeyAuthUsedSchema = v.object({
+  "detail-type": v.literal("PasskeyAuthUsed"),
+  source: v.string(),
+  detail: v.object({
+    userId: v.string(),
+    credentialId: v.string(),
+  }),
+});
+
 const authEventSchema = v.variant("detail-type", [
   emailCodeAuthSchema,
   emailAddressVerifiedSchema,
@@ -84,6 +102,8 @@ const authEventSchema = v.variant("detail-type", [
   unsuccessfulAuthSchema,
   sessionInvalidatedSchema,
   emailInvitationSchema,
+  passkeyRegisteredSchema,
+  passkeyAuthUsedSchema,
 ]);
 
 export type EmailCodeAuthEvent = v.InferOutput<typeof emailCodeAuthSchema>;
@@ -93,6 +113,8 @@ export type SuccessfulAuthEvent = v.InferOutput<typeof successfulAuthSchema>;
 export type UnsuccessfulAuthEvent = v.InferOutput<typeof unsuccessfulAuthSchema>;
 export type SessionInvalidatedEvent = v.InferOutput<typeof sessionInvalidatedSchema>;
 export type EmailInvitationEvent = v.InferOutput<typeof emailInvitationSchema>;
+export type PasskeyRegisteredEvent = v.InferOutput<typeof passkeyRegisteredSchema>;
+export type PasskeyAuthUsedEvent = v.InferOutput<typeof passkeyAuthUsedSchema>;
 
 export type EmailCodeAuthDetail = EmailCodeAuthEvent["detail"];
 export type EmailAddressVerifiedDetail = EmailAddressVerifiedEvent["detail"];
@@ -101,6 +123,8 @@ export type SuccessfulAuthDetail = SuccessfulAuthEvent["detail"];
 export type UnsuccessfulAuthDetail = UnsuccessfulAuthEvent["detail"];
 export type SessionInvalidatedDetail = SessionInvalidatedEvent["detail"];
 export type EmailInvitationDetail = EmailInvitationEvent["detail"];
+export type PasskeyRegisteredDetail = PasskeyRegisteredEvent["detail"];
+export type PasskeyAuthUsedDetail = PasskeyAuthUsedEvent["detail"];
 
 export type AuthEvent = v.InferOutput<typeof authEventSchema>;
 
@@ -146,4 +170,14 @@ export function isSessionInvalidated(event: unknown): event is SessionInvalidate
 export function isEmailInvitation(event: unknown): event is EmailInvitationEvent {
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   return (event as Record<string, unknown> | null)?.["detail-type"] === "EmailInvitation";
+}
+
+export function isPasskeyRegistered(event: unknown): event is PasskeyRegisteredEvent {
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+  return (event as Record<string, unknown> | null)?.["detail-type"] === "PasskeyRegistered";
+}
+
+export function isPasskeyAuthUsed(event: unknown): event is PasskeyAuthUsedEvent {
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+  return (event as Record<string, unknown> | null)?.["detail-type"] === "PasskeyAuthUsed";
 }

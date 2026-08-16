@@ -86,6 +86,10 @@ interface CoreProps {
   /** @default true when stage is "prod" */
   readonly contributorInsights?: boolean;
   readonly sdkHandlerReservedConcurrency?: number;
+  /** Relying Party ID for passkeys (typically the domain without port, e.g. "example.com"). When set, passkey endpoints are enabled. */
+  readonly rpId?: string;
+  /** Relying Party display name for passkeys. @default "Auth" */
+  readonly rpName?: string;
 }
 
 export class AuthGateway extends Construct {
@@ -669,6 +673,12 @@ function createAuthHandler(
   }
   if (coreProps.dataToken === true) {
     authHandlerEnv["DATA_TOKEN"] = "true";
+  }
+  if (coreProps.rpId != null) {
+    authHandlerEnv["RP_ID"] = coreProps.rpId;
+  }
+  if (coreProps.rpName != null) {
+    authHandlerEnv["RP_NAME"] = coreProps.rpName;
   }
 
   const authHandler = new Nodejs24Function(scope, "AuthHandler", {

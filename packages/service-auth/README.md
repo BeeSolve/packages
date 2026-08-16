@@ -12,10 +12,11 @@ Passwordless email-code authentication for AWS. Cookie-based, same-domain, serve
 A self-contained auth microservice you deploy into your AWS account via CDK. It handles:
 
 1. Email → OTP code generation → EventBridge event (you send the email)
-2. Code verification → session creation → `__Host-SID` cookie set
-3. Session validation on every request (via Lambda authorizer or in-process)
-4. Session refresh & rotation (transparent to the client)
-5. Sign-out → session invalidation
+2. Passkeys (WebAuthn) → biometric/PIN sign-in without codes or emails
+3. Code verification → session creation → `__Host-SID` cookie set
+4. Session validation on every request (via Lambda authorizer or in-process)
+5. Session refresh & rotation (transparent to the client)
+6. Sign-out → session invalidation
 
 ## What This Is NOT
 
@@ -124,28 +125,30 @@ distribution.addBehavior("/auth/*", auth.authBehavior.origin, auth.authBehavior)
 
 ### CDK Props
 
-| Prop                            | Type                      | Description                                                            |
-| ------------------------------- | ------------------------- | ---------------------------------------------------------------------- |
-| `stage`                         | `string`                  | Environment name. `"prod"` enables deletion protection and PITR.       |
-| `frontendUri`                   | `string`                  | Your application URL (used as base URI in events).                     |
-| `allowSignUp`                   | `boolean`                 | Auto-create accounts on first sign-in.                                 |
-| `eventBusArn`                   | `string?`                 | Custom EventBridge bus ARN. Defaults to `default`.                     |
-| `eventSource`                   | `string?`                 | Event source string. Defaults to `"beesolve.auth.api"`.                |
-| `dataToken`                     | `boolean?`                | Read `__Host-DataToken` cookie and emit `DataToken` event on sign-in.  |
-| `sessionDuration`               | `Duration?`               | Session lifetime. Default 30 days.                                     |
-| `otpExpiry`                     | `Duration?`               | OTP code validity. Default 10 minutes.                                 |
-| `resendCooldown`                | `Duration?`               | Minimum time between resends. Default 60s.                             |
-| `drainOnResend`                 | `boolean?`                | Invalidate previous OTP on resend. Default `true`.                     |
-| `encryptionKey`                 | `IKey?`                   | Customer-managed KMS key for DynamoDB and SQS.                         |
-| `alarms`                        | `EmailAlarms?`            | `@beesolve/cdk-email-alarms` instance for error monitoring.            |
-| `warmer`                        | `LambdaKeepActive?`       | Keep handler Lambdas warm.                                             |
-| `waf`                           | `{ rateLimit?: number }?` | WAF rate limiting rule group.                                          |
-| `logGroupProps`                 | `LogGroupProps?`          | Override Lambda log group settings.                                    |
-| `contributorInsights`           | `boolean?`                | DynamoDB Contributor Insights. Default `true` in prod.                 |
-| `authorizerReservedConcurrency` | `number?`                 | Authorizer Lambda reserved concurrency.                                |
-| `sdkHandlerReservedConcurrency` | `number?`                 | SDK handler Lambda reserved concurrency.                               |
-| `authorizerCache`               | preset or `Duration`      | Authorizer cache behavior (AuthGateway only). Default `"balanced"`.    |
-| `accessLogging`                 | `boolean?`                | API Gateway access logging (AuthGateway only). Default `true` in prod. |
+| Prop                            | Type                      | Description                                                                       |
+| ------------------------------- | ------------------------- | --------------------------------------------------------------------------------- |
+| `stage`                         | `string`                  | Environment name. `"prod"` enables deletion protection and PITR.                  |
+| `frontendUri`                   | `string`                  | Your application URL (used as base URI in events).                                |
+| `allowSignUp`                   | `boolean`                 | Auto-create accounts on first sign-in.                                            |
+| `eventBusArn`                   | `string?`                 | Custom EventBridge bus ARN. Defaults to `default`.                                |
+| `eventSource`                   | `string?`                 | Event source string. Defaults to `"beesolve.auth.api"`.                           |
+| `dataToken`                     | `boolean?`                | Read `__Host-DataToken` cookie and emit `DataToken` event on sign-in.             |
+| `sessionDuration`               | `Duration?`               | Session lifetime. Default 30 days.                                                |
+| `otpExpiry`                     | `Duration?`               | OTP code validity. Default 10 minutes.                                            |
+| `resendCooldown`                | `Duration?`               | Minimum time between resends. Default 60s.                                        |
+| `drainOnResend`                 | `boolean?`                | Invalidate previous OTP on resend. Default `true`.                                |
+| `encryptionKey`                 | `IKey?`                   | Customer-managed KMS key for DynamoDB and SQS.                                    |
+| `alarms`                        | `EmailAlarms?`            | `@beesolve/cdk-email-alarms` instance for error monitoring.                       |
+| `warmer`                        | `LambdaKeepActive?`       | Keep handler Lambdas warm.                                                        |
+| `waf`                           | `{ rateLimit?: number }?` | WAF rate limiting rule group.                                                     |
+| `logGroupProps`                 | `LogGroupProps?`          | Override Lambda log group settings.                                               |
+| `contributorInsights`           | `boolean?`                | DynamoDB Contributor Insights. Default `true` in prod.                            |
+| `authorizerReservedConcurrency` | `number?`                 | Authorizer Lambda reserved concurrency.                                           |
+| `sdkHandlerReservedConcurrency` | `number?`                 | SDK handler Lambda reserved concurrency.                                          |
+| `authorizerCache`               | preset or `Duration`      | Authorizer cache behavior (AuthGateway only). Default `"balanced"`.               |
+| `accessLogging`                 | `boolean?`                | API Gateway access logging (AuthGateway only). Default `true` in prod.            |
+| `rpId`                          | `string?`                 | Relying Party ID for passkeys (your domain). Enables `/auth/passkey/*` endpoints. |
+| `rpName`                        | `string?`                 | Relying Party display name for passkeys. Default `"Auth"`.                        |
 
 ## Auth Flow
 
@@ -437,6 +440,8 @@ All events are emitted on the configured bus with source `"beesolve.auth.api"` (
 | `SuccessfulAuth`       | Sign-in succeeded                       | `userId`                                                                     |
 | `UnsuccessfulAuth`     | Sign-in failed (invalid/expired code)   | `emailAddress`, `reason`                                                     |
 | `SessionInvalidated`   | Sign-out                                | `sessionId`                                                                  |
+| `PasskeyRegistered`    | New passkey credential stored           | `userId`, `credentialId`                                                     |
+| `PasskeyAuthUsed`      | Successful passkey sign-in              | `userId`, `credentialId`                                                     |
 
 > **You must subscribe to `EmailCodeAuth` and send the email yourself.** Use `@beesolve/email-service` or any email provider. See the `authWithEmail` sample for a complete implementation.
 
@@ -518,6 +523,220 @@ See [`packages/samples`](../samples/) for deployable reference implementations:
 | `authEmailAuthorizer` | SSR + authorizer | Session validation via Lambda authorizer                         |
 | `authWithEmail`       | SSR + in-process | Full auth with real email delivery via `@beesolve/email-service` |
 
+## Passkeys (WebAuthn)
+
+Passkeys provide passwordless, phishing-resistant authentication using the Web Authentication API. Users authenticate with biometrics (fingerprint, face), device PIN, or hardware security keys — no codes or emails required.
+
+### Enabling Passkeys
+
+Pass `rpId` to the CDK construct to enable passkey endpoints:
+
+```ts
+const auth = new AuthGateway(this, "Auth", {
+  stage: "prod",
+  frontendUri: "https://app.example.com",
+  allowSignUp: true,
+  rpId: "app.example.com", // your domain without port
+  rpName: "My App", // display name shown in authenticator prompts
+});
+```
+
+When `rpId` is not set, all `/auth/passkey/*` endpoints return 404 (feature disabled).
+
+### How It Works
+
+Passkeys coexist with email OTP — users can have both. A user who signed up via email can add a passkey later (while authenticated). Passkey sign-in is fully independent of email and doesn't require an existing email account.
+
+Credentials are stored in the same accounts table as email accounts, with `type: "passkey"` and the credential ID as the sort key.
+
+### Passkey Endpoints
+
+| Endpoint                              | Auth Required | Purpose                                                       |
+| ------------------------------------- | ------------- | ------------------------------------------------------------- |
+| `POST /auth/passkey/registerOptions`  | ✅ Yes        | Generate registration options (challenge, rp info, user info) |
+| `POST /auth/passkey/registerComplete` | ✅ Yes        | Verify attestation response, store credential                 |
+| `POST /auth/passkey/authOptions`      | ❌ No         | Generate authentication options (challenge, rpId)             |
+| `POST /auth/passkey/authComplete`     | ❌ No         | Verify assertion response, create session                     |
+
+### Registration Flow (adding a passkey to an existing account)
+
+The user must already be authenticated (via email OTP or another passkey).
+
+```ts
+// 1. Get registration options from the server
+const optionsRes = await fetch("/auth/passkey/registerOptions", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ displayName: "Ivan's MacBook" }), // optional
+  credentials: "include",
+});
+const { token, publicKey } = await optionsRes.json();
+
+// 2. Call WebAuthn API — browser shows biometric/PIN prompt
+// Note: challenge and user.id must be decoded from base64url to ArrayBuffer
+const credential = await navigator.credentials.create({
+  publicKey: {
+    ...publicKey,
+    challenge: base64urlToBuffer(publicKey.challenge),
+    user: {
+      ...publicKey.user,
+      id: base64urlToBuffer(publicKey.user.id),
+    },
+    excludeCredentials: publicKey.excludeCredentials.map((cred) => ({
+      ...cred,
+      id: base64urlToBuffer(cred.id),
+    })),
+  },
+});
+
+// 3. Send attestation response to server
+const attestationResponse = credential.response;
+const completeRes = await fetch("/auth/passkey/registerComplete", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    token,
+    response: {
+      attestationObject: bufferToBase64url(attestationResponse.attestationObject),
+      clientDataJSON: bufferToBase64url(attestationResponse.clientDataJSON),
+      transports: credential.response.getTransports?.() ?? [],
+    },
+  }),
+  credentials: "include",
+});
+const { success, credentialId } = await completeRes.json();
+// → { success: true, credentialId: "abc123..." }
+```
+
+### Authentication Flow (signing in with a passkey)
+
+No prior session required — this is a sign-in mechanism.
+
+```ts
+// 1. Get authentication options from the server
+const optionsRes = await fetch("/auth/passkey/authOptions", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({}), // or { userId: "..." } to limit allowCredentials
+});
+const { token, publicKey } = await optionsRes.json();
+
+// 2. Call WebAuthn API — browser shows passkey picker
+const assertion = await navigator.credentials.get({
+  publicKey: {
+    ...publicKey,
+    challenge: base64urlToBuffer(publicKey.challenge),
+    allowCredentials: publicKey.allowCredentials.map((cred) => ({
+      ...cred,
+      id: base64urlToBuffer(cred.id),
+    })),
+  },
+});
+
+// 3. Send assertion response to server
+const res = await fetch("/auth/passkey/authComplete", {
+  method: "POST",
+  headers: { "Content-Type": "application/json", Accept: "application/json" },
+  body: JSON.stringify({
+    token,
+    credentialId: bufferToBase64url(assertion.rawId),
+    response: {
+      authenticatorData: bufferToBase64url(assertion.response.authenticatorData),
+      clientDataJSON: bufferToBase64url(assertion.response.clientDataJSON),
+      signature: bufferToBase64url(assertion.response.signature),
+    },
+    redirectTo: "/dashboard",
+  }),
+  credentials: "include",
+});
+const { redirectTo } = await res.json();
+window.location.href = redirectTo;
+// → Session cookie set, user is authenticated
+```
+
+### Base64url Helpers
+
+The WebAuthn API uses `ArrayBuffer` while the server expects base64url strings:
+
+```ts
+function bufferToBase64url(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+}
+
+function base64urlToBuffer(base64url: string): ArrayBuffer {
+  const base64 = base64url.replace(/-/g, "+").replace(/_/g, "/");
+  const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
+  const binary = atob(padded);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes.buffer;
+}
+```
+
+### Discoverable Credentials (Username-less Sign-in)
+
+When `authOptions` is called without a `userId`, the server returns an empty `allowCredentials` array. This triggers the browser's built-in passkey picker, which shows all discoverable credentials for the current domain — enabling true username-less sign-in.
+
+```ts
+// Username-less: browser shows all available passkeys for this domain
+const optionsRes = await fetch("/auth/passkey/authOptions", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({}), // no userId
+});
+```
+
+### Passkey Events
+
+Two new events are emitted via EventBridge:
+
+| Event               | When                          | Detail                     |
+| ------------------- | ----------------------------- | -------------------------- |
+| `PasskeyRegistered` | New passkey credential stored | `{ userId, credentialId }` |
+| `PasskeyAuthUsed`   | Successful passkey sign-in    | `{ userId, credentialId }` |
+
+Consume them with the existing pattern:
+
+```ts
+import {
+  parseAuthEvent,
+  isPasskeyRegistered,
+  isPasskeyAuthUsed,
+} from "@beesolve/auth-service/events";
+
+const event = parseAuthEvent(record.body);
+if (event != null && isPasskeyRegistered(event)) {
+  console.log(`User ${event.detail.userId} registered passkey ${event.detail.credentialId}`);
+}
+```
+
+### Security Properties
+
+- **Phishing-resistant** — the browser binds credentials to the RP ID (domain). Credentials cannot be used on a different origin.
+- **Replay protection** — signature counters are verified and monotonically increasing.
+- **Challenge binding** — each ceremony uses a single-use, 5-minute, cryptographically random challenge stored in action-tokens.
+- **Origin verification** — `clientDataJSON.origin` is verified against the configured `BASE_URI`.
+- **User verification** — registration requires UV (biometric/PIN). Authentication requires user presence.
+- **No attestation trust** — uses `attestation: "none"` (recommended for consumer apps). No certificate chain validation needed.
+- **Discoverable credentials** — `requireResidentKey: true` enables username-less sign-in.
+- **Multi-device** — backup state (`backedUp`) is tracked for each credential.
+
+### Supported Algorithms
+
+| Algorithm | COSE ID | Key Type                    |
+| --------- | ------- | --------------------------- |
+| ES256     | -7      | EC2 P-256 (ECDSA + SHA-256) |
+| EdDSA     | -8      | OKP Ed25519                 |
+
+### Limitations
+
+- **No attestation verification** — the server accepts `"none"` attestation only. Enterprise deployments requiring attestation trust (e.g. FIDO Metadata Service) are not supported.
+- **No credential management UI** — listing/deleting passkeys requires building your own UI using the account data.
+- **Passkey-only sign-up not supported** — the first account must be created via email OTP or SDK. Once an account exists, passkeys can be added.
+
 ## Caveats & Constraints
 
 1. **Single domain required.** Frontend, `/auth/*`, and `/api/*` must be behind one CloudFront distribution. The `__Host-` cookie prefix means the cookie cannot be shared across subdomains or origins.
@@ -528,7 +747,7 @@ See [`packages/samples`](../samples/) for deployable reference implementations:
 
 4. **No built-in UI.** You build your own sign-in form. See the samples for reference.
 
-5. **Email-only authentication.** Only email-code sign-in is currently supported.
+5. **Email + passkey authentication.** Email-code (OTP) and passkey (WebAuthn) sign-in are supported. Passkeys require setting `rpId` in the CDK construct.
 
 6. **`allowSignUp: false` requires pre-creating accounts.** Use the SDK (`newEmailAccount`) to provision accounts before users can sign in.
 

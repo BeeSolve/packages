@@ -7,7 +7,9 @@ type Event =
   | SuccessfulAuth
   | SessionInvalidated
   | EmailInvitation
-  | DataToken;
+  | DataToken
+  | PasskeyRegistered
+  | PasskeyAuthUsed;
 
 interface EmailInvitation {
   readonly type: "EmailInvitation";
@@ -113,6 +115,22 @@ interface SessionInvalidated {
   readonly type: "SessionInvalidated";
   readonly detail: {
     readonly sessionId: string;
+  };
+}
+
+interface PasskeyRegistered {
+  readonly type: "PasskeyRegistered";
+  readonly detail: {
+    readonly userId: string;
+    readonly credentialId: string;
+  };
+}
+
+interface PasskeyAuthUsed {
+  readonly type: "PasskeyAuthUsed";
+  readonly detail: {
+    readonly userId: string;
+    readonly credentialId: string;
   };
 }
 

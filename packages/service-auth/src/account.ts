@@ -1,24 +1,45 @@
 import { ConditionalCheckFailedException } from "@aws-sdk/client-dynamodb";
 import type { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
-import { PutCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
+import { PutCommand, QueryCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import * as v from "valibot";
 
 import { BadRequestError, NotFoundError } from "./errors.ts";
 import { dateSchema } from "./validation.ts";
 
-const accountTypes = ["email", "phone", "passkey"] as const;
-type AccountType = (typeof accountTypes)[number];
+export type Account = v.InferOutput<typeof schema>;
+export type PasskeyAccount = v.InferOutput<typeof passkeyAccountSchema>;
 
-const schema = v.object({
+const baseFields = {
   id: v.string(),
-  username: v.string(),
-  type: v.picklist(accountTypes),
   createdAt: dateSchema,
   updatedAt: dateSchema,
+};
+
+const emailAccountSchema = v.object({
+  ...baseFields,
+  type: v.literal("email"),
+  username: v.string(),
 });
 
-type NewAccount = v.InferInput<typeof schema>;
-type Account = v.InferOutput<typeof schema>;
+const phoneAccountSchema = v.object({
+  ...baseFields,
+  type: v.literal("phone"),
+  username: v.string(),
+});
+
+const passkeyAccountSchema = v.object({
+  ...baseFields,
+  type: v.literal("passkey"),
+  username: v.string(),
+  publicKey: v.string(),
+  counter: v.number(),
+  transports: v.array(v.string()),
+  aaguid: v.string(),
+  backedUp: v.boolean(),
+  algorithm: v.number(),
+});
+
+const schema = v.variant("type", [emailAccountSchema, phoneAccountSchema, passkeyAccountSchema]);
 
 export class Accounts {
   constructor(
@@ -29,7 +50,7 @@ export class Accounts {
     },
   ) {}
 
-  readonly getOne = async (username: string) => {
+  readonly getOne = async (username: string, { exact = false }: { exact?: boolean } = {}) => {
     const { Items: items = [] } = await this.props.dynamo.send(
       new QueryCommand({
         TableName: this.props.tableName,
@@ -39,7 +60,7 @@ export class Accounts {
           "#username": "username",
         },
         ExpressionAttributeValues: {
-          ":username": username.toLowerCase(),
+          ":username": exact ? username : username.toLowerCase(),
         },
       }),
     );
@@ -76,11 +97,11 @@ export class Accounts {
   readonly createNew = async (props: {
     readonly id: string;
     readonly username: string;
-    readonly type: AccountType;
+    readonly type: "email" | "phone";
   }) => {
     const createdAt = new Date().toISOString();
 
-    const item: NewAccount = {
+    const item = {
       id: props.id,
       username: props.username.toLowerCase(),
       type: props.type,
@@ -113,8 +134,90 @@ export class Accounts {
     return this.toModel(result);
   };
 
-  // oxlint-disable-next-line beesolve/prefer-props-object typescript/no-explicit-any
-  private readonly parseOne = (item: any, errorMessage: string = `Malformed account.`) => {
+  readonly createPasskey = async (props: {
+    readonly id: string;
+    readonly credentialId: string;
+    readonly publicKey: string;
+    readonly counter: number;
+    readonly transports: Array<string>;
+    readonly aaguid: string;
+    readonly backedUp: boolean;
+    readonly algorithm: number;
+  }) => {
+    const createdAt = new Date().toISOString();
+
+    const item: v.InferInput<typeof passkeyAccountSchema> = {
+      id: props.id,
+      username: props.credentialId,
+      type: "passkey",
+      publicKey: props.publicKey,
+      counter: props.counter,
+      transports: props.transports,
+      aaguid: props.aaguid,
+      backedUp: props.backedUp,
+      algorithm: props.algorithm,
+      createdAt,
+      updatedAt: createdAt,
+    };
+    const result = this.parseOne(
+      item,
+      "Unexpected error occurred while creating passkey account. Account has not been created.",
+    );
+
+    await this.props.dynamo
+      .send(
+        new PutCommand({
+          TableName: this.props.tableName,
+          Item: item,
+          ConditionExpression: "attribute_not_exists(#id) AND attribute_not_exists(#username)",
+          ExpressionAttributeNames: {
+            "#id": "id",
+            "#username": "username",
+          },
+        }),
+      )
+      .catch((error) => {
+        if (error instanceof ConditionalCheckFailedException)
+          throw new BadRequestError(`Passkey credential already exists.`);
+
+        throw error;
+      });
+
+    return this.toModel(result);
+  };
+
+  readonly updateCounter = async (props: {
+    readonly userId: string;
+    readonly credentialId: string;
+    readonly counter: number;
+  }) => {
+    await this.props.dynamo.send(
+      new UpdateCommand({
+        TableName: this.props.tableName,
+        Key: {
+          id: props.userId,
+          username: props.credentialId,
+        },
+        UpdateExpression: "SET #counter = :counter, #updatedAt = :updatedAt",
+        ExpressionAttributeNames: {
+          "#counter": "counter",
+          "#updatedAt": "updatedAt",
+        },
+        ExpressionAttributeValues: {
+          ":counter": props.counter,
+          ":updatedAt": new Date().toISOString(),
+        },
+      }),
+    );
+  };
+
+  readonly getPasskeysByUserId = async (userId: string): Promise<Array<PasskeyAccount>> => {
+    const accounts = await this.getMany(userId);
+
+    return accounts.filter((account): account is PasskeyAccount => account.type === "passkey");
+  };
+
+  private readonly parseOne = (item: unknown, errorMessage: string = `Malformed account.`) => {
     const result = v.safeParse(schema, item);
     if (!result.success) {
       console.error(v.flatten(result.issues));
@@ -124,7 +227,23 @@ export class Accounts {
     return result.output;
   };
 
-  private readonly toModel = (value: Account) => {
+  private readonly toModel = (value: Account): Account => {
+    if (value.type === "passkey") {
+      return {
+        id: value.id,
+        username: value.username,
+        type: value.type,
+        publicKey: value.publicKey,
+        counter: value.counter,
+        transports: value.transports,
+        aaguid: value.aaguid,
+        backedUp: value.backedUp,
+        algorithm: value.algorithm,
+        createdAt: value.createdAt,
+        updatedAt: value.updatedAt,
+      };
+    }
+
     return {
       id: value.id,
       username: value.username,
