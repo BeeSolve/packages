@@ -38,6 +38,28 @@ export const load: PageServerLoad = async ({ params, locals }) => {
       reportId: decoded.output.reportId,
     });
 
+    const records = report.records.map((rawRecord) => v.parse(dmarcRecordSchema, rawRecord));
+
+    const rawDmarcReport = {
+      reportMetadata: {
+        orgName: report.orgName,
+        email: report.email,
+        reportId: report.reportId,
+        dateRange: {
+          begin: report.dateRangeBegin,
+          end: report.dateRangeEnd,
+        },
+      },
+      policyPublished: {
+        domain: params.domain,
+        adkim: report.adkim,
+        aspf: report.aspf,
+        p: report.policy,
+        pct: report.pct,
+      },
+      records,
+    };
+
     return {
       domain: params.domain,
       report: {
@@ -53,8 +75,9 @@ export const load: PageServerLoad = async ({ params, locals }) => {
         totalMessages: report.totalMessages,
         totalPass: report.totalPass,
         totalFail: report.totalFail,
-        records: report.records.map((rawRecord) => v.parse(dmarcRecordSchema, rawRecord)),
+        records,
       },
+      rawDmarcReport,
     };
   } catch (thrown) {
     if (thrown instanceof ReportNotFoundError) {

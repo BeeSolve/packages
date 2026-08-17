@@ -1,7 +1,10 @@
 <script lang="ts">
+  import RawJsonModal from "$lib/components/rawJsonModal.svelte";
   import StatusBadge from "$lib/components/statusBadge.svelte";
 
   let { data } = $props();
+
+  let showRawJson = $state(false);
 
   const passRate = $derived(
     data.report.totalMessages > 0
@@ -26,6 +29,7 @@
 
 <p class="back-link">
   <a href="/domains/{data.domain}">&larr; Back to {data.domain}</a>
+  <button class="btn-raw-json" onclick={() => (showRawJson = true)}>View Raw JSON</button>
 </p>
 
 <section class="metadata">
@@ -138,6 +142,8 @@
   {/if}
 </section>
 
+<RawJsonModal bind:open={showRawJson} json={data.rawDmarcReport} />
+
 <style>
   h1 {
     font-size: 1.5rem;
@@ -152,6 +158,26 @@
   .back-link {
     margin: 0 0 1.5rem;
     font-size: 0.875rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .btn-raw-json {
+    margin-left: auto;
+    border: 1px solid var(--border, #e2e8f0);
+    border-radius: 0.35rem;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    background: var(--surface-1, #f8f9fa);
+    color: var(--text-1, #1a202c);
+    transition: background 0.15s;
+  }
+
+  .btn-raw-json:hover {
+    background: var(--surface-2, #edf2f7);
   }
 
   .metadata {
