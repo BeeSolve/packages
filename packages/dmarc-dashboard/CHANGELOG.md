@@ -1,5 +1,12 @@
 # @beesolve/dmarc-dashboard
 
+## 0.1.4
+
+### Patch Changes
+
+- Updated dependencies [ebd8317]
+  - @beesolve/auth-service@0.14.0
+
 ## 0.1.3
 
 ### Patch Changes

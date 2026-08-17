@@ -1,5 +1,18 @@
 # @beesolve/auth-service
 
+## 0.14.0
+
+### Minor Changes
+
+- ebd8317: Add passkey (WebAuthn) registration and authentication support.
+
+  - New endpoints: `/auth/passkey/registerOptions`, `/auth/passkey/registerComplete`, `/auth/passkey/authOptions`, `/auth/passkey/authComplete`
+  - Minimal CBOR decoder and COSE key parser for attestation/assertion verification (no external dependencies)
+  - Account model extended with discriminated union schema supporting passkey-specific fields
+  - New EventBridge events: `PasskeyRegistered`, `PasskeyAuthUsed`
+  - CDK: `AuthGateway` accepts `rpId` and `rpName` props to enable passkey endpoints
+  - Fix: `getOne` now accepts `{ exact: true }` option to preserve case-sensitive credential ID lookups
+
 ## 0.13.0
 
 ### Minor Changes
