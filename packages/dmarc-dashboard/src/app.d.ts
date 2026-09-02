@@ -3,8 +3,10 @@ import type { Users } from "$lib/server/users";
 import type { AuthClient } from "@beesolve/auth-service/sdk";
 import type { SessionContext } from "@beesolve/auth-service/sveltekit";
 import type { Domains } from "@beesolve/dmarc-consumer/domain";
+import type { IpInfoCache } from "@beesolve/dmarc-consumer/ip-info";
 import type { ProcessingStats } from "@beesolve/dmarc-consumer/processing-stats";
 import type { Reports } from "@beesolve/dmarc-consumer/report";
+import type { BackfillSdk } from "@beesolve/dmarc-consumer/sdk";
 import type { Email } from "@beesolve/email-service/sdk";
 
 declare global {
@@ -22,6 +24,8 @@ declare global {
         domains: Domains;
         reports: Reports;
         stats: ProcessingStats;
+        ipInfoCache: IpInfoCache;
+        backfill: BackfillSdk;
         authClient: AuthClient;
         email: Email;
       };

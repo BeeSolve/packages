@@ -1,8 +1,9 @@
 <script lang="ts">
+  import { enhance } from "$app/forms";
   import StatusBadge from "$lib/components/statusBadge.svelte";
   import SummaryCard from "$lib/components/summaryCard.svelte";
 
-  let { data } = $props();
+  let { data, form } = $props();
 
   const totals = $derived({
     messages: data.domains.reduce((sum, domain) => sum + domain.totalMessages, 0),
@@ -16,6 +17,10 @@
 </script>
 
 <h1>Domain Overview</h1>
+
+{#if form?.error}
+  <p class="error">{form.error}</p>
+{/if}
 
 <div class="summary-cards">
   <SummaryCard label="Domains" value={data.domains.length} />
@@ -35,6 +40,7 @@
         <th class="num">Pass</th>
         <th class="num">Fail</th>
         <th>Pass Rate</th>
+        <th>Backfill</th>
       </tr>
     </thead>
     <tbody>
@@ -46,6 +52,23 @@
           <td class="num">{domain.totalPass.toLocaleString()}</td>
           <td class="num">{domain.totalFail.toLocaleString()}</td>
           <td><StatusBadge {rate} /></td>
+          <td>
+            <form method="POST" use:enhance style="display:inline">
+              <input type="hidden" name="domain" value={domain.domain} />
+              <button type="submit" disabled={!domain.canRun}>Run backfill</button>
+            </form>
+            {#if domain.lastRun != null}
+              <span class="last-run">
+                {domain.lastRun.status}
+                {#if domain.lastRun.finishedAt != null}
+                  · {new Date(domain.lastRun.finishedAt).toLocaleString()}
+                {/if}
+                {#if domain.lastRun.ipsEnriched != null}
+                  · {domain.lastRun.ipsEnriched.toLocaleString()} IPs
+                {/if}
+              </span>
+            {/if}
+          </td>
         </tr>
       {/each}
     </tbody>
@@ -68,5 +91,16 @@
   .num {
     text-align: right;
     font-variant-numeric: tabular-nums;
+  }
+
+  .error {
+    color: #b00020;
+    margin: 0 0 1rem;
+  }
+
+  .last-run {
+    margin-left: 0.5rem;
+    font-size: 0.85rem;
+    color: #666;
   }
 </style>

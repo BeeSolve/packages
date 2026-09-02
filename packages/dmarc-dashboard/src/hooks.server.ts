@@ -5,8 +5,10 @@ import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { AuthClient } from "@beesolve/auth-service/sdk";
 import { createSessionHandle } from "@beesolve/auth-service/sveltekit";
 import { Domains } from "@beesolve/dmarc-consumer/domain";
+import { IpInfoCache } from "@beesolve/dmarc-consumer/ip-info";
 import { ProcessingStats } from "@beesolve/dmarc-consumer/processing-stats";
 import { Reports } from "@beesolve/dmarc-consumer/report";
+import { BackfillSdk } from "@beesolve/dmarc-consumer/sdk";
 import { Email } from "@beesolve/email-service/sdk";
 import { redirect, type Handle } from "@sveltejs/kit";
 import { sequence } from "@sveltejs/kit/hooks";
@@ -15,6 +17,7 @@ import * as v from "valibot";
 const envSchema = v.object({
   DMARC_TABLE_NAME: v.string(),
   DMARC_REVERSE_INDEX: v.string(),
+  IPINFO_API_KEY: v.optional(v.string()),
 });
 const env = v.parse(envSchema, process.env);
 
@@ -38,13 +41,29 @@ const domains = new Domains({
 });
 const reports = new Reports({ dynamo, tableName: env.DMARC_TABLE_NAME });
 const stats = new ProcessingStats({ dynamo, tableName: env.DMARC_TABLE_NAME });
+const ipInfoCache = new IpInfoCache({
+  dynamo,
+  tableName: env.DMARC_TABLE_NAME,
+  apiKey: env.IPINFO_API_KEY,
+});
+const backfill = new BackfillSdk();
 const authClient = new AuthClient();
 const email = new Email();
 
 const publicPaths = new Set(["/sign-in", "/sign-in/verify", "/setup"]);
 
 const authGuard: Handle = async ({ event, resolve }) => {
-  event.locals.services = { users, setup, domains, reports, stats, authClient, email };
+  event.locals.services = {
+    users,
+    setup,
+    domains,
+    reports,
+    stats,
+    ipInfoCache,
+    backfill,
+    authClient,
+    email,
+  };
 
   const isPublic = publicPaths.has(event.url.pathname);
 
