@@ -2,6 +2,20 @@ import { describe, expect, test } from "bun:test";
 
 import { decodeCbor } from "../src/passkey/cbor.ts";
 
+function asMap(value: unknown): Map<number | string, unknown> {
+  if (!(value instanceof Map)) {
+    throw new Error(`expected a Map, got ${typeof value}`);
+  }
+  return value;
+}
+
+function asBytes(value: unknown): Uint8Array {
+  if (!(value instanceof Uint8Array)) {
+    throw new Error(`expected a Uint8Array, got ${typeof value}`);
+  }
+  return value;
+}
+
 describe("decodeCbor", () => {
   describe("unsigned integers (major type 0)", () => {
     test("decodes single-byte integer 0", () => {
@@ -77,7 +91,7 @@ describe("decodeCbor", () => {
 
     test("decodes byte string returns a copy (not a view)", () => {
       const input = new Uint8Array([0x42, 0xaa, 0xbb]);
-      const result = decodeCbor(input) as Uint8Array;
+      const result = asBytes(decodeCbor(input));
       input[1] = 0xff;
       expect(result[0]).toBe(0xaa);
     });
@@ -145,7 +159,7 @@ describe("decodeCbor", () => {
 
   describe("maps (major type 5)", () => {
     test("decodes empty map", () => {
-      const result = decodeCbor(new Uint8Array([0xa0])) as Map<number | string, unknown>;
+      const result = asMap(decodeCbor(new Uint8Array([0xa0])));
       expect(result).toBeInstanceOf(Map);
       expect(result.size).toBe(0);
     });
@@ -164,7 +178,7 @@ describe("decodeCbor", () => {
         0x6e,
         0x65, // text(4) "none"
       ]);
-      const result = decodeCbor(cbor) as Map<string, unknown>;
+      const result = asMap(decodeCbor(cbor));
       expect(result.get("fmt")).toBe("none");
     });
 
@@ -180,7 +194,7 @@ describe("decodeCbor", () => {
         0x20,
         0x01, // -1: 1 (crv: P-256)
       ]);
-      const result = decodeCbor(cbor) as Map<number, unknown>;
+      const result = asMap(decodeCbor(cbor));
       expect(result.get(1)).toBe(2);
       expect(result.get(3)).toBe(-7);
       expect(result.get(-1)).toBe(1);
@@ -198,7 +212,7 @@ describe("decodeCbor", () => {
         0x67, // text(3) "alg"
         0x26, // -7
       ]);
-      const result = decodeCbor(cbor) as Map<number | string, unknown>;
+      const result = asMap(decodeCbor(cbor));
       expect(result.get(1)).toBe(2);
       expect(result.get("alg")).toBe(-7);
     });
@@ -240,7 +254,7 @@ describe("decodeCbor", () => {
         0x20,
         ...yCoord, // -3: bytes(32) y-coordinate
       ]);
-      const result = decodeCbor(cbor) as Map<number, unknown>;
+      const result = asMap(decodeCbor(cbor));
       expect(result.get(1)).toBe(2);
       expect(result.get(3)).toBe(-7);
       expect(result.get(-1)).toBe(1);
@@ -284,9 +298,9 @@ describe("decodeCbor", () => {
         0x25,
         ...authData, // bytes(37)
       ]);
-      const result = decodeCbor(cbor) as Map<string, unknown>;
+      const result = asMap(decodeCbor(cbor));
       expect(result.get("fmt")).toBe("none");
-      const attStmt = result.get("attStmt") as Map<string, unknown>;
+      const attStmt = asMap(result.get("attStmt"));
       expect(attStmt).toBeInstanceOf(Map);
       expect(attStmt.size).toBe(0);
       expect(result.get("authData")).toEqual(authData);
@@ -308,7 +322,7 @@ describe("decodeCbor", () => {
         0x66,
         ...hybrid, // text(6) "hybrid"
       ]);
-      const result = decodeCbor(cbor) as Map<string, unknown>;
+      const result = asMap(decodeCbor(cbor));
       expect(result.get("transports")).toEqual(["internal", "hybrid"]);
     });
 
@@ -327,7 +341,7 @@ describe("decodeCbor", () => {
         ...encoder.encode("extra"), // text(5) "extra"
         0xf6, // null
       ]);
-      const result = decodeCbor(cbor) as Map<string, unknown>;
+      const result = asMap(decodeCbor(cbor));
       expect(result.get("backedUp")).toBe(true);
       expect(result.get("uvInitialized")).toBe(false);
       expect(result.get("extra")).toBeNull();
@@ -387,9 +401,9 @@ describe("decodeCbor", () => {
         0x4d,
         ...authData, // bytes(77)
       ]);
-      const result = decodeCbor(cbor) as Map<string, unknown>;
+      const result = asMap(decodeCbor(cbor));
       expect(result.get("fmt")).toBe("packed");
-      const attStmt = result.get("attStmt") as Map<string, unknown>;
+      const attStmt = asMap(result.get("attStmt"));
       expect(attStmt.get("alg")).toBe(-7);
       expect(attStmt.get("sig")).toEqual(sig);
       expect(result.get("authData")).toEqual(authData);
