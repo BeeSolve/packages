@@ -5,6 +5,8 @@
 
   let { data, form } = $props();
 
+  let submittingDomain = $state<string | null>(null);
+
   const totals = $derived({
     messages: data.domains.reduce((sum, domain) => sum + domain.totalMessages, 0),
     pass: data.domains.reduce((sum, domain) => sum + domain.totalPass, 0),
@@ -20,6 +22,9 @@
 
 {#if form?.error}
   <p class="error">{form.error}</p>
+{/if}
+{#if form?.started}
+  <p class="notice">Refreshing IP details for {form.domain}. This runs in the background.</p>
 {/if}
 
 <div class="summary-cards">
@@ -40,12 +45,13 @@
         <th class="num">Pass</th>
         <th class="num">Fail</th>
         <th>Pass Rate</th>
-        <th>Backfill</th>
+        <th>Sender origins</th>
       </tr>
     </thead>
     <tbody>
       {#each data.domains as domain}
         {@const rate = domain.totalMessages > 0 ? Math.round((domain.totalPass / domain.totalMessages) * 100) : 0}
+        {@const submitting = submittingDomain === domain.domain}
         <tr>
           <td><a href="/domains/{domain.domain}">{domain.domain}</a></td>
           <td class="num">{domain.totalMessages.toLocaleString()}</td>
@@ -53,26 +59,50 @@
           <td class="num">{domain.totalFail.toLocaleString()}</td>
           <td><StatusBadge {rate} /></td>
           <td>
-            <form method="POST" use:enhance style="display:inline">
-              <input type="hidden" name="domain" value={domain.domain} />
-              <button type="submit" disabled={!domain.canRun}>Run backfill</button>
-            </form>
-            {#if domain.lastRun != null}
-              <span class="last-run">
-                {domain.lastRun.status}
-                {#if domain.lastRun.finishedAt != null}
-                  · {new Date(domain.lastRun.finishedAt).toLocaleString()}
-                {/if}
-                {#if domain.lastRun.ipsEnriched != null}
-                  · {domain.lastRun.ipsEnriched.toLocaleString()} IPs
-                {/if}
-              </span>
-            {/if}
+            <div class="origins-cell">
+              <form
+                method="POST"
+                use:enhance={() => {
+                  submittingDomain = domain.domain;
+                  return async ({ update }) => {
+                    await update();
+                    submittingDomain = null;
+                  };
+                }}
+              >
+                <input type="hidden" name="domain" value={domain.domain} />
+                <button
+                  type="submit"
+                  class="refresh-btn"
+                  disabled={!domain.canRun || submitting}
+                  title="Look up the network operator (ASN / organisation) and country for this domain's source IPs, so the source IP table shows who is really sending."
+                >
+                  {submitting ? "Refreshing…" : "Refresh IP details"}
+                </button>
+              </form>
+              {#if domain.lastRun != null}
+                <span class="last-run">
+                  {#if domain.lastRun.status === "started"}
+                    In progress…
+                  {:else if domain.lastRun.status === "finished"}
+                    Updated{#if domain.lastRun.ipsEnriched != null}
+                      · {domain.lastRun.ipsEnriched.toLocaleString()} IPs{/if}{#if domain.lastRun.finishedAt != null}
+                      · {new Date(domain.lastRun.finishedAt).toLocaleDateString()}{/if}
+                  {:else if domain.lastRun.status === "failed"}
+                    Last refresh failed
+                  {/if}
+                </span>
+              {/if}
+            </div>
           </td>
         </tr>
       {/each}
     </tbody>
   </table>
+  <p class="hint">
+    “Refresh IP details” looks up the network operator and country for each source IP so the per-domain
+    Source IP table can show who is really sending mail for the domain.
+  </p>
 {/if}
 
 <style>
@@ -98,9 +128,61 @@
     margin: 0 0 1rem;
   }
 
-  .last-run {
-    margin-left: 0.5rem;
+  .notice {
+    color: var(--text-2, #475569);
+    background: var(--surface-1, #f8f9fa);
+    border: 1px solid var(--border, #e2e8f0);
+    border-radius: 0.35rem;
+    padding: 0.5rem 0.75rem;
+    margin: 0 0 1rem;
+    font-size: 0.9rem;
+  }
+
+  .origins-cell {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+  }
+
+  .origins-cell form {
+    display: inline;
+  }
+
+  .origins-cell .refresh-btn {
+    margin: 0;
+    padding: 0.35rem 0.75rem;
     font-size: 0.85rem;
-    color: #666;
+    font-weight: 500;
+    line-height: 1.2;
+    color: var(--text-1, #1a202c);
+    background: var(--surface-1, #f8f9fa);
+    border: 1px solid var(--border, #e2e8f0);
+    border-radius: 0.35rem;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .origins-cell .refresh-btn:hover:not(:disabled) {
+    background: var(--surface-2, #edf2f7);
+  }
+
+  .origins-cell .refresh-btn:disabled {
+    background: var(--surface-1, #f8f9fa);
+    color: var(--text-3, #94a3b8);
+    opacity: 0.7;
+    cursor: not-allowed;
+  }
+
+  .last-run {
+    font-size: 0.8rem;
+    color: var(--text-3, #94a3b8);
+    white-space: nowrap;
+  }
+
+  .hint {
+    margin: 1rem 0 0;
+    font-size: 0.85rem;
+    color: var(--text-3, #94a3b8);
+    max-width: 60ch;
   }
 </style>
