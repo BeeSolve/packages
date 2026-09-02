@@ -1,5 +1,6 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
+import { dmarcRecordSchema } from "@beesolve/dmarc-parser";
 import type { DmarcReport } from "@beesolve/dmarc-reports";
 import {
   dmarcProcessingStatsEventSchema,
@@ -9,12 +10,14 @@ import type { SQSBatchItemFailure, SQSEvent } from "aws-lambda";
 import * as v from "valibot";
 
 import { Domains } from "../domain.ts";
+import { IpInfoCache } from "../ipInfo.ts";
 import { ProcessingStats } from "../processingStats.ts";
 import { Reports } from "../report.ts";
 
 const envSchema = v.object({
   TABLE_NAME: v.string(),
   REVERSE_INDEX_NAME: v.string(),
+  IPINFO_API_KEY: v.optional(v.string()),
 });
 const env = v.parse(envSchema, process.env);
 
@@ -31,6 +34,11 @@ const domains = new Domains({
   reverseIndexName: env.REVERSE_INDEX_NAME,
 });
 const stats = new ProcessingStats({ dynamo, tableName: env.TABLE_NAME });
+const ipInfoCache = new IpInfoCache({
+  dynamo,
+  tableName: env.TABLE_NAME,
+  apiKey: env.IPINFO_API_KEY,
+});
 
 export async function handler(
   event: SQSEvent,
@@ -73,6 +81,7 @@ export async function handler(
     }
 
     await upsertDomainAggregates(parsedReports);
+    await enrichSourceIps(parsedReports);
   }
 
   for (const id of failedIds) {
@@ -112,5 +121,28 @@ async function upsertDomainAggregates(reports: Array<DmarcReport>): Promise<void
     } catch (error) {
       console.error(`Failed to upsert domain aggregate for ${domain}:`, error);
     }
+  }
+}
+
+// Populates the per-IP ipinfo cache for every unique source IP seen in the
+// batch. No-op when IPINFO_API_KEY is not configured. Enrichment failures are
+// logged and swallowed so they never fail report persistence.
+async function enrichSourceIps(reports: Array<DmarcReport>): Promise<void> {
+  const ips = new Set<string>();
+  for (const report of reports) {
+    for (const rawRecord of report.records) {
+      const parsed = v.safeParse(dmarcRecordSchema, rawRecord);
+      if (parsed.success) {
+        ips.add(parsed.output.sourceIp);
+      }
+    }
+  }
+
+  if (ips.size === 0) return;
+
+  try {
+    await ipInfoCache.enrichMany({ ips: Array.from(ips) });
+  } catch (error) {
+    console.error("Failed to enrich source IPs:", error);
   }
 }

@@ -40,10 +40,31 @@ export const load: PageServerLoad = async ({ params, locals, url }) => {
 
   const aggregate = aggregateReports(result.reports);
 
+  const breakdownIps = aggregate.sourceIpBreakdown.map((row) => row.ip);
+  const enrichment = await locals.services.ipInfoCache.getMany({ ips: breakdownIps });
+
+  const sourceIpBreakdown = aggregate.sourceIpBreakdown.map((row) => ({
+    ...row,
+    asName: enrichment[row.ip]?.asName,
+    asn: enrichment[row.ip]?.asn,
+    country: enrichment[row.ip]?.country,
+    countryCode: enrichment[row.ip]?.countryCode,
+  }));
+
+  const senderAlignment = aggregate.senderAlignment.map((row) => ({
+    ...row,
+    asName: enrichment[row.ip]?.asName,
+    country: enrichment[row.ip]?.country,
+  }));
+
   return {
     domain: params.domain,
     dateFilter: dateFilter ?? null,
-    aggregate,
+    aggregate: {
+      ...aggregate,
+      sourceIpBreakdown,
+      senderAlignment,
+    },
     reports: result.reports.map((report) => ({
       orgName: report.orgName,
       reportId: report.reportId,
