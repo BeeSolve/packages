@@ -1,5 +1,25 @@
 # @beesolve/dmarc-dashboard
 
+## 0.3.0
+
+### Minor Changes
+
+- fe9c8e7: Restyle the dashboard to be graffiti-first and add IP enrichment to the report view.
+
+  - Adopt `@drop-in/graffiti` component classes and design tokens throughout: `.stat-card` for summary cards, `.tag` (driven by `--tag-color`) for verdict/status/disposition badges, `.button` variants for actions, and graffiti's global table/input/form styling. Custom CSS remains only for genuine gaps (top-bar layout, calendar widget, stats bar chart, JSON modal shell, full-row tints).
+  - Replace the hand-rolled JS tab control on the domain view with graffiti's native `<details name>` `.tabs.pill` component (no JavaScript, accessible by default).
+  - Fix the domain view layout so the summary cards and calendar sit together in the top bar and no longer overlap the tabs.
+  - Show the enriched source IP origin (network operator · country) in the report detail view, matching the domain view.
+
+### Patch Changes
+
+- e2eee3c: Pin `typescript` to `~6.0.3` for the dashboard. `svelte-check` does not support TypeScript 7 without the `--tsgo` flag and a dual TS6/TS7 install, which was breaking the `type-check` CI step.
+- f7e28a0: Update dev dependencies: `@sveltejs/kit` ^2.70.3, `svelte` ^5.57.0, `vite` ^8.2.2, and `typescript` ^7.0.2.
+- Updated dependencies [f7e28a0]
+- Updated dependencies [f7e28a0]
+  - @beesolve/auth-service@0.14.1
+  - @beesolve/dmarc-parser@0.1.1
+
 ## 0.2.1
 
 ### Patch Changes
