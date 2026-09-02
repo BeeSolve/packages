@@ -18,7 +18,7 @@
       {#if data.user}
         <form method="POST" action="/auth/signOut" class="nav-sign-out">
           <input type="hidden" name="redirectTo" value="/sign-in" />
-          <button type="submit" class="sign-out-btn">Sign out</button>
+          <button type="submit" class="button minimal">Sign out</button>
         </form>
       {/if}
     </nav>
@@ -30,157 +30,35 @@
 </div>
 
 <style>
-  :global(:root) {
-    --color-pass: #166534;
-    --color-pass-bg: #dcfce7;
-    --color-warn: #854d0e;
-    --color-warn-bg: #fef9c3;
-    --color-fail: #991b1b;
-    --color-fail-bg: #fee2e2;
-    --surface-1: #f8f9fa;
-    --border: #e2e8f0;
-    --text-1: #1a202c;
-    --text-2: #64748b;
-    --text-3: #94a3b8;
+  /* Graffiti supplies the element resets (button, input, table, fieldset, a,
+     body) and design tokens; app styles reference graffiti tokens directly.
+     Only genuine gaps remain below. */
+
+  /* Gap: graffiti buttons have no top margin, so a submit button placed
+     directly after form fields sits flush. Restore breathing room for the
+     app's simple stacked forms. */
+  :global(form > button[type="submit"]) {
+    margin-block-start: var(--vs-base);
   }
 
-  :global(body) {
-    margin: 0;
-    font-family:
-      -apple-system,
-      BlinkMacSystemFont,
-      "Segoe UI",
-      Roboto,
-      sans-serif;
-    color: var(--text-1);
-    background: #fff;
+  /* Gap: graffiti sets code font but no inline chip background, so we add a
+     token-based inline code style used across tables and metadata. */
+  :global(code) {
+    font-size: 0.8rem;
+    padding: 0.1rem 0.4rem;
+    background: var(--fg-05);
+    border-radius: var(--br-s);
   }
 
-  :global(table) {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.9rem;
-  }
-
-  :global(th) {
-    text-align: left;
-    padding: 0.6rem 0.75rem;
-    border-bottom: 2px solid var(--border);
-    font-size: 0.75rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--text-2);
-  }
-
-  :global(td) {
-    padding: 0.6rem 0.75rem;
-    border-bottom: 1px solid var(--border);
-  }
-
-  :global(tr:hover td) {
-    background: var(--surface-1);
-  }
-
-  :global(td:nth-child(n + 2):not(:last-child)) {
-    font-variant-numeric: tabular-nums;
-  }
-
-  :global(a) {
-    color: #2563eb;
-    text-decoration: none;
-  }
-
-  :global(a:hover) {
-    text-decoration: underline;
-  }
-
-  :global(label) {
-    display: block;
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: var(--text-2);
-    margin-bottom: 1rem;
-  }
-
-  :global(input[type="email"]),
-  :global(input[type="text"]),
-  :global(input[type="password"]),
-  :global(input[type="number"]) {
-    display: block;
-    width: 100%;
-    margin-top: 0.375rem;
-    padding: 0.5rem 0.75rem;
-    font-size: 0.9rem;
-    color: var(--text-1);
-    background: #fff;
-    border: 1px solid var(--border);
-    border-radius: 0.375rem;
-    box-sizing: border-box;
-  }
-
-  :global(input:focus) {
-    outline: none;
-    border-color: #2563eb;
-    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
-  }
-
-  :global(input:disabled) {
-    background: var(--surface-1);
-    color: var(--text-3);
-    cursor: not-allowed;
-  }
-
-  :global(button[type="submit"]) {
-    display: inline-block;
-    margin-top: 1rem;
-    padding: 0.5rem 1rem;
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: #fff;
-    background: #2563eb;
-    border: none;
-    border-radius: 0.375rem;
-    cursor: pointer;
-  }
-
-  :global(button[type="submit"]:hover) {
-    background: #1d4ed8;
-  }
-
-  :global(button[type="submit"]:disabled) {
-    background: var(--text-3);
-    cursor: not-allowed;
-  }
-
+  /* Gap: graffiti's .error is contextual (.callout.error, form validation),
+     not a standalone message paragraph, so we keep one token-based rule for
+     the inline form error text used across routes. */
   :global(.error) {
-    color: var(--color-fail);
-    background: var(--color-fail-bg);
-    padding: 0.5rem 0.75rem;
-    border-radius: 0.375rem;
+    color: var(--error);
+    background: color-mix(in oklab, var(--error) 12%, var(--bg));
+    padding: var(--pad-s) var(--pad-m);
+    border-radius: var(--br-m);
     font-size: 0.875rem;
-  }
-
-  :global(fieldset) {
-    border: 1px solid var(--border);
-    border-radius: 0.375rem;
-    padding: 0.75rem 1rem;
-    margin: 0 0 1rem;
-  }
-
-  :global(fieldset legend) {
-    font-size: 0.875rem;
-    font-weight: 600;
-    color: var(--text-1);
-    padding: 0 0.25rem;
-  }
-
-  :global(fieldset label) {
-    margin-bottom: 0.5rem;
-  }
-
-  :global(fieldset label:last-of-type) {
-    margin-bottom: 0;
   }
 
   .app {
@@ -190,14 +68,14 @@
   }
 
   .app-header {
-    border-bottom: 1px solid var(--border);
-    padding: 0 1.5rem;
+    border-bottom: var(--border-1);
+    padding: 0 var(--pad-m);
   }
 
   .nav {
     display: flex;
     align-items: center;
-    gap: 2rem;
+    gap: var(--vs-l);
     height: 3.5rem;
     max-width: 72rem;
     margin: 0 auto;
@@ -205,9 +83,9 @@
   }
 
   .nav-brand {
-    font-weight: 700;
+    font-weight: var(--fw-bold);
     font-size: 1rem;
-    color: var(--text-1);
+    color: var(--fg);
     text-decoration: none;
   }
 
@@ -217,17 +95,17 @@
 
   .nav-links {
     display: flex;
-    gap: 1.25rem;
+    gap: var(--vs-base);
   }
 
   .nav-link {
     font-size: 0.875rem;
-    color: var(--text-2);
+    color: var(--fg-7);
     text-decoration: none;
   }
 
   .nav-link:hover {
-    color: var(--text-1);
+    color: var(--fg);
     text-decoration: none;
   }
 
@@ -235,25 +113,11 @@
     margin-left: auto;
   }
 
-  .sign-out-btn {
-    all: unset;
-    font-size: 0.875rem;
-    color: var(--text-2);
-    cursor: pointer;
-    padding: 0.25rem 0.5rem;
-    border-radius: 0.25rem;
-  }
-
-  .sign-out-btn:hover {
-    color: var(--text-1);
-    background: var(--surface-1);
-  }
-
   .app-main {
     flex: 1;
     max-width: 72rem;
     margin: 0 auto;
-    padding: 2rem 1.5rem;
+    padding: var(--vs-l) var(--pad-m);
     width: 100%;
   }
 </style>

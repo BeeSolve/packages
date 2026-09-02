@@ -23,13 +23,20 @@
   function alignmentLabel(value: "r" | "s"): string {
     return value === "r" ? "relaxed" : "strict";
   }
+
+  function ipOrigin(record: { asName?: string; country?: string }): string {
+    if (record.asName != null && record.country != null) return `${record.asName} · ${record.country}`;
+    if (record.asName != null) return record.asName;
+    if (record.country != null) return record.country;
+    return "—";
+  }
 </script>
 
 <h1>Report: {data.report.orgName}</h1>
 
 <p class="back-link">
   <a href="/domains/{data.domain}">&larr; Back to {data.domain}</a>
-  <button class="btn-raw-json" onclick={() => (showRawJson = true)}>View Raw JSON</button>
+  <button class="button mini btn-raw-json" onclick={() => (showRawJson = true)}>View Raw JSON</button>
 </p>
 
 <section class="metadata">
@@ -79,6 +86,7 @@
       <thead>
         <tr>
           <th>Source IP</th>
+          <th>Origin</th>
           <th class="num">Count</th>
           <th>SPF</th>
           <th>DKIM</th>
@@ -91,13 +99,14 @@
           {@const hasAction = record.policyEvaluated.disposition !== "none"}
           <tr class:row-fail={hasAction}>
             <td class="ip">{record.sourceIp}</td>
+            <td class="origin">{ipOrigin(record)}</td>
             <td class="num">{record.count.toLocaleString()}</td>
             <td class="result result-{record.policyEvaluated.spf}">{record.policyEvaluated.spf}</td>
             <td class="result result-{record.policyEvaluated.dkim}">{record.policyEvaluated.dkim}</td>
             <td>
-              <code class="disposition disposition-{record.policyEvaluated.disposition}">
+              <span class="tag disposition disposition-{record.policyEvaluated.disposition}">
                 {record.policyEvaluated.disposition}
-              </code>
+              </span>
             </td>
             <td>
               {#if record.policyEvaluated.reason}
@@ -111,7 +120,7 @@
           </tr>
 
           <tr class="detail-row" class:row-fail={hasAction}>
-            <td colspan="6">
+            <td colspan="7">
               <div class="auth-detail">
                 {#if record.authResults.dkim.length > 0}
                   <div class="auth-group">
@@ -156,7 +165,7 @@
   }
 
   .back-link {
-    margin: 0 0 1.5rem;
+    margin: 0 0 var(--vs-m);
     font-size: 0.875rem;
     display: flex;
     align-items: center;
@@ -165,27 +174,16 @@
 
   .btn-raw-json {
     margin-left: auto;
-    border: 1px solid var(--border, #e2e8f0);
-    border-radius: 0.35rem;
-    padding: 0.4rem 0.75rem;
-    font-size: 0.8rem;
-    font-weight: 500;
-    cursor: pointer;
-    background: var(--surface-1, #f8f9fa);
-    color: var(--text-1, #1a202c);
-    transition: background 0.15s;
   }
 
-  .btn-raw-json:hover {
-    background: var(--surface-2, #edf2f7);
-  }
-
+  /* Metadata panel: use graffiti card tokens rather than a raw .card so the
+     dl grid can live directly inside. */
   .metadata {
-    margin-bottom: 2rem;
-    padding: 1.25rem 1.5rem;
-    background: var(--surface-1, #f8f9fa);
-    border-radius: 0.5rem;
-    border: 1px solid var(--border, #e2e8f0);
+    margin-bottom: var(--vs-l);
+    padding: var(--pad-l) var(--vs-base);
+    background: var(--fg-05);
+    border-radius: var(--br-l);
+    border: var(--border-1);
   }
 
   dl {
@@ -203,10 +201,10 @@
 
   dt {
     font-size: 0.75rem;
-    font-weight: 600;
+    font-weight: var(--fw-semibold);
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    color: var(--text-2, #64748b);
+    color: var(--fg-7);
   }
 
   dd {
@@ -215,7 +213,7 @@
   }
 
   .section {
-    margin-bottom: 2.5rem;
+    margin-bottom: var(--vs-l);
   }
 
   .num {
@@ -228,51 +226,47 @@
     font-size: 0.85rem;
   }
 
+  .origin {
+    font-size: 0.8rem;
+    color: var(--fg-7);
+  }
+
   .result-pass {
-    color: var(--color-pass, #166534);
-    font-weight: 600;
+    color: var(--success);
+    font-weight: var(--fw-semibold);
   }
 
   .result-fail {
-    color: var(--color-fail, #991b1b);
-    font-weight: 600;
+    color: var(--error);
+    font-weight: var(--fw-semibold);
   }
 
+  /* Gap: full-row tint for flagged rows — no graffiti row-status utility. */
   .row-fail td {
-    background: var(--color-fail-bg, #fee2e2);
+    background: color-mix(in oklab, var(--error) 12%, var(--bg));
   }
 
-  code {
-    font-size: 0.8rem;
-    padding: 0.1rem 0.4rem;
-    background: var(--surface-1, #f8f9fa);
-    border-radius: 0.25rem;
-  }
-
+  /* Disposition badges are graffiti .tag; we only pick the hue. */
   .disposition {
-    font-size: 0.75rem;
-    padding: 0.1rem 0.35rem;
-    border-radius: 0.2rem;
+    --tag-color: var(--gray, var(--fg-5));
   }
 
   .disposition-quarantine {
-    background: var(--color-warn-bg, #fef9c3);
-    color: var(--color-warn, #854d0e);
+    --tag-color: var(--warning);
   }
 
   .disposition-reject {
-    background: var(--color-fail-bg, #fee2e2);
-    color: var(--color-fail, #991b1b);
+    --tag-color: var(--error);
   }
 
   .reason {
     font-size: 0.8rem;
-    color: var(--text-2, #64748b);
+    color: var(--fg-7);
   }
 
   .detail-row td {
     padding-top: 0;
-    border-bottom: 2px solid var(--border, #e2e8f0);
+    border-bottom: var(--border-2);
   }
 
   .auth-detail {

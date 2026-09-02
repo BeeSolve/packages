@@ -34,11 +34,13 @@
           <td>{new Date(record.createdAt).toLocaleDateString()}</td>
           <td>
             {#if record.type !== "admin"}
-              <a href="/users/{record.email}/edit">Edit</a>
-              <form method="POST" action="?/delete" use:enhance style="display:inline">
-                <input type="hidden" name="email" value={record.email} />
-                <button type="submit">Delete</button>
-              </form>
+              <span class="actions">
+                <a href="/users/{record.email}/edit">Edit</a>
+                <form method="POST" action="?/delete" use:enhance>
+                  <input type="hidden" name="email" value={record.email} />
+                  <button type="submit" class="button mini error">Delete</button>
+                </form>
+              </span>
             {/if}
           </td>
         </tr>
@@ -46,3 +48,21 @@
     </tbody>
   </table>
 {/if}
+
+
+<style>
+  .actions {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--pad-m);
+  }
+
+  .actions form {
+    display: inline;
+    margin: 0;
+  }
+
+  .actions button[type="submit"] {
+    margin-block-start: 0;
+  }
+</style>

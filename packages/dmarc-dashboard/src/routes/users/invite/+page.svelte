@@ -40,7 +40,7 @@
     {/if}
   </fieldset>
 
-  <button type="submit" disabled={loading}>
+  <button type="submit" class="button primary" disabled={loading}>
     {loading ? "Inviting..." : "Invite user"}
   </button>
 </form>

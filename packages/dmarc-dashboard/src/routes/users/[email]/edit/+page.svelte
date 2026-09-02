@@ -58,7 +58,7 @@
     <p class="hint">Admins have access to all domains regardless of selection.</p>
   </fieldset>
 
-  <button type="submit" disabled={loading}>
+  <button type="submit" class="button primary" disabled={loading}>
     {loading ? "Saving..." : "Save changes"}
   </button>
 </form>
@@ -68,7 +68,7 @@
 <style>
   .hint {
     font-size: 0.8rem;
-    color: var(--text-3);
+    color: var(--fg-5);
     margin-top: 0.5rem;
   }
 </style>

@@ -41,7 +41,7 @@
     Email address
     <input type="email" bind:value={email} required disabled={loading} />
   </label>
-  <button type="submit" disabled={loading}>
+  <button type="submit" class="button primary" disabled={loading}>
     {loading ? "Sending..." : "Send code"}
   </button>
 </form>

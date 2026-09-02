@@ -98,19 +98,19 @@
 
   .subtitle {
     font-size: 0.875rem;
-    color: var(--text-2, #64748b);
+    color: var(--fg-7);
     margin: 0 0 1.5rem;
   }
 
   .summary-cards {
     display: flex;
     flex-wrap: wrap;
-    gap: 1rem;
-    margin-bottom: 2rem;
+    gap: var(--vs-base);
+    margin-bottom: var(--vs-l);
   }
 
   .section {
-    margin-bottom: 2rem;
+    margin-bottom: var(--vs-l);
   }
 
   .num {
@@ -125,13 +125,15 @@
   }
 
   .reject {
-    color: var(--color-fail, #991b1b);
+    color: var(--error);
   }
 
+  /* Gap: full-row tint — no graffiti row-status utility. */
   .row-warn td {
-    background: var(--color-warn-bg, #fef9c3);
+    background: color-mix(in oklab, var(--warning) 16%, var(--bg));
   }
 
+  /* Gap: inline stacked bar chart — graffiti has no chart primitive. */
   .bar-cell {
     width: 200px;
     min-width: 120px;
@@ -140,9 +142,9 @@
   .bar-container {
     display: flex;
     height: 1rem;
-    border-radius: 0.2rem;
+    border-radius: var(--br-s);
     overflow: hidden;
-    background: var(--surface-1, #f8f9fa);
+    background: var(--fg-05);
   }
 
   .bar {
@@ -151,12 +153,12 @@
   }
 
   .bar-pass {
-    background: var(--color-pass, #166534);
+    background: var(--success);
     opacity: 0.7;
   }
 
   .bar-fail {
-    background: var(--color-fail, #991b1b);
+    background: var(--error);
     opacity: 0.7;
   }
 
@@ -164,7 +166,7 @@
     display: flex;
     gap: 1.5rem;
     font-size: 0.8rem;
-    color: var(--text-2, #64748b);
+    color: var(--fg-7);
   }
 
   .legend-item {
@@ -177,16 +179,16 @@
     display: inline-block;
     width: 0.75rem;
     height: 0.75rem;
-    border-radius: 0.15rem;
+    border-radius: var(--br-s);
   }
 
   .swatch-pass {
-    background: var(--color-pass, #166534);
+    background: var(--success);
     opacity: 0.7;
   }
 
   .swatch-fail {
-    background: var(--color-fail, #991b1b);
+    background: var(--error);
     opacity: 0.7;
   }
 </style>

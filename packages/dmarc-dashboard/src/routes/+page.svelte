@@ -73,7 +73,7 @@
                 <input type="hidden" name="domain" value={domain.domain} />
                 <button
                   type="submit"
-                  class="refresh-btn"
+                  class="button mini refresh-btn"
                   disabled={!domain.canRun || submitting}
                   title="Look up the network operator (ASN / organisation) and country for this domain's source IPs, so the source IP table shows who is really sending."
                 >
@@ -111,11 +111,13 @@
     margin: 0 0 1.25rem;
   }
 
+  /* Gap: simple wrap layout for the overview cards (graffiti .stat-card
+     supplies the card visuals via SummaryCard). */
   .summary-cards {
     display: flex;
     flex-wrap: wrap;
-    gap: 1rem;
-    margin-bottom: 2rem;
+    gap: var(--vs-base);
+    margin-bottom: var(--vs-l);
   }
 
   .num {
@@ -124,16 +126,16 @@
   }
 
   .error {
-    color: #b00020;
+    color: var(--error);
     margin: 0 0 1rem;
   }
 
   .notice {
-    color: var(--text-2, #475569);
-    background: var(--surface-1, #f8f9fa);
-    border: 1px solid var(--border, #e2e8f0);
-    border-radius: 0.35rem;
-    padding: 0.5rem 0.75rem;
+    color: var(--fg-7);
+    background: var(--fg-05);
+    border: var(--border-1);
+    border-radius: var(--br-m);
+    padding: var(--pad-s) var(--pad-m);
     margin: 0 0 1rem;
     font-size: 0.9rem;
   }
@@ -148,41 +150,24 @@
     display: inline;
   }
 
-  .origins-cell .refresh-btn {
-    margin: 0;
-    padding: 0.35rem 0.75rem;
-    font-size: 0.85rem;
-    font-weight: 500;
-    line-height: 1.2;
-    color: var(--text-1, #1a202c);
-    background: var(--surface-1, #f8f9fa);
-    border: 1px solid var(--border, #e2e8f0);
-    border-radius: 0.35rem;
-    cursor: pointer;
+  .origins-cell button[type="submit"] {
+    margin-block-start: 0;
+  }
+
+  .refresh-btn {
     white-space: nowrap;
-  }
-
-  .origins-cell .refresh-btn:hover:not(:disabled) {
-    background: var(--surface-2, #edf2f7);
-  }
-
-  .origins-cell .refresh-btn:disabled {
-    background: var(--surface-1, #f8f9fa);
-    color: var(--text-3, #94a3b8);
-    opacity: 0.7;
-    cursor: not-allowed;
   }
 
   .last-run {
     font-size: 0.8rem;
-    color: var(--text-3, #94a3b8);
+    color: var(--fg-5);
     white-space: nowrap;
   }
 
   .hint {
     margin: 1rem 0 0;
     font-size: 0.85rem;
-    color: var(--text-3, #94a3b8);
+    color: var(--fg-5);
     max-width: 60ch;
   }
 </style>

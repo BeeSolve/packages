@@ -45,70 +45,46 @@
     })).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
     return `/domains/${data.domain}/reports/${key}`;
   }
-
-  const tabs = ["sources", "authorized", "reports"] as const;
-  type Tab = (typeof tabs)[number];
-  let activeTab = $state<Tab>("sources");
 </script>
 
 <h1>{data.domain}</h1>
 
 <p class="back-link"><a href="/">&larr; Back to domains</a></p>
 
-<div class="summary-cards">
-  <SummaryCard label="Total Messages" value={data.aggregate.totalMessages.toLocaleString()} />
-  <SummaryCard label="Pass Rate" value="{passRate}%" />
-  <SummaryCard label="Unique IPs" value={data.aggregate.uniqueIps} />
-  <SummaryCard label="Reports" value={data.aggregate.reportCount} />
-  <SummaryCard label="SPF Pass Rate" value="{data.aggregate.spfPassRate}%" />
-  <SummaryCard label="DKIM Pass Rate" value="{data.aggregate.dkimPassRate}%" />
-  <SummaryCard
-    label="Spoofing Blocked"
-    value={data.aggregate.spoofingAttempts.toLocaleString()}
-    subtitle="failed SPF + DKIM, rejected/quarantined"
-  />
+<div class="top-bar">
+  <div class="summary-cards">
+    <SummaryCard label="Total Messages" value={data.aggregate.totalMessages.toLocaleString()} />
+    <SummaryCard label="Pass Rate" value="{passRate}%" />
+    <SummaryCard label="Unique IPs" value={data.aggregate.uniqueIps} />
+    <SummaryCard label="Reports" value={data.aggregate.reportCount} />
+    <SummaryCard label="SPF Pass Rate" value="{data.aggregate.spfPassRate}%" />
+    <SummaryCard label="DKIM Pass Rate" value="{data.aggregate.dkimPassRate}%" />
+    <SummaryCard
+      label="Spoofing Blocked"
+      value={data.aggregate.spoofingAttempts.toLocaleString()}
+      subtitle="failed SPF + DKIM, rejected/quarantined"
+    />
+  </div>
+
+  <aside class="sidebar">
+    <Calendar
+      displayMonth={data.displayMonth}
+      currentMonth={data.currentMonth}
+      today={data.today}
+      selectedDate={data.dateFilter}
+      domain={data.domain}
+    />
+  </aside>
 </div>
 
-<div class="content-with-calendar">
-  <div class="main-content">
-    <div class="tabs" role="tablist">
-      <button
-        type="button"
-        role="tab"
-        class="tab"
-        class:active={activeTab === "sources"}
-        aria-selected={activeTab === "sources"}
-        onclick={() => (activeTab = "sources")}
-      >
+<div class="content">
+  <div class="tabs pill" style="--tab-count: 3">
+    <details name="domain-tab" style="--n: 1" open>
+      <summary>
         Source IPs
         <span class="tab-count">{data.aggregate.sourceIpBreakdown.length}</span>
-      </button>
-      <button
-        type="button"
-        role="tab"
-        class="tab"
-        class:active={activeTab === "authorized"}
-        aria-selected={activeTab === "authorized"}
-        onclick={() => (activeTab = "authorized")}
-      >
-        Authorized senders
-        <span class="tab-count">{data.aggregate.senderAlignment.length}</span>
-      </button>
-      <button
-        type="button"
-        role="tab"
-        class="tab"
-        class:active={activeTab === "reports"}
-        aria-selected={activeTab === "reports"}
-        onclick={() => (activeTab = "reports")}
-      >
-        Reports
-        <span class="tab-count">{data.reports.length}{data.cursor ? "+" : ""}</span>
-      </button>
-    </div>
-
-    {#if activeTab === "sources"}
-      <section class="section" role="tabpanel">
+      </summary>
+      <section class="section">
         <h2>Source IP Analysis</h2>
         <p class="scope-note">
           Aggregate reports show domain-level statistics only. The specific sender
@@ -153,7 +129,7 @@
                   </td>
                   <td class="origin">{ipOrigin(row)}</td>
                   <td>
-                    <span class="verdict verdict-{row.verdict}">{verdictLabel(row.verdict)}</span>
+                    <span class="tag verdict-{row.verdict}">{verdictLabel(row.verdict)}</span>
                   </td>
                   <td class="num">{row.count.toLocaleString()}</td>
                   <td class="num pass">{row.spfPass.toLocaleString()}</td>
@@ -162,7 +138,7 @@
                   <td class="num fail">{row.dkimFail > 0 ? row.dkimFail.toLocaleString() : "—"}</td>
                   <td>
                     {#each row.dispositions as disposition}
-                      <code class="disposition disposition-{disposition}">{disposition}</code>
+                      <span class="tag disposition disposition-{disposition}">{disposition}</span>
                     {/each}
                   </td>
                 </tr>
@@ -171,8 +147,14 @@
           </table>
         {/if}
       </section>
-    {:else if activeTab === "authorized"}
-      <section class="section" role="tabpanel">
+    </details>
+
+    <details name="domain-tab" style="--n: 2">
+      <summary>
+        Authorized senders
+        <span class="tab-count">{data.aggregate.senderAlignment.length}</span>
+      </summary>
+      <section class="section">
         <h2>Authorized Senders</h2>
         <p class="scope-note">
           Source IPs whose mail passed DMARC (SPF or DKIM aligned to your domain). These are
@@ -206,8 +188,14 @@
           </table>
         {/if}
       </section>
-    {:else}
-      <section class="section" role="tabpanel">
+    </details>
+
+    <details name="domain-tab" style="--n: 3">
+      <summary>
+        Reports
+        <span class="tab-count">{data.reports.length}{data.cursor ? "+" : ""}</span>
+      </summary>
+      <section class="section">
         <h2>
           Reports
           {#if data.dateFilter}
@@ -260,18 +248,8 @@
           {/if}
         {/if}
       </section>
-    {/if}
+    </details>
   </div>
-
-  <aside class="sidebar">
-    <Calendar
-      displayMonth={data.displayMonth}
-      currentMonth={data.currentMonth}
-      today={data.today}
-      selectedDate={data.dateFilter}
-      domain={data.domain}
-    />
-  </aside>
 </div>
 
 <style>
@@ -286,84 +264,60 @@
   }
 
   .back-link {
-    margin: 0 0 1.5rem;
+    margin: 0 0 var(--vs-m);
     font-size: 0.875rem;
   }
 
+  /* Gap: graffiti has no cards+aside top-bar layout, so this positioning is
+     ours. The cards themselves are graffiti .stat-card (see SummaryCard). */
   .summary-cards {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-    gap: 1rem;
-    margin-bottom: 2rem;
-  }
-
-  .content-with-calendar {
-    display: flex;
-    gap: 2rem;
-    align-items: flex-start;
-  }
-
-  .main-content {
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--vs-s);
     flex: 1;
     min-width: 0;
+    align-content: start;
+  }
+
+  .top-bar {
+    display: flex;
+    gap: var(--vs-m);
+    align-items: flex-start;
+    margin-bottom: var(--vs-l);
   }
 
   .sidebar {
     flex-shrink: 0;
   }
 
+  .content {
+    width: 100%;
+  }
+
   .section {
-    margin-bottom: 2.5rem;
+    margin-bottom: var(--vs-l);
   }
 
-  .tabs {
-    display: flex;
-    gap: 0.25rem;
-    border-bottom: 1px solid var(--border, #e2e8f0);
-    margin-bottom: 1.5rem;
-  }
-
-  .tab {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    margin: 0;
-    padding: 0.5rem 0.9rem;
-    font-size: 0.9rem;
-    font-weight: 500;
-    color: var(--text-2, #64748b);
-    background: none;
-    border: none;
-    border-bottom: 2px solid transparent;
-    margin-bottom: -1px;
-    cursor: pointer;
-  }
-
-  .tab:hover {
-    color: var(--text-1, #1a202c);
-  }
-
-  .tab.active {
-    color: #2563eb;
-    border-bottom-color: #2563eb;
-  }
-
+  /* Gap: count badge inside the graffiti tab <summary>. Graffiti styles the
+     tab track/thumb via .tabs.pill; we only add the little pill counter. */
   .tab-count {
     font-size: 0.72rem;
-    font-weight: 600;
-    color: var(--text-3, #94a3b8);
-    background: var(--surface-1, #f1f5f9);
-    border-radius: 999px;
-    padding: 0.05rem 0.4rem;
+    font-weight: var(--fw-semibold);
+    color: var(--fg-7);
+    background: var(--fg-1);
+    border-radius: var(--br-xxl);
+    padding: 0.05rem 0.45rem;
+    min-width: 1.1rem;
+    text-align: center;
   }
 
-  .tab.active .tab-count {
-    color: #2563eb;
-    background: rgba(37, 99, 235, 0.1);
+  :global(.tabs.pill > details[open]) .tab-count {
+    color: var(--primary);
+    background: color-mix(in oklab, var(--primary) 14%, transparent);
   }
 
   .empty {
-    color: var(--text-2, #64748b);
+    color: var(--fg-7);
     font-size: 0.9rem;
   }
 
@@ -383,87 +337,72 @@
     display: block;
     font-family: ui-monospace, "SF Mono", Menlo, monospace;
     font-size: 0.7rem;
-    color: var(--text-3, #94a3b8);
+    color: var(--fg-5);
     margin-top: 0.15rem;
   }
 
   .auth-detail {
     display: flex;
-    gap: 0.5rem;
+    gap: var(--pad-s);
   }
 
   .origin {
     font-size: 0.8rem;
-    color: var(--text-2, #64748b);
+    color: var(--fg-7);
   }
 
   .scope-note {
     font-size: 0.8rem;
-    color: var(--text-2, #64748b);
+    color: var(--fg-7);
     margin: -0.25rem 0 0.75rem;
     max-width: 60ch;
   }
 
-  .verdict {
-    display: inline-block;
-    font-size: 0.72rem;
-    font-weight: 600;
-    padding: 0.1rem 0.4rem;
-    border-radius: 0.25rem;
-    white-space: nowrap;
-  }
-
+  /* Verdict/disposition badges are graffiti .tag; we only choose the hue. */
   .verdict-legitimate {
-    background: var(--color-pass-bg, #dcfce7);
-    color: var(--color-pass, #166534);
+    --tag-color: var(--success);
   }
 
   .verdict-forwarded {
-    background: var(--surface-1, #f1f5f9);
-    color: var(--text-2, #64748b);
+    --tag-color: var(--gray, var(--fg-5));
   }
 
   .verdict-suspicious {
-    background: var(--color-warn-bg, #fef9c3);
-    color: var(--color-warn, #854d0e);
+    --tag-color: var(--warning);
   }
 
   .verdict-spoofing {
-    background: var(--color-fail-bg, #fee2e2);
-    color: var(--color-fail, #991b1b);
+    --tag-color: var(--error);
   }
 
   .pass {
-    color: var(--color-pass, #166534);
+    color: var(--success);
   }
 
   .fail {
-    color: var(--color-fail, #991b1b);
+    color: var(--error);
   }
 
+  /* Gap: full-row tint for flagged rows — graffiti has no row-status utility. */
   .row-warn td {
-    background: var(--color-warn-bg, #fef9c3);
+    background: color-mix(in oklab, var(--warning) 16%, var(--bg));
   }
 
   .row-fail td {
-    background: var(--color-fail-bg, #fee2e2);
+    background: color-mix(in oklab, var(--error) 12%, var(--bg));
   }
 
   .disposition {
-    font-size: 0.75rem;
-    padding: 0.1rem 0.35rem;
-    border-radius: 0.2rem;
-    background: var(--surface-1, #f8f9fa);
+    --tag-color: var(--gray, var(--fg-5));
+    margin-right: 0.25rem;
   }
 
   .disposition-quarantine {
-    background: var(--color-warn-bg, #fef9c3);
-    color: var(--color-warn, #854d0e);
+    --tag-color: var(--warning);
   }
 
   .disposition-reject {
-    background: var(--color-fail-bg, #fee2e2);
-    color: var(--color-fail, #991b1b);
+    --tag-color: var(--error);
   }
 
   .date {
@@ -473,19 +412,12 @@
   .date-filter-label {
     font-size: 0.875rem;
     font-weight: 400;
-    color: var(--text-2, #64748b);
+    color: var(--fg-7);
   }
 
   .clear-filter {
     font-size: 0.8rem;
     margin-left: 0.5rem;
-  }
-
-  code {
-    font-size: 0.8rem;
-    padding: 0.1rem 0.4rem;
-    background: var(--surface-1, #f8f9fa);
-    border-radius: 0.25rem;
   }
 
   .load-more {
@@ -494,8 +426,17 @@
   }
 
   @media (max-width: 900px) {
-    .content-with-calendar {
-      flex-direction: column-reverse;
+    .top-bar {
+      flex-direction: column;
+    }
+
+    .summary-cards {
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      width: 100%;
+    }
+
+    .sidebar {
+      align-self: center;
     }
   }
 </style>

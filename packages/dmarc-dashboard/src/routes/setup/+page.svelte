@@ -27,7 +27,7 @@
     Admin email address
     <input type="email" name="email" required disabled={loading} />
   </label>
-  <button type="submit" disabled={loading}>
+  <button type="submit" class="button primary" disabled={loading}>
     {loading ? "Setting up..." : "Create admin account"}
   </button>
 </form>

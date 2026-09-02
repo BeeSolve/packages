@@ -62,7 +62,7 @@
     Verification code
     <input type="text" bind:value={code} required disabled={loading} autocomplete="one-time-code" inputmode="numeric" maxlength="6" />
   </label>
-  <button type="submit" disabled={loading}>
+  <button type="submit" class="button primary" disabled={loading}>
     {loading ? "Verifying..." : "Verify"}
   </button>
 </form>
@@ -70,15 +70,11 @@
 <style>
   .meta {
     font-size: 0.85rem;
-    color: var(--text-2, #64748b);
+    color: var(--fg-7);
     margin: 0.25rem 0;
   }
 
   .meta code {
-    font-size: 0.85rem;
-    padding: 0.1rem 0.4rem;
-    background: var(--surface-1, #f8f9fa);
-    border-radius: 0.25rem;
-    font-weight: 600;
+    font-weight: var(--fw-semibold);
   }
 </style>

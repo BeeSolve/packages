@@ -40,6 +40,17 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 
     const records = report.records.map((rawRecord) => v.parse(dmarcRecordSchema, rawRecord));
 
+    const recordIps = [...new Set(records.map((record) => record.sourceIp))];
+    const enrichment = await locals.services.ipInfoCache.getMany({ ips: recordIps });
+
+    const enrichedRecords = records.map((record) => ({
+      ...record,
+      asName: enrichment[record.sourceIp]?.asName,
+      asn: enrichment[record.sourceIp]?.asn,
+      country: enrichment[record.sourceIp]?.country,
+      countryCode: enrichment[record.sourceIp]?.countryCode,
+    }));
+
     const rawDmarcReport = {
       reportMetadata: {
         orgName: report.orgName,
@@ -75,7 +86,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
         totalMessages: report.totalMessages,
         totalPass: report.totalPass,
         totalFail: report.totalFail,
-        records,
+        records: enrichedRecords,
       },
       rawDmarcReport,
     };

@@ -106,10 +106,12 @@
 </div>
 
 <style>
+  /* Gap: graffiti has no calendar/date-picker component, so the grid is
+     custom — but built entirely on graffiti design tokens. */
   .calendar {
-    border: 1px solid var(--border, #e2e8f0);
-    border-radius: 0.5rem;
-    padding: 0.75rem;
+    border: var(--border-1);
+    border-radius: var(--br-l);
+    padding: var(--pad-m);
     width: fit-content;
   }
 
@@ -122,7 +124,7 @@
 
   .month-label {
     font-size: 0.875rem;
-    font-weight: 600;
+    font-weight: var(--fw-semibold);
   }
 
   .nav-btn {
@@ -131,19 +133,19 @@
     justify-content: center;
     width: 1.75rem;
     height: 1.75rem;
-    border-radius: 0.25rem;
+    border-radius: var(--br-s);
     font-size: 1.1rem;
-    color: var(--text-2, #64748b);
+    color: var(--fg-7);
     text-decoration: none;
   }
 
   .nav-btn:hover {
-    background: var(--surface-1, #f8f9fa);
+    background: var(--fg-05);
     text-decoration: none;
   }
 
   .nav-btn.disabled {
-    color: var(--border, #e2e8f0);
+    color: var(--fg-2);
     cursor: not-allowed;
   }
 
@@ -160,9 +162,9 @@
   .weekday {
     text-align: center;
     font-size: 0.65rem;
-    font-weight: 600;
+    font-weight: var(--fw-semibold);
     text-transform: uppercase;
-    color: var(--text-3, #94a3b8);
+    color: var(--fg-5);
     padding-bottom: 0.25rem;
   }
 
@@ -172,31 +174,31 @@
     justify-content: center;
     width: 2rem;
     height: 2rem;
-    border-radius: 0.25rem;
+    border-radius: var(--br-s);
     font-size: 0.8rem;
-    color: var(--text-1, #1a202c);
+    color: var(--fg);
     text-decoration: none;
   }
 
   a.cell:hover {
-    background: var(--surface-1, #f8f9fa);
+    background: var(--fg-05);
     text-decoration: none;
   }
 
   .cell.selected {
-    background: #2563eb;
-    color: #fff;
-    font-weight: 600;
+    background: var(--primary);
+    color: var(--white, #fff);
+    font-weight: var(--fw-semibold);
   }
 
   .cell.today {
-    border: 1px solid #2563eb;
-    color: #2563eb;
-    font-weight: 600;
+    border: 1px solid var(--primary);
+    color: var(--primary);
+    font-weight: var(--fw-semibold);
   }
 
   .cell.future {
-    color: var(--text-3, #cbd5e1);
+    color: var(--fg-3);
     cursor: not-allowed;
   }
 
@@ -207,7 +209,7 @@
   .calendar-footer {
     margin-top: 0.5rem;
     padding-top: 0.5rem;
-    border-top: 1px solid var(--border, #e2e8f0);
+    border-top: var(--border-1);
     text-align: center;
     font-size: 0.75rem;
     display: flex;
@@ -216,11 +218,11 @@
   }
 
   .range-label {
-    color: var(--text-3, #94a3b8);
+    color: var(--fg-5);
   }
 
   .clear-link {
-    color: #2563eb;
+    color: var(--primary);
     text-decoration: none;
   }
 
