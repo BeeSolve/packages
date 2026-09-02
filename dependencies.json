@@ -4,13 +4,14 @@
   "packages/dmarc-parser",
   "packages/helpers",
   "packages/cdk-constructs",
-  "packages/dmarc-reports",
-  "packages/dmarc-consumer",
   "packages/lambda-fetch-api",
   "packages/lambda-keep-active",
+  "packages/dmarc-reports",
   "packages/lint-config",
   "packages/service-email",
   "packages/sqs-handler",
+  "packages/dmarc-consumer",
   "packages/service-auth",
-  "packages/dmarc-dashboard"
+  "packages/dmarc-dashboard",
+  "packages/samples"
 ]
