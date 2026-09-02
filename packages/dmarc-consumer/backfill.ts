@@ -41,6 +41,20 @@ export const backfillRunSchema = v.object({
 
 export type BackfillRun = v.InferOutput<typeof backfillRunSchema>;
 
+export const backfillStatusSummarySchema = v.object({
+  canRun: v.boolean(),
+  lastRun: v.optional(
+    v.object({
+      status: v.picklist(backfillStatuses),
+      startedAt: v.string(),
+      finishedAt: v.optional(v.string()),
+      ipsEnriched: v.optional(v.number()),
+    }),
+  ),
+});
+
+export type BackfillStatusSummary = v.InferOutput<typeof backfillStatusSummarySchema>;
+
 /**
  * Derives whether a backfill can be started for a domain given the current
  * config record. Semantics:

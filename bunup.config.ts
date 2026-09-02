@@ -29,7 +29,15 @@ export default defineWorkspace([
     name: "@beesolve/dmarc-consumer",
     root: "packages/dmarc-consumer",
     config: {
-      entry: ["report.ts", "domain.ts", "processingStats.ts", "cdk.ts"],
+      entry: [
+        "report.ts",
+        "domain.ts",
+        "processingStats.ts",
+        "ipInfo.ts",
+        "backfill.ts",
+        "sdk.ts",
+        "cdk.ts",
+      ],
       dts: {
         inferTypes: true,
         tsgo: true,

@@ -44,6 +44,12 @@
         "default": "./dist/report.js"
       }
     },
+    "./sdk": {
+      "import": {
+        "types": "./dist/sdk.d.ts",
+        "default": "./dist/sdk.js"
+      }
+    },
     "./package.json": "./package.json"
   },
   "scripts": {
