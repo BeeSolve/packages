@@ -1,10 +1,18 @@
 import type { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
-import { GetCommand, PutCommand, TransactWriteCommand } from "@aws-sdk/lib-dynamodb";
+import { GetCommand, TransactWriteCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import * as v from "valibot";
 
 export const backfillStatuses = ["pending", "started", "finished", "failed"] as const;
 
 export type BackfillStatus = (typeof backfillStatuses)[number];
+
+const staleRunAfterMs = 10 * 60 * 1000;
+
+function isStaleStartedAt(startedAt: string, now: number): boolean {
+  const started = Date.parse(startedAt);
+  if (Number.isNaN(started)) return false;
+  return now - started > staleRunAfterMs;
+}
 
 export const backfillDomainEntrySchema = v.object({
   status: v.picklist(backfillStatuses),
@@ -60,8 +68,10 @@ export type BackfillStatusSummary = v.InferOutput<typeof backfillStatusSummarySc
  * config record. Semantics:
  * - config not found → canRun true
  * - domain absent from the config → canRun true
- * - status `started` or `pending` → canRun false (a run is in flight)
  * - status `finished` or `failed` → canRun true
+ * - status `started` or `pending` → canRun false, unless the run is stale
+ *   (older than the worker's max lifetime), in which case it is re-runnable so
+ *   a crashed or timed-out worker does not pin the domain forever.
  */
 export function deriveCanRun(config: BackfillConfig | null, domain: string): boolean {
   if (config == null) return true;
@@ -69,7 +79,9 @@ export function deriveCanRun(config: BackfillConfig | null, domain: string): boo
   const entry = config.domains[domain];
   if (entry == null) return true;
 
-  return entry.status !== "started" && entry.status !== "pending";
+  if (entry.status === "finished" || entry.status === "failed") return true;
+
+  return isStaleStartedAt(entry.startedAt, Date.now());
 }
 
 function runKeyFor(domain: string): string {
@@ -101,25 +113,15 @@ export class Backfill {
   };
 
   /**
-   * Atomically starts a backfill run for a domain in a single transaction that
-   * BOTH marks the domain as `started` in the config record AND writes the
-   * `run#<runId>` history item. Either both land or neither does.
-   *
-   * The config Update is guarded by a ConditionExpression on the nested
-   * `domains.<domain>.status` value so a second concurrent start (double-click
-   * / already-running) fails: the write is allowed only when the `domains`
-   * attribute is missing, the domain entry is missing, or its status is a
-   * terminal value (`finished`/`failed`). The domain name is referenced via an
-   * expression attribute name because it may contain dots or other characters
-   * that are invalid in a document path.
-   *
-   * The history Put is guarded so an existing run item is never overwritten.
-   * Because the run item uses a composite key, the guard checks BOTH key
-   * attributes (`pk` AND `sk`).
-   *
-   * When either guard fails, DynamoDB cancels the transaction and throws a
-   * `TransactionCanceledException`. This is intentionally NOT caught here so
-   * callers can detect the "already-running" condition.
+   * Starts a run for a domain. First seeds the config item's `domains` map
+   * idempotently (so the nested `SET domains.<domain>` in the guarded
+   * transaction has a parent map to write into), then atomically marks the
+   * domain `started` and writes the `run#<runId>` history item in one
+   * transaction. The config update is guarded so a concurrent, non-stale run
+   * fails; the history put is guarded so an existing run item is never
+   * overwritten. A failed guard cancels the transaction with
+   * `TransactionCanceledException`, left uncaught so callers can detect the
+   * already-running case.
    */
   readonly startRun = async (props: {
     readonly domain: string;
@@ -142,6 +144,18 @@ export class Backfill {
     };
 
     await this.props.dynamo.send(
+      new UpdateCommand({
+        TableName: this.props.tableName,
+        Key: { pk: "system#config", sk: "ipBackfill" },
+        UpdateExpression: "SET #domains = if_not_exists(#domains, :empty)",
+        ExpressionAttributeNames: { "#domains": "domains" },
+        ExpressionAttributeValues: { ":empty": {} },
+      }),
+    );
+
+    const staleBefore = new Date(Date.parse(props.startedAt) - staleRunAfterMs).toISOString();
+
+    await this.props.dynamo.send(
       new TransactWriteCommand({
         TransactItems: [
           {
@@ -150,16 +164,18 @@ export class Backfill {
               Key: { pk: "system#config", sk: "ipBackfill" },
               UpdateExpression: "SET #domains.#domain = :entry",
               ConditionExpression:
-                "attribute_not_exists(#domains) OR attribute_not_exists(#domains.#domain) OR #domains.#domain.#status IN (:finished, :failed)",
+                "attribute_not_exists(#domains.#domain) OR #domains.#domain.#status IN (:finished, :failed) OR #domains.#domain.#startedAt < :staleBefore",
               ExpressionAttributeNames: {
                 "#domains": "domains",
                 "#domain": props.domain,
                 "#status": "status",
+                "#startedAt": "startedAt",
               },
               ExpressionAttributeValues: {
                 ":entry": entry,
                 ":finished": "finished",
                 ":failed": "failed",
+                ":staleBefore": staleBefore,
               },
             },
           },
@@ -173,32 +189,6 @@ export class Backfill {
         ],
       }),
     );
-  };
-
-  readonly putRunHistory = async (props: {
-    readonly domain: string;
-    readonly runId: string;
-    readonly status: BackfillStatus;
-    readonly startedAt: string;
-    readonly finishedAt?: string;
-    readonly ipsEnriched?: number;
-    readonly reportsScanned?: number;
-    readonly error?: string;
-  }): Promise<void> => {
-    const item: BackfillRun = {
-      pk: runKeyFor(props.domain),
-      sk: runSortKeyFor(props.runId),
-      domain: props.domain,
-      runId: props.runId,
-      status: props.status,
-      startedAt: props.startedAt,
-      finishedAt: props.finishedAt,
-      ipsEnriched: props.ipsEnriched,
-      reportsScanned: props.reportsScanned,
-      error: props.error,
-    };
-
-    await this.props.dynamo.send(new PutCommand({ TableName: this.props.tableName, Item: item }));
   };
 
   /**

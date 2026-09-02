@@ -1,10 +1,9 @@
-import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { uuid7 } from "@beesolve/helpers";
 import * as v from "valibot";
 
 import type { BackfillStatusSummary } from "./backfill.ts";
 import { Backfill, deriveCanRun } from "./backfill.ts";
+import { toDynamoClient } from "./src/dynamo.ts";
 import { tasks } from "./src/tasks.ts";
 
 type StartBackfillResult =
@@ -13,12 +12,7 @@ type StartBackfillResult =
 
 const env = v.parse(v.object({ TABLE_NAME: v.string() }), process.env);
 
-const dynamo = DynamoDBDocumentClient.from(new DynamoDBClient(), {
-  marshallOptions: {
-    removeUndefinedValues: true,
-    convertEmptyValues: false,
-  },
-});
+const dynamo = toDynamoClient();
 
 export class BackfillSdk {
   private readonly model = new Backfill({ dynamo, tableName: env.TABLE_NAME });
@@ -59,26 +53,18 @@ export class BackfillSdk {
 
     return statuses;
   };
-
-  readonly complete = (props: {
-    readonly domain: string;
-    readonly runId: string;
-    readonly ipsEnriched: number;
-    readonly reportsScanned: number;
-  }): Promise<void> => this.model.completeRun(props);
-
-  readonly fail = (props: {
-    readonly domain: string;
-    readonly runId: string;
-    readonly error: string;
-  }): Promise<void> => this.model.failRun(props);
 }
 
 function isAlreadyRunning(error: unknown): boolean {
+  if (error == null || typeof error !== "object") return false;
+  if (!("name" in error) || error.name !== "TransactionCanceledException") return false;
+  if (!("CancellationReasons" in error) || !Array.isArray(error.CancellationReasons)) return false;
+
+  const configReason = error.CancellationReasons[0];
   return (
-    error != null &&
-    typeof error === "object" &&
-    "name" in error &&
-    error.name === "TransactionCanceledException"
+    configReason != null &&
+    typeof configReason === "object" &&
+    "Code" in configReason &&
+    configReason.Code === "ConditionalCheckFailed"
   );
 }
