@@ -1,40 +1,54 @@
 <script lang="ts">
   let {
+    displayMonth,
     currentMonth,
+    today,
     selectedDate,
     domain,
-  }: { currentMonth: string; selectedDate: string | null; domain: string } = $props();
+  }: {
+    displayMonth: string;
+    currentMonth: string;
+    today: string;
+    selectedDate: string | null;
+    domain: string;
+  } = $props();
 
-  const year = $derived(Number(currentMonth.slice(0, 4)));
-  const month = $derived(Number(currentMonth.slice(5, 7)));
+  const year = $derived(Number(displayMonth.slice(0, 4)));
+  const month = $derived(Number(displayMonth.slice(5, 7)));
 
   const prevMonth = $derived(() => {
-    const d = new Date(year, month - 2, 1);
-    return `${String(d.getFullYear())}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    const date = new Date(Date.UTC(year, month - 2, 1));
+    return `${String(date.getUTCFullYear())}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
   });
 
   const nextMonth = $derived(() => {
-    const d = new Date(year, month, 1);
-    return `${String(d.getFullYear())}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    const date = new Date(Date.UTC(year, month, 1));
+    return `${String(date.getUTCFullYear())}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
   });
 
+  const atCurrentMonth = $derived(displayMonth >= currentMonth);
+
   const monthLabel = $derived(
-    new Date(year, month - 1, 1).toLocaleDateString("en-US", { year: "numeric", month: "long" }),
+    new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      timeZone: "UTC",
+    }),
   );
 
   const days = $derived(() => {
-    const firstDay = new Date(year, month - 1, 1).getDay();
-    const daysInMonth = new Date(year, month, 0).getDate();
+    const firstDay = new Date(Date.UTC(year, month - 1, 1)).getUTCDay();
+    const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
 
-    const cells: Array<{ day: number; date: string } | null> = [];
+    const cells: Array<{ day: number; date: string; future: boolean } | null> = [];
 
-    for (let i = 0; i < firstDay; i++) {
+    for (let index = 0; index < firstDay; index++) {
       cells.push(null);
     }
 
     for (let day = 1; day <= daysInMonth; day++) {
       const date = `${String(year)}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-      cells.push({ day, date });
+      cells.push({ day, date, future: date > today });
     }
 
     return cells;
@@ -45,9 +59,17 @@
 
 <div class="calendar">
   <div class="calendar-header">
-    <a href="/domains/{domain}?month={prevMonth()}" class="nav-btn">&lsaquo;</a>
+    <a href="/domains/{domain}?month={prevMonth()}" class="nav-btn" aria-label="Previous month">
+      &lsaquo;
+    </a>
     <span class="month-label">{monthLabel}</span>
-    <a href="/domains/{domain}?month={nextMonth()}" class="nav-btn">&rsaquo;</a>
+    {#if atCurrentMonth}
+      <span class="nav-btn disabled" aria-hidden="true">&rsaquo;</span>
+    {:else}
+      <a href="/domains/{domain}?month={nextMonth()}" class="nav-btn" aria-label="Next month">
+        &rsaquo;
+      </a>
+    {/if}
   </div>
 
   <div class="calendar-grid">
@@ -58,12 +80,14 @@
     {#each days() as cell}
       {#if cell == null}
         <div class="cell empty"></div>
+      {:else if cell.future}
+        <span class="cell future" aria-disabled="true">{cell.day}</span>
       {:else}
         <a
           href="/domains/{domain}?date={cell.date}"
           class="cell"
           class:selected={selectedDate === cell.date}
-          class:in-range={selectedDate == null}
+          class:today={selectedDate == null && cell.date === today}
         >
           {cell.day}
         </a>
@@ -73,9 +97,10 @@
 
   <div class="calendar-footer">
     {#if selectedDate != null}
-      <a href="/domains/{domain}" class="clear-link">Show all dates</a>
+      <span class="range-label">Showing {selectedDate}</span>
+      <a href="/domains/{domain}?month={displayMonth}" class="clear-link">Show all dates</a>
     {:else}
-      <span class="range-label">Showing entire month</span>
+      <span class="range-label">Showing all dates — pick a day to filter</span>
     {/if}
   </div>
 </div>
@@ -117,6 +142,15 @@
     text-decoration: none;
   }
 
+  .nav-btn.disabled {
+    color: var(--border, #e2e8f0);
+    cursor: not-allowed;
+  }
+
+  .nav-btn.disabled:hover {
+    background: none;
+  }
+
   .calendar-grid {
     display: grid;
     grid-template-columns: repeat(7, 2rem);
@@ -144,7 +178,7 @@
     text-decoration: none;
   }
 
-  .cell:hover:not(.empty) {
+  a.cell:hover {
     background: var(--surface-1, #f8f9fa);
     text-decoration: none;
   }
@@ -155,12 +189,15 @@
     font-weight: 600;
   }
 
-  .cell.in-range {
-    background: rgba(37, 99, 235, 0.08);
+  .cell.today {
+    border: 1px solid #2563eb;
+    color: #2563eb;
+    font-weight: 600;
   }
 
-  .cell.in-range:hover {
-    background: rgba(37, 99, 235, 0.15);
+  .cell.future {
+    color: var(--text-3, #cbd5e1);
+    cursor: not-allowed;
   }
 
   .cell.empty {
@@ -173,6 +210,9 @@
     border-top: 1px solid var(--border, #e2e8f0);
     text-align: center;
     font-size: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
   }
 
   .range-label {

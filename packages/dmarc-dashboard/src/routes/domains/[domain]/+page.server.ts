@@ -15,6 +15,7 @@ export const load: PageServerLoad = async ({ params, locals, url }) => {
 
   const cursor = url.searchParams.get("cursor") ?? undefined;
   const dateFilter = url.searchParams.get("date") ?? undefined;
+  const monthParam = url.searchParams.get("month") ?? undefined;
 
   const queryParams: {
     domain: string;
@@ -38,6 +39,18 @@ export const load: PageServerLoad = async ({ params, locals, url }) => {
 
   const result = await locals.services.reports.queryByDomain(queryParams);
 
+  const now = new Date();
+  const currentMonth = `${String(now.getUTCFullYear())}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
+  const monthPattern = /^\d{4}-\d{2}$/;
+  const requestedMonth =
+    monthParam != null && monthPattern.test(monthParam)
+      ? monthParam
+      : dateFilter != null
+        ? dateFilter.slice(0, 7)
+        : currentMonth;
+  const displayMonth = requestedMonth > currentMonth ? currentMonth : requestedMonth;
+  const todayIso = `${currentMonth}-${String(now.getUTCDate()).padStart(2, "0")}`;
+
   const aggregate = aggregateReports(result.reports);
 
   const breakdownIps = aggregate.sourceIpBreakdown.map((row) => row.ip);
@@ -60,6 +73,9 @@ export const load: PageServerLoad = async ({ params, locals, url }) => {
   return {
     domain: params.domain,
     dateFilter: dateFilter ?? null,
+    displayMonth,
+    currentMonth,
+    today: todayIso,
     aggregate: {
       ...aggregate,
       sourceIpBreakdown,
