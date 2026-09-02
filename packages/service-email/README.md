@@ -95,6 +95,20 @@ await email.sendEmail({
 });
 ```
 
+### With reply-to addresses
+
+Use `replyToAddresses` to set where replies are directed when the recipient hits "reply" in their email client. Unlike `sender`, these addresses do **not** need to be verified in SES.
+
+```ts
+await email.sendEmail({
+  recipients: ["alice@example.com"],
+  subject: "Welcome!",
+  html: "<p>Hello!</p>",
+  text: "Hello!",
+  replyToAddresses: ["support@example.com"], // normalised to lowercase automatically
+});
+```
+
 ### With attachments
 
 ```ts

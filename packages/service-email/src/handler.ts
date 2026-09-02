@@ -145,6 +145,7 @@ export const handler = async (
           Content: {
             Raw: { Data: Buffer.from(email.asRaw(), "utf-8") },
           },
+          ReplyToAddresses: request.replyToAddresses,
           FromEmailAddressIdentityArn: env.FROM_ARN,
           Destination: { ToAddresses: request.recipients },
           ConfigurationSetName: request.configurationSetName ?? env.DEFAULT_CONFIGURATION_SET_NAME,

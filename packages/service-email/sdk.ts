@@ -57,7 +57,16 @@ export class Email {
     readonly subject: string;
     readonly html: string;
     readonly text?: string;
+    /**
+     * This address needs to be verified through SES
+     * Overrides locally the default sender
+     */
     readonly sender?: Sender;
+    /**
+     * This address does not need to be verified through SES
+     * The address is used when you hit "reply" in your email client
+     */
+    readonly replyToAddresses?: Array<string>;
     readonly attachments?: Array<Attachment>;
     readonly configurationSetName?: string;
   }): Promise<{ requestId: string }> => {
