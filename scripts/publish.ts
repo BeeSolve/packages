@@ -7,7 +7,7 @@ const ROOT = join(import.meta.dir, "..");
 
 const PACKAGES: Array<string> = await Bun.file(join(ROOT, "dependencies.json")).json();
 
-type Pkg = { name: string; version: string; scripts?: Record<string, string> };
+type Pkg = { name: string; version: string; private?: boolean; scripts?: Record<string, string> };
 
 async function readPkg(dir: string): Promise<Pkg> {
   return Bun.file(join(ROOT, dir, "package.json")).json();
@@ -21,6 +21,11 @@ async function isPublished(props: { name: string; version: string }): Promise<bo
 for (const pkgDir of PACKAGES) {
   const absDir = join(ROOT, pkgDir);
   const pkg = await readPkg(pkgDir);
+
+  if (pkg.private === true || pkg.version == null) {
+    console.log(`  skip ${pkg.name} (private or unversioned, not publishable)`);
+    continue;
+  }
 
   if (await isPublished({ name: pkg.name, version: pkg.version })) {
     console.log(`  skip ${pkg.name}@${pkg.version} (already on npm)`);
