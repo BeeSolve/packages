@@ -1,5 +1,11 @@
 # @beesolve/email-service
 
+## 0.4.0
+
+### Minor Changes
+
+- 562809c: Add `replyToAddresses` support to `sendEmail`. Reply-to addresses are passed through to SES as `ReplyToAddresses` and, unlike the sender, do not need to be verified in SES.
+
 ## 0.3.6
 
 ### Patch Changes
