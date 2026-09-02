@@ -24,7 +24,9 @@
   <p class="error">{form.error}</p>
 {/if}
 {#if form?.started}
-  <p class="notice">Refreshing IP details for {form.domain}. This runs in the background.</p>
+  <div class="callout fill notice">
+    Refreshing IP details for {form.domain}. This runs in the background.
+  </div>
 {/if}
 
 <div class="summary-cards">
@@ -73,7 +75,7 @@
                 <input type="hidden" name="domain" value={domain.domain} />
                 <button
                   type="submit"
-                  class="button mini refresh-btn"
+                  class="button mini ghost refresh-btn"
                   disabled={!domain.canRun || submitting}
                   title="Look up the network operator (ASN / organisation) and country for this domain's source IPs, so the source IP table shows who is really sending."
                 >
@@ -111,11 +113,12 @@
     margin: 0 0 1.25rem;
   }
 
-  /* Gap: simple wrap layout for the overview cards (graffiti .stat-card
-     supplies the card visuals via SummaryCard). */
+  /* Gap: responsive grid for the overview cards (graffiti .stat-card
+     supplies the card visuals via SummaryCard). auto-fit keeps them in a row
+     on wide screens and wraps gracefully when space runs out. */
   .summary-cards {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
     gap: var(--vs-base);
     margin-bottom: var(--vs-l);
   }
@@ -131,11 +134,6 @@
   }
 
   .notice {
-    color: var(--fg-7);
-    background: var(--fg-05);
-    border: var(--border-1);
-    border-radius: var(--br-m);
-    padding: var(--pad-s) var(--pad-m);
     margin: 0 0 1rem;
     font-size: 0.9rem;
   }
@@ -144,6 +142,7 @@
     display: flex;
     align-items: center;
     gap: 0.65rem;
+    flex-wrap: wrap;
   }
 
   .origins-cell form {

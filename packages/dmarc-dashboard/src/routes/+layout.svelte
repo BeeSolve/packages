@@ -1,5 +1,6 @@
 <script lang="ts">
   import "@drop-in/graffiti";
+  import ThemeSwitcher from "$lib/components/themeSwitcher.svelte";
 
   let { data, children } = $props();
 </script>
@@ -15,12 +16,15 @@
           <a href="/users" class="nav-link">Users</a>
         {/if}
       </div>
-      {#if data.user}
-        <form method="POST" action="/auth/signOut" class="nav-sign-out">
-          <input type="hidden" name="redirectTo" value="/sign-in" />
-          <button type="submit" class="button minimal">Sign out</button>
-        </form>
-      {/if}
+      <div class="nav-actions">
+        <ThemeSwitcher />
+        {#if data.user}
+          <form method="POST" action="/auth/signOut" class="nav-sign-out">
+            <input type="hidden" name="redirectTo" value="/sign-in" />
+            <button type="submit" class="button minimal">Sign out</button>
+          </form>
+        {/if}
+      </div>
     </nav>
   </header>
 
@@ -59,6 +63,13 @@
     padding: var(--pad-s) var(--pad-m);
     border-radius: var(--br-m);
     font-size: 0.875rem;
+  }
+
+  /* Gap: browsers apply their default :visited purple to content links that
+     graffiti colours only via `a`. Pin visited links to the same colour so
+     tables and drill-down links stay consistent. */
+  :global(a:visited) {
+    color: var(--primary);
   }
 
   .app {
@@ -109,8 +120,22 @@
     text-decoration: none;
   }
 
-  .nav-sign-out {
+  .nav-actions {
     margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: var(--vs-base);
+  }
+
+  .nav-sign-out {
+    display: flex;
+    align-items: center;
+  }
+
+  /* The global `form > button[type=submit]` top-margin (for stacked forms)
+     would push the nav sign-out button below the other nav items; reset it. */
+  .nav-sign-out button[type="submit"] {
+    margin-block-start: 0;
   }
 
   .app-main {

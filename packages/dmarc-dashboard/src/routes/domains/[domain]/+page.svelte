@@ -78,11 +78,11 @@
 </div>
 
 <div class="content">
-  <div class="tabs pill" style="--tab-count: 3">
+  <div class="tabs" style="--tab-count: 3">
     <details name="domain-tab" style="--n: 1" open>
       <summary>
         Source IPs
-        <span class="tab-count">{data.aggregate.sourceIpBreakdown.length}</span>
+        <span class="tag mini tab-count">{data.aggregate.sourceIpBreakdown.length}</span>
       </summary>
       <section class="section">
         <h2>Source IP Analysis</h2>
@@ -152,7 +152,7 @@
     <details name="domain-tab" style="--n: 2">
       <summary>
         Authorized senders
-        <span class="tab-count">{data.aggregate.senderAlignment.length}</span>
+        <span class="tag mini tab-count">{data.aggregate.senderAlignment.length}</span>
       </summary>
       <section class="section">
         <h2>Authorized Senders</h2>
@@ -180,8 +180,20 @@
                   <td class="ip">{row.ip}</td>
                   <td class="origin">{ipOrigin(row)}</td>
                   <td class="num">{row.count.toLocaleString()}</td>
-                  <td>{row.spfAligned ? "✓" : "—"}</td>
-                  <td>{row.dkimAligned ? "✓" : "—"}</td>
+                  <td>
+                    {#if row.spfAligned}
+                      <span class="align align-yes" title="SPF aligned">✓ Aligned</span>
+                    {:else}
+                      <span class="align align-no" title="not SPF aligned">— </span>
+                    {/if}
+                  </td>
+                  <td>
+                    {#if row.dkimAligned}
+                      <span class="align align-yes" title="DKIM aligned">✓ Aligned</span>
+                    {:else}
+                      <span class="align align-no" title="not DKIM aligned">— </span>
+                    {/if}
+                  </td>
                 </tr>
               {/each}
             </tbody>
@@ -193,7 +205,7 @@
     <details name="domain-tab" style="--n: 3">
       <summary>
         Reports
-        <span class="tab-count">{data.reports.length}{data.cursor ? "+" : ""}</span>
+        <span class="tag mini tab-count">{data.reports.length}{data.cursor ? "+" : ""}</span>
       </summary>
       <section class="section">
         <h2>
@@ -272,7 +284,7 @@
      ours. The cards themselves are graffiti .stat-card (see SummaryCard). */
   .summary-cards {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
     gap: var(--vs-s);
     flex: 1;
     min-width: 0;
@@ -298,22 +310,17 @@
     margin-bottom: var(--vs-l);
   }
 
-  /* Gap: count badge inside the graffiti tab <summary>. Graffiti styles the
-     tab track/thumb via .tabs.pill; we only add the little pill counter. */
+  /* Count badge inside the graffiti tab <summary>: a compact neutral tag.
+     .tabs styles the underline track; we only tune the little counter. */
   .tab-count {
-    font-size: 0.72rem;
-    font-weight: var(--fw-semibold);
-    color: var(--fg-7);
-    background: var(--fg-1);
-    border-radius: var(--br-xxl);
-    padding: 0.05rem 0.45rem;
-    min-width: 1.1rem;
-    text-align: center;
+    --tag-color: var(--fg-5);
+    font-size: 0.7rem;
+    padding: 0.02rem 0.4rem;
+    margin-inline-start: 0.4rem;
   }
 
-  :global(.tabs.pill > details[open]) .tab-count {
-    color: var(--primary);
-    background: color-mix(in oklab, var(--primary) 14%, transparent);
+  :global(.tabs > details[open]) .tab-count {
+    --tag-color: var(--primary);
   }
 
   .empty {
@@ -381,6 +388,23 @@
 
   .fail {
     color: var(--error);
+  }
+
+  /* Alignment indicator for the Authorized Senders table. */
+  .align {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.8rem;
+    font-weight: var(--fw-medium);
+  }
+
+  .align-yes {
+    color: var(--success);
+  }
+
+  .align-no {
+    color: var(--fg-4);
   }
 
   /* Gap: full-row tint for flagged rows — graffiti has no row-status utility. */
