@@ -1,5 +1,14 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": { "declaration": true, "isolatedDeclarations": false },
-  "include": ["domain.ts", "report.ts", "cdk.ts", "src/**/*", "tests/**/*"]
+  "include": [
+    "domain.ts",
+    "report.ts",
+    "processingStats.ts",
+    "ipInfo.ts",
+    "backfill.ts",
+    "cdk.ts",
+    "src/**/*",
+    "tests/**/*"
+  ]
 }
