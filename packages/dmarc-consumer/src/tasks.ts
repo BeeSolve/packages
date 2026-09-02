@@ -1,12 +1,11 @@
-import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { SQSClient } from "@aws-sdk/client-sqs";
-import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { createSqsHandlers } from "@beesolve/sqs-handler";
 import * as v from "valibot";
 
 import { Backfill } from "../backfill.ts";
 import { IpInfoCache } from "../ipInfo.ts";
 import { Reports } from "../report.ts";
+import { toDynamoClient } from "./dynamo.ts";
 import { runBackfill } from "./runBackfill.ts";
 
 const env = v.parse(
@@ -18,12 +17,7 @@ const env = v.parse(
   process.env,
 );
 
-const dynamo = DynamoDBDocumentClient.from(new DynamoDBClient(), {
-  marshallOptions: {
-    removeUndefinedValues: true,
-    convertEmptyValues: false,
-  },
-});
+const dynamo = toDynamoClient();
 
 const reports = new Reports({ dynamo, tableName: env.TABLE_NAME });
 const ipInfoCache = new IpInfoCache({

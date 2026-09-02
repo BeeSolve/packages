@@ -33,8 +33,6 @@ const liteApiResponseSchema = v.object({
   as_domain: v.optional(v.string()),
   country_code: v.optional(v.string()),
   country: v.optional(v.string()),
-  continent_code: v.optional(v.string()),
-  continent: v.optional(v.string()),
 });
 
 export async function lookupIpInfo(props: {

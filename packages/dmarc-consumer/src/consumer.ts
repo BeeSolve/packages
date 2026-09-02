@@ -1,5 +1,3 @@
-import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { dmarcRecordSchema } from "@beesolve/dmarc-parser";
 import type { DmarcReport } from "@beesolve/dmarc-reports";
 import {
@@ -13,6 +11,7 @@ import { Domains } from "../domain.ts";
 import { IpInfoCache } from "../ipInfo.ts";
 import { ProcessingStats } from "../processingStats.ts";
 import { Reports } from "../report.ts";
+import { toDynamoClient } from "./dynamo.ts";
 
 const envSchema = v.object({
   TABLE_NAME: v.string(),
@@ -21,12 +20,7 @@ const envSchema = v.object({
 });
 const env = v.parse(envSchema, process.env);
 
-const dynamo = DynamoDBDocumentClient.from(new DynamoDBClient(), {
-  marshallOptions: {
-    removeUndefinedValues: true,
-    convertEmptyValues: false,
-  },
-});
+const dynamo = toDynamoClient();
 const reports = new Reports({ dynamo, tableName: env.TABLE_NAME });
 const domains = new Domains({
   dynamo,
