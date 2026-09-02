@@ -1,5 +1,11 @@
 # @beesolve/dmarc-parser
 
+## 0.1.1
+
+### Patch Changes
+
+- f7e28a0: Update `fast-xml-parser` to ^5.11.1 and `mailparser` to ^3.9.20.
+
 ## 0.1.0
 
 ### Minor Changes

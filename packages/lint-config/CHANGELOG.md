@@ -1,5 +1,11 @@
 # @beesolve/lint-config
 
+## 0.3.1
+
+### Patch Changes
+
+- f7e28a0: Update `oxlint-plugin-eslint` to ^1.81.0 and raise `oxfmt` (>=0.66.0) and `oxlint` (>=1.81.0) peer dependency ranges.
+
 ## 0.3.0
 
 ### Minor Changes

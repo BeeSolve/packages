@@ -1,5 +1,11 @@
 # @beesolve/auth-service
 
+## 0.14.1
+
+### Patch Changes
+
+- f7e28a0: Raise `@sveltejs/kit` peer dependency range to ^2.70.3.
+
 ## 0.14.0
 
 ### Minor Changes
