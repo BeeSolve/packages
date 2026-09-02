@@ -1,5 +1,11 @@
 # @beesolve/dmarc-dashboard
 
+## 0.3.1
+
+### Patch Changes
+
+- aa280e0: Set `paths.relative: false` so CSS and JS assets use root-relative paths (`/_app/...`) instead of relative paths (`./_app/...`). Because kit-on-lambda serves routes dynamically, relative asset paths were resolved against the current route depth (e.g. `/domains/_app/...`), returning the SPA fallback HTML instead of the stylesheet and leaving nested routes unstyled.
+
 ## 0.3.0
 
 ### Minor Changes
