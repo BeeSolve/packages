@@ -39,6 +39,7 @@ export class DmarcDashboard extends Construct {
         props.auth.addAuthorizedEndpoint({ lambda: handler, path: "/{proxy+}" });
         props.auth.grantSdkAccess(handler);
         props.consumer.grantReadWrite(handler);
+        props.consumer.grantBackfill(handler);
 
         if (props.auth.api.url == null) throw new Error("Unexpected error - missing api url");
         return new HttpOrigin(Fn.parseDomainName(props.auth.api.url));
