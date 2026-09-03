@@ -93,58 +93,60 @@
         {#if data.aggregate.sourceIpBreakdown.length === 0}
           <p class="empty">No source IPs found{data.dateFilter ? " for this date" : ""}.</p>
         {:else}
-          <table>
-            <thead>
-              <tr>
-                <th>Source IP</th>
-                <th>Origin</th>
-                <th>Verdict</th>
-                <th class="num">Messages</th>
-                <th class="num">SPF Pass</th>
-                <th class="num">SPF Fail</th>
-                <th class="num">DKIM Pass</th>
-                <th class="num">DKIM Fail</th>
-                <th>Dispositions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {#each data.aggregate.sourceIpBreakdown as row}
-                {@const hasFailure = row.spfFail > 0 || row.dkimFail > 0}
-                {@const hasAction = row.dispositions.some((disposition) => disposition !== "none")}
-                <tr class:row-warn={hasFailure && !hasAction} class:row-fail={hasAction}>
-                  <td class="ip">
-                    {row.ip}
-                    {#if row.headerFroms.length > 0}
-                      <span class="header-from">From: {row.headerFroms.join(", ")}</span>
-                    {/if}
-                    {#if row.spfResults.length > 0 || row.dkimResults.length > 0}
-                      <span class="auth-detail">
-                        {#if row.spfResults.length > 0}spf={row.spfResults.join("/")}{/if}
-                        {#if row.dkimResults.length > 0}dkim={row.dkimResults.join("/")}{/if}
-                      </span>
-                    {/if}
-                    {#if row.policyReasons.length > 0}
-                      <span class="policy-reason">{row.policyReasons.join("; ")}</span>
-                    {/if}
-                  </td>
-                  <td class="origin">{ipOrigin(row)}</td>
-                  <td>
-                    <span class="tag verdict-{row.verdict}">{verdictLabel(row.verdict)}</span>
-                  </td>
-                  <td class="num">{row.count.toLocaleString()}</td>
-                  <td class="num pass">{row.spfPass.toLocaleString()}</td>
-                  <td class="num fail">{row.spfFail > 0 ? row.spfFail.toLocaleString() : "—"}</td>
-                  <td class="num pass">{row.dkimPass.toLocaleString()}</td>
-                  <td class="num fail">{row.dkimFail > 0 ? row.dkimFail.toLocaleString() : "—"}</td>
-                  <td>
-                    {#each row.dispositions as disposition}
-                      <span class="tag disposition disposition-{disposition}">{disposition}</span>
-                    {/each}
-                  </td>
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Source IP</th>
+                  <th>Origin</th>
+                  <th>Verdict</th>
+                  <th class="num">Messages</th>
+                  <th class="num">SPF Pass</th>
+                  <th class="num">SPF Fail</th>
+                  <th class="num">DKIM Pass</th>
+                  <th class="num">DKIM Fail</th>
+                  <th>Dispositions</th>
                 </tr>
-              {/each}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {#each data.aggregate.sourceIpBreakdown as row}
+                  {@const hasFailure = row.spfFail > 0 || row.dkimFail > 0}
+                  {@const hasAction = row.dispositions.some((disposition) => disposition !== "none")}
+                  <tr class:row-warn={hasFailure && !hasAction} class:row-fail={hasAction}>
+                    <td class="ip">
+                      {row.ip}
+                      {#if row.headerFroms.length > 0}
+                        <span class="header-from">From: {row.headerFroms.join(", ")}</span>
+                      {/if}
+                      {#if row.spfResults.length > 0 || row.dkimResults.length > 0}
+                        <span class="auth-detail">
+                          {#if row.spfResults.length > 0}spf={row.spfResults.join("/")}{/if}
+                          {#if row.dkimResults.length > 0}dkim={row.dkimResults.join("/")}{/if}
+                        </span>
+                      {/if}
+                      {#if row.policyReasons.length > 0}
+                        <span class="policy-reason">{row.policyReasons.join("; ")}</span>
+                      {/if}
+                    </td>
+                    <td class="origin">{ipOrigin(row)}</td>
+                    <td>
+                      <span class="tag verdict-{row.verdict}">{verdictLabel(row.verdict)}</span>
+                    </td>
+                    <td class="num">{row.count.toLocaleString()}</td>
+                    <td class="num pass">{row.spfPass.toLocaleString()}</td>
+                    <td class="num fail">{row.spfFail > 0 ? row.spfFail.toLocaleString() : "—"}</td>
+                    <td class="num pass">{row.dkimPass.toLocaleString()}</td>
+                    <td class="num fail">{row.dkimFail > 0 ? row.dkimFail.toLocaleString() : "—"}</td>
+                    <td>
+                      {#each row.dispositions as disposition}
+                        <span class="tag disposition disposition-{disposition}">{disposition}</span>
+                      {/each}
+                    </td>
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
+          </div>
         {/if}
       </section>
     </details>
@@ -164,40 +166,42 @@
         {#if data.aggregate.senderAlignment.length === 0}
           <p class="empty">No aligned senders found{data.dateFilter ? " for this date" : ""}.</p>
         {:else}
-          <table>
-            <thead>
-              <tr>
-                <th>Source IP</th>
-                <th>Origin</th>
-                <th class="num">Messages</th>
-                <th>SPF Aligned</th>
-                <th>DKIM Aligned</th>
-              </tr>
-            </thead>
-            <tbody>
-              {#each data.aggregate.senderAlignment as row}
+          <div class="table-scroll">
+            <table>
+              <thead>
                 <tr>
-                  <td class="ip">{row.ip}</td>
-                  <td class="origin">{ipOrigin(row)}</td>
-                  <td class="num">{row.count.toLocaleString()}</td>
-                  <td>
-                    {#if row.spfAligned}
-                      <span class="align align-yes" title="SPF aligned">✓ Aligned</span>
-                    {:else}
-                      <span class="align align-no" title="not SPF aligned">— </span>
-                    {/if}
-                  </td>
-                  <td>
-                    {#if row.dkimAligned}
-                      <span class="align align-yes" title="DKIM aligned">✓ Aligned</span>
-                    {:else}
-                      <span class="align align-no" title="not DKIM aligned">— </span>
-                    {/if}
-                  </td>
+                  <th>Source IP</th>
+                  <th>Origin</th>
+                  <th class="num">Messages</th>
+                  <th>SPF Aligned</th>
+                  <th>DKIM Aligned</th>
                 </tr>
-              {/each}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {#each data.aggregate.senderAlignment as row}
+                  <tr>
+                    <td class="ip">{row.ip}</td>
+                    <td class="origin">{ipOrigin(row)}</td>
+                    <td class="num">{row.count.toLocaleString()}</td>
+                    <td>
+                      {#if row.spfAligned}
+                        <span class="align align-yes" title="SPF aligned">✓ Aligned</span>
+                      {:else}
+                        <span class="align align-no" title="not SPF aligned">— </span>
+                      {/if}
+                    </td>
+                    <td>
+                      {#if row.dkimAligned}
+                        <span class="align align-yes" title="DKIM aligned">✓ Aligned</span>
+                      {:else}
+                        <span class="align align-no" title="not DKIM aligned">— </span>
+                      {/if}
+                    </td>
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
+          </div>
         {/if}
       </section>
     </details>
@@ -221,37 +225,39 @@
         {#if data.reports.length === 0}
           <p class="empty">No reports found{data.dateFilter ? " for this date" : " for this domain"}.</p>
         {:else}
-          <table>
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Organization</th>
-                <th class="num">Messages</th>
-                <th class="num">Pass</th>
-                <th class="num">Fail</th>
-                <th>Pass Rate</th>
-                <th>Policy</th>
-              </tr>
-            </thead>
-            <tbody>
-              {#each data.reports as report}
-                {@const rate = report.totalMessages > 0 ? Math.round((report.totalPass / report.totalMessages) * 100) : 0}
+          <div class="table-scroll">
+            <table>
+              <thead>
                 <tr>
-                  <td class="date">
-                    <a href={reportHref(report)}>
-                      {formatDate(report.dateRangeBegin)}
-                    </a>
-                  </td>
-                  <td>{report.orgName}</td>
-                  <td class="num">{report.totalMessages.toLocaleString()}</td>
-                  <td class="num">{report.totalPass.toLocaleString()}</td>
-                  <td class="num">{report.totalFail.toLocaleString()}</td>
-                  <td><StatusBadge {rate} /></td>
-                  <td><code>{report.policy}</code></td>
+                  <th>Date</th>
+                  <th>Organization</th>
+                  <th class="num">Messages</th>
+                  <th class="num">Pass</th>
+                  <th class="num">Fail</th>
+                  <th>Pass Rate</th>
+                  <th>Policy</th>
                 </tr>
-              {/each}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {#each data.reports as report}
+                  {@const rate = report.totalMessages > 0 ? Math.round((report.totalPass / report.totalMessages) * 100) : 0}
+                  <tr>
+                    <td class="date">
+                      <a href={reportHref(report)}>
+                        {formatDate(report.dateRangeBegin)}
+                      </a>
+                    </td>
+                    <td>{report.orgName}</td>
+                    <td class="num">{report.totalMessages.toLocaleString()}</td>
+                    <td class="num">{report.totalPass.toLocaleString()}</td>
+                    <td class="num">{report.totalFail.toLocaleString()}</td>
+                    <td><StatusBadge {rate} /></td>
+                    <td><code>{report.policy}</code></td>
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
+          </div>
 
           {#if data.cursor}
             <p class="load-more">

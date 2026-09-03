@@ -82,72 +82,74 @@
   {#if data.report.records.length === 0}
     <p>No records in this report.</p>
   {:else}
-    <table>
-      <thead>
-        <tr>
-          <th>Source IP</th>
-          <th>Origin</th>
-          <th class="num">Count</th>
-          <th>SPF</th>
-          <th>DKIM</th>
-          <th>Disposition</th>
-          <th>Override Reasons</th>
-        </tr>
-      </thead>
-      <tbody>
-        {#each data.report.records as record}
-          {@const hasAction = record.policyEvaluated.disposition !== "none"}
-          <tr class:row-fail={hasAction}>
-            <td class="ip">{record.sourceIp}</td>
-            <td class="origin">{ipOrigin(record)}</td>
-            <td class="num">{record.count.toLocaleString()}</td>
-            <td class="result result-{record.policyEvaluated.spf}">{record.policyEvaluated.spf}</td>
-            <td class="result result-{record.policyEvaluated.dkim}">{record.policyEvaluated.dkim}</td>
-            <td>
-              <span class="tag disposition disposition-{record.policyEvaluated.disposition}">
-                {record.policyEvaluated.disposition}
-              </span>
-            </td>
-            <td>
-              {#if record.policyEvaluated.reason}
-                {#each record.policyEvaluated.reason as reason}
-                  <span class="reason">{reason.type}{reason.comment ? `: ${reason.comment}` : ""}</span>
-                {/each}
-              {:else}
-                —
-              {/if}
-            </td>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Source IP</th>
+            <th>Origin</th>
+            <th class="num">Count</th>
+            <th>SPF</th>
+            <th>DKIM</th>
+            <th>Disposition</th>
+            <th>Override Reasons</th>
           </tr>
+        </thead>
+        <tbody>
+          {#each data.report.records as record}
+            {@const hasAction = record.policyEvaluated.disposition !== "none"}
+            <tr class:row-fail={hasAction}>
+              <td class="ip">{record.sourceIp}</td>
+              <td class="origin">{ipOrigin(record)}</td>
+              <td class="num">{record.count.toLocaleString()}</td>
+              <td class="result result-{record.policyEvaluated.spf}">{record.policyEvaluated.spf}</td>
+              <td class="result result-{record.policyEvaluated.dkim}">{record.policyEvaluated.dkim}</td>
+              <td>
+                <span class="tag disposition disposition-{record.policyEvaluated.disposition}">
+                  {record.policyEvaluated.disposition}
+                </span>
+              </td>
+              <td>
+                {#if record.policyEvaluated.reason}
+                  {#each record.policyEvaluated.reason as reason}
+                    <span class="reason">{reason.type}{reason.comment ? `: ${reason.comment}` : ""}</span>
+                  {/each}
+                {:else}
+                  —
+                {/if}
+              </td>
+            </tr>
 
-          <tr class="detail-row" class:row-fail={hasAction}>
-            <td colspan="7">
-              <div class="auth-detail">
-                {#if record.authResults.dkim.length > 0}
-                  <div class="auth-group">
-                    <strong>DKIM:</strong>
-                    {#each record.authResults.dkim as dkim}
-                      <span class="auth-item result-{dkim.result}">
-                        {dkim.domain}{dkim.selector ? ` (s=${dkim.selector})` : ""} → {dkim.result}
-                      </span>
-                    {/each}
-                  </div>
-                {/if}
-                {#if record.authResults.spf.length > 0}
-                  <div class="auth-group">
-                    <strong>SPF:</strong>
-                    {#each record.authResults.spf as spf}
-                      <span class="auth-item result-{spf.result}">
-                        {spf.domain}{spf.scope ? ` (${spf.scope})` : ""} → {spf.result}
-                      </span>
-                    {/each}
-                  </div>
-                {/if}
-              </div>
-            </td>
-          </tr>
-        {/each}
-      </tbody>
-    </table>
+            <tr class="detail-row" class:row-fail={hasAction}>
+              <td colspan="7">
+                <div class="auth-detail">
+                  {#if record.authResults.dkim.length > 0}
+                    <div class="auth-group">
+                      <strong>DKIM:</strong>
+                      {#each record.authResults.dkim as dkim}
+                        <span class="auth-item result-{dkim.result}">
+                          {dkim.domain}{dkim.selector ? ` (s=${dkim.selector})` : ""} → {dkim.result}
+                        </span>
+                      {/each}
+                    </div>
+                  {/if}
+                  {#if record.authResults.spf.length > 0}
+                    <div class="auth-group">
+                      <strong>SPF:</strong>
+                      {#each record.authResults.spf as spf}
+                        <span class="auth-item result-{spf.result}">
+                          {spf.domain}{spf.scope ? ` (${spf.scope})` : ""} → {spf.result}
+                        </span>
+                      {/each}
+                    </div>
+                  {/if}
+                </div>
+              </td>
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+    </div>
   {/if}
 </section>
 

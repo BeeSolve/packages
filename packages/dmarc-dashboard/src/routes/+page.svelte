@@ -39,68 +39,70 @@
 {#if data.domains.length === 0}
   <p>No domains found.</p>
 {:else}
-  <table>
-    <thead>
-      <tr>
-        <th>Domain</th>
-        <th class="num">Messages</th>
-        <th class="num">Pass</th>
-        <th class="num">Fail</th>
-        <th>Pass Rate</th>
-        <th>Sender origins</th>
-      </tr>
-    </thead>
-    <tbody>
-      {#each data.domains as domain}
-        {@const rate = domain.totalMessages > 0 ? Math.round((domain.totalPass / domain.totalMessages) * 100) : 0}
-        {@const submitting = submittingDomain === domain.domain}
+  <div class="table-scroll">
+    <table>
+      <thead>
         <tr>
-          <td><a href="/domains/{domain.domain}">{domain.domain}</a></td>
-          <td class="num">{domain.totalMessages.toLocaleString()}</td>
-          <td class="num">{domain.totalPass.toLocaleString()}</td>
-          <td class="num">{domain.totalFail.toLocaleString()}</td>
-          <td><StatusBadge {rate} /></td>
-          <td>
-            <div class="origins-cell">
-              <form
-                method="POST"
-                use:enhance={() => {
-                  submittingDomain = domain.domain;
-                  return async ({ update }) => {
-                    await update();
-                    submittingDomain = null;
-                  };
-                }}
-              >
-                <input type="hidden" name="domain" value={domain.domain} />
-                <button
-                  type="submit"
-                  class="button mini ghost refresh-btn"
-                  disabled={!domain.canRun || submitting}
-                  title="Look up the network operator (ASN / organisation) and country for this domain's source IPs, so the source IP table shows who is really sending."
-                >
-                  {submitting ? "Refreshing…" : "Refresh IP details"}
-                </button>
-              </form>
-              {#if domain.lastRun != null}
-                <span class="last-run">
-                  {#if domain.lastRun.status === "started"}
-                    In progress…
-                  {:else if domain.lastRun.status === "finished"}
-                    Updated{#if domain.lastRun.ipsEnriched != null}
-                      · {domain.lastRun.ipsEnriched.toLocaleString()} IPs{/if}{#if domain.lastRun.finishedAt != null}
-                      · {new Date(domain.lastRun.finishedAt).toLocaleDateString()}{/if}
-                  {:else if domain.lastRun.status === "failed"}
-                    Last refresh failed
-                  {/if}
-                </span>
-              {/if}
-            </div>
-          </td>
+          <th>Domain</th>
+          <th class="num">Messages</th>
+          <th class="num">Pass</th>
+          <th class="num">Fail</th>
+          <th>Pass Rate</th>
+          <th>Sender origins</th>
         </tr>
-      {/each}
-    </tbody>
-  </table>
+      </thead>
+      <tbody>
+        {#each data.domains as domain}
+          {@const rate = domain.totalMessages > 0 ? Math.round((domain.totalPass / domain.totalMessages) * 100) : 0}
+          {@const submitting = submittingDomain === domain.domain}
+          <tr>
+            <td><a href="/domains/{domain.domain}">{domain.domain}</a></td>
+            <td class="num">{domain.totalMessages.toLocaleString()}</td>
+            <td class="num">{domain.totalPass.toLocaleString()}</td>
+            <td class="num">{domain.totalFail.toLocaleString()}</td>
+            <td><StatusBadge {rate} /></td>
+            <td>
+              <div class="origins-cell">
+                <form
+                  method="POST"
+                  use:enhance={() => {
+                    submittingDomain = domain.domain;
+                    return async ({ update }) => {
+                      await update();
+                      submittingDomain = null;
+                    };
+                  }}
+                >
+                  <input type="hidden" name="domain" value={domain.domain} />
+                  <button
+                    type="submit"
+                    class="button mini ghost refresh-btn"
+                    disabled={!domain.canRun || submitting}
+                    title="Look up the network operator (ASN / organisation) and country for this domain's source IPs, so the source IP table shows who is really sending."
+                  >
+                    {submitting ? "Refreshing…" : "Refresh IP details"}
+                  </button>
+                </form>
+                {#if domain.lastRun != null}
+                  <span class="last-run">
+                    {#if domain.lastRun.status === "started"}
+                      In progress…
+                    {:else if domain.lastRun.status === "finished"}
+                      Updated{#if domain.lastRun.ipsEnriched != null}
+                        · {domain.lastRun.ipsEnriched.toLocaleString()} IPs{/if}{#if domain.lastRun.finishedAt != null}
+                        · {new Date(domain.lastRun.finishedAt).toLocaleDateString()}{/if}
+                    {:else if domain.lastRun.status === "failed"}
+                      Last refresh failed
+                    {/if}
+                  </span>
+                {/if}
+              </div>
+            </td>
+          </tr>
+        {/each}
+      </tbody>
+    </table>
+  </div>
   <p class="hint">
     “Refresh IP details” looks up the network operator and country for each source IP so the per-domain
     Source IP table can show who is really sending mail for the domain.

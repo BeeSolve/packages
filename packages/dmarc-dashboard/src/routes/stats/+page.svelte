@@ -42,41 +42,43 @@
 {:else}
   <section class="section">
     <h2>Daily Breakdown</h2>
-    <table>
-      <thead>
-        <tr>
-          <th>Date</th>
-          <th class="num">Processed</th>
-          <th class="num">Manual</th>
-          <th class="num">Auth Rejected</th>
-          <th class="num">Spam</th>
-          <th class="num">Virus</th>
-          <th>Volume</th>
-        </tr>
-      </thead>
-      <tbody>
-        {#each data.stats as day}
-          {@const total = day.processed + day.manualUpload + day.totalRejected}
-          {@const processedPct = total > 0 ? ((day.processed + day.manualUpload) / maxDaily) * 100 : 0}
-          {@const rejectedPct = total > 0 ? (day.totalRejected / maxDaily) * 100 : 0}
-          {@const highRejection = day.totalRejected > day.processed + day.manualUpload}
-          <tr class:row-warn={highRejection}>
-            <td class="date">{day.date}</td>
-            <td class="num">{day.processed.toLocaleString()}</td>
-            <td class="num">{day.manualUpload > 0 ? day.manualUpload.toLocaleString() : "—"}</td>
-            <td class="num reject">{day.authRejected > 0 ? day.authRejected.toLocaleString() : "—"}</td>
-            <td class="num reject">{day.spamRejected > 0 ? day.spamRejected.toLocaleString() : "—"}</td>
-            <td class="num reject">{day.virusRejected > 0 ? day.virusRejected.toLocaleString() : "—"}</td>
-            <td class="bar-cell">
-              <div class="bar-container">
-                <div class="bar bar-pass" style="width: {processedPct}%"></div>
-                <div class="bar bar-fail" style="width: {rejectedPct}%"></div>
-              </div>
-            </td>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th class="num">Processed</th>
+            <th class="num">Manual</th>
+            <th class="num">Auth Rejected</th>
+            <th class="num">Spam</th>
+            <th class="num">Virus</th>
+            <th>Volume</th>
           </tr>
-        {/each}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {#each data.stats as day}
+            {@const total = day.processed + day.manualUpload + day.totalRejected}
+            {@const processedPct = total > 0 ? ((day.processed + day.manualUpload) / maxDaily) * 100 : 0}
+            {@const rejectedPct = total > 0 ? (day.totalRejected / maxDaily) * 100 : 0}
+            {@const highRejection = day.totalRejected > day.processed + day.manualUpload}
+            <tr class:row-warn={highRejection}>
+              <td class="date">{day.date}</td>
+              <td class="num">{day.processed.toLocaleString()}</td>
+              <td class="num">{day.manualUpload > 0 ? day.manualUpload.toLocaleString() : "—"}</td>
+              <td class="num reject">{day.authRejected > 0 ? day.authRejected.toLocaleString() : "—"}</td>
+              <td class="num reject">{day.spamRejected > 0 ? day.spamRejected.toLocaleString() : "—"}</td>
+              <td class="num reject">{day.virusRejected > 0 ? day.virusRejected.toLocaleString() : "—"}</td>
+              <td class="bar-cell">
+                <div class="bar-container">
+                  <div class="bar bar-pass" style="width: {processedPct}%"></div>
+                  <div class="bar bar-fail" style="width: {rejectedPct}%"></div>
+                </div>
+              </td>
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+    </div>
   </section>
 
   <section class="legend">

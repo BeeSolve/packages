@@ -72,6 +72,22 @@
     color: var(--primary);
   }
 
+  /* Gap: the app's data tables are bare <table> elements (not graffiti's
+     `.table` wrapper). On narrow screens their many columns push the page
+     wider than the viewport, causing the whole layout to scroll sideways.
+     This shared wrapper confines horizontal overflow to the table itself,
+     matching graffiti's own `.table { overflow-x: auto }` pattern. */
+  :global(.table-scroll) {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
+  }
+
+  /* Keep table content from collapsing awkwardly narrow while scrolling. */
+  :global(.table-scroll > table) {
+    min-width: max-content;
+  }
+
   .app {
     min-height: 100vh;
     display: flex;
@@ -144,5 +160,35 @@
     margin: 0 auto;
     padding: var(--vs-l) var(--pad-m);
     width: 100%;
+    /* Guard: never let a child force the page wider than the viewport. */
+    min-width: 0;
+  }
+
+  /* Responsive nav: on narrow screens let the nav wrap onto multiple lines
+     and tighten spacing so the brand, links, and actions all stay reachable
+     instead of overflowing the header. */
+  @media (max-width: 40rem) {
+    .nav {
+      height: auto;
+      flex-wrap: wrap;
+      gap: var(--vs-s) var(--vs-base);
+      padding-block: var(--vs-s);
+    }
+
+    .nav-brand {
+      /* Brand takes the first row; actions sit beside it via margin-left. */
+      flex: 1 1 auto;
+    }
+
+    .nav-links {
+      /* Links drop to their own full-width row below the brand. */
+      order: 3;
+      flex-basis: 100%;
+      gap: var(--vs-base);
+    }
+
+    .nav-actions {
+      margin-left: 0;
+    }
   }
 </style>
