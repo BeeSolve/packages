@@ -494,6 +494,11 @@ export const handle = sequence(
 );
 ```
 
+> **Running under `kit-on-lambda`?** See
+> [how-to: Running auth-service with kit-on-lambda locally](./docs/how-to/local-development-with-kit-on-lambda.md)
+> for the full end-to-end setup — mapping the dev session to a real user, loading
+> `.env.local`, and the required Vite SSR-externals config.
+
 ### Non-SvelteKit (Bun/Node server)
 
 Use `withDevSession` to wrap your fetch handler with a fake API Gateway context so `getSessionContext` works locally:
