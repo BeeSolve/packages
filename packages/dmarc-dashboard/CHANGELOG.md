@@ -1,5 +1,14 @@
 # @beesolve/dmarc-dashboard
 
+## 0.4.2
+
+### Patch Changes
+
+- Republish the dashboard build under a new version. The theme-toggle and
+  native-dialog fix was assigned to `0.4.1`, but `0.4.1` had already been
+  published to npm with an older build, so the fix never shipped. Bump to
+  `0.4.2` so the corrected build is publishable and deployable.
+
 ## 0.4.1
 
 ### Patch Changes
