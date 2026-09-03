@@ -3,7 +3,7 @@ import { Users } from "$lib/server/users";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { AuthClient } from "@beesolve/auth-service/sdk";
-import { createSessionHandle } from "@beesolve/auth-service/sveltekit";
+import { createSessionHandle, type SessionContext } from "@beesolve/auth-service/sveltekit";
 import { Domains } from "@beesolve/dmarc-consumer/domain";
 import { IpInfoCache } from "@beesolve/dmarc-consumer/ip-info";
 import { ProcessingStats } from "@beesolve/dmarc-consumer/processing-stats";
@@ -85,4 +85,22 @@ const authGuard: Handle = async ({ event, resolve }) => {
   return resolve(event);
 };
 
-export const handle = sequence(createSessionHandle(), authGuard);
+// In local dev the auth service applies `fallbackSession` automatically (there
+// is no Lambda authorizer). Point it at a real user's email via DEV_USER_EMAIL
+// so the downstream `users.getByEmail` lookup resolves against the real table
+// and you get that user's role/domains. Ignored entirely when running in Lambda.
+const devUserEmail = process.env.DEV_USER_EMAIL;
+const fallbackSession =
+  import.meta.env.DEV && devUserEmail != null
+    ? ({
+        type: "valid" as const,
+        validSession: {
+          userId: devUserEmail,
+          sessionId: "dev-session",
+          expiresAt: new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString(),
+        },
+        setCookiesParams: [],
+      } satisfies SessionContext)
+    : undefined;
+
+export const handle = sequence(createSessionHandle({ fallbackSession }), authGuard);

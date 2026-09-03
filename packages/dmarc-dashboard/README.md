@@ -93,12 +93,39 @@ The SvelteKit build requires a `FRONTEND_URI` environment variable (the CloudFro
 
 ## Local Development
 
+Run the SvelteKit dev server against the **real** deployed backend — no fixtures:
+
 ```bash
 bun install
+cp .env.local.example .env.local   # then fill in real values
+aws sso login                      # (or export AWS_PROFILE) so SDK clients can reach AWS
 bun run dev
 ```
 
-Requires `DMARC_TABLE_NAME` and `DMARC_REVERSE_INDEX` environment variables pointing to a DynamoDB table (local or remote).
+`bun run dev` serves on http://localhost:5173. The `dev` script runs
+`bun --env-file=.env.local vite dev`, so `.env.local` is loaded into `process.env`
+before the server starts, where both `hooks.server.ts` and the workspace SDK
+clients read it at import time. (`.env.local` must exist — it is the local dev
+config; copy it from `.env.local.example`.)
+
+### Faking the session
+
+There is no Lambda authorizer locally, so `@beesolve/auth-service` injects a dev
+session automatically. Set `DEV_USER_EMAIL` in `.env.local` to a **real** user's
+email in the DMARC table — the app looks it up to resolve that user's role
+(admin/user) and permitted domains, so you see the same UI they would. This is
+guarded by `import.meta.env.DEV` and is never included in the deployed bundle.
+
+If `DEV_USER_EMAIL` is unset, the auth service falls back to its built-in
+`dev-user` session, which won't resolve against the table (nav hides
+admin-only links and data lookups for that user return nothing).
+
+### Required env vars
+
+See [`.env.local.example`](./.env.local.example) for the full list. Beyond the two
+table vars, the auth/email/consumer SDK clients parse their own env at import
+time (auth handler ARN, email queue/table/bucket, tasks queue), so all must be
+present or the first request will throw.
 
 ## Features
 
@@ -106,6 +133,13 @@ Requires `DMARC_TABLE_NAME` and `DMARC_REVERSE_INDEX` environment variables poin
 - Per-domain report timeline with pagination
 - User management (invite, remove)
 - Email-code sign-in (no passwords)
+
+## Source IP enrichment (ipinfo.io)
+
+Source IPs can be enriched with ASN / organization name and country via the free
+ipinfo.io Lite API. This is optional — without a key the ASN / country columns
+render as `—`. See [docs/ipinfo-setup.md](./docs/ipinfo-setup.md) for how to obtain
+a key and configure it locally and in a deployment.
 
 ## License
 
