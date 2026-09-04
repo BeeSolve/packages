@@ -1,6 +1,6 @@
 {
   "name": "@beesolve/hmac",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "HMAC signer",
   "homepage": "https://github.com/beesolve/packages/tree/main/packages/hmac#readme",
   "license": "MIT",
