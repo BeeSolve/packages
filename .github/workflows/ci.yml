@@ -19,3 +19,7 @@ jobs:
       - run: bun run lint
 
       - run: bun run type-check
+
+      # `bun run test` builds first; CI already built above, so run the
+      # per-package tests directly against that build to avoid a rebuild.
+      - run: bun run --filter '*' test

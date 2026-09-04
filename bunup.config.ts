@@ -1,8 +1,19 @@
+import type { DefineWorkspaceItem } from "bunup";
 import { defineWorkspace } from "bunup";
 
 // https://bunup.dev/docs/guide/workspaces
 
-export default defineWorkspace([
+// bunup builds workspace packages concurrently. With `clean` enabled (the
+// default) each package removes and recreates its own `dist` in parallel, and
+// bunup's post-build file reads race against another package's clean, failing
+// intermittently with `ENOENT: no such file or directory, open '.../dist/*.js'`.
+// The failing file changes run to run, confirming a clean/build race rather
+// than a genuine error. We disable bunup's per-package clean here and instead
+// clean every `dist` once, up front and sequentially, in `scripts/cleanDist.ts`
+// (invoked before bunup via the root `build` script), which removes the race
+// while still producing a clean output directory.
+// @see https://bunup.dev/docs/guide/workspaces
+const workspace: Array<DefineWorkspaceItem> = [
   {
     name: "@beesolve/dmarc-parser",
     root: "packages/dmarc-parser",
@@ -151,4 +162,13 @@ export default defineWorkspace([
       },
     },
   },
-]);
+];
+
+export default defineWorkspace(
+  workspace.map((item) => ({
+    ...item,
+    config: Array.isArray(item.config)
+      ? item.config.map((entry) => ({ ...entry, clean: false }))
+      : { ...item.config, clean: false },
+  })),
+);
