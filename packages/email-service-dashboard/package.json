@@ -1,0 +1,68 @@
+{
+  "name": "@beesolve/email-service-dashboard",
+  "version": "0.0.0",
+  "description": "Email service dashboard — SvelteKit app for viewing email delivery status",
+  "homepage": "https://github.com/beesolve/packages/tree/main/packages/email-service-dashboard#readme",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/beesolve/packages.git"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "exports": {
+    "./cdk": {
+      "import": {
+        "types": "./dist/cdk.d.ts",
+        "default": "./dist/cdk.js"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "prepare": "svelte-kit sync || true",
+    "dev": "bun --env-file=.env.local vite dev",
+    "build": "DASHBOARD_TABLE_NAME=build-placeholder DASHBOARD_REVERSE_INDEX=build-placeholder vite build",
+    "type-check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "test": "bun test",
+    "prepublishOnly": "bun build.ts && bun run build"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "catalog:",
+    "@aws-sdk/lib-dynamodb": "catalog:",
+    "@beesolve/auth-service": "workspace:^",
+    "@beesolve/cdk-constructs": "workspace:^",
+    "@beesolve/email-service": "workspace:^",
+    "@beesolve/lambda-fetch-api": "workspace:^",
+    "@drop-in/graffiti": "^4.30.0",
+    "kit-on-lambda": "^0.8.1",
+    "valibot": "catalog:"
+  },
+  "devDependencies": {
+    "@sveltejs/kit": "^2.70.3",
+    "@sveltejs/vite-plugin-svelte": "^7.3.0",
+    "@types/aws-lambda": "catalog:",
+    "@types/bun": "catalog:",
+    "@types/node": "catalog:",
+    "aws-cdk-lib": "catalog:",
+    "constructs": "catalog:",
+    "svelte": "^5.57.0",
+    "svelte-check": "^4.2.1",
+    "typescript": "~6.0.3",
+    "vite": "^8.2.2"
+  },
+  "peerDependencies": {
+    "aws-cdk-lib": "catalog:",
+    "constructs": "catalog:"
+  },
+  "peerDependenciesMeta": {
+    "aws-cdk-lib": {
+      "optional": true
+    },
+    "constructs": {
+      "optional": true
+    }
+  }
+}

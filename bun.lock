@@ -194,6 +194,42 @@
         "typescript",
       ],
     },
+    "packages/email-service-dashboard": {
+      "name": "@beesolve/email-service-dashboard",
+      "version": "0.0.0",
+      "dependencies": {
+        "@aws-sdk/client-dynamodb": "catalog:",
+        "@aws-sdk/lib-dynamodb": "catalog:",
+        "@beesolve/auth-service": "workspace:^",
+        "@beesolve/cdk-constructs": "workspace:^",
+        "@beesolve/email-service": "workspace:^",
+        "@beesolve/lambda-fetch-api": "workspace:^",
+        "@drop-in/graffiti": "^4.30.0",
+        "kit-on-lambda": "^0.8.1",
+        "valibot": "catalog:",
+      },
+      "devDependencies": {
+        "@sveltejs/kit": "^2.70.3",
+        "@sveltejs/vite-plugin-svelte": "^7.3.0",
+        "@types/aws-lambda": "catalog:",
+        "@types/bun": "catalog:",
+        "@types/node": "catalog:",
+        "aws-cdk-lib": "catalog:",
+        "constructs": "catalog:",
+        "svelte": "^5.57.0",
+        "svelte-check": "^4.2.1",
+        "typescript": "~6.0.3",
+        "vite": "^8.2.2",
+      },
+      "peerDependencies": {
+        "aws-cdk-lib": "catalog:",
+        "constructs": "catalog:",
+      },
+      "optionalPeers": [
+        "aws-cdk-lib",
+        "constructs",
+      ],
+    },
     "packages/helpers": {
       "name": "@beesolve/helpers",
       "version": "0.1.7",
@@ -549,6 +585,8 @@
     "@beesolve/dmarc-reports": ["@beesolve/dmarc-reports@workspace:packages/dmarc-reports"],
 
     "@beesolve/email-service": ["@beesolve/email-service@workspace:packages/service-email"],
+
+    "@beesolve/email-service-dashboard": ["@beesolve/email-service-dashboard@workspace:packages/email-service-dashboard"],
 
     "@beesolve/helpers": ["@beesolve/helpers@workspace:packages/helpers"],
 
@@ -1351,6 +1389,8 @@
     "@aws-cdk/cloud-assembly-schema/semver": ["semver@7.8.5", "", { "bundled": true, "bin": { "semver": "bin/semver.js" } }, "sha512-Y7/KDsb8LjooZpwaqGyulO6DQlksgCncchHGk+sZIY4SBvUocMBEFH5Ur1fI4dV+Jvl0w6cjvucaIi40puRioA=="],
 
     "@beesolve/dmarc-dashboard/typescript": ["typescript@6.0.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-y2TvuxSZPDyQakkFRPZHKFm+KKVqIisdg9/CZwm9ftvKXLP8NRWj38/ODjNbr43SsoXqNuAisEf1GdCxqWcdBw=="],
+
+    "@beesolve/email-service-dashboard/typescript": ["typescript@6.0.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-y2TvuxSZPDyQakkFRPZHKFm+KKVqIisdg9/CZwm9ftvKXLP8NRWj38/ODjNbr43SsoXqNuAisEf1GdCxqWcdBw=="],
 
     "@react-email/markdown/marked": ["marked@15.0.12", "", { "bin": { "marked": "bin/marked.js" } }, "sha512-8dD6FusOQSrpv9Z1rdNMdlSgQOIP880DHqnohobOmYLElGEqAL/JvxvuxZO16r4HtjTlfPRDC1hbvxC9dPN2nA=="],
 
