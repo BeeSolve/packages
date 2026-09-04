@@ -12,24 +12,23 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 
   const targetEmail = decodeURIComponent(params.email);
 
-  let targetUser;
   try {
-    targetUser = await locals.services.users.getByEmail({ email: targetEmail });
+    const targetUser = await locals.services.users.getByEmail({ email: targetEmail });
+
+    const allDomains = await locals.services.domains.list();
+
+    return {
+      targetUser: {
+        email: targetUser.email,
+        type: targetUser.type,
+        domains: targetUser.domains,
+      },
+      availableDomains: allDomains.map((domain) => domain.domain),
+      userTypes,
+    };
   } catch {
     error(404, "User not found");
   }
-
-  const allDomains = await locals.services.domains.list();
-
-  return {
-    targetUser: {
-      email: targetUser.email,
-      type: targetUser.type,
-      domains: targetUser.domains,
-    },
-    availableDomains: allDomains.map((domain) => domain.domain),
-    userTypes,
-  };
 };
 
 export const actions: Actions = {
@@ -63,8 +62,10 @@ export const actions: Actions = {
     const validType = typeResult.output;
 
     try {
-      await locals.services.users.updateDomains({ email: targetEmail, domains: validDomains });
-      await locals.services.users.updateType({ email: targetEmail, type: validType });
+      await Promise.all([
+        locals.services.users.updateDomains({ email: targetEmail, domains: validDomains }),
+        locals.services.users.updateType({ email: targetEmail, type: validType }),
+      ]);
     } catch (updateError) {
       if (updateError instanceof Error && updateError.name === "UserNotFoundError") {
         error(404, "User not found");

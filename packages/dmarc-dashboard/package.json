@@ -39,7 +39,7 @@
     "@beesolve/email-service": "workspace:^",
     "@beesolve/lambda-fetch-api": "workspace:^",
     "@drop-in/graffiti": "^4.30.0",
-    "kit-on-lambda": "^0.7.0",
+    "kit-on-lambda": "^0.8.1",
     "valibot": "catalog:"
   },
   "devDependencies": {

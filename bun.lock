@@ -235,7 +235,7 @@
       "version": "2.1.4",
       "dependencies": {
         "@aws-sdk/client-lambda": "^3.1124.0",
-        "@aws-sdk/client-resource-groups-tagging-api": "^3.1126.0",
+        "@aws-sdk/client-resource-groups-tagging-api": "^3.1124.0",
         "@beesolve/cdk-constructs": "workspace:^",
       },
       "devDependencies": {

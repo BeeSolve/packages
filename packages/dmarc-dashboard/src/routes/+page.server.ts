@@ -9,13 +9,14 @@ export const load: PageServerLoad = async ({ locals }) => {
     error(403, "Access denied");
   }
 
-  const allDomains = await locals.services.domains.list();
+  const [allDomains, statuses] = await Promise.all([
+    locals.services.domains.list(),
+    locals.services.backfill.getStatuses(),
+  ]);
   const visibleDomains =
     user.type === "admin"
       ? allDomains
       : allDomains.filter((domain) => user.domains.includes(domain.domain));
-
-  const statuses = await locals.services.backfill.getStatuses();
 
   return {
     domains: visibleDomains.map((domain) => {

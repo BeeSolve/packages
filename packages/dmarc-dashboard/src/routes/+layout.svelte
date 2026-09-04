@@ -10,15 +10,17 @@
     <nav class="nav">
       <a href="/" class="nav-brand">DMARC Dashboard</a>
       <div class="nav-links">
-        <a href="/" class="nav-link">Domains</a>
-        {#if data.user?.type === "admin"}
-          <a href="/stats" class="nav-link">Stats</a>
-          <a href="/users" class="nav-link">Users</a>
+        {#if data.user != null}
+          <a href="/" class="nav-link">Domains</a>
+          {#if data.user.type === "admin"}
+            <a href="/stats" class="nav-link">Stats</a>
+            <a href="/users" class="nav-link">Users</a>
+          {/if}
         {/if}
       </div>
       <div class="nav-actions">
         <ThemeSwitcher />
-        {#if data.user}
+        {#if data.user != null}
           <form method="POST" action="/auth/signOut" class="nav-sign-out">
             <input type="hidden" name="redirectTo" value="/sign-in" />
             <button type="submit" class="button minimal">Sign out</button>
