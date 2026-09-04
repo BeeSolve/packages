@@ -162,6 +162,13 @@ const workspace: Array<DefineWorkspaceItem> = [
       },
     },
   },
+  {
+    name: "@beesolve/hmac",
+    root: "packages/hmac",
+    config: {
+      entry: ["index.ts"],
+    },
+  },
 ];
 
 export default defineWorkspace(

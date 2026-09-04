@@ -112,7 +112,7 @@
     },
     "packages/dmarc-dashboard": {
       "name": "@beesolve/dmarc-dashboard",
-      "version": "0.4.6",
+      "version": "0.4.7",
       "dependencies": {
         "@aws-sdk/client-dynamodb": "catalog:",
         "@aws-sdk/lib-dynamodb": "catalog:",
@@ -200,6 +200,20 @@
       "dependencies": {
         "valibot": "catalog:",
       },
+      "devDependencies": {
+        "@types/bun": "catalog:",
+        "@types/node": "catalog:",
+      },
+      "peerDependencies": {
+        "typescript": "catalog:",
+      },
+      "optionalPeers": [
+        "typescript",
+      ],
+    },
+    "packages/hmac": {
+      "name": "@beesolve/hmac",
+      "version": "0.1.0",
       "devDependencies": {
         "@types/bun": "catalog:",
         "@types/node": "catalog:",
@@ -537,6 +551,8 @@
     "@beesolve/email-service": ["@beesolve/email-service@workspace:packages/service-email"],
 
     "@beesolve/helpers": ["@beesolve/helpers@workspace:packages/helpers"],
+
+    "@beesolve/hmac": ["@beesolve/hmac@workspace:packages/hmac"],
 
     "@beesolve/lambda-bun-runtime": ["@beesolve/lambda-bun-runtime@3.10400.0", "", { "peerDependencies": { "aws-cdk-lib": "^2.238.0", "constructs": "^10.4.5" } }, "sha512-am3jSgtw+ybph57XBqgm62eDo8JvhINdv6DsaSEEPFY/jdrsGFbfkTQIKHD3JAoDDDU9hU565nNTV+Y+7C0uRw=="],
 
