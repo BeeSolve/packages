@@ -1,6 +1,11 @@
 import { TransactionCanceledException } from "@aws-sdk/client-dynamodb";
 import type { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
-import { BatchGetCommand, QueryCommand, TransactWriteCommand } from "@aws-sdk/lib-dynamodb";
+import {
+  BatchGetCommand,
+  GetCommand,
+  QueryCommand,
+  TransactWriteCommand,
+} from "@aws-sdk/lib-dynamodb";
 import { assertUnreachable, call, splitArrayToChunks } from "@beesolve/helpers";
 import * as v from "valibot";
 
@@ -303,6 +308,23 @@ export class Messages {
       if (isAlreadyApplied(error)) return;
       throw error;
     }
+  };
+
+  readonly getById = async ({
+    messageId,
+  }: {
+    readonly messageId: string;
+  }): Promise<MessageModel | null> => {
+    const { Item: item } = await this.props.dynamo.send(
+      new GetCommand({
+        TableName: this.props.tableName,
+        Key: { pk: messageId, sk: entity },
+      }),
+    );
+
+    if (item == null) return null;
+
+    return this.toModel(this.parseOne(item));
   };
 
   readonly messageManyByRecipient = async ({

@@ -324,3 +324,30 @@ describe("Messages.messagesManyForMonth", () => {
     expect(result.items[0]?.id).toBe(messageId);
   });
 });
+
+describe("Messages.getById", () => {
+  it("GetCommands pk/sk and returns a parsed MessageModel", async () => {
+    const { dynamo, send } = makeDynamo();
+    send.mockResolvedValueOnce({ Item: storedMessageItem() });
+    const messages = new Messages({ dynamo, tableName: "t", reverseIndexName: "reverse" });
+
+    const model = await messages.getById({ messageId });
+
+    const getInput = getCommandInput(send, 0);
+    expect(getInput.Key).toEqual({ pk: messageId, sk: "message" });
+    expect(model?.id).toBe(messageId);
+    // latest by timestamp is the complaint at 12:00:20
+    expect(model?.status).toBe("complained");
+    expect(model?.logByRecipient["recipient@example.com"]).toHaveLength(3);
+  });
+
+  it("returns null when the item is not found", async () => {
+    const { dynamo, send } = makeDynamo();
+    send.mockResolvedValueOnce({ Item: undefined });
+    const messages = new Messages({ dynamo, tableName: "t", reverseIndexName: "reverse" });
+
+    const model = await messages.getById({ messageId });
+
+    expect(model).toBeNull();
+  });
+});
