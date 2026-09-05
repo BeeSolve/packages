@@ -1,34 +1,87 @@
+import { Messages } from "$lib/server/messages";
+import { Recipients } from "$lib/server/recipients";
+import { Setup } from "$lib/server/setup";
+import { GlobalStats } from "$lib/server/stats";
+import { Users } from "$lib/server/users";
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
+import { AuthClient } from "@beesolve/auth-service/sdk";
 import { createSessionHandle, type SessionContext } from "@beesolve/auth-service/sveltekit";
+import { Email } from "@beesolve/email-service/sdk";
 import { redirect, type Handle } from "@sveltejs/kit";
 import { sequence } from "@sveltejs/kit/hooks";
 import * as v from "valibot";
 
-// Env is parsed eagerly at module load. `vite build` imports this file during
-// SSR analysis, so the required `v.string()` vars must be present — the `build`
-// script supplies placeholder values (see package.json).
 const envSchema = v.object({
   DASHBOARD_TABLE_NAME: v.string(),
   DASHBOARD_REVERSE_INDEX: v.string(),
 });
-v.parse(envSchema, process.env);
+const env = v.parse(envSchema, process.env);
+
+const dynamo = DynamoDBDocumentClient.from(new DynamoDBClient(), {
+  marshallOptions: {
+    removeUndefinedValues: true,
+    convertEmptyValues: false,
+  },
+});
+
+const messages = new Messages({
+  dynamo,
+  tableName: env.DASHBOARD_TABLE_NAME,
+  reverseIndexName: env.DASHBOARD_REVERSE_INDEX,
+});
+const globalStats = new GlobalStats({ dynamo, tableName: env.DASHBOARD_TABLE_NAME });
+const recipients = new Recipients({
+  dynamo,
+  tableName: env.DASHBOARD_TABLE_NAME,
+  reverseIndexName: env.DASHBOARD_REVERSE_INDEX,
+});
+const users = new Users({
+  dynamo,
+  tableName: env.DASHBOARD_TABLE_NAME,
+  reverseIndexName: env.DASHBOARD_REVERSE_INDEX,
+});
+const setup = new Setup({ dynamo, tableName: env.DASHBOARD_TABLE_NAME });
+const authClient = new AuthClient();
+const email = new Email();
 
 const publicPaths = new Set(["/sign-in", "/sign-in/verify", "/setup"]);
 
 const authGuard: Handle = async ({ event, resolve }) => {
+  event.locals.services = {
+    messages,
+    globalStats,
+    recipients,
+    users,
+    setup,
+    authClient,
+    email,
+  };
+
   const isPublic = publicPaths.has(event.url.pathname);
 
   if (event.locals.session.type !== "valid" && !isPublic) {
     redirect(303, "/sign-in");
   }
 
-  event.locals.user = null;
+  if (event.locals.session.type === "valid" && !isPublic) {
+    try {
+      const user = await users.getByEmail({ email: event.locals.session.validSession.userId });
+      event.locals.user = { email: user.email, type: user.type };
+    } catch {
+      event.locals.user = null;
+    }
+  } else {
+    event.locals.user = null;
+  }
 
   return resolve(event);
 };
 
 // In local dev the auth service applies `fallbackSession` automatically (there
 // is no Lambda authorizer). Point it at a real user's email via DEV_USER_EMAIL
-// so downstream lookups resolve against the real table. Ignored in Lambda.
+// so the downstream `users.getByEmail` lookup resolves against the real table
+// and you get that user's role. Ignored entirely when running in Lambda.
 const devUserEmail = process.env.DEV_USER_EMAIL;
 const fallbackSession =
   import.meta.env.DEV && devUserEmail != null
