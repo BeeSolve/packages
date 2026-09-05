@@ -36,144 +36,152 @@ const messages = new Messages({
   reverseIndexName: env.DASHBOARD_REVERSE_INDEX,
 });
 
-export const handler = async (event: SQSEvent): Promise<SQSBatchResponse> => {
-  const batchItemFailures: Array<{ itemIdentifier: string }> = [];
+export const createHandler = ({
+  messages,
+}: {
+  readonly messages: Pick<Messages, "upsert">;
+}): ((event: SQSEvent) => Promise<SQSBatchResponse>) => {
+  return async (event: SQSEvent): Promise<SQSBatchResponse> => {
+    const batchItemFailures: Array<{ itemIdentifier: string }> = [];
 
-  for (const record of event.Records) {
-    try {
-      const parsed = parseEmailEvent(record.body);
-      if (parsed == null) continue;
+    for (const record of event.Records) {
+      try {
+        const parsed = parseEmailEvent(record.body);
+        if (parsed == null) continue;
 
-      if (isEmailSentFailure(parsed)) {
-        // todo: implement
-        continue;
-      }
+        if (isEmailSentFailure(parsed)) {
+          // todo: implement
+          continue;
+        }
 
-      if (isEmailSentSuccess(parsed)) {
-        const now = new Date().toISOString();
-        await messages.upsert({
-          eventId: parsed.id,
-          messageId: parsed.detail.messageId,
-          recipients: parsed.detail.request.recipients,
-          subject: parsed.detail.request.subject,
-          sender: parsed.detail.request.sender?.emailAddress ?? "todo: not sure what to do here",
-          createdAt: now,
-          data: {
-            status: "requested",
-            requestId: parsed.detail.requestId,
-            timestamp: now,
-          },
-        });
-        continue;
-      }
+        if (isEmailSentSuccess(parsed)) {
+          const now = new Date().toISOString();
+          await messages.upsert({
+            eventId: parsed.id,
+            messageId: parsed.detail.messageId,
+            recipients: parsed.detail.request.recipients,
+            subject: parsed.detail.request.subject,
+            sender: parsed.detail.request.sender?.emailAddress ?? "todo: not sure what to do here",
+            createdAt: now,
+            data: {
+              status: "requested",
+              requestId: parsed.detail.requestId,
+              timestamp: now,
+            },
+          });
+          continue;
+        }
 
-      if (isSesSend(parsed)) {
-        await messages.upsert({
-          eventId: parsed.id,
-          messageId: parsed.detail.mail.messageId,
-          recipients: parsed.detail.mail.destination,
-          subject: commonHeaderString(parsed.detail.mail.commonHeaders, "subject"),
-          sender: parsed.detail.mail.source,
-          createdAt: parsed.detail.mail.timestamp,
-          data: { status: "sent", timestamp: parsed.detail.mail.timestamp },
-        });
-        continue;
-      }
-
-      if (isSesDelivery(parsed)) {
-        await messages.upsert({
-          eventId: parsed.id,
-          messageId: parsed.detail.mail.messageId,
-          recipients: parsed.detail.mail.destination,
-          subject: commonHeaderString(parsed.detail.mail.commonHeaders, "subject"),
-          sender: parsed.detail.mail.source,
-          createdAt: parsed.detail.mail.timestamp,
-          data: {
-            status: "delivered",
-            deliveredAt: parsed.detail.delivery.timestamp,
-            deliveryMs: parsed.detail.delivery.processingTimeMillis,
-            timestamp: parsed.detail.delivery.timestamp,
+        if (isSesSend(parsed)) {
+          await messages.upsert({
+            eventId: parsed.id,
+            messageId: parsed.detail.mail.messageId,
             recipients: parsed.detail.mail.destination,
-          },
-        });
-        continue;
-      }
+            subject: commonHeaderString(parsed.detail.mail.commonHeaders, "subject"),
+            sender: parsed.detail.mail.source,
+            createdAt: parsed.detail.mail.timestamp,
+            data: { status: "sent", timestamp: parsed.detail.mail.timestamp },
+          });
+          continue;
+        }
 
-      if (isSesBounce(parsed)) {
-        const diagnosticCode = parsed.detail.bounce.bouncedRecipients.find(
-          (bouncedRecipient) => bouncedRecipient.diagnosticCode != null,
-        )?.diagnosticCode;
-        await messages.upsert({
-          eventId: parsed.id,
-          messageId: parsed.detail.mail.messageId,
-          recipients: parsed.detail.mail.destination,
-          subject: commonHeaderString(parsed.detail.mail.commonHeaders, "subject"),
-          sender: parsed.detail.mail.source,
-          createdAt: parsed.detail.mail.timestamp,
-          data: {
-            status: "bounced",
-            bounceType: parsed.detail.bounce.bounceType,
-            bounceSubType: parsed.detail.bounce.bounceSubType,
-            recipients: parsed.detail.bounce.bouncedRecipients.map(
-              (bouncedRecipient) => bouncedRecipient.emailAddress,
-            ),
-            ...(diagnosticCode != null ? { diagnosticCode } : {}),
-            at: parsed.detail.bounce.timestamp,
-            timestamp: parsed.detail.bounce.timestamp,
-          },
-        });
-        continue;
-      }
-
-      if (isSesComplaint(parsed)) {
-        await messages.upsert({
-          eventId: parsed.id,
-          messageId: parsed.detail.mail.messageId,
-          recipients: parsed.detail.mail.destination,
-          subject: commonHeaderString(parsed.detail.mail.commonHeaders, "subject"),
-          sender: parsed.detail.mail.source,
-          createdAt: parsed.detail.mail.timestamp,
-          data: {
-            status: "complained",
-            recipients: parsed.detail.complaint.complainedRecipients.map(
-              (complainedRecipient) => complainedRecipient.emailAddress,
-            ),
-            ...(parsed.detail.complaint.complaintFeedbackType != null
-              ? { feedbackType: parsed.detail.complaint.complaintFeedbackType }
-              : {}),
-            at: parsed.detail.complaint.timestamp,
-            timestamp: parsed.detail.complaint.timestamp,
-          },
-        });
-        continue;
-      }
-
-      if (isSesReject(parsed)) {
-        await messages.upsert({
-          eventId: parsed.id,
-          messageId: parsed.detail.mail.messageId,
-          recipients: parsed.detail.mail.destination,
-          subject: commonHeaderString(parsed.detail.mail.commonHeaders, "subject"),
-          sender: parsed.detail.mail.source,
-          createdAt: parsed.detail.mail.timestamp,
-          data: {
-            status: "rejected",
-            reason: parsed.detail.reject.reason,
-            at: parsed.detail.mail.timestamp,
-            timestamp: parsed.detail.mail.timestamp,
+        if (isSesDelivery(parsed)) {
+          await messages.upsert({
+            eventId: parsed.id,
+            messageId: parsed.detail.mail.messageId,
             recipients: parsed.detail.mail.destination,
-          },
-        });
-        continue;
+            subject: commonHeaderString(parsed.detail.mail.commonHeaders, "subject"),
+            sender: parsed.detail.mail.source,
+            createdAt: parsed.detail.mail.timestamp,
+            data: {
+              status: "delivered",
+              deliveredAt: parsed.detail.delivery.timestamp,
+              deliveryMs: parsed.detail.delivery.processingTimeMillis,
+              timestamp: parsed.detail.delivery.timestamp,
+              recipients: parsed.detail.mail.destination,
+            },
+          });
+          continue;
+        }
+
+        if (isSesBounce(parsed)) {
+          const diagnosticCode = parsed.detail.bounce.bouncedRecipients.find(
+            (bouncedRecipient) => bouncedRecipient.diagnosticCode != null,
+          )?.diagnosticCode;
+          await messages.upsert({
+            eventId: parsed.id,
+            messageId: parsed.detail.mail.messageId,
+            recipients: parsed.detail.mail.destination,
+            subject: commonHeaderString(parsed.detail.mail.commonHeaders, "subject"),
+            sender: parsed.detail.mail.source,
+            createdAt: parsed.detail.mail.timestamp,
+            data: {
+              status: "bounced",
+              bounceType: parsed.detail.bounce.bounceType,
+              bounceSubType: parsed.detail.bounce.bounceSubType,
+              recipients: parsed.detail.bounce.bouncedRecipients.map(
+                (bouncedRecipient) => bouncedRecipient.emailAddress,
+              ),
+              ...(diagnosticCode != null ? { diagnosticCode } : {}),
+              at: parsed.detail.bounce.timestamp,
+              timestamp: parsed.detail.bounce.timestamp,
+            },
+          });
+          continue;
+        }
+
+        if (isSesComplaint(parsed)) {
+          await messages.upsert({
+            eventId: parsed.id,
+            messageId: parsed.detail.mail.messageId,
+            recipients: parsed.detail.mail.destination,
+            subject: commonHeaderString(parsed.detail.mail.commonHeaders, "subject"),
+            sender: parsed.detail.mail.source,
+            createdAt: parsed.detail.mail.timestamp,
+            data: {
+              status: "complained",
+              recipients: parsed.detail.complaint.complainedRecipients.map(
+                (complainedRecipient) => complainedRecipient.emailAddress,
+              ),
+              ...(parsed.detail.complaint.complaintFeedbackType != null
+                ? { feedbackType: parsed.detail.complaint.complaintFeedbackType }
+                : {}),
+              at: parsed.detail.complaint.timestamp,
+              timestamp: parsed.detail.complaint.timestamp,
+            },
+          });
+          continue;
+        }
+
+        if (isSesReject(parsed)) {
+          await messages.upsert({
+            eventId: parsed.id,
+            messageId: parsed.detail.mail.messageId,
+            recipients: parsed.detail.mail.destination,
+            subject: commonHeaderString(parsed.detail.mail.commonHeaders, "subject"),
+            sender: parsed.detail.mail.source,
+            createdAt: parsed.detail.mail.timestamp,
+            data: {
+              status: "rejected",
+              reason: parsed.detail.reject.reason,
+              at: parsed.detail.mail.timestamp,
+              timestamp: parsed.detail.mail.timestamp,
+              recipients: parsed.detail.mail.destination,
+            },
+          });
+          continue;
+        }
+      } catch (error) {
+        console.error(error);
+        batchItemFailures.push({ itemIdentifier: record.messageId });
       }
-    } catch (error) {
-      console.error(error);
-      batchItemFailures.push({ itemIdentifier: record.messageId });
     }
-  }
 
-  return { batchItemFailures };
+    return { batchItemFailures };
+  };
 };
+
+export const handler = createHandler({ messages });
 
 function commonHeaderString(headers: Record<string, string | Array<string>>, key: string): string {
   const value = headers[key];
