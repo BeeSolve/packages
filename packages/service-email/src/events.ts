@@ -1,11 +1,14 @@
 import type { EventBridge } from "@aws-sdk/client-eventbridge";
 import * as v from "valibot";
 
+import { requestSchema } from "./validation";
+
 const emailSentSuccessSchema = v.object({
   type: v.literal("EmailSentSuccess"),
   detail: v.object({
     requestId: v.string(),
     messageId: v.string(),
+    request: requestSchema,
   }),
 });
 

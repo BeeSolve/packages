@@ -203,6 +203,7 @@
         "@beesolve/auth-service": "workspace:^",
         "@beesolve/cdk-constructs": "workspace:^",
         "@beesolve/email-service": "workspace:^",
+        "@beesolve/helpers": "workspace:^",
         "@beesolve/lambda-fetch-api": "workspace:^",
         "@drop-in/graffiti": "^4.30.0",
         "kit-on-lambda": "^0.8.1",
@@ -249,7 +250,7 @@
     },
     "packages/hmac": {
       "name": "@beesolve/hmac",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "devDependencies": {
         "@types/bun": "catalog:",
         "@types/node": "catalog:",

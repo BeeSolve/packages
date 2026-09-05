@@ -10,16 +10,21 @@
 
 import * as v from "valibot";
 
+import { requestSchema } from "./src/validation";
+
 const emailSentSuccessSchema = v.object({
+  id: v.string(),
   source: v.literal("beesolve.email.api"),
   "detail-type": v.literal("EmailSentSuccess"),
   detail: v.object({
     requestId: v.string(),
     messageId: v.string(),
+    request: requestSchema,
   }),
 });
 
 const emailSentFailureSchema = v.object({
+  id: v.string(),
   source: v.literal("beesolve.email.api"),
   "detail-type": v.literal("EmailSentFailure"),
   detail: v.object({
@@ -48,6 +53,7 @@ const sesMailSchema = v.object({
 });
 
 const sesDeliverySchema = v.object({
+  id: v.string(),
   source: v.literal("aws.ses"),
   "detail-type": v.literal("SES Delivery"),
   detail: v.object({
@@ -63,6 +69,7 @@ const sesDeliverySchema = v.object({
 });
 
 const sesBounceSchema = v.object({
+  id: v.string(),
   source: v.literal("aws.ses"),
   "detail-type": v.literal("SES Bounce"),
   detail: v.object({
@@ -90,6 +97,7 @@ const sesBounceSchema = v.object({
 });
 
 const sesComplaintSchema = v.object({
+  id: v.string(),
   source: v.literal("aws.ses"),
   "detail-type": v.literal("SES Complaint"),
   detail: v.object({
@@ -106,6 +114,7 @@ const sesComplaintSchema = v.object({
 });
 
 const sesSendSchema = v.object({
+  id: v.string(),
   source: v.literal("aws.ses"),
   "detail-type": v.literal("SES Message Sent"),
   detail: v.object({
@@ -115,6 +124,7 @@ const sesSendSchema = v.object({
 });
 
 const sesRejectSchema = v.object({
+  id: v.string(),
   source: v.literal("aws.ses"),
   "detail-type": v.literal("SES Reject"),
   detail: v.object({
@@ -164,36 +174,29 @@ export function parseEmailEvent(body: string): EmailEvent | null {
 }
 
 export function isEmailSentSuccess(event: unknown): event is EmailSentSuccessEvent {
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-  return (event as Record<string, unknown> | null)?.["detail-type"] === "EmailSentSuccess";
+  return v.is(emailSentSuccessSchema, event);
 }
 
 export function isEmailSentFailure(event: unknown): event is EmailSentFailureEvent {
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-  return (event as Record<string, unknown> | null)?.["detail-type"] === "EmailSentFailure";
+  return v.is(emailSentFailureSchema, event);
 }
 
 export function isSesDelivery(event: unknown): event is SesDeliveryEvent {
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-  return (event as Record<string, unknown> | null)?.["detail-type"] === "SES Delivery";
+  return v.is(sesDeliverySchema, event);
 }
 
 export function isSesBounce(event: unknown): event is SesBounceEvent {
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-  return (event as Record<string, unknown> | null)?.["detail-type"] === "SES Bounce";
+  return v.is(sesBounceSchema, event);
 }
 
 export function isSesComplaint(event: unknown): event is SesComplaintEvent {
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-  return (event as Record<string, unknown> | null)?.["detail-type"] === "SES Complaint";
+  return v.is(sesComplaintSchema, event);
 }
 
 export function isSesSend(event: unknown): event is SesSendEvent {
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-  return (event as Record<string, unknown> | null)?.["detail-type"] === "SES Message Sent";
+  return v.is(sesSendSchema, event);
 }
 
 export function isSesReject(event: unknown): event is SesRejectEvent {
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-  return (event as Record<string, unknown> | null)?.["detail-type"] === "SES Reject";
+  return v.is(sesRejectSchema, event);
 }

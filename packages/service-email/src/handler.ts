@@ -167,6 +167,7 @@ export const handler = async (
         detail: {
           requestId: request.id,
           messageId: MessageId,
+          request,
         },
       });
 
