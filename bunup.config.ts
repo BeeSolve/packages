@@ -163,6 +163,18 @@ const workspace: Array<DefineWorkspaceItem> = [
     },
   },
   {
+    name: "@beesolve/email-service-dashboard",
+    root: "packages/email-service-dashboard",
+    config: {
+      entry: ["cdk.ts"],
+      preferredTsconfig: "./tsconfig.cdk.json",
+      dts: {
+        inferTypes: true,
+        tsgo: true,
+      },
+    },
+  },
+  {
     name: "@beesolve/hmac",
     root: "packages/hmac",
     config: {
