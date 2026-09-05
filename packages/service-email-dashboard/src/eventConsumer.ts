@@ -68,7 +68,11 @@ export const createHandler = ({
             messageId: parsed.detail.messageId,
             recipients: parsed.detail.request.recipients,
             subject: parsed.detail.request.subject,
-            sender: parsed.detail.request.sender?.emailAddress ?? "todo: not sure what to do here",
+            // EmailSentSuccess may omit `sender` (the service applies its
+            // configured default sender at send time). The subsequent SES
+            // "Message Sent" event carries the real `mail.source` and overwrites
+            // this via the same upsert, so an empty placeholder is fine here.
+            sender: parsed.detail.request.sender?.emailAddress ?? "",
             createdAt: now,
             data: {
               status: "requested",
