@@ -1,6 +1,6 @@
 {
   "name": "@beesolve/email-service-dashboard",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Email service dashboard — SvelteKit app for viewing email delivery status",
   "homepage": "https://github.com/beesolve/packages/tree/main/packages/service-email-dashboard#readme",
   "license": "MIT",
