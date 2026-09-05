@@ -37,7 +37,7 @@
               {#if record.type !== "admin"}
                 <span class="actions">
                   <a href="/users/{record.email}/edit">Edit</a>
-                  <form method="POST" action="?/delete" use:enhance>
+                  <form method="POST" use:enhance>
                     <input type="hidden" name="email" value={record.email} />
                     <button type="submit" class="button mini error">Delete</button>
                   </form>

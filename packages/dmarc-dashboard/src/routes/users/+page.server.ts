@@ -22,7 +22,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 };
 
 export const actions: Actions = {
-  delete: async ({ request, locals }) => {
+  default: async ({ request, locals }) => {
     const user = locals.user;
     if (user == null || user.type !== "admin") {
       error(403, "Access denied");
