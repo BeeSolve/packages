@@ -164,7 +164,7 @@ const workspace: Array<DefineWorkspaceItem> = [
   },
   {
     name: "@beesolve/email-service-dashboard",
-    root: "packages/email-service-dashboard",
+    root: "packages/service-email-dashboard",
     config: {
       entry: ["cdk.ts"],
       preferredTsconfig: "./tsconfig.cdk.json",

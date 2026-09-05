@@ -44,6 +44,7 @@
   - `packages/dmarc-parser/` → `@beesolve/dmarc-parser`
   - `packages/dmarc-reports/` → `@beesolve/dmarc-reports`
   - `packages/dmarc-consumer/` → `@beesolve/dmarc-consumer`
+  - `packages/service-email-dashboard/` → `@beesolve/email-service-dashboard`
 
 ## Build
 

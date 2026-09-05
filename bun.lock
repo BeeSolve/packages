@@ -194,43 +194,6 @@
         "typescript",
       ],
     },
-    "packages/email-service-dashboard": {
-      "name": "@beesolve/email-service-dashboard",
-      "version": "0.0.0",
-      "dependencies": {
-        "@aws-sdk/client-dynamodb": "catalog:",
-        "@aws-sdk/lib-dynamodb": "catalog:",
-        "@beesolve/auth-service": "workspace:^",
-        "@beesolve/cdk-constructs": "workspace:^",
-        "@beesolve/email-service": "workspace:^",
-        "@beesolve/helpers": "workspace:^",
-        "@beesolve/lambda-fetch-api": "workspace:^",
-        "@drop-in/graffiti": "^4.30.0",
-        "kit-on-lambda": "^0.8.1",
-        "valibot": "catalog:",
-      },
-      "devDependencies": {
-        "@sveltejs/kit": "^2.70.3",
-        "@sveltejs/vite-plugin-svelte": "^7.3.0",
-        "@types/aws-lambda": "catalog:",
-        "@types/bun": "catalog:",
-        "@types/node": "catalog:",
-        "aws-cdk-lib": "catalog:",
-        "constructs": "catalog:",
-        "svelte": "^5.57.0",
-        "svelte-check": "^4.2.1",
-        "typescript": "~6.0.3",
-        "vite": "^8.2.2",
-      },
-      "peerDependencies": {
-        "aws-cdk-lib": "catalog:",
-        "constructs": "catalog:",
-      },
-      "optionalPeers": [
-        "aws-cdk-lib",
-        "constructs",
-      ],
-    },
     "packages/helpers": {
       "name": "@beesolve/helpers",
       "version": "0.1.7",
@@ -431,6 +394,43 @@
         "typescript",
       ],
     },
+    "packages/service-email-dashboard": {
+      "name": "@beesolve/email-service-dashboard",
+      "version": "0.0.0",
+      "dependencies": {
+        "@aws-sdk/client-dynamodb": "catalog:",
+        "@aws-sdk/lib-dynamodb": "catalog:",
+        "@beesolve/auth-service": "workspace:^",
+        "@beesolve/cdk-constructs": "workspace:^",
+        "@beesolve/email-service": "workspace:^",
+        "@beesolve/helpers": "workspace:^",
+        "@beesolve/lambda-fetch-api": "workspace:^",
+        "@drop-in/graffiti": "^4.30.0",
+        "kit-on-lambda": "^0.8.1",
+        "valibot": "catalog:",
+      },
+      "devDependencies": {
+        "@sveltejs/kit": "^2.70.3",
+        "@sveltejs/vite-plugin-svelte": "^7.3.0",
+        "@types/aws-lambda": "catalog:",
+        "@types/bun": "catalog:",
+        "@types/node": "catalog:",
+        "aws-cdk-lib": "catalog:",
+        "constructs": "catalog:",
+        "svelte": "^5.57.0",
+        "svelte-check": "^4.2.1",
+        "typescript": "~6.0.3",
+        "vite": "^8.2.2",
+      },
+      "peerDependencies": {
+        "aws-cdk-lib": "catalog:",
+        "constructs": "catalog:",
+      },
+      "optionalPeers": [
+        "aws-cdk-lib",
+        "constructs",
+      ],
+    },
     "packages/sqs-handler": {
       "name": "@beesolve/sqs-handler",
       "version": "0.2.4",
@@ -587,7 +587,7 @@
 
     "@beesolve/email-service": ["@beesolve/email-service@workspace:packages/service-email"],
 
-    "@beesolve/email-service-dashboard": ["@beesolve/email-service-dashboard@workspace:packages/email-service-dashboard"],
+    "@beesolve/email-service-dashboard": ["@beesolve/email-service-dashboard@workspace:packages/service-email-dashboard"],
 
     "@beesolve/helpers": ["@beesolve/helpers@workspace:packages/helpers"],
 
