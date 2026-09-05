@@ -1,6 +1,6 @@
 # Email Service Dashboard (@beesolve/email-service-dashboard)
 
-## Status: In Progress
+## Status: Complete — all tasks (1–11) done
 
 ## Implementation Status & Deviations (updated this session)
 
@@ -433,7 +433,7 @@ Create the projection model, atomic stats, the `messageLog` set pattern, and the
 
 ---
 
-### Task 3: Users + Setup models (with tests)
+### Task 3: Users + Setup models (with tests) — [x] DONE
 
 - [ ] `src/lib/server/users.ts` — copy `Users` from dmarc-dashboard; DROP `domains` field + `updateDomains`; keep `getByEmail`, `create`, `hasAnyUsers`, `listAll`, `updateType`, `delete`, and the error classes. `userTypes=["admin","user"] as const`.
 - [ ] `src/lib/server/setup.ts` — copy verbatim (`isComplete`, `markComplete` with composite-key guard).
@@ -445,7 +445,7 @@ Create the projection model, atomic stats, the `messageLog` set pattern, and the
 
 ---
 
-### Task 4: hooks.server.ts wiring + app.d.ts + auth guard
+### Task 4: hooks.server.ts wiring + app.d.ts + auth guard — [x] DONE
 
 - [ ] `src/hooks.server.ts` — env schema (`DASHBOARD_TABLE_NAME`, `DASHBOARD_REVERSE_INDEX`); single `DynamoDBDocumentClient` with marshall options; instantiate `Messages`, `Users`, `Setup`, `AuthClient` (`/sdk`), `Email` (`/sdk`) once; `createSessionHandle` + `authGuard`; `publicPaths={"/sign-in","/sign-in/verify","/setup"}`; dev `fallbackSession` from `DEV_USER_EMAIL`; attach all to `event.locals.services`. Keep eager `v.parse` at module load (placeholder build env stays).
 - [ ] `src/app.d.ts` — finalize `App.Locals`: `services` = `{ messages, users, setup, authClient, email }`, `user: { email; type:"admin"|"user" } | null`.
@@ -456,12 +456,12 @@ Create the projection model, atomic stats, the `messageLog` set pattern, and the
 
 ---
 
-### Task 5: Auth routes + first-admin setup (copied from dmarc-dashboard)
+### Task 5: Auth routes + first-admin setup (copied from dmarc-dashboard) — [x] DONE
 
 - [ ] `src/routes/setup/{+page.server.ts,+page.svelte}` — copy verbatim; `users.create` without `domains`.
 - [ ] `src/routes/sign-in/{+layout.server.ts,+page.svelte}`, `sign-in/verify/{+page.ts,+page.svelte}` — copy verbatim.
 - [ ] `src/routes/+layout.server.ts` (`return { user: locals.user }`), `+layout.svelte` (nav shell + theme switcher; hide admin-only links for non-admins).
-- [ ] Copy shared components (theme switcher, status badge, summary card, rawJsonModal) from dmarc-dashboard `src/lib/components`.
+- [ ] Copy shared components (theme switcher, status badge, summary card) from dmarc-dashboard `src/lib/components`. NOTE: `rawJsonModal.svelte` and `calendar.svelte` were NOT copied (rawJsonModal unused/removed per review; calendar is DMARC `/domains`-coupled dead code). A `monthPicker` component (year+month select, default = current month, prev/next gated by current date) is introduced in Task 6.
 
 **Files:** `packages/email-service-dashboard/src/routes/{setup/*,sign-in/**,+layout.server.ts,+layout.svelte}`, `src/lib/components/*`
 
@@ -469,23 +469,40 @@ Create the projection model, atomic stats, the `messageLog` set pattern, and the
 
 ---
 
-### Task 6: Dashboard views (overview, messages list, message detail + body request, recipients, recipient history)
+### Task 6: Dashboard views (overview, messages list, message detail + per-recipient timelines, recipients, recipient history) — [x] DONE
 
 Server load functions only read `locals.services`; never construct clients. No FilterExpression.
 
-- [ ] `src/routes/{+page.server.ts,+page.svelte}` — overview from `messages.getGlobalStats()` (rates + thresholds + derived total + avg latency) and `messages.listRecent({ limit })`.
-- [ ] `src/routes/messages/{+page.server.ts,+page.svelte}` — paginated newest-first via `messages.listRecent({ limit, cursor })`; recipient search → `/recipients/[email]`.
-- [ ] `src/routes/messages/[messageId]/{+page.server.ts,+page.svelte}` — load message record (route carries the full `pk` or timestamp+messageId), render `messageLog` timeline + variant status detail via a `rawJsonModal`-style component. Add a **default form action** `requestBody` that calls `locals.services.email.getMessage(requestId)` and renders `request.html`/`request.text`. (Use default action / encode `/` per sveltekit-lambda steering — avoid named `?/` actions behind CloudFront.) Disable the action when the record has no `requestId`; on `EmailServiceError` with code `message_not_found`, show "message body no longer available".
-- [ ] `src/routes/recipients/{+page.server.ts,+page.svelte}` — `messages.listRecipients({ limit, cursor })` (reverse index `sk="stats"`).
-- [ ] `src/routes/recipients/[email]/{+page.server.ts,+page.svelte}` — `messages.getRecipientStats({ email })` + `messages.listByRecipient({ email, limit, cursor })` (query + BatchGet), newest-first.
+**Reconciled with the actual (redesigned) model API — supersedes the original method names.** The read-side API is:
 
-**Files:** `packages/email-service-dashboard/src/routes/{+page.server.ts,+page.svelte,messages/**,recipients/**}`
+- `locals.services.globalStats.get()` → `{ received, sent, delivered, bounced, complained, rejected, failed, total }`.
+- `locals.services.recipients.list({ limit?, cursor? })` → `{ items: Recipient[], cursor? }` (reverse GSI `sk="recipient"`).
+- `locals.services.recipients.getStats({ email })` → `{ stats: {...counters, total}, email }`.
+- `locals.services.messages.messagesManyForMonth({ month: { year, month }, limit?, cursor? })` → `{ items: MessageModel[], cursor? }` (single-month partition `pk="YYYY-MM"`, newest-first).
+- `locals.services.messages.messageManyByRecipient({ email, limit?, cursor? })` → `{ items: MessageModel[], cursor? }`.
+- `MessageModel` = `{ id (=messageId), recipients, logByRecipient: Record<email, LogEntry[]>, messageLog: LogEntry[] (sorted by timestamp), status, requestId, sender, subject, createdAt, updatedAt }`.
+- `defaultLimit = 100`.
 
-**Acceptance criteria:** `bun run build` + `bun run type-check` pass; loads use only `locals.services`; no Scan/Filter; "request message body" action renders `request.html`/`request.text` via `email.getMessage(requestId)` and degrades gracefully when unavailable.
+**Model gap to close in this task:** `Messages` has NO get-by-id yet. Add `Messages.getById({ messageId }): Promise<MessageModel | null>` — a single `GetCommand` on `pk=messageId, sk="message"`, returning `toModel(...)` or `null` when absent (add a small unit test for it in `tests/messages.test.ts`).
+
+**Pagination pattern (all lists):** cursor-based "Load more" — server load reads `?cursor=` (and month lists read `?year=&month=`), calls the model, returns `{ items, cursor }`. The page shows a **"Load more" button** only when `cursor != null`; clicking it navigates with the new cursor (append semantics via a client-held list or `goto` with accumulated results — pick the simplest that keeps SSR-first). Absent cursor → hide the button (end of data). No auto-fetch-on-scroll. Default page size 100 (`defaultLimit`), except the overview recent list which requests `limit: 30`.
+
+**Month selector:** a shared `src/lib/components/monthPicker.svelte` — two selects (year + month), default = current year/month, "prev"/"next" buttons, with **next disabled when at/after the current month** (no future months). Emits the chosen `{ year, month }` by navigating (`?year=&month=`), so the server load re-queries. Used by the messages list and the per-recipient history.
+
+- [ ] `src/lib/components/monthPicker.svelte` — as above.
+- [ ] `src/routes/{+page.server.ts,+page.svelte}` — **Overview**: `globalStats.get()` (totals + delivery/bounce/complaint rates with SES 5% / 0.1% threshold highlights + `total`) and the **30 latest messages for the current month** via `messages.messagesManyForMonth({ month: currentMonth, limit: 30 })`. (Avg delivery latency: only if `deliveryMs` is readily available on the model; otherwise omit and note it — the model currently keeps `deliveryMs` inside `messageLog` delivered entries, so compute from `logByRecipient` if cheap, else skip.)
+- [ ] `src/routes/messages/{+page.server.ts,+page.svelte}` — **Messages list**: month-based via `messages.messagesManyForMonth({ month, limit, cursor })`, newest-first, with the `monthPicker` and the "Load more" button. Columns: time / recipients / subject / status badge. A recipient search box → navigates to `/recipients/[email]`.
+- [ ] `src/routes/messages/[messageId]/{+page.server.ts,+page.svelte}` — **Message detail**: route param is just `messageId` (model keys by messageId alone). Load via `messages.getById({ messageId })`; 404 when null. Render **per-recipient timelines** from `logByRecipient` (one timeline per recipient, entries sorted by timestamp; show variant detail: delivery latency, bounce type/subtype/diagnostic, complaint feedback, reject reason). Each recipient row links to `/recipients/[email]`. Add a **default form action** `requestBody` that calls `locals.services.email.getMessage(requestId)` and renders `request.html`/`request.text`. Use the default action / encode `/` per sveltekit-lambda steering. Disable the action when `requestId` is absent or `"unknown"`; on `EmailServiceError` code `message_not_found`, show "message body no longer available".
+- [ ] `src/routes/recipients/{+page.server.ts,+page.svelte}` — **Recipients list**: `recipients.list({ limit, cursor })` (reverse GSI `sk="recipient"`) with "Load more". Each row links to `/recipients/[email]` and can show that recipient's counters.
+- [ ] `src/routes/recipients/[email]/{+page.server.ts,+page.svelte}` — **Per-recipient view**: `recipients.getStats({ email })` (counters + total) + month-based history via `messages.messageManyByRecipient({ email, limit, cursor })` with the `monthPicker` and "Load more". Newest-first.
+
+**Files:** `packages/email-service-dashboard/src/routes/{+page.server.ts,+page.svelte,messages/**,recipients/**}`, `src/lib/components/monthPicker.svelte`, `src/lib/server/messages.ts` (add `getById`), `tests/messages.test.ts` (add `getById` test)
+
+**Acceptance criteria:** `bun run build` + `bun run type-check` + `bun test` pass; loads use only `locals.services`; no Scan/Filter; message list + recipient history are month-scoped via `monthPicker` (default current month, no future months) with a manual "Load more" button that disappears when the model returns no `cursor`; message detail renders per-recipient timelines and the on-demand body via `email.getMessage(requestId)`, degrading gracefully when unavailable.
 
 ---
 
-### Task 7: Admin user management routes (copied + simplified)
+### Task 7: Admin user management routes (copied + simplified) — [x] DONE
 
 - [ ] `src/routes/users/{+page.server.ts,+page.svelte}` — list users; delete action `authClient.invoke({type:"deleteAllSessions",...})` then `users.delete()`; cannot delete self; admin-only.
 - [ ] `src/routes/users/invite/{+page.server.ts,+page.svelte}` — validate email, `authClient.invoke({type:"newEmailAccount",...})`, `users.create({type:"user"})`, send invite via `email.sendEmail`; admin-only; no domain selection.
@@ -498,7 +515,7 @@ Server load functions only read `locals.services`; never construct clients. No F
 
 ---
 
-### Task 8: Prebuilt Lambda bundles — auth OTP consumer + email-events ingest consumer (with test) — [~] PARTIAL (eventConsumer.ts done; authConsumer + build.ts + tests remain)
+### Task 8: Prebuilt Lambda bundles — auth OTP consumer + email-events ingest consumer (with test) — [x] DONE
 
 - [ ] `src/authConsumer.ts` — copy verbatim from dmarc-dashboard.
 - [ ] `src/eventConsumer.ts` — SQS handler. For each record: `parseEmailEvent(record.body)`; if non-null, `messages.upsertFromEvent(event)`. Instantiate `DynamoDBDocumentClient` (marshall options) + `Messages` once at module scope from env (`DASHBOARD_TABLE_NAME`, `DASHBOARD_REVERSE_INDEX`). Return `batchItemFailures` for retryable errors (partial-batch response). Check whether `@beesolve/sqs-handler` is the standard consumer wrapper (as in `service-email` consumers) and use it if so.
@@ -511,7 +528,7 @@ Server load functions only read `locals.services`; never construct clients. No F
 
 ---
 
-### Task 9: CDK construct (`cdk.ts`) — table, site, auth wiring, both consumers, event rule
+### Task 9: CDK construct (`cdk.ts`) — table, site, auth wiring, both consumers, event rule — [x] DONE
 
 - [ ] `cdk.ts` — `EmailServiceDashboard` + `EmailServiceDashboardProps` (`auth`, `emailSender`, `eventBusName?`, `isProd?`, `removalPolicy?`). Copy dmarc-dashboard structure.
 - [ ] Provision dashboard `TableV2` (composite key, on-demand, AWS-managed encryption, optional `ttl`, PITR when `isProd`, `removalPolicy` from props) with ONE reverse GSI (`sk`→partition, `pk`→sort). **Projection: `INCLUDE` of exactly `received, sent, delivered, bounced, complained, rejected, failed`** (plus the keys `pk`/`sk` which are always projected) — the GSI is used ONLY to list recipient-counter records in `recipients.ts`, so it must NOT project message data. Export the index name.
@@ -527,7 +544,7 @@ Server load functions only read `locals.services`; never construct clients. No F
 
 ---
 
-### Task 10: Docs (ADRs + README), changeset, final verification
+### Task 10: Docs (ADRs + README), changeset, final verification — [x] DONE
 
 - [ ] `docs/adr-001-motivation.md` (mandatory) — why the package exists, why a dashboard-owned projection (vs reading `EmailLog`), responsibility boundaries.
 - [ ] `docs/adr-002-event-projection.md` — single-table key design (`${timestamp}#${messageId}`/`message`, recipient relation, colocated recipient stats, single reverse GSI, recipients listed via `sk="stats"`), atomic-`ADD` increment-only stats made exact via a `TransactWriteItems` gated on `not contains(messageLog, :entry)` + on-the-fly totals, `messageLog` set pattern, variant status + `nextStatus` precedence, on-demand body via `email.getMessage(requestId)`, the one approximate counter (`EmailSentFailure`/`failed`), and the deliberate no-open/click gap. This ADR MUST include:
@@ -540,6 +557,23 @@ Server load functions only read `locals.services`; never construct clients. No F
 **Files:** `packages/email-service-dashboard/docs/{adr-001-motivation.md,adr-002-event-projection.md}`, `README.md`, `.changeset/<name>.md`
 
 **Acceptance criteria:** root check gates pass; ADR-001 present; changeset uses correct npm name; README documents stack usage + first-deploy workflow.
+
+---
+
+### Task 11: Rename directory `email-service-dashboard` → `service-email-dashboard` — [x] DONE
+
+The repo convention is that the directory name uses the `service-<domain>` pattern while the npm package name stays `<domain>-service` (e.g. `packages/service-email/` → `@beesolve/email-service`). This package must follow that convention: rename the **folder** only — the npm package name stays `@beesolve/email-service-dashboard`.
+
+- [ ] `git mv packages/email-service-dashboard packages/service-email-dashboard` (preserve history).
+- [ ] Do NOT change the `name` field in `package.json` — it stays `@beesolve/email-service-dashboard`.
+- [ ] Update any path references to the old directory name across the repo: root `package.json`/workspace globs (if they enumerate paths rather than a `packages/*` glob), `bunup.config.ts`, `dependencies.json`, `scripts/publish.ts`, `tsconfig` references, `.changeset` files, docs, and any CI workflow paths. Search the whole repo for `email-service-dashboard/` (path form) and `packages/email-service-dashboard` and fix directory references while leaving the npm name `@beesolve/email-service-dashboard` intact.
+- [ ] Re-run `bun install` and `bun run recalculate-dependencies` to refresh any path-derived metadata/lockfile entries.
+- [ ] Update the `## Known mappings` list in the workspace TypeScript steering (`.kiro/steering`) to add `packages/service-email-dashboard/` → `@beesolve/email-service-dashboard`.
+- [ ] Update this plan file's `**Files:**` paths from `packages/email-service-dashboard/...` to `packages/service-email-dashboard/...`.
+
+**Files:** the whole `packages/email-service-dashboard/` directory (renamed), plus any repo files referencing the old path, and `.kiro/steering` known-mappings.
+
+**Acceptance criteria:** directory is `packages/service-email-dashboard/`; `package.json` `name` is still `@beesolve/email-service-dashboard`; no stale `packages/email-service-dashboard` path references remain (grep clean); root `bun run fmt:check`, `bun run lint`, `bun run type-check`, `bun test`, and `bun run build` (inside the renamed package) all green; `bun run recalculate-dependencies` clean.
 
 ---
 
