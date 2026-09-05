@@ -1,5 +1,5 @@
 import type { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
-import { GetCommand } from "@aws-sdk/lib-dynamodb";
+import { GetCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import * as v from "valibot";
 
 import type { Stats } from "./schema";
@@ -22,6 +22,18 @@ export class GlobalStats {
     );
 
     return this.toModel(item == null ? null : v.parse(statsSchema, item));
+  };
+
+  readonly addFailure = async (): Promise<void> => {
+    await this.props.dynamo.send(
+      new UpdateCommand({
+        TableName: this.props.tableName,
+        Key: { pk: "stats" as const, sk: "global" as const },
+        UpdateExpression: "ADD #counter :one",
+        ExpressionAttributeNames: { "#counter": "failed" },
+        ExpressionAttributeValues: { ":one": 1 },
+      }),
+    );
   };
 
   private readonly toModel = (value: Stats | null) => {

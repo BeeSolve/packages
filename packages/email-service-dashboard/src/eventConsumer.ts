@@ -14,6 +14,7 @@ import type { SQSBatchResponse, SQSEvent } from "aws-lambda";
 import * as v from "valibot";
 
 import { Messages } from "./lib/server/messages";
+import { GlobalStats } from "./lib/server/stats";
 
 const env = v.parse(
   v.object({
@@ -35,11 +36,17 @@ const messages = new Messages({
   tableName: env.DASHBOARD_TABLE_NAME,
   reverseIndexName: env.DASHBOARD_REVERSE_INDEX,
 });
+const stats = new GlobalStats({
+  dynamo,
+  tableName: env.DASHBOARD_TABLE_NAME,
+});
 
 export const createHandler = ({
   messages,
+  stats,
 }: {
   readonly messages: Pick<Messages, "upsert">;
+  readonly stats: Pick<GlobalStats, "addFailure">;
 }): ((event: SQSEvent) => Promise<SQSBatchResponse>) => {
   return async (event: SQSEvent): Promise<SQSBatchResponse> => {
     const batchItemFailures: Array<{ itemIdentifier: string }> = [];
@@ -50,7 +57,7 @@ export const createHandler = ({
         if (parsed == null) continue;
 
         if (isEmailSentFailure(parsed)) {
-          // todo: implement
+          await stats.addFailure();
           continue;
         }
 
@@ -181,7 +188,7 @@ export const createHandler = ({
   };
 };
 
-export const handler = createHandler({ messages });
+export const handler = createHandler({ messages, stats });
 
 function commonHeaderString(headers: Record<string, string | Array<string>>, key: string): string {
   const value = headers[key];

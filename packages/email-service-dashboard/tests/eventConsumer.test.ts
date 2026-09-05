@@ -11,6 +11,7 @@ process.env.DASHBOARD_REVERSE_INDEX ??= "test-reverse-index";
 
 const { createHandler } = await import("../src/eventConsumer.ts");
 const { Messages } = await import("../src/lib/server/messages.ts");
+const { GlobalStats } = await import("../src/lib/server/stats.ts");
 
 function makeDynamo() {
   const send = mock(() => Promise.resolve<Record<string, unknown>>({}));
@@ -20,7 +21,8 @@ function makeDynamo() {
 
 function makeHandler(dynamo: Pick<DynamoDBDocumentClient, "send">) {
   const messages = new Messages({ dynamo, tableName: "t", reverseIndexName: "reverse" });
-  return createHandler({ messages });
+  const stats = new GlobalStats({ dynamo, tableName: "t" });
+  return createHandler({ messages, stats });
 }
 
 type Dict = Record<string, unknown>;
@@ -47,6 +49,16 @@ function transactRecordKeys(send: ReturnType<typeof mock>): Array<Dict> {
       return asDict(asDict(items[0]).Update).Key;
     })
     .map((key) => asDict(key));
+}
+
+function commandInputs(send: ReturnType<typeof mock>): Array<Dict> {
+  return send.mock.calls
+    .map((call) => call[0])
+    .filter(
+      (command): command is { input: Dict } =>
+        command != null && typeof command === "object" && "input" in command,
+    )
+    .map((command) => asDict(command.input));
 }
 
 function asArray(value: unknown): Array<unknown> {
@@ -140,6 +152,15 @@ function sesDeliveryBody(): string {
   });
 }
 
+function emailSentFailureBody(): string {
+  return JSON.stringify({
+    id: "eb-failed",
+    source: "beesolve.email.api",
+    "detail-type": "EmailSentFailure",
+    detail: { requestId: "req-1" },
+  });
+}
+
 describe("eventConsumer handler", () => {
   it("upserts a message for each parseable lifecycle event of one SES messageId", async () => {
     const { dynamo, send } = makeDynamo();
@@ -215,5 +236,26 @@ describe("eventConsumer handler", () => {
     );
 
     expect(response.batchItemFailures).toEqual([{ itemIdentifier: "sqs-1" }]);
+  });
+
+  it("increments only the global failed counter for an EmailSentFailure (no message record)", async () => {
+    const { dynamo, send } = makeDynamo();
+    const handler = makeHandler(dynamo);
+
+    const response = await handler(
+      sqsEvent([sqsRecord({ messageId: "sqs-1", body: emailSentFailureBody() })]),
+    );
+
+    expect(response.batchItemFailures).toEqual([]);
+    // no message record was written (no TransactWriteItems)
+    expect(transactRecordKeys(send)).toHaveLength(0);
+    // exactly one plain UpdateCommand: ADD failed :1 on the global stats record
+    expect(send).toHaveBeenCalledTimes(1);
+    const [input] = commandInputs(send);
+    if (input == null) throw new Error("expected a send call");
+    expect(input.Key).toEqual({ pk: "stats", sk: "global" });
+    expect(input.UpdateExpression).toBe("ADD #counter :one");
+    expect(input.ExpressionAttributeNames).toEqual({ "#counter": "failed" });
+    expect(input.ExpressionAttributeValues).toEqual({ ":one": 1 });
   });
 });
