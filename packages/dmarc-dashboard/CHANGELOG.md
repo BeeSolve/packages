@@ -1,5 +1,14 @@
 # @beesolve/dmarc-dashboard
 
+## 0.4.8
+
+### Patch Changes
+
+- 9916ab5: Convert the users-list delete form from a named `?/delete` action to the default form action. Named SvelteKit actions use `?/name` in the URL, and the `/` in the query string is rejected/misrouted by CloudFront in the kit-on-lambda deployment, so the delete button could fail behind CloudFront. Using the default action avoids the issue.
+- Updated dependencies [b827446]
+- Updated dependencies [22f3dce]
+  - @beesolve/email-service@0.4.1
+
 ## 0.4.7
 
 ### Patch Changes
