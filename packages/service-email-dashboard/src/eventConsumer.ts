@@ -194,7 +194,11 @@ export const createHandler = ({
 
 export const handler = createHandler({ messages, stats });
 
-function commonHeaderString(headers: Record<string, string | Array<string>>, key: string): string {
+function commonHeaderString(
+  headers: Record<string, string | Array<string>> | undefined,
+  key: string,
+): string {
+  if (headers == null) return "";
   const value = headers[key];
   if (value == null) return "";
   if (Array.isArray(value)) return value[0] ?? "";

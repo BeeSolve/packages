@@ -129,7 +129,7 @@ function sesSendBody(): string {
   return JSON.stringify({
     id: "eb-sent",
     source: "aws.ses",
-    "detail-type": "SES Message Sent",
+    "detail-type": "Email Sent",
     detail: { mail: commonMail(), send: {} },
   });
 }
@@ -138,7 +138,7 @@ function sesDeliveryBody(): string {
   return JSON.stringify({
     id: "eb-delivered",
     source: "aws.ses",
-    "detail-type": "SES Delivery",
+    "detail-type": "Email Delivered",
     detail: {
       mail: commonMail(),
       delivery: {

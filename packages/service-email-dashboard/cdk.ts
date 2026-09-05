@@ -59,6 +59,9 @@ export class EmailServiceDashboard extends Construct {
         "complained",
         "rejected",
         "failed",
+        "email",
+        "type",
+        "createdAt",
       ],
     });
 

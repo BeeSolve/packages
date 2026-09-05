@@ -47,15 +47,15 @@ const sesMailSchema = v.object({
   sendingAccountId: v.string(),
   destination: v.array(v.string()),
   headersTruncated: v.boolean(),
-  headers: v.array(v.object({ name: v.string(), value: v.string() })),
-  commonHeaders: v.record(v.string(), v.union([v.string(), v.array(v.string())])),
+  headers: v.optional(v.array(v.object({ name: v.string(), value: v.string() }))),
+  commonHeaders: v.optional(v.record(v.string(), v.union([v.string(), v.array(v.string())]))),
   tags: v.optional(v.record(v.string(), v.array(v.string()))),
 });
 
 const sesDeliverySchema = v.object({
   id: v.string(),
   source: v.literal("aws.ses"),
-  "detail-type": v.literal("SES Delivery"),
+  "detail-type": v.literal("Email Delivered"),
   detail: v.object({
     mail: sesMailSchema,
     delivery: v.object({
@@ -71,7 +71,7 @@ const sesDeliverySchema = v.object({
 const sesBounceSchema = v.object({
   id: v.string(),
   source: v.literal("aws.ses"),
-  "detail-type": v.literal("SES Bounce"),
+  "detail-type": v.literal("Email Bounced"),
   detail: v.object({
     mail: sesMailSchema,
     bounce: v.object({
@@ -99,7 +99,7 @@ const sesBounceSchema = v.object({
 const sesComplaintSchema = v.object({
   id: v.string(),
   source: v.literal("aws.ses"),
-  "detail-type": v.literal("SES Complaint"),
+  "detail-type": v.literal("Email Complaint"),
   detail: v.object({
     mail: sesMailSchema,
     complaint: v.object({
@@ -116,7 +116,7 @@ const sesComplaintSchema = v.object({
 const sesSendSchema = v.object({
   id: v.string(),
   source: v.literal("aws.ses"),
-  "detail-type": v.literal("SES Message Sent"),
+  "detail-type": v.literal("Email Sent"),
   detail: v.object({
     mail: sesMailSchema,
     send: v.record(v.string(), v.never()),
@@ -126,7 +126,7 @@ const sesSendSchema = v.object({
 const sesRejectSchema = v.object({
   id: v.string(),
   source: v.literal("aws.ses"),
-  "detail-type": v.literal("SES Reject"),
+  "detail-type": v.literal("Email Rejected"),
   detail: v.object({
     mail: sesMailSchema,
     reject: v.object({ reason: v.string() }),
