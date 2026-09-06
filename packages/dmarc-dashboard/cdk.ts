@@ -75,8 +75,9 @@ export class DmarcDashboard extends Construct {
     emails.grantAccess(authConsumer);
 
     new Rule(this, "AuthEventsRule", {
+      eventBus: props.auth.eventBus,
       eventPattern: {
-        source: ["beesolve.auth.api"],
+        source: [props.auth.eventSource],
         detailType: ["EmailCodeAuth", "UnsuccessfulAuth"],
       },
       targets: [new LambdaFunction(authConsumer)],

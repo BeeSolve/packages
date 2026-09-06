@@ -25,8 +25,9 @@ const consumer = new SqsHandler(this, "AuthConsumer", {
 });
 
 new Rule(this, "AuthRule", {
+  eventBus: auth.eventBus,
   eventPattern: {
-    source: ["beesolve.auth.api"],
+    source: [auth.eventSource],
     detailType: ["EmailCodeAuth", "UnsuccessfulAuth"],
   },
   targets: [new SqsQueue(consumer.queue)],
@@ -42,15 +43,96 @@ import { Rule } from "aws-cdk-lib/aws-events";
 import { LambdaFunction } from "aws-cdk-lib/aws-events-targets";
 
 new Rule(this, "AuthRule", {
+  eventBus: auth.eventBus,
   eventPattern: {
-    source: ["beesolve.auth.api"],
+    source: [auth.eventSource],
     detailType: ["EmailCodeAuth", "UnsuccessfulAuth"],
   },
   targets: [new LambdaFunction(consumer)],
 });
 ```
 
-## Typed handler with `@beesolve/auth-service/events`
+## Isolating multiple apps on a shared account
+
+By default every auth deployment publishes to the `default` EventBridge bus with
+source `beesolve.auth.api`. If two apps deploy their own consumer rules matching
+that source on the same bus, a sign-in for one app triggers **both** consumers —
+so a user logging into one app receives an OTP email from every app. There are
+two supported ways to isolate them; pick one (or combine them).
+
+### Option 1 — separate event bus (no new package version required)
+
+Give one app its own EventBridge bus and point both its publisher and its
+consumer rule at that bus. Events never reach rules on another bus, regardless of
+source. This works with the existing `eventBusArn` prop, and the construct
+exposes the resolved bus as `auth.eventBus` so consumer rules bind to the right
+one automatically:
+
+```ts
+import { EventBus, Rule } from "aws-cdk-lib/aws-events";
+
+const bus = new EventBus(this, "AuthBus");
+
+const auth = new AuthGateway(this, "Auth", {
+  stage,
+  frontendUri,
+  allowSignUp: true,
+  eventBusArn: bus.eventBusArn, // publish here instead of "default"
+});
+
+// Bind the consumer rule to the same bus. Prefer `auth.eventBus` over a literal
+// so the rule follows the deployment's configured bus.
+new Rule(this, "AuthRule", {
+  eventBus: auth.eventBus,
+  eventPattern: {
+    source: [auth.eventSource],
+    detailType: ["EmailCodeAuth", "UnsuccessfulAuth"],
+  },
+  targets: [new LambdaFunction(consumer)],
+});
+```
+
+Strongest isolation and available today. The trade-off is an extra bus to manage
+and the requirement that the consumer `Rule` is bound to that bus (`{ eventBus }`).
+
+> **SES caveat.** Only auth events (published via `EventBridge.putEvents`) can be
+> moved to a custom bus. SES delivery/bounce/complaint events (`aws.ses`), emitted
+> via `@beesolve/email-service`, can only be routed to the account **`default`**
+> bus — SES configuration-set event destinations do not support custom buses.
+> Consumers of those events must keep their rule on the default bus. This is why,
+> for example, `EmailServiceDashboard` binds its auth rule to `auth.eventBus` but
+> keeps its email-events rule on `default`.
+
+### Option 2 — distinct `source` via `appId`
+
+Keep the shared bus but give each app a distinct source. Set `appId` on the auth
+construct — the event source becomes `beesolve.auth.<appId>` — and match the
+construct's resolved `eventSource` field in the consumer rule so publisher and
+consumer never drift:
+
+```ts
+const auth = new AuthGateway(this, "Auth", {
+  stage,
+  frontendUri,
+  allowSignUp: true,
+  appId: "bewatr", // source => "beesolve.auth.bewatr"
+});
+
+new Rule(this, "AuthRule", {
+  eventBus: auth.eventBus,
+  eventPattern: {
+    source: [auth.eventSource], // resolved from appId: "beesolve.auth.bewatr"
+    detailType: ["EmailCodeAuth", "UnsuccessfulAuth"],
+  },
+  targets: [new LambdaFunction(consumer)],
+});
+```
+
+The bundled `EmailServiceDashboard` and `DmarcDashboard` constructs already
+subscribe to `props.auth.eventSource` (and bind to `props.auth.eventBus`), so they
+follow whatever `appId`/bus the auth deployment uses without extra wiring. `appId`
+is the only knob — the source string is computed once by the construct; there is
+no helper to import and no source string to hand-build.
 
 Instead of parsing raw JSON and casting to `any`, import the typed helpers:
 

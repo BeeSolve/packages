@@ -19,8 +19,6 @@ export interface EmailServiceDashboardProps {
     readonly name: string;
     readonly emailAddress: string;
   };
-  /** @default "default" */
-  readonly eventBusName?: string;
   readonly isProd?: boolean;
   readonly removalPolicy?: RemovalPolicy;
 }
@@ -95,7 +93,6 @@ export class EmailServiceDashboard extends Construct {
 
     const emails = new Emails(this, "Emails", {
       defaultSender: props.emailSender,
-      eventBusName: props.eventBusName,
     });
 
     emails.grantAccess(site.handler);
@@ -111,8 +108,9 @@ export class EmailServiceDashboard extends Construct {
     emails.grantAccess(authConsumer);
 
     new Rule(this, "AuthEventsRule", {
+      eventBus: props.auth.eventBus,
       eventPattern: {
-        source: ["beesolve.auth.api"],
+        source: [props.auth.eventSource],
         detailType: ["EmailCodeAuth", "UnsuccessfulAuth"],
       },
       targets: [new LambdaFunction(authConsumer)],

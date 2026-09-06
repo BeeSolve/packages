@@ -1,5 +1,11 @@
 # TypeScript Overrides — @beesolve/packages
 
+## Comments
+
+- Do NOT add explanatory/narrating comments. No comments that restate what the code does, describe why a line exists, or annotate wiring (e.g. `// bind to the auth bus`, `// this rule stays on default`). The code and names must speak for themselves.
+- Only acceptable comments: a non-obvious rationale that cannot be expressed in code (a genuine "why", not a "what"), required lint/type directives (`// oxlint-disable-...`), and JSDoc on exported/public API members.
+- When editing code, prefer removing stale comments over updating them.
+
 ## Workflow
 
 - Always start with `git pull --rebase origin main` before making any changes

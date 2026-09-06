@@ -41,7 +41,7 @@ const envSchema = v.object({
     v.string(),
     v.transform((value) => value === "true"),
   ),
-  EVENT_SOURCE: v.optional(v.string()),
+  EVENT_SOURCE: v.string(),
   DATA_TOKEN: v.optional(
     v.pipe(
       v.string(),

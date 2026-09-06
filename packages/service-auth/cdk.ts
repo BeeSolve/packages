@@ -31,7 +31,7 @@ import {
   TableV2,
   type TableV2 as TableV2Type,
 } from "aws-cdk-lib/aws-dynamodb";
-import { EventBus } from "aws-cdk-lib/aws-events";
+import { EventBus, type IEventBus } from "aws-cdk-lib/aws-events";
 import type { IKey } from "aws-cdk-lib/aws-kms";
 import {
   Architecture,
@@ -56,8 +56,17 @@ interface CoreProps {
   readonly alarms?: EmailAlarms;
   readonly eventBusArn?: string;
   readonly warmer?: LambdaKeepActive;
-  /** @default "beesolve.auth.api" */
-  readonly eventSource?: string;
+  /**
+   * Application identifier used to scope auth EventBridge events to this
+   * deployment. When set, the event `source` becomes `beesolve.auth.<appId>`
+   * (otherwise `beesolve.auth.api`), so consumers of another app sharing the
+   * same event bus do not receive this app's events (e.g. a sign-in for one app
+   * must not email a code for another).
+   *
+   * Consumers subscribe to the matching source via the construct's resolved
+   * `eventSource` field.
+   */
+  readonly appId?: string;
   /** @default false */
   readonly dataToken?: boolean;
   /** @default Duration.days(30) */
@@ -139,6 +148,20 @@ export class AuthGateway extends Construct {
    * SSR apps to use `addAuthorizedEndpoint` with authorizer caching.
    */
   readonly ensureCookieFunction: CloudFrontFunction;
+
+  /**
+   * Resolved EventBridge `source` used for auth events published by this
+   * deployment. Consumers should subscribe to this exact value.
+   */
+  readonly eventSource: string;
+
+  /**
+   * The EventBridge bus this deployment publishes auth events to (the custom bus
+   * when `eventBusArn` is set, otherwise the account `default` bus). Bind
+   * consumer rules for auth events to this bus so they match regardless of which
+   * bus the deployment uses.
+   */
+  readonly eventBus: IEventBus;
 
   private readonly authorizer: HttpLambdaAuthorizer;
   private readonly sdkHandler: Function;
@@ -224,9 +247,13 @@ export class AuthGateway extends Construct {
       ? EventBus.fromEventBusArn(this, "CustomEventBus", props.eventBusArn)
       : EventBus.fromEventBusName(this, "DefaultEventBus", "default");
 
+    this.eventSource = `beesolve.auth.${props.appId ?? "api"}`;
+    this.eventBus = eventBus;
+
     const { authHandler, authUrl } = createAuthHandler(this, {
       ...tables,
       eventBus,
+      eventSource: this.eventSource,
       actionTokens,
       coreProps: props,
       logGroupProps: props.logGroupProps,
@@ -456,6 +483,20 @@ export class AuthService extends Construct {
    */
   readonly ensureCookieFunction: CloudFrontFunction;
 
+  /**
+   * Resolved EventBridge `source` used for auth events published by this
+   * deployment. Consumers should subscribe to this exact value.
+   */
+  readonly eventSource: string;
+
+  /**
+   * The EventBridge bus this deployment publishes auth events to (the custom bus
+   * when `eventBusArn` is set, otherwise the account `default` bus). Bind
+   * consumer rules for auth events to this bus so they match regardless of which
+   * bus the deployment uses.
+   */
+  readonly eventBus: IEventBus;
+
   private readonly sessionsTable: TableV2Type;
   private readonly sessionsByUserIdIndexName: string;
   private readonly sessionMaxAge: string;
@@ -503,9 +544,13 @@ export class AuthService extends Construct {
       ? EventBus.fromEventBusArn(this, "CustomEventBus", props.eventBusArn)
       : EventBus.fromEventBusName(this, "DefaultEventBus", "default");
 
+    this.eventSource = `beesolve.auth.${props.appId ?? "api"}`;
+    this.eventBus = eventBus;
+
     const { authHandler, authUrl } = createAuthHandler(this, {
       ...tables,
       eventBus,
+      eventSource: this.eventSource,
       actionTokens,
       coreProps: props,
       logGroupProps: props.logGroupProps,
@@ -639,6 +684,7 @@ function createAuthHandler(
     accountsTable: TableV2Type;
     accountsReverseIndexName: string;
     eventBus: ReturnType<typeof EventBus.fromEventBusArn>;
+    eventSource: string;
     actionTokens: ActionTokens;
     coreProps: CoreProps;
     logGroupProps?: LogGroupProps;
@@ -659,6 +705,7 @@ function createAuthHandler(
     ACCOUNTS_TABLE_NAME: props.accountsTable.tableName,
     ACCOUNTS_REVERSE_INDEX_NAME: props.accountsReverseIndexName,
     EVENT_BUS_ARN: props.eventBus.eventBusArn,
+    EVENT_SOURCE: props.eventSource,
     BASE_URI: coreProps.frontendUri,
     ALLOW_SIGN_UP: String(coreProps.allowSignUp),
     SESSION_MAX_AGE: sessionMaxAge,
@@ -668,9 +715,6 @@ function createAuthHandler(
     ),
     DRAIN_ON_RESEND: String(coreProps.drainOnResend ?? true),
   };
-  if (coreProps.eventSource != null) {
-    authHandlerEnv["EVENT_SOURCE"] = coreProps.eventSource;
-  }
   if (coreProps.dataToken === true) {
     authHandlerEnv["DATA_TOKEN"] = "true";
   }

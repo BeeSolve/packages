@@ -139,7 +139,7 @@ export class Events {
     private readonly props: {
       readonly client: EventBridge;
       readonly eventBusArn?: string;
-      readonly eventSource?: string;
+      readonly eventSource: string;
     },
   ) {}
 
@@ -148,7 +148,7 @@ export class Events {
       Entries: events.map((event) => ({
         DetailType: event.type,
         Detail: JSON.stringify(event.detail),
-        Source: this.props.eventSource ?? "beesolve.auth.api",
+        Source: this.props.eventSource,
         EventBusName: this.props.eventBusArn,
       })),
     });

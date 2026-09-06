@@ -125,30 +125,30 @@ distribution.addBehavior("/auth/*", auth.authBehavior.origin, auth.authBehavior)
 
 ### CDK Props
 
-| Prop                            | Type                      | Description                                                                       |
-| ------------------------------- | ------------------------- | --------------------------------------------------------------------------------- |
-| `stage`                         | `string`                  | Environment name. `"prod"` enables deletion protection and PITR.                  |
-| `frontendUri`                   | `string`                  | Your application URL (used as base URI in events).                                |
-| `allowSignUp`                   | `boolean`                 | Auto-create accounts on first sign-in.                                            |
-| `eventBusArn`                   | `string?`                 | Custom EventBridge bus ARN. Defaults to `default`.                                |
-| `eventSource`                   | `string?`                 | Event source string. Defaults to `"beesolve.auth.api"`.                           |
-| `dataToken`                     | `boolean?`                | Read `__Host-DataToken` cookie and emit `DataToken` event on sign-in.             |
-| `sessionDuration`               | `Duration?`               | Session lifetime. Default 30 days.                                                |
-| `otpExpiry`                     | `Duration?`               | OTP code validity. Default 10 minutes.                                            |
-| `resendCooldown`                | `Duration?`               | Minimum time between resends. Default 60s.                                        |
-| `drainOnResend`                 | `boolean?`                | Invalidate previous OTP on resend. Default `true`.                                |
-| `encryptionKey`                 | `IKey?`                   | Customer-managed KMS key for DynamoDB and SQS.                                    |
-| `alarms`                        | `EmailAlarms?`            | `@beesolve/cdk-email-alarms` instance for error monitoring.                       |
-| `warmer`                        | `LambdaKeepActive?`       | Keep handler Lambdas warm.                                                        |
-| `waf`                           | `{ rateLimit?: number }?` | WAF rate limiting rule group.                                                     |
-| `logGroupProps`                 | `LogGroupProps?`          | Override Lambda log group settings.                                               |
-| `contributorInsights`           | `boolean?`                | DynamoDB Contributor Insights. Default `true` in prod.                            |
-| `authorizerReservedConcurrency` | `number?`                 | Authorizer Lambda reserved concurrency.                                           |
-| `sdkHandlerReservedConcurrency` | `number?`                 | SDK handler Lambda reserved concurrency.                                          |
-| `authorizerCache`               | preset or `Duration`      | Authorizer cache behavior (AuthGateway only). Default `"balanced"`.               |
-| `accessLogging`                 | `boolean?`                | API Gateway access logging (AuthGateway only). Default `true` in prod.            |
-| `rpId`                          | `string?`                 | Relying Party ID for passkeys (your domain). Enables `/auth/passkey/*` endpoints. |
-| `rpName`                        | `string?`                 | Relying Party display name for passkeys. Default `"Auth"`.                        |
+| Prop                            | Type                      | Description                                                                                      |
+| ------------------------------- | ------------------------- | ------------------------------------------------------------------------------------------------ |
+| `stage`                         | `string`                  | Environment name. `"prod"` enables deletion protection and PITR.                                 |
+| `frontendUri`                   | `string`                  | Your application URL (used as base URI in events).                                               |
+| `allowSignUp`                   | `boolean`                 | Auto-create accounts on first sign-in.                                                           |
+| `eventBusArn`                   | `string?`                 | Custom EventBridge bus ARN. Defaults to `default`.                                               |
+| `appId`                         | `string?`                 | Scopes events to this app: source becomes `beesolve.auth.<appId>` (default `beesolve.auth.api`). |
+| `dataToken`                     | `boolean?`                | Read `__Host-DataToken` cookie and emit `DataToken` event on sign-in.                            |
+| `sessionDuration`               | `Duration?`               | Session lifetime. Default 30 days.                                                               |
+| `otpExpiry`                     | `Duration?`               | OTP code validity. Default 10 minutes.                                                           |
+| `resendCooldown`                | `Duration?`               | Minimum time between resends. Default 60s.                                                       |
+| `drainOnResend`                 | `boolean?`                | Invalidate previous OTP on resend. Default `true`.                                               |
+| `encryptionKey`                 | `IKey?`                   | Customer-managed KMS key for DynamoDB and SQS.                                                   |
+| `alarms`                        | `EmailAlarms?`            | `@beesolve/cdk-email-alarms` instance for error monitoring.                                      |
+| `warmer`                        | `LambdaKeepActive?`       | Keep handler Lambdas warm.                                                                       |
+| `waf`                           | `{ rateLimit?: number }?` | WAF rate limiting rule group.                                                                    |
+| `logGroupProps`                 | `LogGroupProps?`          | Override Lambda log group settings.                                                              |
+| `contributorInsights`           | `boolean?`                | DynamoDB Contributor Insights. Default `true` in prod.                                           |
+| `authorizerReservedConcurrency` | `number?`                 | Authorizer Lambda reserved concurrency.                                                          |
+| `sdkHandlerReservedConcurrency` | `number?`                 | SDK handler Lambda reserved concurrency.                                                         |
+| `authorizerCache`               | preset or `Duration`      | Authorizer cache behavior (AuthGateway only). Default `"balanced"`.                              |
+| `accessLogging`                 | `boolean?`                | API Gateway access logging (AuthGateway only). Default `true` in prod.                           |
+| `rpId`                          | `string?`                 | Relying Party ID for passkeys (your domain). Enables `/auth/passkey/*` endpoints.                |
+| `rpName`                        | `string?`                 | Relying Party display name for passkeys. Default `"Auth"`.                                       |
 
 ## Auth Flow
 
@@ -430,7 +430,7 @@ await auth.invoke({
 
 ## EventBridge Events
 
-All events are emitted on the configured bus with source `"beesolve.auth.api"` (or your `eventSource` value).
+All events are emitted on the configured bus with source `beesolve.auth.api` (or `beesolve.auth.<appId>` when `appId` is set).
 
 | Event                  | When                                    | Key fields                                                                   |
 | ---------------------- | --------------------------------------- | ---------------------------------------------------------------------------- |

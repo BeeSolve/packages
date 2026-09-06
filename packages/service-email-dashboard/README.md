@@ -50,6 +50,7 @@ Only the `./cdk` construct is exported. Construct an `AuthGateway` first, then h
 
 ```typescript
 import { App, Stack } from "aws-cdk-lib";
+import { EventBus } from "aws-cdk-lib/aws-events";
 import { AuthGateway } from "@beesolve/auth-service/cdk";
 import { EmailServiceDashboard } from "@beesolve/email-service-dashboard/cdk";
 
@@ -61,11 +62,17 @@ const stack = new Stack(app, "EmailDashboardStack", {
   env: { account: "123456789012", region: "eu-central-1" },
 });
 
+const authEventBus = new EventBus(stack, "AuthEventBus");
+
 const auth = new AuthGateway(stack, "Auth", {
   stage: "prod",
   frontendUri,
   allowSignUp: false,
   authorizerCache: "disabled",
+  // Give the dashboard's own auth its own bus so its sign-in OTP events don't
+  // collide with the project's real auth on the default bus. Optional — omit to
+  // share the default bus and rely on `appId` for source-based isolation instead.
+  eventBusArn: authEventBus.eventBusArn,
 });
 
 const dashboard = new EmailServiceDashboard(stack, "Dashboard", {
@@ -74,7 +81,6 @@ const dashboard = new EmailServiceDashboard(stack, "Dashboard", {
     name: "Email Dashboard",
     emailAddress: "noreply@example.com",
   },
-  // eventBusName?: string  — the bus email-service emits to. @default "default"
   // isProd?: boolean       — enables PITR on the table
   // removalPolicy?: RemovalPolicy
 });
@@ -85,8 +91,15 @@ The `EmailServiceDashboard` construct provisions:
 - a DynamoDB `TableV2` (the delivery-status projection) with one reverse GSI
 - the SvelteKit app on Lambda (via `kit-on-lambda`) behind CloudFront, with auth cookie enforcement and an `/auth/*` behavior
 - an `@beesolve/email-service` `Emails` construct for OTP mail
-- an auth-events consumer Lambda + EventBridge rule (`source: ["beesolve.auth.api"]`) that sends the sign-in OTP emails
-- an event-ingest Lambda fronted by an SQS queue + DLQ, with an EventBridge rule on `source: ["beesolve.email.api", "aws.ses"]`, projecting the delivery lifecycle into the table
+- an auth-events consumer Lambda + EventBridge rule that sends the sign-in OTP emails, bound to `auth.eventBus` and filtered on `auth.eventSource` (so it follows whatever bus/`appId` the auth deployment uses)
+- an event-ingest Lambda fronted by an SQS queue + DLQ, with an EventBridge rule on `source: ["beesolve.email.api", "aws.ses"]` **on the default bus**, projecting the delivery lifecycle into the table
+
+> **Two buses, by design.** The dashboard's own sign-in auth can live on a
+> dedicated bus (via `auth`'s `eventBusArn`), but the delivery-status events it
+> _displays_ always arrive on the account `default` bus — SES configuration-set
+> event destinations can only target the default bus. The two internal rules are
+> bound accordingly: the auth rule to `auth.eventBus`, the email-events rule to
+> `default`. The dashboard therefore has no `eventBusName` prop.
 
 ## First Deployment
 
