@@ -10,6 +10,12 @@ import { AttributeType, Billing, ProjectionType, TableV2 } from "aws-cdk-lib/aws
 import { Rule } from "aws-cdk-lib/aws-events";
 import { LambdaFunction, SqsQueue } from "aws-cdk-lib/aws-events-targets";
 import { InvokeMode } from "aws-cdk-lib/aws-lambda";
+import {
+  BlockPublicAccess,
+  Bucket,
+  BucketAccessControl,
+  BucketEncryption,
+} from "aws-cdk-lib/aws-s3";
 import { Construct } from "constructs";
 import { SvelteKit } from "kit-on-lambda/cdk";
 
@@ -63,6 +69,14 @@ export class EmailServiceDashboard extends Construct {
       ],
     });
 
+    const requests = new Bucket(this, "Requests", {
+      accessControl: BucketAccessControl.PRIVATE,
+      blockPublicAccess: BlockPublicAccess.BLOCK_ALL,
+      encryption: BucketEncryption.S3_MANAGED,
+      enforceSSL: true,
+      removalPolicy: props.removalPolicy,
+    });
+
     const site = new SvelteKit(this, "Site", {
       runtime: "node",
       invokeMode: InvokeMode.BUFFERED,
@@ -71,8 +85,10 @@ export class EmailServiceDashboard extends Construct {
         props.auth.addAuthorizedEndpoint({ lambda: handler, path: "/{proxy+}" });
         props.auth.grantSdkAccess(handler);
         table.grantReadWriteData(handler);
+        requests.grantRead(handler);
         handler.addEnvironment("DASHBOARD_TABLE_NAME", table.tableName);
         handler.addEnvironment("DASHBOARD_REVERSE_INDEX", reverseIndexName);
+        handler.addEnvironment("DASHBOARD_REQUESTS_BUCKET", requests.bucketName);
 
         if (props.auth.api.url == null) throw new Error("Unexpected error - missing api url");
         return new HttpOrigin(Fn.parseDomainName(props.auth.api.url));
@@ -125,8 +141,10 @@ export class EmailServiceDashboard extends Construct {
     });
 
     table.grantReadWriteData(eventConsumer);
+    requests.grantWrite(eventConsumer);
     eventConsumer.addEnvironment("DASHBOARD_TABLE_NAME", table.tableName);
     eventConsumer.addEnvironment("DASHBOARD_REVERSE_INDEX", reverseIndexName);
+    eventConsumer.addEnvironment("DASHBOARD_REQUESTS_BUCKET", requests.bucketName);
 
     const { queue } = SqsWithDlq.asLambdaInput({ lambda: eventConsumer });
 

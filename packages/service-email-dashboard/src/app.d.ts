@@ -1,5 +1,6 @@
 import type { Messages } from "$lib/server/messages";
 import type { Recipients } from "$lib/server/recipients";
+import type { Requests } from "$lib/server/requests";
 import type { Setup } from "$lib/server/setup";
 import type { GlobalStats } from "$lib/server/stats";
 import type { Users } from "$lib/server/users";
@@ -23,6 +24,7 @@ declare global {
         setup: Setup;
         authClient: AuthClient;
         email: Email;
+        requests: Requests;
       };
     }
   }

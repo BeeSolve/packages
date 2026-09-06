@@ -1,10 +1,12 @@
 <script lang="ts">
   import { enhance } from "$app/forms";
   import MessageStatusBadge from "$lib/components/messageStatusBadge.svelte";
+  import RequestModal from "$lib/components/requestModal.svelte";
 
   let { data, form } = $props();
 
   let requesting = $state(false);
+  let modalOpen = $state(false);
 
   function formatDateTime(value: string): string {
     return new Date(value).toLocaleString();
@@ -36,39 +38,28 @@
     method="POST"
     use:enhance={() => {
       requesting = true;
-      return async ({ update }) => {
+      return async ({ update, result }) => {
         await update();
         requesting = false;
+        if (result.type === "success" && result.data?.request != null) {
+          modalOpen = true;
+        }
       };
     }}
   >
-    <button type="submit" class="button" disabled={!data.canRequestBody || requesting}>
+    <button type="submit" class="button" disabled={requesting}>
       {requesting ? "Requesting…" : "Request message body"}
     </button>
   </form>
 
-  {#if !data.canRequestBody}
-    <small class="hint">No stored request body is available for this message.</small>
-  {/if}
-
   {#if form?.bodyUnavailable}
     <p class="error">Message body no longer available.</p>
-  {:else if form?.body != null}
-    <div class="body">
-      {#if form.body.text != null}
-        <h3>Text</h3>
-        <pre>{form.body.text}</pre>
-      {/if}
-      <h3>HTML</h3>
-      <div class="html-frame">
-        <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-        {@html form.body.html}
-      </div>
-    </div>
-  {:else if form?.bodyError != null}
-    <p class="error">{form.bodyError}</p>
   {/if}
 </section>
+
+{#if form?.request != null}
+  <RequestModal bind:open={modalOpen} json={form.request} />
+{/if}
 
 <h2>Per-recipient timeline</h2>
 
@@ -150,32 +141,6 @@
 
   .body-request form button[type="submit"] {
     margin-block-start: 0;
-  }
-
-  .hint {
-    display: inline-block;
-    margin-left: var(--vs-s);
-    color: var(--fg-5);
-  }
-
-  .body {
-    margin-top: var(--vs-base);
-  }
-
-  .body pre {
-    white-space: pre-wrap;
-    word-break: break-word;
-    padding: var(--pad-m);
-    border: var(--border-1);
-    border-radius: var(--br-m);
-    background: var(--fg-05);
-  }
-
-  .html-frame {
-    padding: var(--pad-m);
-    border: var(--border-1);
-    border-radius: var(--br-m);
-    overflow-x: auto;
   }
 
   .recipient-timeline {

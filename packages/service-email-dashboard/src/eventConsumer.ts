@@ -1,4 +1,5 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import { S3Client } from "@aws-sdk/client-s3";
 import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import {
   isEmailSentFailure,
@@ -14,12 +15,14 @@ import type { SQSBatchResponse, SQSEvent } from "aws-lambda";
 import * as v from "valibot";
 
 import { Messages } from "./lib/server/messages";
+import { Requests } from "./lib/server/requests";
 import { GlobalStats } from "./lib/server/stats";
 
 const env = v.parse(
   v.object({
     DASHBOARD_TABLE_NAME: v.string(),
     DASHBOARD_REVERSE_INDEX: v.string(),
+    DASHBOARD_REQUESTS_BUCKET: v.string(),
   }),
   process.env,
 );
@@ -40,13 +43,19 @@ const stats = new GlobalStats({
   dynamo,
   tableName: env.DASHBOARD_TABLE_NAME,
 });
+const requests = new Requests({
+  s3: new S3Client(),
+  bucketName: env.DASHBOARD_REQUESTS_BUCKET,
+});
 
 export const createHandler = ({
   messages,
   stats,
+  requests,
 }: {
   readonly messages: Pick<Messages, "upsert">;
   readonly stats: Pick<GlobalStats, "addFailure">;
+  readonly requests: Pick<Requests, "put">;
 }): ((event: SQSEvent) => Promise<SQSBatchResponse>) => {
   return async (event: SQSEvent): Promise<SQSBatchResponse> => {
     const batchItemFailures: Array<{ itemIdentifier: string }> = [];
@@ -79,6 +88,10 @@ export const createHandler = ({
               requestId: parsed.detail.requestId,
               timestamp: now,
             },
+          });
+          await requests.put({
+            messageId: parsed.detail.messageId,
+            request: parsed.detail.request,
           });
           continue;
         }
@@ -192,7 +205,7 @@ export const createHandler = ({
   };
 };
 
-export const handler = createHandler({ messages, stats });
+export const handler = createHandler({ messages, stats, requests });
 
 function commonHeaderString(
   headers: Record<string, string | Array<string>> | undefined,

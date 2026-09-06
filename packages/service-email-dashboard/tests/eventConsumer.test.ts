@@ -8,6 +8,7 @@ import type { SQSEvent, SQSRecord } from "aws-lambda";
 // Set them before importing so the module-scope env parse succeeds.
 process.env.DASHBOARD_TABLE_NAME ??= "test-table";
 process.env.DASHBOARD_REVERSE_INDEX ??= "test-reverse-index";
+process.env.DASHBOARD_REQUESTS_BUCKET ??= "test-requests-bucket";
 
 const { createHandler } = await import("../src/eventConsumer.ts");
 const { Messages } = await import("../src/lib/server/messages.ts");
@@ -22,7 +23,9 @@ function makeDynamo() {
 function makeHandler(dynamo: Pick<DynamoDBDocumentClient, "send">) {
   const messages = new Messages({ dynamo, tableName: "t", reverseIndexName: "reverse" });
   const stats = new GlobalStats({ dynamo, tableName: "t" });
-  return createHandler({ messages, stats });
+  const put = mock((_props: { messageId: string; request: unknown }) => Promise.resolve());
+  const requests = { put };
+  return { handler: createHandler({ messages, stats, requests }), put };
 }
 
 type Dict = Record<string, unknown>;
@@ -164,7 +167,7 @@ function emailSentFailureBody(): string {
 describe("eventConsumer handler", () => {
   it("upserts a message for each parseable lifecycle event of one SES messageId", async () => {
     const { dynamo, send } = makeDynamo();
-    const handler = makeHandler(dynamo);
+    const { handler } = makeHandler(dynamo);
 
     const response = await handler(
       sqsEvent([
@@ -183,6 +186,44 @@ describe("eventConsumer handler", () => {
     }
   });
 
+  it("persists the request body to S3 for an EmailSentSuccess event", async () => {
+    const { dynamo } = makeDynamo();
+    const { handler, put } = makeHandler(dynamo);
+
+    const response = await handler(
+      sqsEvent([sqsRecord({ messageId: "sqs-1", body: emailSentSuccessBody() })]),
+    );
+
+    expect(response.batchItemFailures).toEqual([]);
+    expect(put).toHaveBeenCalledTimes(1);
+    const arg = put.mock.calls[0]?.[0];
+    expect(arg).toEqual({
+      messageId,
+      request: {
+        id: "req-1",
+        recipients: [recipient],
+        subject: "Hello",
+        sender: { name: "Sender", emailAddress: sender },
+        html: "<p>hi</p>",
+        text: "hi",
+      },
+    });
+  });
+
+  it("does not persist a request body for SES lifecycle events", async () => {
+    const { dynamo } = makeDynamo();
+    const { handler, put } = makeHandler(dynamo);
+
+    await handler(
+      sqsEvent([
+        sqsRecord({ messageId: "sqs-1", body: sesSendBody() }),
+        sqsRecord({ messageId: "sqs-2", body: sesDeliveryBody() }),
+      ]),
+    );
+
+    expect(put).toHaveBeenCalledTimes(0);
+  });
+
   it("swallows a duplicate event (ConditionalCheckFailed) without a batch failure", async () => {
     const { dynamo, send } = makeDynamo();
     // second upsert (the duplicate) is rejected as an idempotent cancellation
@@ -196,7 +237,7 @@ describe("eventConsumer handler", () => {
         }),
       ),
     );
-    const handler = makeHandler(dynamo);
+    const { handler } = makeHandler(dynamo);
 
     const response = await handler(
       sqsEvent([
@@ -211,7 +252,7 @@ describe("eventConsumer handler", () => {
 
   it("skips an unparseable body without failing the whole batch", async () => {
     const { dynamo, send } = makeDynamo();
-    const handler = makeHandler(dynamo);
+    const { handler } = makeHandler(dynamo);
 
     const response = await handler(
       sqsEvent([
@@ -229,7 +270,7 @@ describe("eventConsumer handler", () => {
   it("reports a batch failure when an upsert throws a non-idempotent error", async () => {
     const { dynamo, send } = makeDynamo();
     send.mockImplementationOnce(() => Promise.reject(new Error("boom")));
-    const handler = makeHandler(dynamo);
+    const { handler } = makeHandler(dynamo);
 
     const response = await handler(
       sqsEvent([sqsRecord({ messageId: "sqs-1", body: sesSendBody() })]),
@@ -240,7 +281,7 @@ describe("eventConsumer handler", () => {
 
   it("increments only the global failed counter for an EmailSentFailure (no message record)", async () => {
     const { dynamo, send } = makeDynamo();
-    const handler = makeHandler(dynamo);
+    const { handler } = makeHandler(dynamo);
 
     const response = await handler(
       sqsEvent([sqsRecord({ messageId: "sqs-1", body: emailSentFailureBody() })]),

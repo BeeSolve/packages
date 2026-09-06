@@ -1,9 +1,11 @@
 import { Messages } from "$lib/server/messages";
 import { Recipients } from "$lib/server/recipients";
+import { Requests } from "$lib/server/requests";
 import { Setup } from "$lib/server/setup";
 import { GlobalStats } from "$lib/server/stats";
 import { Users } from "$lib/server/users";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import { S3Client } from "@aws-sdk/client-s3";
 import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { AuthClient } from "@beesolve/auth-service/sdk";
 import { createSessionHandle, type SessionContext } from "@beesolve/auth-service/sveltekit";
@@ -15,6 +17,7 @@ import * as v from "valibot";
 const envSchema = v.object({
   DASHBOARD_TABLE_NAME: v.string(),
   DASHBOARD_REVERSE_INDEX: v.string(),
+  DASHBOARD_REQUESTS_BUCKET: v.string(),
 });
 const env = v.parse(envSchema, process.env);
 
@@ -44,6 +47,10 @@ const users = new Users({
 const setup = new Setup({ dynamo, tableName: env.DASHBOARD_TABLE_NAME });
 const authClient = new AuthClient();
 const email = new Email();
+const requests = new Requests({
+  s3: new S3Client(),
+  bucketName: env.DASHBOARD_REQUESTS_BUCKET,
+});
 
 const publicPaths = new Set(["/sign-in", "/sign-in/verify", "/setup"]);
 
@@ -56,6 +63,7 @@ const authGuard: Handle = async ({ event, resolve }) => {
     setup,
     authClient,
     email,
+    requests,
   };
 
   const isPublic = publicPaths.has(event.url.pathname);

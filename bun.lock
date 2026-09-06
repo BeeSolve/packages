@@ -112,7 +112,7 @@
     },
     "packages/dmarc-dashboard": {
       "name": "@beesolve/dmarc-dashboard",
-      "version": "0.4.7",
+      "version": "0.5.0",
       "dependencies": {
         "@aws-sdk/client-dynamodb": "catalog:",
         "@aws-sdk/lib-dynamodb": "catalog:",
@@ -325,7 +325,7 @@
     },
     "packages/service-auth": {
       "name": "@beesolve/auth-service",
-      "version": "0.14.2",
+      "version": "0.15.0",
       "dependencies": {
         "@aws-sdk/client-dynamodb": "catalog:",
         "@aws-sdk/client-eventbridge": "catalog:",
@@ -361,7 +361,7 @@
     },
     "packages/service-email": {
       "name": "@beesolve/email-service",
-      "version": "0.4.0",
+      "version": "0.4.1",
       "dependencies": {
         "@aws-sdk/client-dynamodb": "catalog:",
         "@aws-sdk/client-eventbridge": "catalog:",
@@ -396,9 +396,10 @@
     },
     "packages/service-email-dashboard": {
       "name": "@beesolve/email-service-dashboard",
-      "version": "0.0.0",
+      "version": "0.2.1",
       "dependencies": {
         "@aws-sdk/client-dynamodb": "catalog:",
+        "@aws-sdk/client-s3": "catalog:",
         "@aws-sdk/lib-dynamodb": "catalog:",
         "@beesolve/auth-service": "workspace:^",
         "@beesolve/cdk-constructs": "workspace:^",

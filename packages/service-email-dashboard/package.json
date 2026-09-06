@@ -24,13 +24,14 @@
   "scripts": {
     "prepare": "svelte-kit sync || true",
     "dev": "bun --env-file=.env.local vite dev",
-    "build": "DASHBOARD_TABLE_NAME=build-placeholder DASHBOARD_REVERSE_INDEX=build-placeholder vite build",
+    "build": "DASHBOARD_TABLE_NAME=build-placeholder DASHBOARD_REVERSE_INDEX=build-placeholder DASHBOARD_REQUESTS_BUCKET=build-placeholder vite build",
     "type-check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "test": "bun test",
     "prepublishOnly": "bun build.ts && bun run build"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "catalog:",
+    "@aws-sdk/client-s3": "catalog:",
     "@aws-sdk/lib-dynamodb": "catalog:",
     "@beesolve/auth-service": "workspace:^",
     "@beesolve/cdk-constructs": "workspace:^",
