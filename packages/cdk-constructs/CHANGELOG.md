@@ -1,5 +1,12 @@
 # @beesolve/cdk-constructs
 
+## 0.3.1
+
+### Patch Changes
+
+- Updated dependencies [f02c1a4]
+  - @beesolve/helpers@0.2.0
+
 ## 0.3.0
 
 ### Minor Changes
