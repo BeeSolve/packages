@@ -26,8 +26,6 @@ export class EmailVerifyStack extends Stack {
         name: "Email Verify Sample",
         emailAddress: "no-reply@dev.beesolve.com",
       },
-      removalPolicy: RemovalPolicy.DESTROY,
-      deletionProtection: false,
     });
 
     const site = new SvelteKit(this, "Site", {
