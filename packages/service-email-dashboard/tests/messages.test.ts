@@ -139,7 +139,7 @@ describe("Messages.upsert", () => {
       "ADD #messageLog :messageLog, #idempotencyKeys :eventIdSet",
     );
     const recordValues = values(recordUpdate);
-    expect(recordValues[":requestId"]).toBe("unknown");
+    expect(recordValues[":requestId"]).toBeUndefined();
     expect(recordValues[":messageLog"]).toBeInstanceOf(Set);
     expect(recordValues[":eventIdSet"]).toBeInstanceOf(Set);
     const eventIdSet = recordValues[":eventIdSet"];
@@ -177,8 +177,8 @@ describe("Messages.upsert", () => {
     await messages.upsert(requestedProps());
 
     const items = transactItems(getCommandInput(send));
-    // record + global + 2 recipient stats + 2 relations + month
-    expect(items).toHaveLength(7);
+    // record + global + 2 recipient stats (no relations or month record for requested events)
+    expect(items).toHaveLength(4);
     expect(values(update(items, 0))[":requestId"]).toBe("req-1");
     expect(names(update(items, 1))["#counter"]).toBe("requested");
     expect(update(items, 2).Key).toEqual({ pk: "recipient@example.com", sk: "recipient" });
