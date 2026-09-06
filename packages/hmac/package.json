@@ -19,6 +19,12 @@
         "default": "./dist/index.js"
       }
     },
+    "./url": {
+      "import": {
+        "types": "./dist/url.d.ts",
+        "default": "./dist/url.js"
+      }
+    },
     "./package.json": "./package.json"
   },
   "scripts": {

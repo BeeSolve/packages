@@ -214,6 +214,9 @@
     "packages/hmac": {
       "name": "@beesolve/hmac",
       "version": "0.2.0",
+      "dependencies": {
+        "@beesolve/helpers": "workspace:*",
+      },
       "devDependencies": {
         "@types/bun": "catalog:",
         "@types/node": "catalog:",
@@ -363,12 +366,10 @@
       "name": "@beesolve/email-service",
       "version": "0.4.1",
       "dependencies": {
-        "@aws-sdk/client-dynamodb": "catalog:",
         "@aws-sdk/client-eventbridge": "catalog:",
         "@aws-sdk/client-s3": "catalog:",
         "@aws-sdk/client-sesv2": "catalog:",
         "@aws-sdk/client-sqs": "catalog:",
-        "@aws-sdk/lib-dynamodb": "catalog:",
         "@beesolve/cdk-constructs": "workspace:^",
         "@beesolve/helpers": "workspace:^",
         "@react-email/components": "catalog:",
@@ -396,7 +397,7 @@
     },
     "packages/service-email-dashboard": {
       "name": "@beesolve/email-service-dashboard",
-      "version": "0.2.1",
+      "version": "0.3.0",
       "dependencies": {
         "@aws-sdk/client-dynamodb": "catalog:",
         "@aws-sdk/client-s3": "catalog:",

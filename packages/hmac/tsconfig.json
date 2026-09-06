@@ -5,5 +5,5 @@
     "isolatedDeclarations": true,
     "types": ["node", "bun"]
   },
-  "include": ["src/**/*", "index.ts", "tests/**/*"]
+  "include": ["src/**/*", "index.ts", "url.ts", "tests/**/*"]
 }

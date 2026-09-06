@@ -1,6 +1,6 @@
 export * from "./src/stringifiable";
-
 export * from "./src/uuid";
+
 // oxlint-disable-next-line beesolve/prefer-props-object
 export function assertUnreachable(value: never, message: string = JSON.stringify(value)): never {
   throw Error("An unreachable state reached!\n" + message);
@@ -136,4 +136,25 @@ export function capitalizeFirstLetter(
   locale: Intl.LocalesArgument = "en",
 ): string {
   return [first.toLocaleUpperCase(locale), ...rest].join("");
+}
+
+export function stableJsonStringify<T extends Record<string, unknown>>(value: T): string {
+  return JSON.stringify(sortObjectKeysRecursively(value));
+}
+
+export function sortObjectKeysRecursively<T>(value: T): T {
+  if (Array.isArray(value)) {
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    return value.map(sortObjectKeysRecursively) as T;
+  }
+  if (value != null && typeof value === "object") {
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    return Object.fromEntries(
+      Object.keys(value)
+        .sort()
+        // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+        .map((key) => [key, sortObjectKeysRecursively((value as Record<string, unknown>)[key])]),
+    ) as T;
+  }
+  return value;
 }
