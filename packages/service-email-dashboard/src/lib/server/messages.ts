@@ -76,11 +76,13 @@ export const logEntrySchema = v.variant("status", [
 ]);
 export type LogEntry = v.InferOutput<typeof logEntrySchema>;
 
+type MessageLogEntry = LogEntry & { readonly recipient: string };
+
 // get => pk: messageId sk: 'message'
 export const messageSchema = v.object({
   pk: v.string(), // messageId
   sk: v.literal(entity),
-  requestId: v.string(),
+  requestId: v.optional(v.string(), "unknown"),
   recipients: v.array(emailSchema),
   messageLog: v.set(
     v.pipe(
@@ -222,7 +224,31 @@ export class Messages {
       assertUnreachable(props.data);
     });
 
-    const requestId = props.data.status === "requested" ? props.data.requestId : "unknown";
+    const relations =
+      props.data.status === "requested"
+        ? []
+        : [
+            // recipient query records - recipientQuerySchema
+            ...props.recipients.map((email) => ({
+              Put: {
+                TableName: this.props.tableName,
+                Item: {
+                  pk: email,
+                  sk: `${entity}#${props.createdAt}#${props.messageId}`,
+                },
+              },
+            })),
+            // global query record - messageQuerySchema
+            {
+              Put: {
+                TableName: this.props.tableName,
+                Item: {
+                  pk: props.createdAt.slice(0, 7), // YYYY-MM
+                  sk: `${props.createdAt}#${props.messageId}`,
+                },
+              },
+            },
+          ];
 
     try {
       await this.props.dynamo.send(
@@ -235,10 +261,10 @@ export class Messages {
                   pk: props.messageId,
                   sk: entity,
                 },
-                UpdateExpression: `SET #requestId = :requestId, #recipients = :recipients, #sender = :sender, #subject = :subject, #createdAt = :createdAt, #updatedAt = :updatedAt ADD #messageLog :messageLog, #idempotencyKeys :eventIdSet`,
+                UpdateExpression: `SET ${props.data.status === "requested" ? "#requestId = :requestId, " : ""}#recipients = :recipients, #sender = :sender, #subject = :subject, #createdAt = :createdAt, #updatedAt = :updatedAt ADD #messageLog :messageLog, #idempotencyKeys :eventIdSet`,
                 ConditionExpression: "not contains(#idempotencyKeys, :eventId)",
                 ExpressionAttributeNames: {
-                  "#requestId": "requestId",
+                  ...(props.data.status === "requested" ? { "#requestId": "requestId" } : {}),
                   "#recipients": "recipients",
                   "#sender": "sender",
                   "#subject": "subject",
@@ -248,7 +274,9 @@ export class Messages {
                   "#idempotencyKeys": "idempotencyKeys",
                 },
                 ExpressionAttributeValues: {
-                  ":requestId": requestId,
+                  ...(props.data.status === "requested"
+                    ? { ":requestId": props.data.requestId }
+                    : {}),
                   ":recipients": props.recipients,
                   ":sender": props.sender,
                   ":subject": props.subject,
@@ -280,27 +308,7 @@ export class Messages {
                 ExpressionAttributeValues: { ":one": 1 },
               },
             })),
-
-            // recipient query records - recipientQuerySchema
-            ...props.recipients.map((email) => ({
-              Put: {
-                TableName: this.props.tableName,
-                Item: {
-                  pk: email,
-                  sk: `${entity}#${props.createdAt}#${props.messageId}`,
-                },
-              },
-            })),
-            // global query record - messageQuerySchema
-            {
-              Put: {
-                TableName: this.props.tableName,
-                Item: {
-                  pk: props.createdAt.slice(0, 7), // YYYY-MM
-                  sk: `${props.createdAt}#${props.messageId}`,
-                },
-              },
-            },
+            ...relations,
           ],
         }),
       );
@@ -452,9 +460,10 @@ export class Messages {
     subject,
     updatedAt,
   }: Message) => {
-    const log = Array.from(messageLog).sort((left, right) =>
-      left.timestamp.localeCompare(right.timestamp),
-    );
+    const log: Array<MessageLogEntry> = Array.from(messageLog)
+      .sort((left, right) => left.timestamp.localeCompare(right.timestamp))
+      .filter((item) => item.status !== "requested");
+
     return {
       id: pk,
       recipients,
