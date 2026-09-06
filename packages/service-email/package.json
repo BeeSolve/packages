@@ -45,12 +45,10 @@
     "prepublishOnly": "bun run --bun build.ts && cd handler && zip -r ../dist/handler.zip *"
   },
   "dependencies": {
-    "@aws-sdk/client-dynamodb": "catalog:",
     "@aws-sdk/client-eventbridge": "catalog:",
     "@aws-sdk/client-s3": "catalog:",
     "@aws-sdk/client-sesv2": "catalog:",
     "@aws-sdk/client-sqs": "catalog:",
-    "@aws-sdk/lib-dynamodb": "catalog:",
     "@beesolve/cdk-constructs": "workspace:^",
     "@beesolve/helpers": "workspace:^",
     "@react-email/components": "catalog:",

@@ -2,7 +2,6 @@ import { fileURLToPath } from "node:url";
 
 import { Nodejs24Function, SqsWithDlq } from "@beesolve/cdk-constructs";
 import { Duration, RemovalPolicy, Stack } from "aws-cdk-lib";
-import { AttributeType, Billing, TableEncryptionV2, TableV2 } from "aws-cdk-lib/aws-dynamodb";
 import { EventBus } from "aws-cdk-lib/aws-events";
 import type { LogGroupProps } from "aws-cdk-lib/aws-events-targets";
 import { Effect, PolicyStatement } from "aws-cdk-lib/aws-iam";
@@ -24,7 +23,6 @@ import type { Queue } from "aws-cdk-lib/aws-sqs";
 import { Construct } from "constructs";
 
 export class Emails extends Construct {
-  private table: TableV2;
   private queue: Queue;
   private bucket: Bucket;
 
@@ -47,8 +45,6 @@ export class Emails extends Construct {
        * @default new Set([EmailSendingEvent.SEND, EmailSendingEvent.BOUNCE, EmailSendingEvent.COMPLAINT, EmailSendingEvent.DELIVERY, EmailSendingEvent.REJECT])
        */
       readonly eventsToTrack?: Set<EmailSendingEvent>;
-      readonly isProd?: boolean;
-      readonly removalPolicy?: RemovalPolicy;
       /**
        * Adjusts logging for SQS handler.
        *
@@ -60,21 +56,12 @@ export class Emails extends Construct {
        * }
        */
       readonly logGroupProps?: LogGroupProps;
-      readonly deletionProtection?: boolean;
       /**
        * How long should the attachments be stored in S3 bucket before they are deleted.
        *
        * @default 180
        */
       readonly attachmentsRetentionDays?: number;
-      /**
-       * How long should the messages be stored in DyanmoDB before they are deleted.
-       *
-       * If set to 0, messages are not being persisted to DynamoDB.
-       *
-       * @default 14
-       */
-      readonly messagesRetentionDays?: number;
       /**
        * Event bus which  notifications about sent emails are emitted to.
        *
@@ -98,9 +85,7 @@ export class Emails extends Construct {
     super(scope, id);
 
     const {
-      isProd = false,
       attachmentsRetentionDays = 180,
-      messagesRetentionDays = 14,
       eventBusName = "default",
       defaultConfigurationSet = new ConfigurationSet(this, "DefaultConfigurationSet"),
       eventsToTrack = new Set([
@@ -119,25 +104,6 @@ export class Emails extends Construct {
       configurationSet: defaultConfigurationSet,
       destination: EventDestination.eventBus(eventBus),
       enabled: true,
-    });
-
-    this.table = new TableV2(this, "EmailLog", {
-      partitionKey: {
-        name: "pk",
-        type: AttributeType.STRING,
-      },
-      sortKey: {
-        name: "sk",
-        type: AttributeType.STRING,
-      },
-      billing: Billing.onDemand(),
-      deletionProtection: props.deletionProtection ?? false,
-      encryption: TableEncryptionV2.awsManagedKey(),
-      removalPolicy: props.removalPolicy ?? RemovalPolicy.RETAIN,
-      timeToLiveAttribute: "ttl",
-      pointInTimeRecoverySpecification: {
-        pointInTimeRecoveryEnabled: isProd,
-      },
     });
 
     this.bucket = new Bucket(this, "EmailAttachments", {
@@ -162,10 +128,8 @@ export class Emails extends Construct {
       reservedConcurrentExecutions: props.handler?.reservedConcurrentExecutions ?? 2,
       environment: {
         BUCKET_NAME: this.bucket.bucketName,
-        TABLE_NAME: this.table.tableName,
         DEFAULT_SENDER_NAME: props.defaultSender.name,
         DEFAULT_SENDER_EMAIL_ADDRESS: props.defaultSender.emailAddress,
-        MESSAGES_RETENTION_DAYS: String(messagesRetentionDays),
         EVENT_BUS_ARN: eventBus.eventBusArn,
         DEFAULT_CONFIGURATION_SET_NAME: defaultConfigurationSet.configurationSetName,
       },
@@ -175,7 +139,6 @@ export class Emails extends Construct {
         ...props.logGroupProps,
       },
     });
-    this.table.grantReadWriteData(handler);
     this.bucket.grantRead(handler);
     eventBus.grantPutEventsTo(handler);
 
@@ -203,12 +166,10 @@ export class Emails extends Construct {
   }
 
   readonly grantAccess = (grantee: Function): void => {
-    this.table.grantReadData(grantee);
     this.queue.grantSendMessages(grantee);
     this.bucket.grantWrite(grantee);
 
     grantee.addEnvironment("BEESOLVE_EMAILS_QUEUE_URL", this.queue.queueUrl);
-    grantee.addEnvironment("BEESOLVE_EMAILS_TABLE_NAME", this.table.tableName);
     grantee.addEnvironment("BEESOLVE_EMAILS_ATTACHMENTS_BUCKET", this.bucket.bucketName);
   };
 }

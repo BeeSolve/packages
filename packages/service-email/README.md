@@ -3,7 +3,6 @@
 CDK construct and runtime SDK for sending transactional email via AWS SES.
 
 - SQS-backed queue for reliable delivery with automatic retries and DLQ
-- DynamoDB request tracking with configurable TTL
 - S3 attachment storage (supports both uploaded buffers and public URLs)
 - EventBridge notifications on send success/failure and SES delivery events
 - Pre-built React email templating (no React in your Lambda bundle)
@@ -11,7 +10,7 @@ CDK construct and runtime SDK for sending transactional email via AWS SES.
 
 ## What This Is
 
-A turnkey email infrastructure package. Deploy the CDK construct, call `grantAccess` on your Lambda, and send emails via the SDK. The construct provisions SQS, DynamoDB, S3, SES configuration, and the queue-processing Lambda — you don't manage any of that directly.
+A turnkey email infrastructure package. Deploy the CDK construct, call `grantAccess` on your Lambda, and send emails via the SDK. The construct provisions SQS, S3, SES configuration, and the queue-processing Lambda — you don't manage any of that directly.
 
 ## What This Is NOT
 
@@ -19,6 +18,25 @@ A turnkey email infrastructure package. Deploy the CDK construct, call `grantAcc
 - Not a template design tool — use `@react-email/components` for authoring and `bunx email dev` for previewing
 - Not an email receiving service — only handles outbound sending
 - Does not manage SES domain/identity verification — you must verify your sending domain separately in SES
+- Not a sent-message store — this service does not persist messages. It emits EventBridge events; use the dashboard (below) or your own consumer to build a queryable log.
+
+## Delivery observability & the dashboard
+
+This service intentionally keeps no database. It emits the delivery lifecycle
+(`EmailSentSuccess` / `EmailSentFailure` plus SES bounce/complaint/delivery events) to
+EventBridge, and that is the single integration point for anything that wants to observe
+sending.
+
+If you want a queryable sent log with a UI — messages by month, per-recipient history,
+aggregate counters, and per-recipient delivery timelines — deploy
+[`@beesolve/email-service-dashboard`](../service-email-dashboard). The dashboard runs its
+own event-ingest Lambda that projects these EventBridge events into its **own** DynamoDB
+table and stores request bodies in its **own** S3 bucket. It never reads from this
+service's storage — the two stay decoupled through events.
+
+> **Note:** Earlier versions of this package persisted every send to a DynamoDB table and
+> exposed a `getMessage()` SDK method. That was removed once the dashboard took over the
+> sent-log role. See [`docs/adr-002-drop-dynamodb-message-persistence.md`](./docs/adr-002-drop-dynamodb-message-persistence.md).
 
 ## Installation
 
@@ -40,31 +58,26 @@ const emails = new Emails(this, "Emails", {
     name: "My App",
     emailAddress: "no-reply@example.com",
   },
-  isProd: true, // enables DynamoDB point-in-time recovery
 });
 
 // Grants IAM permissions and injects env vars automatically
 emails.grantAccess(myLambdaFunction);
 ```
 
-`grantAccess` injects `BEESOLVE_EMAILS_QUEUE_URL`, `BEESOLVE_EMAILS_TABLE_NAME`, and `BEESOLVE_EMAILS_ATTACHMENTS_BUCKET` into the Lambda environment. You never set these manually.
+`grantAccess` injects `BEESOLVE_EMAILS_QUEUE_URL` and `BEESOLVE_EMAILS_ATTACHMENTS_BUCKET` into the Lambda environment. You never set these manually.
 
 ### Construct Props
 
-| Prop                       | Default                                                              | Description                                                                      |
-| -------------------------- | -------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| `defaultSender`            | required                                                             | `{ name, emailAddress }` used when no per-request sender is set                  |
-| `fromArn`                  | —                                                                    | Restrict sending to a specific SES verified identity ARN                         |
-| `defaultConfigurationSet`  | auto-created                                                         | Attach an existing SES configuration set                                         |
-| `eventsToTrack`            | `SEND, BOUNCE, COMPLAINT, DELIVERY, REJECT`                          | SES events forwarded to EventBridge                                              |
-| `messagesRetentionDays`    | `14`                                                                 | How long email requests are kept in DynamoDB (set to `0` to disable persistence) |
-| `attachmentsRetentionDays` | `180`                                                                | How long attachments are kept in S3                                              |
-| `eventBusName`             | `"default"`                                                          | EventBridge bus to publish events to                                             |
-| `isProd`                   | `false`                                                              | Enables DynamoDB point-in-time recovery                                          |
-| `handler`                  | `{ memorySize: 256, timeout: 30s, reservedConcurrentExecutions: 2 }` | Override Lambda handler settings                                                 |
-| `removalPolicy`            | `RETAIN`                                                             | CloudFormation removal policy for the DynamoDB table                             |
-| `deletionProtection`       | `false`                                                              | DynamoDB deletion protection                                                     |
-| `logGroupProps`            | `{ removalPolicy: DESTROY, retention: TWO_WEEKS }`                   | CloudWatch log group settings for the handler                                    |
+| Prop                       | Default                                                              | Description                                                     |
+| -------------------------- | -------------------------------------------------------------------- | --------------------------------------------------------------- |
+| `defaultSender`            | required                                                             | `{ name, emailAddress }` used when no per-request sender is set |
+| `fromArn`                  | —                                                                    | Restrict sending to a specific SES verified identity ARN        |
+| `defaultConfigurationSet`  | auto-created                                                         | Attach an existing SES configuration set                        |
+| `eventsToTrack`            | `SEND, BOUNCE, COMPLAINT, DELIVERY, REJECT`                          | SES events forwarded to EventBridge                             |
+| `attachmentsRetentionDays` | `180`                                                                | How long attachments are kept in S3                             |
+| `eventBusName`             | `"default"`                                                          | EventBridge bus to publish events to                            |
+| `handler`                  | `{ memorySize: 256, timeout: 30s, reservedConcurrentExecutions: 2 }` | Override Lambda handler settings                                |
+| `logGroupProps`            | `{ removalPolicy: DESTROY, retention: TWO_WEEKS }`                   | CloudWatch log group settings for the handler                   |
 
 ## Usage
 
@@ -132,17 +145,6 @@ await email.sendEmail({
     },
   ],
 });
-```
-
-### Retrieving a sent message
-
-```ts
-const { requestId } = await email.sendEmail({ ... });
-
-const message = await email.getMessage(requestId);
-// message.messageId — SES message ID (for correlating with SES events)
-// message.request   — original send request
-// message.expiresAt — when the record is removed from DynamoDB
 ```
 
 ### Overriding the SES configuration set per-send
@@ -325,13 +327,12 @@ export const handler = async (event: SQSEvent) => {
 - **Attachment size limit**: 25 MB per attachment (binary). The SES raw message limit is 40 MB post-base64 encoding.
 - **Public URL attachments**: Fetched by the handler Lambda with a 10-second timeout. Ensure URLs are accessible from the Lambda's network.
 - **Recipient validation**: Email addresses are validated with Valibot and normalised to lowercase. Invalid addresses cause the SQS message to fail.
-- **`getMessage()` requires persistence**: If `messagesRetentionDays: 0` is set, the DynamoDB table is not written to and `getMessage()` will throw.
 - **Single region**: The construct deploys to one region. SES must be configured in that region.
 
 ## Troubleshooting
 
 **"It seems that Emails service has not been set up correctly"**
-The SDK validates that `BEESOLVE_EMAILS_QUEUE_URL`, `BEESOLVE_EMAILS_TABLE_NAME`, and `BEESOLVE_EMAILS_ATTACHMENTS_BUCKET` are present in `process.env`. Ensure you called `emails.grantAccess(yourLambda)` in CDK.
+The SDK validates that `BEESOLVE_EMAILS_QUEUE_URL` and `BEESOLVE_EMAILS_ATTACHMENTS_BUCKET` are present in `process.env`. Ensure you called `emails.grantAccess(yourLambda)` in CDK.
 
 **Emails are queued but never sent**
 Check the queue handler Lambda's CloudWatch logs. Common causes: SES identity not verified, SES sandbox restrictions, or the handler Lambda doesn't have `ses:SendEmail` permission (should be granted automatically by the construct).
@@ -351,10 +352,7 @@ Ensure your `props` keys in `hydrateTemplate()` match the keys in `PreviewProps`
 Yes. Pass an array to `recipients`. Each address is validated and normalised to lowercase.
 
 **Are environment variables set automatically?**
-Yes. `grantAccess(lambda)` grants IAM permissions and injects all three required env vars.
-
-**How do I disable DynamoDB message persistence?**
-Pass `messagesRetentionDays: 0` to the `Emails` construct. `getMessage()` will not work.
+Yes. `grantAccess(lambda)` grants IAM permissions and injects the required env vars.
 
 **Why pre-build templates instead of rendering at runtime?**
 Bundling React + react-dom + @react-email into a Lambda adds several MB and increases cold-start time. Pre-building produces static HTML/text JSON files; the Lambda only calls `hydrateTemplate()` to fill in runtime values.

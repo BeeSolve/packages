@@ -1,35 +1,28 @@
 import { EventBridge } from "@aws-sdk/client-eventbridge";
-import { GetObjectCommand } from "@aws-sdk/client-s3";
+import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { SESv2Client, SendEmailCommand } from "@aws-sdk/client-sesv2";
-import { BatchWriteCommand } from "@aws-sdk/lib-dynamodb";
-import { asNull, assertUnreachable, call, splitArrayToChunks } from "@beesolve/helpers";
+import { asNull, assertUnreachable, call } from "@beesolve/helpers";
 import type { SQSEvent } from "aws-lambda";
 import { createMimeMessage } from "mimetext";
 import * as v from "valibot";
 
-import { dynamoClient, s3Client } from "./aws";
 import { Events } from "./events";
 import { requestSchema } from "./validation";
 
 const message = `It seems that Emails service has not been set up correctly. Please make sure you've used official CDK construct and that you've granted access to your lambda function.`;
 const envSchema = v.object({
   BUCKET_NAME: v.config(v.string(), { message }),
-  TABLE_NAME: v.config(v.string(), { message }),
   DEFAULT_SENDER_NAME: v.config(v.string(), { message }),
   DEFAULT_SENDER_EMAIL_ADDRESS: v.config(v.string(), { message }),
   FROM_ARN: v.optional(v.string()),
   DEFAULT_CONFIGURATION_SET_NAME: v.optional(v.string()),
-  MESSAGES_RETENTION_DAYS: v.pipe(
-    v.string(),
-    v.transform((value) => Number(value)),
-    v.number(),
-  ),
   EVENT_BUS_ARN: v.string(),
 });
 const env = v.parse(envSchema, process.env);
 
 const schema = v.pipe(v.string(), v.parseJson(), requestSchema);
 
+const s3Client = new S3Client();
 const sesClient = new SESv2Client();
 
 const events = new Events({
@@ -170,44 +163,6 @@ export const handler = async (
           request,
         },
       });
-
-      if (env.MESSAGES_RETENTION_DAYS !== 0) {
-        const expiresAt = new Date();
-        expiresAt.setUTCDate(expiresAt.getUTCDate() + env.MESSAGES_RETENTION_DAYS);
-
-        const ttl = Math.floor(expiresAt.getTime() / 1000);
-
-        const writeItems = [
-          {
-            PutRequest: {
-              Item: {
-                pk: request.id,
-                sk: MessageId,
-                request,
-                ttl,
-              },
-            },
-          },
-          ...request.recipients.map((recipient) => ({
-            PutRequest: {
-              Item: {
-                pk: recipient,
-                sk: new Date().toISOString(),
-                ttl,
-                key: { pk: request.id, sk: MessageId },
-              },
-            },
-          })),
-        ];
-
-        for (const chunk of splitArrayToChunks(writeItems, 25)) {
-          await dynamoClient.send(
-            new BatchWriteCommand({
-              RequestItems: { [env.TABLE_NAME]: chunk },
-            }),
-          );
-        }
-      }
     } catch (error) {
       console.error(error);
       batchItemFailures.push({ itemIdentifier: record.messageId });

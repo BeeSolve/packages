@@ -4,6 +4,10 @@
 
 Accepted
 
+> **Note:** The DynamoDB delivery-logging capability described below was later removed.
+> See [ADR-002](./adr-002-drop-dynamodb-message-persistence.md). The rest of this ADR
+> (SQS delivery, S3 attachments, EventBridge notifications, simple SDK) still holds.
+
 ## Context
 
 Sending transactional email on AWS means using SES. While SES itself is reliable, setting it up properly has been historically clunky and error-prone:
