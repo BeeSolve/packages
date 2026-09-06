@@ -71,25 +71,25 @@
     <ol class="timeline">
       {#each entries as entry}
         <li class="timeline-item">
-          <div class="timeline-head">
-            <MessageStatusBadge status={entry.status} />
+          <span class="timeline-badge"><MessageStatusBadge status={entry.status} /></span>
+          <div class="timeline-content">
             <span class="timeline-time">{formatDateTime(entry.timestamp)}</span>
-          </div>
-          <div class="timeline-detail">
-            {#if entry.status === "delivered"}
-              Delivered in {(entry.deliveryMs / 1000).toFixed(1)}s
-              (at {formatDateTime(entry.deliveredAt)})
-            {:else if entry.status === "bounced"}
-              {entry.bounceType} / {entry.bounceSubType}
-              {#if entry.diagnosticCode != null}— {entry.diagnosticCode}{/if}
-              (at {formatDateTime(entry.at)})
-            {:else if entry.status === "complained"}
-              {entry.feedbackType ?? "complaint"} (at {formatDateTime(entry.at)})
-            {:else if entry.status === "rejected"}
-              {entry.reason} (at {formatDateTime(entry.at)})
-            {:else if entry.status === "requested"}
-              Request {entry.requestId}
-            {/if}
+            <p class="timeline-detail">
+              {#if entry.status === "delivered"}
+                Delivered in {(entry.deliveryMs / 1000).toFixed(1)}s
+                (at {formatDateTime(entry.deliveredAt)})
+              {:else if entry.status === "bounced"}
+                {entry.bounceType} / {entry.bounceSubType}
+                {#if entry.diagnosticCode != null}— {entry.diagnosticCode}{/if}
+                (at {formatDateTime(entry.at)})
+              {:else if entry.status === "complained"}
+                {entry.feedbackType ?? "complaint"} (at {formatDateTime(entry.at)})
+              {:else if entry.status === "rejected"}
+                {entry.reason} (at {formatDateTime(entry.at)})
+              {:else if entry.status === "requested"}
+                Request {entry.requestId}
+              {/if}
+            </p>
           </div>
         </li>
       {/each}
@@ -160,13 +160,23 @@
   }
 
   .timeline-item {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: start;
+    column-gap: var(--vs-s);
     padding: 0 0 var(--vs-base) var(--vs-base);
   }
 
-  .timeline-head {
+  .timeline-badge {
+    display: inline-flex;
+  }
+
+  .timeline-content {
     display: flex;
-    align-items: center;
-    gap: var(--vs-s);
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 0;
+    padding-top: 0.15rem;
   }
 
   .timeline-time {
@@ -176,9 +186,9 @@
   }
 
   .timeline-detail {
+    margin: 0;
     font-size: 0.85rem;
     color: var(--fg-7);
-    margin-top: 0.15rem;
   }
 
   .error {
