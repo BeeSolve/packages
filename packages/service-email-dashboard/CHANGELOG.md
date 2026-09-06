@@ -1,5 +1,13 @@
 # @beesolve/email-service-dashboard
 
+## 0.3.1
+
+### Patch Changes
+
+- eeba945: Fix overlapping content in the per-recipient timeline on the message detail page. Each timeline entry now uses a grid layout with the status badge in its own column and the timestamp and detail text stacked vertically beside it, so they no longer collide when the timestamp wraps to multiple lines at narrow widths.
+- Updated dependencies [936adc3]
+  - @beesolve/email-service@0.5.0
+
 ## 0.3.0
 
 ### Minor Changes
