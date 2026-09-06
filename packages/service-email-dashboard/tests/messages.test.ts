@@ -275,6 +275,29 @@ function storedMessageItem() {
   };
 }
 
+function storedMessageItemFor(id: string, subject: string) {
+  return {
+    pk: id,
+    sk: "message",
+    requestId: `req-${id}`,
+    recipients: ["recipient@example.com"],
+    sender: "sender@example.com",
+    subject,
+    createdAt: mailTimestamp,
+    updatedAt: mailTimestamp,
+    messageLog: new Set([
+      JSON.stringify({
+        recipient: "recipient@example.com",
+        status: "delivered",
+        deliveredAt: mailTimestamp,
+        deliveryMs: 100,
+        timestamp: mailTimestamp,
+      }),
+    ]),
+    idempotencyKeys: new Set([`event-${id}`]),
+  };
+}
+
 describe("Messages.messageManyByRecipient", () => {
   it("queries begins_with(message#) on the lowercased email then BatchGets and folds status", async () => {
     const { dynamo, send } = makeDynamo();
@@ -302,6 +325,76 @@ describe("Messages.messageManyByRecipient", () => {
     expect(grouped).toHaveLength(3);
     expect(grouped?.map((entry) => entry.status)).toEqual(["sent", "delivered", "complained"]);
   });
+
+  it("returns items in the query order even when BatchGet responds in a different order", async () => {
+    const { dynamo, send } = makeDynamo();
+    send
+      .mockResolvedValueOnce({
+        Items: [
+          { pk: "recipient@example.com", sk: `message#2024-06-01T12:00:03.000Z#id-A` },
+          { pk: "recipient@example.com", sk: `message#2024-06-01T12:00:02.000Z#id-B` },
+          { pk: "recipient@example.com", sk: `message#2024-06-01T12:00:01.000Z#id-C` },
+        ],
+        LastEvaluatedKey: undefined,
+      })
+      .mockResolvedValueOnce({
+        Responses: {
+          t: [
+            storedMessageItemFor("id-C", "C"),
+            storedMessageItemFor("id-A", "A"),
+            storedMessageItemFor("id-B", "B"),
+          ],
+        },
+      });
+    const messages = new Messages({ dynamo, tableName: "t", reverseIndexName: "reverse" });
+
+    const result = await messages.messageManyByRecipient({ email: "recipient@example.com" });
+
+    expect(result.items.map((item) => item.id)).toEqual(["id-A", "id-B", "id-C"]);
+  });
+
+  it("collapses duplicate index rows for one message into a single item without throwing", async () => {
+    const { dynamo, send } = makeDynamo();
+    send
+      .mockResolvedValueOnce({
+        Items: [
+          { pk: "recipient@example.com", sk: `message#2024-06-01T12:00:02.000Z#${messageId}` },
+          { pk: "recipient@example.com", sk: `message#2024-06-01T12:00:01.000Z#${messageId}` },
+        ],
+        LastEvaluatedKey: undefined,
+      })
+      .mockResolvedValueOnce({ Responses: { t: [storedMessageItem()] } });
+    const messages = new Messages({ dynamo, tableName: "t", reverseIndexName: "reverse" });
+
+    const result = await messages.messageManyByRecipient({ email: "recipient@example.com" });
+
+    const batchInput = getCommandInput(send, 1);
+    const keys = asDict(asDict(batchInput.RequestItems).t).Keys;
+    expect(keys).toHaveLength(1);
+
+    // No 500; duplicate index rows collapse to a single message
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]?.id).toBe(messageId);
+  });
+
+  it("does not throw and skips index rows whose message item is missing from the table", async () => {
+    const { dynamo, send } = makeDynamo();
+    send
+      .mockResolvedValueOnce({
+        Items: [
+          { pk: "recipient@example.com", sk: `message#2024-06-01T12:00:02.000Z#id-present` },
+          { pk: "recipient@example.com", sk: `message#2024-06-01T12:00:01.000Z#id-missing` },
+        ],
+        LastEvaluatedKey: undefined,
+      })
+      .mockResolvedValueOnce({ Responses: { t: [storedMessageItemFor("id-present", "present")] } });
+    const messages = new Messages({ dynamo, tableName: "t", reverseIndexName: "reverse" });
+
+    const result = await messages.messageManyByRecipient({ email: "recipient@example.com" });
+
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]?.id).toBe("id-present");
+  });
 });
 
 describe("Messages.messagesManyForMonth", () => {
@@ -322,6 +415,80 @@ describe("Messages.messagesManyForMonth", () => {
     expect(values(queryInput)[":pk"]).toBe("2024-06");
     expect(result.items).toHaveLength(1);
     expect(result.items[0]?.id).toBe(messageId);
+  });
+
+  it("returns items in the query order even when BatchGet responds in a different order", async () => {
+    const { dynamo, send } = makeDynamo();
+    // Query returns newest-first: A, B, C
+    send
+      .mockResolvedValueOnce({
+        Items: [
+          { pk: "2024-06", sk: `2024-06-01T12:00:03.000Z#id-A` },
+          { pk: "2024-06", sk: `2024-06-01T12:00:02.000Z#id-B` },
+          { pk: "2024-06", sk: `2024-06-01T12:00:01.000Z#id-C` },
+        ],
+        LastEvaluatedKey: undefined,
+      })
+      // BatchGet responds in an arbitrary, shuffled order: C, A, B
+      .mockResolvedValueOnce({
+        Responses: {
+          t: [
+            storedMessageItemFor("id-C", "C"),
+            storedMessageItemFor("id-A", "A"),
+            storedMessageItemFor("id-B", "B"),
+          ],
+        },
+      });
+    const messages = new Messages({ dynamo, tableName: "t", reverseIndexName: "reverse" });
+
+    const result = await messages.messagesManyForMonth({ month: { year: 2024, month: 6 } });
+
+    expect(result.items.map((item) => item.id)).toEqual(["id-A", "id-B", "id-C"]);
+  });
+
+  it("collapses duplicate month index rows for one message into a single item without throwing", async () => {
+    const { dynamo, send } = makeDynamo();
+    send
+      .mockResolvedValueOnce({
+        Items: [
+          { pk: "2024-06", sk: `2024-06-01T12:00:02.000Z#${messageId}` },
+          { pk: "2024-06", sk: `2024-06-01T12:00:01.000Z#${messageId}` },
+        ],
+        LastEvaluatedKey: undefined,
+      })
+      .mockResolvedValueOnce({ Responses: { t: [storedMessageItem()] } });
+    const messages = new Messages({ dynamo, tableName: "t", reverseIndexName: "reverse" });
+
+    const result = await messages.messagesManyForMonth({ month: { year: 2024, month: 6 } });
+
+    // BatchGet is called with de-duplicated keys (avoids the DynamoDB duplicate-key error)
+    const batchInput = getCommandInput(send, 1);
+    const keys = asDict(asDict(batchInput.RequestItems).t).Keys;
+    expect(keys).toHaveLength(1);
+
+    // No 500; duplicate index rows collapse to a single message
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]?.id).toBe(messageId);
+  });
+
+  it("does not throw and skips index rows whose message item is missing from the table", async () => {
+    const { dynamo, send } = makeDynamo();
+    send
+      .mockResolvedValueOnce({
+        Items: [
+          { pk: "2024-06", sk: `2024-06-01T12:00:02.000Z#id-present` },
+          { pk: "2024-06", sk: `2024-06-01T12:00:01.000Z#id-missing` },
+        ],
+        LastEvaluatedKey: undefined,
+      })
+      // Only the present message comes back; id-missing has no item
+      .mockResolvedValueOnce({ Responses: { t: [storedMessageItemFor("id-present", "present")] } });
+    const messages = new Messages({ dynamo, tableName: "t", reverseIndexName: "reverse" });
+
+    const result = await messages.messagesManyForMonth({ month: { year: 2024, month: 6 } });
+
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]?.id).toBe("id-present");
   });
 });
 

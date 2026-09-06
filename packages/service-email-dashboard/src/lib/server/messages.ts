@@ -6,7 +6,13 @@ import {
   QueryCommand,
   TransactWriteCommand,
 } from "@aws-sdk/lib-dynamodb";
-import { assertUnreachable, call, splitArrayToChunks } from "@beesolve/helpers";
+import {
+  assertUnreachable,
+  call,
+  isNotNil,
+  splitArrayToChunks,
+  toRecordByProperty,
+} from "@beesolve/helpers";
 import * as v from "valibot";
 
 import { decodeCursor, defaultLimit, emailSchema, encodeCursor } from "./schema";
@@ -361,15 +367,19 @@ export class Messages {
     );
 
     const keys = items.map((raw) => v.parse(recipientQuerySchema, raw));
+    const uniqueIds = Array.from(new Set(keys.map(({ sk: { messageId } }) => messageId)));
+
+    if (keys.length !== uniqueIds.length) {
+      console.warn(`Keys are not unique - there are duplicates which shouldn't happen.`);
+    }
 
     const messages = new Array<MessageModel>();
-
-    for (const batch of splitArrayToChunks(keys, 100)) {
+    for (const batch of splitArrayToChunks(uniqueIds, 100)) {
       const { Responses = {} } = await this.props.dynamo.send(
         new BatchGetCommand({
           RequestItems: {
             [this.props.tableName]: {
-              Keys: batch.map(({ sk: { messageId } }) => ({
+              Keys: batch.map((messageId) => ({
                 pk: messageId,
                 sk: entity,
               })),
@@ -383,7 +393,24 @@ export class Messages {
       messages.push(...messagesRaw.map((raw) => this.toModel(this.parseOne(raw))));
     }
 
-    return { items: messages, cursor: encodeCursor(lastKey) };
+    const messagesById = toRecordByProperty(messages, "id");
+
+    return {
+      items: uniqueIds
+        .map((messageId) => {
+          const message = messagesById[messageId];
+          if (message == null) {
+            console.warn(
+              `Message with messageId=${messageId} is missing from the table but found in index.`,
+            );
+            return null;
+          }
+
+          return message;
+        })
+        .filter(isNotNil),
+      cursor: encodeCursor(lastKey),
+    };
   };
 
   // todo: here we could create algorithm which will go through multiple "months" in PK until the limit is reached
@@ -416,15 +443,19 @@ export class Messages {
     );
 
     const keys = items.map((raw) => v.parse(messageQuerySchema, raw));
+    const uniqueIds = Array.from(new Set(keys.map(({ sk: { messageId } }) => messageId)));
+
+    if (keys.length !== uniqueIds.length) {
+      console.warn(`Keys are not unique - there are duplicates which shouldn't happen.`);
+    }
 
     const messages = new Array<MessageModel>();
-
-    for (const batch of splitArrayToChunks(keys, 100)) {
+    for (const batch of splitArrayToChunks(uniqueIds, 100)) {
       const { Responses = {} } = await this.props.dynamo.send(
         new BatchGetCommand({
           RequestItems: {
             [this.props.tableName]: {
-              Keys: batch.map(({ sk: { messageId } }) => ({
+              Keys: batch.map((messageId) => ({
                 pk: messageId,
                 sk: entity,
               })),
@@ -438,7 +469,24 @@ export class Messages {
       messages.push(...messagesRaw.map((raw) => this.toModel(this.parseOne(raw))));
     }
 
-    return { items: messages, cursor: encodeCursor(lastKey) };
+    const messagesById = toRecordByProperty(messages, "id");
+
+    return {
+      items: uniqueIds
+        .map((messageId) => {
+          const message = messagesById[messageId];
+          if (message == null) {
+            console.warn(
+              `Message with messageId=${messageId} is missing from the table but found in index.`,
+            );
+            return null;
+          }
+
+          return message;
+        })
+        .filter(isNotNil),
+      cursor: encodeCursor(lastKey),
+    };
   };
 
   private readonly parseOne = (item: unknown): Message => {
