@@ -1,6 +1,6 @@
 # DMARC Dashboard UX Reframe + DNS Setup Advisory
 
-## Status: In Progress
+## Status: Complete
 
 ## Problem Statement
 
@@ -355,13 +355,11 @@ For the dashboard package specifically, also run its type-check (`bun run --filt
 
 ### Task 12: Changesets + end-to-end verification
 
-- [ ] Read `packages/dmarc-consumer/package.json` and the dashboard `package.json` `name` fields. Create changesets: a **minor** bump for `@beesolve/dmarc-consumer` and an appropriate bump for the dashboard package. Do not assume package names match directory names.
-  - **Decision (settled): clean `BackfillSdk` → `AdminSdk` rename, no deprecated `BackfillSdk` re-export alias.** The package is still in beta (`0.x`), so per semver there is no major to bump — breaking changes go in a **minor** bump. We are also the sole consumer, so the breaking rename is acceptable. Remove every `BackfillSdk` reference (export, importers, build entry) rather than aliasing.
-  - The minor bump covers: the `AdminSdk` rename (breaking, but minor while `0.x`), plus the new `./dns` export, new domain accessors, optional `dns` schema field, generalized job tracker, and DNS worker/cron.
-  - Document in the changeset body that `BackfillSdk` was renamed to `AdminSdk` and that `start`/`getStatuses` became `startIpBackfill`/`getIpBackfillStatuses`.
-- [ ] Run full `bun run check`, `bun run type-check`, `bun test`, plus the dashboard's own type-check/svelte-check.
-- [ ] Manually reason through the SvelteKit-on-Lambda constraints from steering: single default form action with `intent` (no `?/named` behind CloudFront), single service instantiation in hooks, and `@beesolve/lambda-fetch-api` SSR external (only relevant if touched).
-- [ ] Sanity-check the new CDK: daily EventBridge rule + cron Lambda synthesize; cron has table-read + tasks-queue-enqueue grants; consumer has tasks-queue-enqueue grant for the bootstrap path.
+- [x] Read both `package.json` `name` fields (`@beesolve/dmarc-consumer` 0.2.2, `@beesolve/dmarc-dashboard` 0.5.2). Created two **minor** changesets (`.changeset/dmarc-dns-advisory-consumer.md`, `.changeset/dmarc-dns-advisory-dashboard.md`). `changeset status` confirms both bump minor with the correct names.
+  - Consumer changeset documents the breaking renames (`BackfillSdk`→`AdminSdk`, `start`/`getStatuses`→`startIpBackfill`/`getIpBackfillStatuses`, `grantBackfill`→`grantTasks`, `Backfill`→`Tasks` construct id) alongside the new `./dns`/`./dns-record` exports, domain accessors, optional `dns`/`selectors` fields, generalized job tracker, and DNS worker/cron.
+- [x] Ran full `bun run check` (0/0), `bun run type-check` (all packages incl. both svelte-checks 0/0), `bun run build` + `bun test` (597 pass, 0 fail).
+- [x] SvelteKit-on-Lambda constraints verified: single default form action + hidden `intent` (no `?/named`), single service instantiation in `hooks.server.ts`, `@beesolve/lambda-fetch-api` not touched.
+- [x] CDK sanity-checked via `cdk.test.ts`: daily EventBridge rule + DNS cron Lambda synthesize with table-read + tasks-queue-enqueue grants; consumer has tasks-queue-enqueue grant for the bootstrap path; renamed tasks worker present.
 
 **Files:** `.changeset/*.md`
 
