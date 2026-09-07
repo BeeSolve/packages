@@ -129,6 +129,7 @@ describe("DmarcConsumer construct", () => {
         Variables: Match.objectLike({
           BEESOLVE_TASKS_MAIN_QUEUE_URL: Match.anyValue(),
           TABLE_NAME: Match.anyValue(),
+          REVERSE_INDEX_NAME: "reverse",
         }),
       },
     });
