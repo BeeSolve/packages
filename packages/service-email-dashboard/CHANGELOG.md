@@ -1,5 +1,16 @@
 # @beesolve/email-service-dashboard
 
+## 0.3.2
+
+### Patch Changes
+
+- Updated dependencies [f02c1a4]
+  - @beesolve/helpers@0.2.0
+  - @beesolve/cdk-constructs@0.3.1
+  - @beesolve/lambda-fetch-api@2.1.1
+  - @beesolve/auth-service@0.15.1
+  - @beesolve/email-service@0.5.1
+
 ## 0.3.1
 
 ### Patch Changes
