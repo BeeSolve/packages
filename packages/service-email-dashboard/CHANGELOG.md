@@ -1,5 +1,11 @@
 # @beesolve/email-service-dashboard
 
+## 0.3.3
+
+### Patch Changes
+
+- 8b821bc: chore: upgrade dependencies
+
 ## 0.3.2
 
 ### Patch Changes
