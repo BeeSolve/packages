@@ -1,6 +1,5 @@
 <script lang="ts">
   import RawJsonModal from "$lib/components/rawJsonModal.svelte";
-  import StatusBadge from "$lib/components/statusBadge.svelte";
 
   let { data } = $props();
 
@@ -70,8 +69,8 @@
       <dd>{alignmentLabel(data.report.aspf)}</dd>
     </div>
     <div class="dl-item">
-      <dt>Pass Rate</dt>
-      <dd><StatusBadge rate={passRate} /></dd>
+      <dt>Delivered / not actioned</dt>
+      <dd>{passRate}%</dd>
     </div>
   </dl>
 </section>

@@ -340,12 +340,12 @@ For the dashboard package specifically, also run its type-check (`bun run --filt
 
 ### Task 11: Overview UI reframe — remove Refresh IP details, fix pass-rate framing
 
-- [ ] In `packages/dmarc-dashboard/src/routes/+page.svelte`:
-  - Remove the "Sender origins" column, the refresh `<form>`/button, the `last-run` display, the `.hint` paragraph, and the now-unused `enhance`/`submittingDomain` state.
-  - Rename the "Pass Rate" summary card and the table column to a non-alarming label (e.g. "Delivered / not actioned"), OR replace with two clearer signals if aggregate data allows at overview level. At minimum: stop using `StatusBadge`'s red/amber thresholds on the disposition rate. If keeping a per-row indicator, use a neutral presentation for the disposition rate.
-  - Keep the domain link, Messages, Pass, Fail columns.
-- [ ] In `packages/dmarc-dashboard/src/routes/+page.server.ts`: remove the `default` backfill action and the `backfill.getStatuses()`/`canRun`/`lastRun` wiring from `load` (that concern now lives on the domain detail page). Keep the access-filtered domain list.
-- [ ] Review `packages/dmarc-dashboard/src/lib/components/statusBadge.svelte` usage: it should only be applied to genuinely "high-is-good" metrics (SPF/DKIM auth health), not the disposition rate. Adjust where it's used accordingly (the per-report "Pass Rate" column on the detail page uses the same inverted metric — relabel/neutralize there too, or repoint the badge at an auth-health rate).
+- [x] In `packages/dmarc-dashboard/src/routes/+page.svelte`:
+  - Removed the "Sender origins" column, the refresh `<form>`/button, the `last-run` display, the `.hint` paragraph, and the `enhance`/`submittingDomain` state.
+  - Renamed the "Pass Rate" summary card and table column to "Delivered / not actioned" (and "Failures"→"Blocked"); per-row rate is now neutral text (no alarm coloring).
+  - Kept the domain link, Messages, Pass (Delivered), Fail (Blocked) columns.
+- [x] In `packages/dmarc-dashboard/src/routes/+page.server.ts`: removed the `default` backfill action and the `getIpBackfillStatuses`/`canRun`/`lastRun` wiring from `load`; kept the access-filtered domain list.
+- [x] `StatusBadge` was only ever applied to the inverted disposition rate. Neutralized every such use — detail page per-report column + summary card, and the single-report page (`reports/[reportId]`) "Pass Rate" — to plain "Delivered / not actioned" text. `statusBadge.svelte` became dead code and was deleted (can be re-added for a genuine high-is-good metric later). The genuinely high-is-good SPF/DKIM/Spoofing-Blocked cards remain.
 
 **Files:** `packages/dmarc-dashboard/src/routes/+page.svelte`, `packages/dmarc-dashboard/src/routes/+page.server.ts`, `packages/dmarc-dashboard/src/lib/components/statusBadge.svelte` (usage), `packages/dmarc-dashboard/src/routes/domains/[domain]/+page.svelte` (per-report Pass Rate relabel)
 

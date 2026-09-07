@@ -1,7 +1,6 @@
 <script lang="ts">
   import { enhance } from "$app/forms";
   import Calendar from "$lib/components/calendar.svelte";
-  import StatusBadge from "$lib/components/statusBadge.svelte";
   import SummaryCard from "$lib/components/summaryCard.svelte";
 
   let { data, form } = $props();
@@ -153,7 +152,7 @@
 <div class="top-bar">
   <div class="summary-cards">
     <SummaryCard label="Total Messages" value={data.aggregate.totalMessages.toLocaleString()} />
-    <SummaryCard label="Pass Rate" value="{passRate}%" />
+    <SummaryCard label="Delivered / not actioned" value="{passRate}%" />
     <SummaryCard label="Unique IPs" value={data.aggregate.uniqueIps} />
     <SummaryCard label="Reports" value={data.aggregate.reportCount} />
     <SummaryCard label="SPF Pass Rate" value="{data.aggregate.spfPassRate}%" />
@@ -380,7 +379,7 @@
                   <th class="num">Messages</th>
                   <th class="num">Pass</th>
                   <th class="num">Fail</th>
-                  <th>Pass Rate</th>
+                  <th class="num">Delivered</th>
                   <th>Policy</th>
                 </tr>
               </thead>
@@ -397,7 +396,7 @@
                     <td class="num">{report.totalMessages.toLocaleString()}</td>
                     <td class="num">{report.totalPass.toLocaleString()}</td>
                     <td class="num">{report.totalFail.toLocaleString()}</td>
-                    <td><StatusBadge {rate} /></td>
+                    <td class="num rate">{rate}%</td>
                     <td><code>{report.policy}</code></td>
                   </tr>
                 {/each}
@@ -631,6 +630,10 @@
   .num {
     text-align: right;
     font-variant-numeric: tabular-nums;
+  }
+
+  .rate {
+    color: var(--fg-7);
   }
 
   .ip {
