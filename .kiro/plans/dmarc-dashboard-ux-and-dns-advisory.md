@@ -12,7 +12,7 @@ Three pieces of UX feedback on the DMARC dashboard (`packages/dmarc-dashboard`),
 
 3. **Misconfiguration / too-lax setup detection.** We can help users fix DNS problems. We have two evidence sources: (a) observed report behavior (policy `p`, `pct`, verdict breakdown, alignment failures of real senders — already computed in `src/lib/server/aggregate.ts`), and (b) **live DNS**, fetched with Node's built-in `node:dns/promises` (all Lambdas run `Runtime.NODEJS_24_X` via `Nodejs24Function`; the dashboard SSR runs on Node 24). We fetch and validate the actual `_dmarc`, SPF, and DKIM (for observed selectors) TXT records and surface actionable guidance.
 
-The DNS records are cached on the existing **domain record** in DynamoDB (same single-table pattern used everywhere), stored as an **optional** field so the change is backward compatible. Each cache entry carries a `fetchedAt` timestamp; on read, staleness is computed against a globally configured TTL (default 24h) and refetched + written back when stale. The cache is **purgable from the frontend** so a user who just changed DNS can force a refetch.
+The DNS records are cached on the existing **domain record** in DynamoDB (same single-table pattern used everywhere), stored as an **optional** field so the change is backward compatible. Each cache entry carries a `fetchedAt` timestamp; staleness is computed against a globally configured TTL (default 24h). All DNS fetching and writing happens **out of band in an SQS task worker** (mirroring the existing IP-backfill pattern) — never inline in the SSR request path. Fetches are triggered three ways: (a) a **daily EventBridge cron** that fans out one `refreshDomainDns` SQS task per stale domain, (b) a **first-time bootstrap** enqueue when a domain aggregate is first created during report ingest, and (c) an **on-demand refresh button** in the dashboard that enqueues a forced `refreshDomainDns` task. The SSR page only ever _reads_ the cached `dns` field. Note on TTL: Node's `node:dns/promises` `resolveTxt()` does not expose per-record DNS TTLs (`{ ttl: true }` is only supported for A/AAAA lookups), so we use our own configurable staleness window (default 24h) rather than the DNS-published TTL.
 
 ## Architecture / Approach
 
@@ -101,16 +101,36 @@ export function buildAdvisory(props: {
 - `parseSpfRecord(txt: string): SpfMechanism` — parse an SPF TXT string (qualifier + lookup count).
 - `Domains.getByDomain({ domain }): Promise<Domain | null>` — fetch a single domain record (new; currently only `list()` exists).
 - `Domains.putDns({ domain, dns }): Promise<void>` — write the `dns` field via `UpdateCommand SET #dns = :dns` (does not disturb the `ADD` counters).
-- `Domains.clearDns({ domain }): Promise<void>` — `UpdateCommand REMOVE #dns` for frontend purge.
+- `Domains.clearDns({ domain }): Promise<void>` — `UpdateCommand REMOVE #dns` (kept for completeness; not on the primary path).
 
 New DNS resolver module `@beesolve/dmarc-consumer/dns` (`packages/dmarc-consumer/dns.ts`):
 
-- `resolveDomainDns({ domain, dkimSelectors }): Promise<DomainDns>` — uses `node:dns/promises` (`resolveTxt`) to fetch `_dmarc.<domain>`, `<domain>` (SPF), and `<selector>._domainkey.<domain>` for each observed selector; parses each; sets `fetchedAt`; captures per-record resolution errors into `error`/`found:false` rather than throwing.
-- `DnsCache` class (mirrors `IpInfoCache` shape) wrapping `Domains` with staleness logic:
-  - constructor: `{ domains: Domains, ttlMs?: number }` (default `ttlMs = 24 * 60 * 60 * 1000`).
-  - `get({ domain, dkimSelectors }): Promise<DomainDns>` — reads the domain record; if `dns` missing or `Date.now() - Date.parse(dns.fetchedAt) > ttlMs`, refetches via `resolveDomainDns`, writes back with `Domains.putDns`, returns fresh; otherwise returns cached.
-  - `refresh({ domain, dkimSelectors }): Promise<DomainDns>` — force refetch + write (ignores TTL). Backs the frontend purge.
-  - `purge({ domain }): Promise<void>` — `Domains.clearDns`.
+- `resolveDomainDns({ domain, dkimSelectors }): Promise<DomainDns>` — uses `node:dns/promises` (`resolveTxt`) to fetch `_dmarc.<domain>`, `<domain>` (SPF), and `<selector>._domainkey.<domain>` for each observed selector; parses each; sets `fetchedAt`; captures per-record resolution errors into `error`/`found:false` rather than throwing. **Pure of Dynamo** — no cache/DB access. This is the only network-touching function; it is invoked exclusively from the SQS worker (`runDnsRefresh`), never from SSR.
+- `isDnsStale({ dns, ttlMs }): boolean` — small pure helper: `dns == null || dns.fetchedAt == null || Date.now() - Date.parse(dns.fetchedAt) > ttlMs`. Used by the cron to decide which domains to enqueue.
+
+**No `DnsCache` read-through class.** DNS is fetched and written only in the worker path below; SSR reads the cached field via `Domains.getByDomain`.
+
+Generalized job-run tracker (refactor of `backfill.ts`) — `@beesolve/dmarc-consumer` internal:
+
+- The existing `Backfill` run-state machine (`startRun`/`completeRun`/`failRun`/`deriveCanRun` + config item + `run#<...>` history) is generalized to be parameterized by a **job kind** (`ipBackfill` | `dnsRefresh`). Distinct config `sk` per kind and distinct run-history `pk` prefixes per kind keep the two job types isolated in the single table. The DNS-refresh job reuses the identical `canRun`/`lastRun`/stale-run semantics.
+
+New DNS worker module (`packages/dmarc-consumer/src/runDnsRefresh.ts`, mirrors `src/runBackfill.ts`):
+
+- `runDnsRefresh({ reports, domains, jobs, domain, runId })` — derives observed DKIM selectors by scanning the domain's stored reports (via `Reports`, same source the backfill uses), calls `resolveDomainDns`, `domains.putDns`, and marks the run finished/failed via the job tracker.
+
+New SQS task (`packages/dmarc-consumer/src/tasks.ts`):
+
+- `refreshDomainDns({ domain, runId })` — added alongside the existing `backfillDomain` task in the same `createSqsHandlers` map; delegates to `runDnsRefresh`.
+
+New cron enqueue handler (`packages/dmarc-consumer/src/dnsCron.ts`, wired to a daily EventBridge rule):
+
+- reads `domains.list()`, filters to those where `isDnsStale({ dns, ttlMs })`, and enqueues one `refreshDomainDns` task per stale domain (via the same `tasks` client). TTL from `DNS_CACHE_TTL_MS` env (default 24h).
+
+SDK — **rename `BackfillSdk` → `AdminSdk`** (`packages/dmarc-consumer/sdk.ts`), one class covering both concerns:
+
+- `startIpBackfill({ domain })` (renamed from `start`) / `getIpBackfillStatuses()` (renamed from `getStatuses`).
+- `startDnsRefresh({ domain }): Promise<{ enqueued: true; runId } | { enqueued: false; reason: "already-running" }>` — guarded `startRun` against the `dnsRefresh` job kind, enqueues `refreshDomainDns`, mirrors the backfill start semantics (force w.r.t. the DNS TTL — a manual refresh always fetches).
+- `getDnsRefreshStatuses(): Promise<Record<string, JobStatusSummary>>` — full backfill-style `canRun`/`lastRun` per domain for the DNS-refresh job.
 
 `@beesolve/dmarc-dashboard` `src/lib/server/advisory.ts`:
 
@@ -120,18 +140,22 @@ New DNS resolver module `@beesolve/dmarc-consumer/dns` (`packages/dmarc-consumer
 
 - No new external dependencies. `node:dns/promises` is built into Node 24. The dashboard already depends on `@beesolve/dmarc-consumer` (`workspace:^`).
 - New package export `./dns` must be added to `packages/dmarc-consumer/package.json` `exports` (mirror the existing `./domain`, `./ip-info` entries) and to the barrel/build (`build.ts`/bunup entry list — check how `ipInfo.ts` is exposed and follow the same wiring).
-- The dashboard `hooks.server.ts` wires a new `dnsCache` into `event.locals.services` (single-instantiation pattern — never instantiate in route files). TTL sourced from an optional env var `DNS_CACHE_TTL_MS` (added to `envSchema`, `v.optional`).
+- The dashboard `hooks.server.ts` wires a read-only `Domains` accessor plus the `AdminSdk` into `event.locals.services` (single-instantiation pattern — never instantiate in route files). SSR does **not** instantiate a resolver or cache. The staleness TTL lives on the consumer/cron side (`DNS_CACHE_TTL_MS`), not in the dashboard; the dashboard only reads `dns.fetchedAt` to render "last checked" / stale hints.
 
 ### CDK Constructs
 
-None. No new tables — the DNS cache lives on the existing domain item in the existing DMARC table. Lambda egress for outbound DNS works by default (these functions are not VPC-attached; the ipinfo HTTP lookups already make outbound calls). No IAM changes needed for DNS.
+**One new EventBridge rule** (daily schedule) targeting a small cron Lambda that enqueues stale-domain DNS refreshes. The DNS worker itself is **not** a new function — `refreshDomainDns` is added to the existing `tasks/` SqsHandler (`this.backfill` in `cdk.ts`), which already has table read/write. The cron Lambda needs table read (`domains.list()`) and permission to enqueue to the tasks main queue (`SqsHandler.grantAccess` / the queue URL env). No new tables — the DNS cache lives on the existing domain item. Lambda egress for outbound DNS works by default (functions are not VPC-attached; the ipinfo HTTP lookups already make outbound calls). No IAM changes needed for DNS resolution itself.
 
 ### Key Design Decisions
 
 - **DNS cache lives on the domain record as an optional field**, per the user's explicit instruction — not a separate cache item. Backward compatible because `dns` is `v.optional`. Written with a targeted `SET #dns` update so it never interferes with the `ADD` counter updates in `upsert`.
-- **Staleness computed on read** against a configurable TTL (default 24h) using the stored `fetchedAt`, mirroring the `fetchedAt` convention already in `ipInfo.ts`. Stale reads trigger a transparent refetch-and-writeback.
-- **Frontend purge** = force-refresh action (`refresh`) rather than a destructive delete, so the user immediately gets fresh data after a DNS change. A hard `purge` (REMOVE) is also exposed for completeness.
-- **DKIM selectors are observation-driven.** DNS can't enumerate arbitrary selectors, so we query exactly the selectors seen in `authResults.dkim[].selector` (already parsed in `dmarc-parser`). The dashboard passes observed selectors from the aggregate into `dnsCache.get`.
+- **All DNS fetching/writing happens in an SQS worker**, never inline in SSR. Node `resolveTxt` can be slow or hang; keeping it off the request path avoids API Gateway/CloudFront timeouts and matches the existing IP-backfill architecture (`runBackfill` → `tasks` → `SqsHandler`). SSR is strictly read-only (`Domains.getByDomain`).
+- **Three fetch triggers:** (a) **daily EventBridge cron** fans out one `refreshDomainDns` task per _stale_ domain (`isDnsStale` against the 24h TTL) — daily cron + 24h TTL means each domain refetches ~daily but the cron is a no-op for anything still fresh; (b) **first-time bootstrap** — when a domain aggregate is first created in `consumer.ts upsertDomainAggregates`, enqueue a `refreshDomainDns` so new domains get DNS immediately without waiting for the nightly sweep and without inline DNS on the ingest hot path (fire-and-forget enqueue); (c) **on-demand button** — enqueues a forced `refreshDomainDns` (ignores TTL) via `AdminSdk.startDnsRefresh`.
+- **Internal 24h staleness TTL, not the DNS-published TTL.** `resolveTxt` does not return per-record TTL (`{ ttl: true }` is A/AAAA only). Reading real TXT TTLs would require raw DNS queries / a new dependency, which the user declined. We use a configurable `DNS_CACHE_TTL_MS` (default 24h) instead.
+- **On-demand refresh uses the full backfill-style job tracker** (`canRun`/`lastRun`/stale-run recovery), sharing one generalized run-state machine across both `ipBackfill` and `dnsRefresh` job kinds rather than duplicating `backfill.ts`. **The daily cron and the first-time bootstrap both enqueue through the same guarded `startRun`** — the tracker's `already-running` condition is the single point that prevents the cron, the bootstrap, and a manual button from double-starting a run for the same domain (settled decision; the cron is not an unconditional enqueue).
+- **Single `AdminSdk`** (renamed from `BackfillSdk`) owns both IP-backfill and DNS-refresh start/status methods — one SDK instead of two near-identical small ones. **This is a clean rename with no deprecated `BackfillSdk` alias.** The package is in beta (`0.x`), so the breaking rename ships as a **minor** bump per semver.
+- **Single default form action + hidden `intent` field** (`refresh-dns` | `refresh-ips`) on the domain detail page. SvelteKit named actions use `?/name`, and the `/` breaks behind CloudFront/Lambda (per `sveltekit-lambda` steering), so we avoid named actions entirely and branch on `intent`.
+- **DKIM selectors are observation-driven.** DNS can't enumerate arbitrary selectors, so the worker queries exactly the selectors observed in that domain's stored reports (`authResults.dkim[].selector`, already parsed by `dmarc-parser`) — derived inside `runDnsRefresh`, not passed from SSR.
 - **Pass-rate reframe favors clarity over renaming only.** The headline stops using alarm colors for the disposition rate. We lead with SPF/DKIM auth health (genuinely "high is good") and a positively-framed "Spoofing Blocked" figure, and add an advisory note when auth is failing under `p=none`.
 - **DNS parsing is pure and unit-tested**; network resolution is isolated in `resolveDomainDns` so parsers can be tested without DNS.
 - **All findings degrade gracefully** — if DNS resolution fails (no record, NXDOMAIN, timeout), the advisory still renders report-derived findings and notes DNS could not be read, rather than erroring the page.
@@ -197,7 +221,7 @@ For the dashboard package specifically, also run its type-check (`bun run --filt
 
 ---
 
-### Task 3: DNS resolver + cache (`dns.ts`) with TTL staleness and purge
+### Task 3: DNS resolver (`dns.ts`) — pure resolution + parsing, no cache
 
 - [ ] Create `packages/dmarc-consumer/dns.ts`.
 - [ ] `resolveDomainDns({ domain, dkimSelectors }: { domain: string; dkimSelectors: Array<string> }): Promise<DomainDns>`:
@@ -206,23 +230,67 @@ For the dashboard package specifically, also run its type-check (`bun run --filt
   - Resolve `<domain>` → find the `v=spf1` record → `parseSpfRecord`.
   - For each selector in `dkimSelectors`, resolve `<selector>._domainkey.<domain>` → `{ selector, found: true, raw }`, or `{ selector, found: false }` on `ENODATA`/`ENOTFOUND`.
   - Set `fetchedAt: new Date().toISOString()`. Catch per-lookup errors so one failing lookup doesn't abort the others; record a top-level `error` string only when the whole resolution is unusable.
-- [ ] `DnsCache` class: constructor `{ domains: Domains; ttlMs?: number }` (default `24 * 60 * 60 * 1000`). Methods:
-  - `get({ domain, dkimSelectors })` — read via `domains.getByDomain`; if `dns` absent or stale (`Date.now() - Date.parse(dns.fetchedAt) > ttlMs`), call `resolveDomainDns`, `domains.putDns`, return fresh; else return cached `dns`.
-  - `refresh({ domain, dkimSelectors })` — always resolve + `putDns`, return fresh.
-  - `purge({ domain })` — `domains.clearDns`.
+  - **No Dynamo access** — this function only resolves + parses.
+- [ ] `isDnsStale({ dns, ttlMs }: { dns?: DomainDns; ttlMs: number }): boolean` — pure: `true` when `dns == null`, `dns.fetchedAt == null`, or `Date.now() - Date.parse(dns.fetchedAt) > ttlMs`.
 - [ ] Add `./dns` to `packages/dmarc-consumer/package.json` `exports` (mirror `./ip-info`) and wire into the build (`build.ts`/bunup entries — follow how `ipInfo.ts` is built).
-- [ ] Include tests: `packages/dmarc-consumer/tests/dns.test.ts` — mock a `Domains` with in-memory `getByDomain`/`putDns`; assert: fresh cache returns without calling resolver; stale (old `fetchedAt`) triggers writeback; `refresh` always writes; `purge` calls `clearDns`. Keep `resolveDomainDns` network calls out of the cache tests (inject or stub the resolver).
+- [ ] Include tests: `packages/dmarc-consumer/tests/dns.test.ts` — unit-test `isDnsStale` (null, missing `fetchedAt`, fresh, stale). Keep `resolveDomainDns` network calls out of the tests (it is exercised via the worker path). Optionally test the per-lookup error mapping by injecting a stub resolver if `resolveDomainDns` is written to accept an optional resolver override.
 
 **Files:** `packages/dmarc-consumer/dns.ts`, `packages/dmarc-consumer/package.json`, `packages/dmarc-consumer/build.ts`, `packages/dmarc-consumer/tests/dns.test.ts`
 
-**Acceptance criteria:** DNS cache tests pass; `./dns` export resolves in a type-check; check gates clean.
+**Acceptance criteria:** `isDnsStale` tests pass; `./dns` export resolves in a type-check; check gates clean.
 
 ---
 
-### Task 4: ADR for DNS-on-domain-record decision
+### Task 4: Generalize the job-run tracker + rename SDK to `AdminSdk`
+
+- [ ] In `packages/dmarc-consumer/backfill.ts`, generalize the run-state machine so it is parameterized by a **job kind** (`ipBackfill` | `dnsRefresh`):
+  - Introduce `jobKinds = ["ipBackfill", "dnsRefresh"] as const` + `JobKind` type (`v.picklist`).
+  - The config item `sk` becomes kind-specific (e.g. `sk: "ipBackfill"` / `sk: "dnsRefresh"`), and the run-history `pk` prefix becomes kind-specific (e.g. `backfill#<domain>` for ip, `dnsRefresh#<domain>` for dns). Keep `startRun`/`completeRun`/`failRun`/`deriveCanRun` shared, taking the kind (and, for backfill, the existing `ipsEnriched`/`reportsScanned` counters remain; DNS runs can omit them or record a `selectorsChecked` count — keep counters optional).
+  - Preserve existing `ipBackfill` behavior exactly (same `sk`/`pk` values it uses today) so stored records and the existing overview flow are unaffected. Consider keeping a thin `Backfill`-compatible surface or updating call sites in the same task.
+- [ ] Rename `BackfillSdk` → `AdminSdk` in `packages/dmarc-consumer/sdk.ts`. **Clean rename — do NOT keep a deprecated `BackfillSdk` re-export alias** (we are the sole consumer, so breaking changes are accepted; this drives the major bump in Task 12). Remove the `BackfillSdk` name entirely from the export, the build entry, and all importers.
+  - `startIpBackfill` (was `start`), `getIpBackfillStatuses` (was `getStatuses`) — same behavior, `ipBackfill` kind.
+  - `startDnsRefresh({ domain })` — guarded `startRun` for `dnsRefresh` kind; on success enqueue `tasks.refreshDomainDns({ domain, runId })`; return `{ enqueued, runId } | { enqueued: false, reason: "already-running" }`.
+  - `getDnsRefreshStatuses()` — `canRun`/`lastRun` per domain for `dnsRefresh` kind.
+- [ ] Update the export name in `package.json`/build if the SDK module is exported by a named entry. Update any existing importers of `BackfillSdk` (the dashboard `+page.server.ts`) to `AdminSdk`.
+- [ ] Include tests: extend `packages/dmarc-consumer/tests/backfill.test.ts` (or add `tests/adminSdk.test.ts`) — assert the `dnsRefresh` kind uses distinct keys, `deriveCanRun` semantics match, and `startDnsRefresh` enqueues the right task. Existing backfill tests must still pass.
+
+**Files:** `packages/dmarc-consumer/backfill.ts`, `packages/dmarc-consumer/sdk.ts`, `packages/dmarc-consumer/package.json`/`build.ts` (if export name changes), `packages/dmarc-consumer/tests/*`
+
+**Acceptance criteria:** Existing backfill/SDK tests pass unchanged in behavior; new `dnsRefresh`-kind tests pass; `AdminSdk` exported and importers updated; check gates clean.
+
+---
+
+### Task 5: DNS refresh worker + SQS task + daily cron enqueue
+
+- [ ] Create `packages/dmarc-consumer/src/runDnsRefresh.ts` (mirror `src/runBackfill.ts`):
+  - `runDnsRefresh({ reports, domains, jobs, domain, runId }): Promise<void>` — derive observed DKIM selectors by scanning the domain's stored reports (via `Reports`, same source `runBackfill` uses for IPs; collect unique `authResults.dkim[].selector`), call `resolveDomainDns({ domain, dkimSelectors })`, `domains.putDns({ domain, dns })`, then mark the run `finished` (or `failed` with the error) via the generalized tracker for the `dnsRefresh` kind.
+- [ ] In `packages/dmarc-consumer/src/tasks.ts`, add `refreshDomainDns: async ({ domain, runId }) => runDnsRefresh({ ... })` to the existing `createSqsHandlers` `functions` map (alongside `backfillDomain`). Instantiate the shared `Domains`/job tracker there (already has `reports`).
+- [ ] Create `packages/dmarc-consumer/src/dnsCron.ts` — an EventBridge-triggered handler: parse env (`TABLE_NAME`, `REVERSE_INDEX_NAME`, `DNS_CACHE_TTL_MS?`, tasks queue url), `domains.list()`, filter with `isDnsStale({ dns: domain.dns, ttlMs })`, enqueue `tasks.refreshDomainDns({ domain, runId })` for each stale domain. **Decision (settled): the cron goes through the same guarded `startRun` (the tracker's `already-running` condition) rather than enqueuing unconditionally** — this way the daily cron and a manual "Refresh DNS" button cannot both start a run for the same domain. This mirrors the IP-backfill guard and is intentional; the cron is NOT dumbed down to unconditional enqueue.
+- [ ] In `packages/dmarc-consumer/cdk.ts`: add a daily `Rule` (`Schedule.rate(Duration.days(1))`) targeting a new `Nodejs24Function` for `dnsCron.ts` (entry/handler like the others). Grant it table read + tasks-queue enqueue access (`this.backfill.grantAccess(cronFn)` + `TABLE_NAME`/`REVERSE_INDEX_NAME`/`BEESOLVE_TASKS_MAIN_QUEUE_URL` envs). Wire the cron function's build entry the same way the `tasks/` and `consumer/` entries are built.
+- [ ] Include tests: `packages/dmarc-consumer/tests/dnsCron.test.ts` (or extend an existing suite) — with an in-memory `domains.list()` returning a mix of fresh/stale/`dns`-missing records, assert only stale/missing domains get enqueued. Stub the resolver/enqueue.
+
+**Files:** `packages/dmarc-consumer/src/runDnsRefresh.ts`, `packages/dmarc-consumer/src/tasks.ts`, `packages/dmarc-consumer/src/dnsCron.ts`, `packages/dmarc-consumer/cdk.ts`, `packages/dmarc-consumer/build.ts` (cron entry), `packages/dmarc-consumer/tests/dnsCron.test.ts`
+
+**Acceptance criteria:** Cron enqueues only stale/missing domains; `refreshDomainDns` worker resolves + writes `dns` + marks the run; CDK synthesizes (daily rule + cron fn present); check gates clean.
+
+---
+
+### Task 6: First-time DNS bootstrap on new-domain ingest
+
+- [ ] In `packages/dmarc-consumer/src/consumer.ts` `upsertDomainAggregates`: detect when a domain aggregate is created for the **first time** (e.g. `upsert` returns/reports the pre-update absence, or a follow-up `getByDomain` shows no `dns`), and enqueue `tasks.refreshDomainDns({ domain, runId })` for that domain (guarded via the `AdminSdk`/tracker so a concurrent refresh isn't double-started). Fire-and-forget: swallow+log enqueue errors so ingest never fails on it — mirror the error handling around `enrichSourceIps`.
+- [ ] Wire the `tasks` client / `AdminSdk` into `consumer.ts` (it currently has `domains`; add the enqueue path and the `BEESOLVE_TASKS_MAIN_QUEUE_URL` env to the consumer's `envSchema` + CDK `Consumer` environment + queue grant).
+- [ ] Include tests: extend `packages/dmarc-consumer/tests/consumer.test.ts` (or the relevant suite) — assert a brand-new domain triggers exactly one `refreshDomainDns` enqueue and an already-known domain does not.
+
+**Files:** `packages/dmarc-consumer/src/consumer.ts`, `packages/dmarc-consumer/cdk.ts` (consumer queue-enqueue grant + env), `packages/dmarc-consumer/tests/consumer.test.ts`
+
+**Acceptance criteria:** New domains enqueue one DNS refresh; existing domains don't; ingest still succeeds if enqueue fails; check gates clean.
+
+---
+
+### Task 7: ADR for DNS worker/cron + on-domain-record cache decision
 
 - [ ] Create `packages/dmarc-consumer/docs/adr-002-dns-cache-on-domain-record.md` following the repo ADR format (Status/Context/Decision/Rationale/Consequences/Alternatives Considered).
-- [ ] Capture: why DNS is cached on the domain record (single-table, backward-compatible optional field) vs a separate cache item; TTL-on-read staleness with `fetchedAt`; frontend force-refresh/purge; observation-driven DKIM selectors.
+- [ ] Capture: DNS cached on the domain record (single-table, backward-compatible optional field) vs a separate cache item; **out-of-band SQS worker + daily cron + first-time bootstrap + on-demand button** (why not inline in SSR); **internal 24h TTL instead of DNS-published TTL** (`resolveTxt` has no TTL, raw-query dependency declined); generalized job-run tracker shared with IP backfill; observation-driven DKIM selectors.
 
 **Files:** `packages/dmarc-consumer/docs/adr-002-dns-cache-on-domain-record.md`
 
@@ -230,7 +298,7 @@ For the dashboard package specifically, also run its type-check (`bun run --filt
 
 ---
 
-### Task 5: Setup advisory builder (dashboard, pure function + tests)
+### Task 8: Setup advisory builder (dashboard, pure function + tests)
 
 - [ ] Create `packages/dmarc-dashboard/src/lib/server/advisory.ts` with `advisorySeverities`, `AdvisorySeverity`, `AdvisoryFinding`, and `buildAdvisory({ dns, aggregate }): Array<AdvisoryFinding>`.
 - [ ] Findings to implement (each with a stable `id`, `severity`, plain-language `title`, and an actionable `detail`):
@@ -252,33 +320,36 @@ For the dashboard package specifically, also run its type-check (`bun run --filt
 
 ---
 
-### Task 6: Wire `dnsCache` into dashboard hooks + domain detail load
+### Task 9: Wire read-only DNS + `AdminSdk` into dashboard hooks + domain detail load/actions
 
-- [ ] In `packages/dmarc-dashboard/src/hooks.server.ts`: import `DnsCache` from `@beesolve/dmarc-consumer/dns`; add `DNS_CACHE_TTL_MS: v.optional(v.string())` to `envSchema`; instantiate `const dnsCache = new DnsCache({ domains, ttlMs: env.DNS_CACHE_TTL_MS != null ? Number(env.DNS_CACHE_TTL_MS) : undefined });` and add `dnsCache` to `event.locals.services`. Update the `App.Locals` services type (`src/app.d.ts` or wherever `services` is typed).
-- [ ] In `packages/dmarc-dashboard/src/routes/domains/[domain]/+page.server.ts` `load`: after computing `aggregate`, derive observed DKIM selectors from the parsed records (collect `authResults.dkim[].selector`; if not already surfaced by the aggregate, extend the aggregate minimally to expose them, or re-derive here from `result.reports`). Call `const dns = await locals.services.dnsCache.get({ domain: params.domain, dkimSelectors })`. Call `const advisory = buildAdvisory({ dns, aggregate })`. Add `dns` and `advisory` to the returned data.
-- [ ] Add a `?/purgeDns` — use the DEFAULT form action to avoid the named-action `?/` CloudFront issue, OR a dedicated route action encoding the `/`. Prefer default action pattern (see the overview page which already uses a default action). The action calls `locals.services.dnsCache.refresh({ domain, dkimSelectors })` (force refetch) and returns success; enforce the same access check as `load` (`user.type !== "admin" && !user.domains.includes(domain)` → 403).
+- [ ] In `packages/dmarc-dashboard/src/hooks.server.ts`: import `AdminSdk` from `@beesolve/dmarc-consumer` (whatever entry exports the SDK) and ensure a `Domains` instance is available. Add `adminSdk` (replacing any existing backfill SDK instance) to `event.locals.services`; keep the single-instantiation pattern. The dashboard does **not** instantiate any DNS resolver/cache. Update the `App.Locals` services type (`src/app.d.ts` or wherever `services` is typed) — rename the backfill service to `adminSdk` and drop any `dnsCache`.
+- [ ] In `packages/dmarc-dashboard/src/routes/domains/[domain]/+page.server.ts` `load`: read the cached DNS via `const domainRecord = await locals.services.domains.getByDomain({ domain: params.domain })` (or expose a small read on an existing service) and pull `domainRecord?.dns`. Compute `const advisory = buildAdvisory({ dns: domainRecord?.dns, aggregate })`. Also surface DNS-refresh status for the button (`locals.services.adminSdk.getDnsRefreshStatuses()` → this domain's `canRun`/`lastRun`). Add `dns`, `advisory`, and the DNS-refresh status to the returned data. Enforce the existing access check.
+- [ ] **Single default form action with a hidden `intent` field** (no named actions — avoids `?/name` behind CloudFront):
+  - The `default` action reads `intent` from the submitted form data: `"refresh-dns"` → `locals.services.adminSdk.startDnsRefresh({ domain })`; `"refresh-ips"` → `locals.services.adminSdk.startIpBackfill({ domain })`.
+  - Enforce the same access check as `load` (`user.type !== "admin" && !user.domains.includes(domain)` → 403). Return the enqueue result (including the `already-running` case → 409-style form fail) so the UI can reflect state.
 
 **Files:** `packages/dmarc-dashboard/src/hooks.server.ts`, `packages/dmarc-dashboard/src/app.d.ts`, `packages/dmarc-dashboard/src/routes/domains/[domain]/+page.server.ts`
 
-**Acceptance criteria:** Dashboard type-check passes; `load` returns `dns` + `advisory`; the refresh action force-refetches and writes back. Check gates clean.
+**Acceptance criteria:** Dashboard type-check passes; `load` returns cached `dns` + `advisory` + DNS-refresh status (no inline resolution); the single default action branches on `intent` for both DNS-refresh and IP-backfill enqueues with access checks. Check gates clean.
 
 ---
 
-### Task 7: Domain detail UI — advisory panel, relocated Refresh IP details, DNS purge
+### Task 10: Domain detail UI — advisory panel, relocated Refresh IP details, DNS refresh
 
 - [ ] In `packages/dmarc-dashboard/src/routes/domains/[domain]/+page.svelte`:
   - Add a "Setup health" section/card near the top that renders `data.advisory` findings, color-coded by severity (`ok`→success, `info`→neutral, `warning`→warning, `critical`→error), each showing `title` + `detail`. Use existing token conventions (`--success`/`--warning`/`--error`, graffiti `.tag`/`.callout`).
-  - Show the resolved DNS summary (policy `p`, `pct`, SPF `all` qualifier, DKIM selectors found) compactly, with a "Refresh DNS" button that submits the default form action (`?/purgeDns` → force refetch). Reflect last-fetched time from `data.dns.fetchedAt`.
-  - Relocate the **"Refresh IP details"** control here (from the overview): a small ghost button near the Source IPs tab header, submitting the domain's backfill. Move the associated last-run status display and the explanatory hint text here too. Keep the `use:enhance` + submitting-state pattern from the current overview implementation.
-- [ ] Ensure the Refresh IP details action is available on this page — either reuse a default form action wired to `locals.services.backfill.start` in this route's `+page.server.ts`, mirroring the overview action (access check + 409 on already-running). (Coordinate with Task 6’s server file; both DNS-refresh and IP-refresh actions live here — if two default actions collide, use distinct named actions with `/` encoded per the sveltekit-lambda steering, or a hidden `intent` field on a single default action.)
+  - Show the resolved DNS summary (policy `p`, `pct`, SPF `all` qualifier, DKIM selectors found) compactly, with a **"Refresh DNS"** button. The button submits the page's single **default** form action with a hidden `<input name="intent" value="refresh-dns">`. It **enqueues** a background refresh (does not fetch inline) — reflect the enqueue + in-progress state from `data`'s DNS-refresh status (`canRun`/`lastRun`), mirroring the IP-backfill button UX. Show `data.dns.fetchedAt` as "last checked".
+  - Relocate the **"Refresh IP details"** control here (from the overview): a small ghost button near the Source IPs tab header, submitting the same default action with hidden `<input name="intent" value="refresh-ips">`. Move the associated last-run status display and the explanatory hint text here too. Keep the `use:enhance` + submitting-state pattern from the current overview implementation.
+  - Both buttons post to the same default action and are distinguished only by the hidden `intent` value — no named actions, no `?/` in the URL (CloudFront/Lambda constraint).
+- [ ] Confirm the two enqueue paths and their status displays are wired to Task 9's `load` data and default action.
 
 **Files:** `packages/dmarc-dashboard/src/routes/domains/[domain]/+page.svelte`, `packages/dmarc-dashboard/src/routes/domains/[domain]/+page.server.ts`
 
-**Acceptance criteria:** Advisory panel renders findings; DNS refresh + IP-details refresh both work from the detail page; dashboard type-check + check gates clean.
+**Acceptance criteria:** Advisory panel renders findings; DNS-refresh and IP-details-refresh both enqueue from the detail page via one default action + `intent`; in-progress/last-run states render; dashboard type-check + check gates clean.
 
 ---
 
-### Task 8: Overview UI reframe — remove Refresh IP details, fix pass-rate framing
+### Task 11: Overview UI reframe — remove Refresh IP details, fix pass-rate framing
 
 - [ ] In `packages/dmarc-dashboard/src/routes/+page.svelte`:
   - Remove the "Sender origins" column, the refresh `<form>`/button, the `last-run` display, the `.hint` paragraph, and the now-unused `enhance`/`submittingDomain` state.
@@ -293,15 +364,19 @@ For the dashboard package specifically, also run its type-check (`bun run --filt
 
 ---
 
-### Task 9: Changesets + end-to-end verification
+### Task 12: Changesets + end-to-end verification
 
-- [ ] Read `packages/dmarc-consumer/package.json` and the dashboard `package.json` `name` fields. Create changesets: a **minor** bump for `@beesolve/dmarc-consumer` (new `./dns` export, new domain accessors, optional schema field) and an appropriate bump for the dashboard package. Do not assume package names match directory names.
+- [ ] Read `packages/dmarc-consumer/package.json` and the dashboard `package.json` `name` fields. Create changesets: a **minor** bump for `@beesolve/dmarc-consumer` and an appropriate bump for the dashboard package. Do not assume package names match directory names.
+  - **Decision (settled): clean `BackfillSdk` → `AdminSdk` rename, no deprecated `BackfillSdk` re-export alias.** The package is still in beta (`0.x`), so per semver there is no major to bump — breaking changes go in a **minor** bump. We are also the sole consumer, so the breaking rename is acceptable. Remove every `BackfillSdk` reference (export, importers, build entry) rather than aliasing.
+  - The minor bump covers: the `AdminSdk` rename (breaking, but minor while `0.x`), plus the new `./dns` export, new domain accessors, optional `dns` schema field, generalized job tracker, and DNS worker/cron.
+  - Document in the changeset body that `BackfillSdk` was renamed to `AdminSdk` and that `start`/`getStatuses` became `startIpBackfill`/`getIpBackfillStatuses`.
 - [ ] Run full `bun run check`, `bun run type-check`, `bun test`, plus the dashboard's own type-check/svelte-check.
-- [ ] Manually reason through the SvelteKit-on-Lambda constraints from steering: default form actions (avoid `?/named` behind CloudFront), single service instantiation in hooks, and `@beesolve/lambda-fetch-api` SSR external (only relevant if touched).
+- [ ] Manually reason through the SvelteKit-on-Lambda constraints from steering: single default form action with `intent` (no `?/named` behind CloudFront), single service instantiation in hooks, and `@beesolve/lambda-fetch-api` SSR external (only relevant if touched).
+- [ ] Sanity-check the new CDK: daily EventBridge rule + cron Lambda synthesize; cron has table-read + tasks-queue-enqueue grants; consumer has tasks-queue-enqueue grant for the bootstrap path.
 
 **Files:** `.changeset/*.md`
 
-**Acceptance criteria:** All check gates pass across the workspace; changesets present with correct package names and bump levels.
+**Acceptance criteria:** All check gates pass across the workspace; changesets present with correct package names and bump levels; CDK synthesizes with the new rule/function.
 
 ---
 
@@ -310,5 +385,5 @@ For the dashboard package specifically, also run its type-check (`bun run --filt
 - Live DKIM key **validity** parsing (key type/length, `t=y` test flag) beyond presence detection.
 - SPF include-chain flattening / actual recursive lookup resolution (current lookup count is a static parse of the record's own mechanisms).
 - A dedicated "Setup" onboarding wizard that walks a user from `p=none` → `quarantine` → `reject`.
-- Background/scheduled DNS refresh (currently refetch is lazy-on-read + manual force-refresh).
+- Reading real DNS-published TTLs (requires raw DNS queries / a new dependency; currently a fixed configurable 24h staleness window).
 - Surfacing advisory findings on the overview page (currently only on domain detail).
