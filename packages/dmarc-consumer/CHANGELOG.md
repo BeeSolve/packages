@@ -1,5 +1,16 @@
 # @beesolve/dmarc-consumer
 
+## 0.3.1
+
+### Patch Changes
+
+- 1187a26: Internal refactor after the DNS advisory feature; no public API or behaviour change.
+
+  - `dmarc-consumer`: extracted shared internals — `beginRun` (guarded run-start) now used by both `AdminSdk` start methods and the DNS cron, a `withJobFailure` wrapper shared by the backfill and DNS-refresh workers, and a shared `errorMessage` helper. Removed dead re-exports from the consumer handler module.
+  - `dmarc-dashboard`: extracted a shared `LastRunStatus` component, an `ipOrigin` helper, an `encodeReportKey`/`decodeReportKey` pair, and a `requireUser`/`requireDomainAccess` server access guard, deduplicating logic across routes.
+
+- 2572ed0: Fix: `DmarcConsumer.grantTasks` now also sets `REVERSE_INDEX_NAME` on the grantee. The tasks module reads `REVERSE_INDEX_NAME` at load (it instantiates `Domains` for the DNS-refresh worker), so any Lambda enqueuing tasks — notably the dashboard SSR handler, which imports `AdminSdk` — would otherwise crash on cold start with a Valibot "Expected REVERSE_INDEX_NAME but received undefined" error.
+
 ## 0.3.0
 
 ### Minor Changes
