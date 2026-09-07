@@ -92,7 +92,7 @@ describe("DmarcConsumer construct", () => {
     });
   });
 
-  it("creates a backfill worker Lambda with a 5 minute timeout", () => {
+  it("creates a tasks worker Lambda with a 5 minute timeout", () => {
     const stack = makeStack();
     new DmarcConsumer(stack, "Consumer");
 
@@ -102,7 +102,7 @@ describe("DmarcConsumer construct", () => {
     });
   });
 
-  it("creates a backfill queue with a dead-letter queue in addition to the ingestion queues", () => {
+  it("creates a tasks queue with a dead-letter queue in addition to the ingestion queues", () => {
     const stack = makeStack();
     new DmarcConsumer(stack, "Consumer");
 
@@ -110,7 +110,7 @@ describe("DmarcConsumer construct", () => {
     template.resourceCountIs("AWS::SQS::Queue", 4);
   });
 
-  it("grantBackfill adds the queue-url env and send-message permission to a passed Lambda", () => {
+  it("grantTasks adds the queue-url env and send-message permission to a passed Lambda", () => {
     const stack = makeStack();
     const consumer = new DmarcConsumer(stack, "Consumer");
 
@@ -121,7 +121,7 @@ describe("DmarcConsumer construct", () => {
       memorySize: 128,
       timeout: Duration.seconds(10),
     });
-    consumer.grantBackfill(grantee);
+    consumer.grantTasks(grantee);
 
     const template = Template.fromStack(stack);
     template.hasResourceProperties("AWS::Lambda::Function", {

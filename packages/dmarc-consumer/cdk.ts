@@ -32,7 +32,7 @@ export interface DmarcConsumerProps {
 export class DmarcConsumer extends Construct {
   readonly table: TableV2;
   readonly reverseIndexName = "reverse";
-  private readonly backfill: SqsHandler;
+  private readonly tasks: SqsHandler;
 
   grantReadWrite(handler: LambdaFunction): void {
     this.table.grantReadWriteData(handler);
@@ -40,8 +40,8 @@ export class DmarcConsumer extends Construct {
     handler.addEnvironment("DMARC_REVERSE_INDEX", this.reverseIndexName);
   }
 
-  grantBackfill(handler: LambdaFunction): void {
-    this.backfill.grantAccess(handler);
+  grantTasks(handler: LambdaFunction): void {
+    this.tasks.grantAccess(handler);
     handler.addEnvironment("TABLE_NAME", this.table.tableName);
   }
 
@@ -88,9 +88,9 @@ export class DmarcConsumer extends Construct {
       targets: [new SqsQueue(queue)],
     });
 
-    this.backfill = new SqsHandler(this, "Backfill", {
+    this.tasks = new SqsHandler(this, "Tasks", {
       handlerProps: {
-        description: "DMARC backfill worker — enriches source IPs for existing reports",
+        description: "DMARC tasks worker — IP-enrichment backfill and DNS refresh",
         entry: `${fileURLToPath(new URL(".", import.meta.url))}tasks/`,
         handler: "tasks.handler",
         memorySize: 256,
@@ -103,9 +103,9 @@ export class DmarcConsumer extends Construct {
       },
     });
 
-    this.backfill.forEachHandler((handler) => this.table.grantReadWriteData(handler));
+    this.tasks.forEachHandler((handler) => this.table.grantReadWriteData(handler));
 
-    this.backfill.grantAccess(consumer);
+    this.tasks.grantAccess(consumer);
 
     const dnsCron = new Nodejs24Function(this, "DnsCron", {
       description: "DMARC DNS refresh cron — enqueues DNS refresh tasks for stale domains",
@@ -120,7 +120,7 @@ export class DmarcConsumer extends Construct {
     });
 
     this.table.grantReadData(dnsCron);
-    this.backfill.grantAccess(dnsCron);
+    this.tasks.grantAccess(dnsCron);
 
     new Rule(this, "DnsCronSchedule", {
       schedule: Schedule.rate(Duration.days(1)),
