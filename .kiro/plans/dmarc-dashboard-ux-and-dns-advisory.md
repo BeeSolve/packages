@@ -325,12 +325,12 @@ For the dashboard package specifically, also run its type-check (`bun run --filt
 
 ### Task 10: Domain detail UI — advisory panel, relocated Refresh IP details, DNS refresh
 
-- [ ] In `packages/dmarc-dashboard/src/routes/domains/[domain]/+page.svelte`:
-  - Add a "Setup health" section/card near the top that renders `data.advisory` findings, color-coded by severity (`ok`→success, `info`→neutral, `warning`→warning, `critical`→error), each showing `title` + `detail`. Use existing token conventions (`--success`/`--warning`/`--error`, graffiti `.tag`/`.callout`).
-  - Show the resolved DNS summary (policy `p`, `pct`, SPF `all` qualifier, DKIM selectors found) compactly, with a **"Refresh DNS"** button. The button submits the page's single **default** form action with a hidden `<input name="intent" value="refresh-dns">`. It **enqueues** a background refresh (does not fetch inline) — reflect the enqueue + in-progress state from `data`'s DNS-refresh status (`canRun`/`lastRun`), mirroring the IP-backfill button UX. Show `data.dns.fetchedAt` as "last checked".
-  - Relocate the **"Refresh IP details"** control here (from the overview): a small ghost button near the Source IPs tab header, submitting the same default action with hidden `<input name="intent" value="refresh-ips">`. Move the associated last-run status display and the explanatory hint text here too. Keep the `use:enhance` + submitting-state pattern from the current overview implementation.
-  - Both buttons post to the same default action and are distinguished only by the hidden `intent` value — no named actions, no `?/` in the URL (CloudFront/Lambda constraint).
-- [ ] Confirm the two enqueue paths and their status displays are wired to Task 9's `load` data and default action.
+- [x] In `packages/dmarc-dashboard/src/routes/domains/[domain]/+page.svelte`:
+  - Added a "Setup health" section near the top rendering `data.advisory` findings (keyed), color-coded by severity via `.tag`/`--tag-color` (`ok`→`--success`, `info`→neutral, `warning`→`--warning`, `critical`→`--error`); empty state shows "No setup issues detected."
+  - Compact resolved-DNS summary (DMARC `p`, `pct`, SPF `all`, count of DKIM selectors found, "last checked" from `data.dns.fetchedAt`), with a **"Refresh DNS"** button submitting the single **default** action + hidden `intent=refresh-dns`; enqueues (no inline fetch), reflecting `data.dnsRefreshStatus` `canRun`/`lastRun` and submitting state.
+  - Relocated **"Refresh IP details"** into the Source IPs section header: ghost button submitting the same default action + hidden `intent=refresh-ips`, with the last-run status, tooltip, and hint text moved here; uses `data.ipBackfillStatus`. Kept the `use:enhance` + submitting-state pattern.
+  - Both buttons post to the same default action, distinguished only by the hidden `intent` — no named actions, no `?/` in the URL.
+- [x] The two enqueue paths and their status displays are wired to Task 9's `load` data and default action; a `formResult` derived guard discriminates the action-result union for the notice/error rendering.
 
 **Files:** `packages/dmarc-dashboard/src/routes/domains/[domain]/+page.svelte`, `packages/dmarc-dashboard/src/routes/domains/[domain]/+page.server.ts`
 

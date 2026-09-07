@@ -1,9 +1,29 @@
 <script lang="ts">
+  import { enhance } from "$app/forms";
   import Calendar from "$lib/components/calendar.svelte";
   import StatusBadge from "$lib/components/statusBadge.svelte";
   import SummaryCard from "$lib/components/summaryCard.svelte";
 
-  let { data } = $props();
+  let { data, form } = $props();
+
+  let submittingIntent = $state<null | "refresh-dns" | "refresh-ips">(null);
+
+  const dkimFoundCount = $derived(
+    (data.dns?.dkimSelectors ?? []).filter((selector) => selector.found).length,
+  );
+
+  function formatDateTime(iso: string | null | undefined): string {
+    if (iso == null) return "—";
+    return new Date(iso).toLocaleString();
+  }
+
+  const formResult = $derived.by(() => {
+    if (form == null) return null;
+    const intent = "intent" in form ? form.intent : null;
+    const started = "started" in form ? form.started === true : false;
+    const errorMessage = "error" in form && typeof form.error === "string" ? form.error : null;
+    return { intent, started, errorMessage };
+  });
 
   const verdictLabels: Record<string, string> = {
     legitimate: "Legitimate",
@@ -51,6 +71,85 @@
 
 <p class="back-link"><a href="/">&larr; Back to domains</a></p>
 
+<section class="setup-health">
+  <div class="setup-head">
+    <h2>Setup health</h2>
+    <div class="dns-summary">
+      {#if data.dns == null}
+        <span class="dns-note">DNS not checked yet</span>
+      {:else}
+        <span class="dns-metric">DMARC <code>p={data.dns.dmarc?.policy ?? "—"}</code></span>
+        {#if data.dns.dmarc?.pct != null}
+          <span class="dns-metric">pct <code>{data.dns.dmarc.pct}</code></span>
+        {/if}
+        <span class="dns-metric">SPF <code>{data.dns.spf?.all ?? "—"}</code></span>
+        <span class="dns-metric">DKIM <code>{dkimFoundCount}</code> found</span>
+        <span class="dns-checked">Last checked {formatDateTime(data.dns.fetchedAt)}</span>
+      {/if}
+    </div>
+    <div class="dns-refresh">
+      <form
+        method="POST"
+        use:enhance={() => {
+          submittingIntent = "refresh-dns";
+          return async ({ update }) => {
+            await update();
+            submittingIntent = null;
+          };
+        }}
+      >
+        <input type="hidden" name="intent" value="refresh-dns" />
+        <button
+          type="submit"
+          class="button mini ghost refresh-btn"
+          disabled={!data.dnsRefreshStatus.canRun || submittingIntent === "refresh-dns"}
+          title="Re-read this domain's SPF, DMARC and DKIM DNS records so the setup findings reflect the current published configuration."
+        >
+          {submittingIntent === "refresh-dns" ? "Refreshing…" : "Refresh DNS"}
+        </button>
+      </form>
+      {#if data.dnsRefreshStatus.lastRun != null}
+        <span class="last-run">
+          {#if data.dnsRefreshStatus.lastRun.status === "started" || data.dnsRefreshStatus.lastRun.status === "pending"}
+            In progress…
+          {:else if data.dnsRefreshStatus.lastRun.status === "finished"}
+            Updated{#if data.dnsRefreshStatus.lastRun.selectorsChecked != null}
+              · {data.dnsRefreshStatus.lastRun.selectorsChecked.toLocaleString()} selectors{/if}{#if data.dnsRefreshStatus.lastRun.finishedAt != null}
+              · {new Date(data.dnsRefreshStatus.lastRun.finishedAt).toLocaleDateString()}{/if}
+          {:else if data.dnsRefreshStatus.lastRun.status === "failed"}
+            Last refresh failed
+          {/if}
+        </span>
+      {/if}
+    </div>
+  </div>
+
+  {#if formResult?.intent === "refresh-dns" && formResult.started}
+    <div class="callout fill notice">
+      Refreshing DNS for {data.domain}. This runs in the background.
+    </div>
+  {/if}
+  {#if formResult?.intent === "refresh-dns" && formResult.errorMessage != null}
+    <p class="error">{formResult.errorMessage}</p>
+  {/if}
+
+  {#if data.advisory.length === 0}
+    <p class="advisory-ok">No setup issues detected.</p>
+  {:else}
+    <ul class="advisory-list">
+      {#each data.advisory as finding (finding.id)}
+        <li class="advisory-row severity-{finding.severity}">
+          <span class="tag advisory-chip">{finding.severity}</span>
+          <span class="advisory-text">
+            <strong>{finding.title}</strong>
+            <span class="advisory-detail">{finding.detail}</span>
+          </span>
+        </li>
+      {/each}
+    </ul>
+  {/if}
+</section>
+
 <div class="top-bar">
   <div class="summary-cards">
     <SummaryCard label="Total Messages" value={data.aggregate.totalMessages.toLocaleString()} />
@@ -86,9 +185,56 @@
       </summary>
       <section class="section">
         <h2>Source IP Analysis</h2>
+        <div class="ip-refresh">
+          <form
+            method="POST"
+            use:enhance={() => {
+              submittingIntent = "refresh-ips";
+              return async ({ update }) => {
+                await update();
+                submittingIntent = null;
+              };
+            }}
+          >
+            <input type="hidden" name="intent" value="refresh-ips" />
+            <button
+              type="submit"
+              class="button mini ghost refresh-btn"
+              disabled={!data.ipBackfillStatus.canRun || submittingIntent === "refresh-ips"}
+              title="Look up the network operator (ASN / organisation) and country for this domain's source IPs, so the source IP table shows who is really sending."
+            >
+              {submittingIntent === "refresh-ips" ? "Refreshing…" : "Refresh IP details"}
+            </button>
+          </form>
+          {#if data.ipBackfillStatus.lastRun != null}
+            <span class="last-run">
+              {#if data.ipBackfillStatus.lastRun.status === "started" || data.ipBackfillStatus.lastRun.status === "pending"}
+                In progress…
+              {:else if data.ipBackfillStatus.lastRun.status === "finished"}
+                Updated{#if data.ipBackfillStatus.lastRun.ipsEnriched != null}
+                  · {data.ipBackfillStatus.lastRun.ipsEnriched.toLocaleString()} IPs{/if}{#if data.ipBackfillStatus.lastRun.finishedAt != null}
+                  · {new Date(data.ipBackfillStatus.lastRun.finishedAt).toLocaleDateString()}{/if}
+              {:else if data.ipBackfillStatus.lastRun.status === "failed"}
+                Last refresh failed
+              {/if}
+            </span>
+          {/if}
+        </div>
+        {#if formResult?.intent === "refresh-ips" && formResult.started}
+          <div class="callout fill notice">
+            Refreshing IP details for {data.domain}. This runs in the background.
+          </div>
+        {/if}
+        {#if formResult?.intent === "refresh-ips" && formResult.errorMessage != null}
+          <p class="error">{formResult.errorMessage}</p>
+        {/if}
         <p class="scope-note">
           Aggregate reports show domain-level statistics only. The specific sender
           address, subject, and recipients are not included in this report type.
+        </p>
+        <p class="hint">
+          “Refresh IP details” looks up the network operator and country for each source IP so this
+          Source IP table can show who is really sending mail for the domain.
         </p>
         {#if data.aggregate.sourceIpBreakdown.length === 0}
           <p class="empty">No source IPs found{data.dateFilter ? " for this date" : ""}.</p>
@@ -284,6 +430,154 @@
   .back-link {
     margin: 0 0 var(--vs-m);
     font-size: 0.875rem;
+  }
+
+  .error {
+    color: var(--error);
+    margin: 0 0 1rem;
+  }
+
+  .notice {
+    margin: 0 0 1rem;
+    font-size: 0.9rem;
+  }
+
+  /* Gap: graffiti has no "panel with a header row of controls" layout, so the
+     setup-health container and its head row are ours. Findings inside reuse
+     graffiti .tag (severity chip) and .callout (background notice). */
+  .setup-health {
+    margin-bottom: var(--vs-l);
+  }
+
+  .setup-head {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: var(--vs-s);
+    margin-bottom: var(--vs-s);
+  }
+
+  .setup-head h2 {
+    margin: 0;
+  }
+
+  .dns-summary {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    font-size: 0.85rem;
+    color: var(--fg-7);
+  }
+
+  .dns-metric code {
+    font-size: 0.8rem;
+  }
+
+  .dns-note,
+  .dns-checked {
+    color: var(--fg-5);
+  }
+
+  .dns-refresh {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    flex-wrap: wrap;
+    margin-inline-start: auto;
+  }
+
+  .dns-refresh form,
+  .ip-refresh form {
+    display: inline;
+  }
+
+  .dns-refresh button[type="submit"],
+  .ip-refresh button[type="submit"] {
+    margin-block-start: 0;
+  }
+
+  .advisory-ok {
+    color: var(--success);
+    font-size: 0.9rem;
+    margin: 0;
+  }
+
+  .advisory-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  .advisory-row {
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+    font-size: 0.85rem;
+  }
+
+  .advisory-chip {
+    --tag-color: var(--fg-5);
+    text-transform: uppercase;
+    font-size: 0.65rem;
+    letter-spacing: 0.03em;
+    flex-shrink: 0;
+  }
+
+  /* Severity hue only — the chip pill itself is graffiti .tag. */
+  .severity-ok .advisory-chip {
+    --tag-color: var(--success);
+  }
+
+  .severity-info .advisory-chip {
+    --tag-color: var(--gray, var(--fg-5));
+  }
+
+  .severity-warning .advisory-chip {
+    --tag-color: var(--warning);
+  }
+
+  .severity-critical .advisory-chip {
+    --tag-color: var(--error);
+  }
+
+  .advisory-text {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+  }
+
+  .advisory-detail {
+    color: var(--fg-7);
+    max-width: 80ch;
+  }
+
+  .ip-refresh {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    flex-wrap: wrap;
+    margin-bottom: var(--vs-s);
+  }
+
+  .refresh-btn {
+    white-space: nowrap;
+  }
+
+  .last-run {
+    font-size: 0.8rem;
+    color: var(--fg-5);
+    white-space: nowrap;
+  }
+
+  .hint {
+    margin: -0.25rem 0 0.75rem;
+    font-size: 0.85rem;
+    color: var(--fg-5);
+    max-width: 60ch;
   }
 
   /* Gap: graffiti has no cards+aside top-bar layout, so this positioning is
