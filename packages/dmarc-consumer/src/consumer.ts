@@ -14,9 +14,6 @@ import { AdminSdk } from "../sdk.ts";
 import { toDynamoClient } from "./dynamo.ts";
 import { processReportBatch } from "./reportBatch.ts";
 
-export { processReportBatch } from "./reportBatch.ts";
-export type { ReportBatchDeps } from "./reportBatch.ts";
-
 const envSchema = v.object({
   TABLE_NAME: v.string(),
   REVERSE_INDEX_NAME: v.string(),

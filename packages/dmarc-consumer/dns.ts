@@ -2,6 +2,7 @@ import { resolveTxt } from "node:dns/promises";
 
 import type { DomainDns } from "./dnsRecord.ts";
 import { parseDmarcRecord, parseSpfRecord } from "./dnsRecord.ts";
+import { errorMessage } from "./errorMessage.ts";
 
 /**
  * Resolves the SPF, DMARC and DKIM DNS records for a domain into a structured
@@ -72,8 +73,4 @@ export function isDnsStale({ dns, ttlMs }: { dns?: Partial<DomainDns>; ttlMs: nu
 function isDomainMissingError(error: unknown): boolean {
   if (!(error instanceof Error) || !("code" in error)) return false;
   return error.code === "ENOTFOUND" || error.code === "NXDOMAIN";
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }

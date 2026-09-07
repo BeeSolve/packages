@@ -1,8 +1,8 @@
-import { uuid7 } from "@beesolve/helpers";
 import * as v from "valibot";
 
 import type { JobStatusSummary } from "./jobRuns.ts";
-import { deriveCanRun, isAlreadyRunning, JobRuns } from "./jobRuns.ts";
+import { deriveCanRun, JobRuns } from "./jobRuns.ts";
+import { beginRun } from "./src/beginRun.ts";
 import { toDynamoClient } from "./src/dynamo.ts";
 import { tasks } from "./src/tasks.ts";
 
@@ -30,20 +30,9 @@ export class AdminSdk {
   readonly startIpBackfill = async (props: {
     readonly domain: string;
   }): Promise<StartRunResult> => {
-    const runId = uuid7();
-    const startedAt = new Date().toISOString();
-
-    try {
-      await this.ipBackfill.startRun({ domain: props.domain, runId, startedAt });
-    } catch (error) {
-      if (isAlreadyRunning(error)) {
-        return { enqueued: false, reason: "already-running" };
-      }
-      throw error;
-    }
-
-    await tasks.backfillDomain({ domain: props.domain, runId });
-    return { enqueued: true, runId };
+    return this.start(this.ipBackfill, props.domain, (runId) =>
+      tasks.backfillDomain({ domain: props.domain, runId }),
+    );
   };
 
   readonly getIpBackfillStatuses = async (): Promise<Record<string, JobStatusSummary>> => {
@@ -53,24 +42,25 @@ export class AdminSdk {
   readonly startDnsRefresh = async (props: {
     readonly domain: string;
   }): Promise<StartRunResult> => {
-    const runId = uuid7();
-    const startedAt = new Date().toISOString();
-
-    try {
-      await this.dnsRefresh.startRun({ domain: props.domain, runId, startedAt });
-    } catch (error) {
-      if (isAlreadyRunning(error)) {
-        return { enqueued: false, reason: "already-running" };
-      }
-      throw error;
-    }
-
-    await tasks.refreshDomainDns({ domain: props.domain, runId });
-    return { enqueued: true, runId };
+    return this.start(this.dnsRefresh, props.domain, (runId) =>
+      tasks.refreshDomainDns({ domain: props.domain, runId }),
+    );
   };
 
   readonly getDnsRefreshStatuses = async (): Promise<Record<string, JobStatusSummary>> => {
     return this.summarize(this.dnsRefresh);
+  };
+
+  private readonly start = async (
+    jobRuns: JobRuns,
+    domain: string,
+    enqueue: (runId: string) => Promise<void>,
+  ): Promise<StartRunResult> => {
+    const result = await beginRun({ jobs: jobRuns, domain });
+    if (!result.started) return { enqueued: false, reason: "already-running" };
+
+    await enqueue(result.runId);
+    return { enqueued: true, runId: result.runId };
   };
 
   private readonly summarize = async (

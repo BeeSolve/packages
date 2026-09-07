@@ -1,5 +1,6 @@
 <script lang="ts">
   import RawJsonModal from "$lib/components/rawJsonModal.svelte";
+  import { ipOrigin } from "$lib/ipOrigin.js";
 
   let { data } = $props();
 
@@ -21,13 +22,6 @@
 
   function alignmentLabel(value: "r" | "s"): string {
     return value === "r" ? "relaxed" : "strict";
-  }
-
-  function ipOrigin(record: { asName?: string; country?: string }): string {
-    if (record.asName != null && record.country != null) return `${record.asName} · ${record.country}`;
-    if (record.asName != null) return record.asName;
-    if (record.country != null) return record.country;
-    return "—";
   }
 </script>
 

@@ -1,6 +1,7 @@
 import { resolveDomainDns } from "../dns.ts";
 import type { Domains } from "../domain.ts";
 import type { JobRuns } from "../jobRuns.ts";
+import { withJobFailure } from "./withJobFailure.ts";
 
 export async function runDnsRefresh(props: {
   readonly domains: Pick<Domains, "getByDomain" | "putDns">;
@@ -8,7 +9,7 @@ export async function runDnsRefresh(props: {
   readonly domain: string;
   readonly runId: string;
 }): Promise<void> {
-  try {
+  await withJobFailure({ jobs: props.jobs, domain: props.domain, runId: props.runId }, async () => {
     const record = await props.domains.getByDomain({ domain: props.domain });
     const dkimSelectors = record?.selectors != null ? Array.from(record.selectors) : [];
 
@@ -21,9 +22,5 @@ export async function runDnsRefresh(props: {
       runId: props.runId,
       counts: { selectorsChecked: dkimSelectors.length },
     });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    await props.jobs.failRun({ domain: props.domain, runId: props.runId, error: message });
-    throw error;
-  }
+  });
 }

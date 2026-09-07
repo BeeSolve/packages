@@ -1,19 +1,13 @@
+import { requireDomainAccess } from "$lib/server/access.js";
 import { buildAdvisory } from "$lib/server/advisory.js";
 import { aggregateReports } from "$lib/server/aggregate.js";
-import { error, fail } from "@sveltejs/kit";
+import { fail } from "@sveltejs/kit";
 import * as v from "valibot";
 
 import type { Actions, PageServerLoad } from "./$types.js";
 
 export const load: PageServerLoad = async ({ params, locals, url }) => {
-  const user = locals.user;
-  if (user == null) {
-    error(403, "Access denied");
-  }
-
-  if (user.type !== "admin" && !user.domains.includes(params.domain)) {
-    error(403, "Access denied — you do not have access to this domain");
-  }
+  requireDomainAccess({ locals, domain: params.domain });
 
   const cursor = url.searchParams.get("cursor") ?? undefined;
   const dateFilter = url.searchParams.get("date") ?? undefined;
@@ -113,15 +107,8 @@ export const load: PageServerLoad = async ({ params, locals, url }) => {
 
 export const actions: Actions = {
   default: async ({ request, params, locals }) => {
-    const user = locals.user;
-    if (user == null) {
-      error(403, "Access denied");
-    }
-
     const { domain } = params;
-    if (user.type !== "admin" && !user.domains.includes(domain)) {
-      error(403, "Access denied — you do not have access to this domain");
-    }
+    requireDomainAccess({ locals, domain });
 
     const formData = await request.formData();
     const intentResult = v.safeParse(

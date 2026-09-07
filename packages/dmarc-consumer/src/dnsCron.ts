@@ -1,9 +1,9 @@
-import { uuid7 } from "@beesolve/helpers";
 import * as v from "valibot";
 
 import { isDnsStale } from "../dns.ts";
 import { Domains } from "../domain.ts";
-import { isAlreadyRunning, JobRuns } from "../jobRuns.ts";
+import { JobRuns } from "../jobRuns.ts";
+import { beginRun } from "./beginRun.ts";
 import { toDynamoClient } from "./dynamo.ts";
 import { tasks } from "./tasks.ts";
 
@@ -43,16 +43,9 @@ export async function enqueueStaleDomains(props: {
   );
 
   for (const domain of staleDomains) {
-    const runId = uuid7();
-    const startedAt = new Date().toISOString();
-
-    try {
-      await props.jobs.startRun({ domain: domain.domain, runId, startedAt });
-    } catch (error) {
-      if (isAlreadyRunning(error)) continue;
-      throw error;
+    const result = await beginRun({ jobs: props.jobs, domain: domain.domain });
+    if (result.started) {
+      await tasks.refreshDomainDns({ domain: domain.domain, runId: result.runId });
     }
-
-    await tasks.refreshDomainDns({ domain: domain.domain, runId });
   }
 }

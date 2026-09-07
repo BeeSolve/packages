@@ -1,7 +1,10 @@
 <script lang="ts">
   import { enhance } from "$app/forms";
   import Calendar from "$lib/components/calendar.svelte";
+  import LastRunStatus from "$lib/components/lastRunStatus.svelte";
   import SummaryCard from "$lib/components/summaryCard.svelte";
+  import { ipOrigin } from "$lib/ipOrigin.js";
+  import { encodeReportKey } from "$lib/reportKey.js";
 
   let { data, form } = $props();
 
@@ -35,13 +38,6 @@
     return verdictLabels[verdict] ?? verdict;
   }
 
-  function ipOrigin(row: { asName?: string; country?: string }): string {
-    if (row.asName != null && row.country != null) return `${row.asName} · ${row.country}`;
-    if (row.asName != null) return row.asName;
-    if (row.country != null) return row.country;
-    return "—";
-  }
-
   const passRate = $derived(
     data.aggregate.totalMessages > 0
       ? Math.round((data.aggregate.totalPass / data.aggregate.totalMessages) * 100)
@@ -57,11 +53,11 @@
   }
 
   function reportHref(report: { dateRangeBegin: number; orgName: string; reportId: string }): string {
-    const key = btoa(JSON.stringify({
+    const key = encodeReportKey({
       timestamp: report.dateRangeBegin,
       orgName: report.orgName,
       reportId: report.reportId,
-    })).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
+    });
     return `/domains/${data.domain}/reports/${key}`;
   }
 </script>
@@ -108,17 +104,11 @@
         </button>
       </form>
       {#if data.dnsRefreshStatus.lastRun != null}
-        <span class="last-run">
-          {#if data.dnsRefreshStatus.lastRun.status === "started" || data.dnsRefreshStatus.lastRun.status === "pending"}
-            In progress…
-          {:else if data.dnsRefreshStatus.lastRun.status === "finished"}
-            Updated{#if data.dnsRefreshStatus.lastRun.selectorsChecked != null}
-              · {data.dnsRefreshStatus.lastRun.selectorsChecked.toLocaleString()} selectors{/if}{#if data.dnsRefreshStatus.lastRun.finishedAt != null}
-              · {new Date(data.dnsRefreshStatus.lastRun.finishedAt).toLocaleDateString()}{/if}
-          {:else if data.dnsRefreshStatus.lastRun.status === "failed"}
-            Last refresh failed
-          {/if}
-        </span>
+        <LastRunStatus
+          lastRun={data.dnsRefreshStatus.lastRun}
+          count={data.dnsRefreshStatus.lastRun.selectorsChecked}
+          unit="selectors"
+        />
       {/if}
     </div>
   </div>
@@ -206,17 +196,11 @@
             </button>
           </form>
           {#if data.ipBackfillStatus.lastRun != null}
-            <span class="last-run">
-              {#if data.ipBackfillStatus.lastRun.status === "started" || data.ipBackfillStatus.lastRun.status === "pending"}
-                In progress…
-              {:else if data.ipBackfillStatus.lastRun.status === "finished"}
-                Updated{#if data.ipBackfillStatus.lastRun.ipsEnriched != null}
-                  · {data.ipBackfillStatus.lastRun.ipsEnriched.toLocaleString()} IPs{/if}{#if data.ipBackfillStatus.lastRun.finishedAt != null}
-                  · {new Date(data.ipBackfillStatus.lastRun.finishedAt).toLocaleDateString()}{/if}
-              {:else if data.ipBackfillStatus.lastRun.status === "failed"}
-                Last refresh failed
-              {/if}
-            </span>
+            <LastRunStatus
+              lastRun={data.ipBackfillStatus.lastRun}
+              count={data.ipBackfillStatus.lastRun.ipsEnriched}
+              unit="IPs"
+            />
           {/if}
         </div>
         {#if formResult?.intent === "refresh-ips" && formResult.started}
@@ -563,12 +547,6 @@
   }
 
   .refresh-btn {
-    white-space: nowrap;
-  }
-
-  .last-run {
-    font-size: 0.8rem;
-    color: var(--fg-5);
     white-space: nowrap;
   }
 

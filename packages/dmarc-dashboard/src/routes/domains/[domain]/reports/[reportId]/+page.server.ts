@@ -1,3 +1,5 @@
+import { decodeReportKey } from "$lib/reportKey.js";
+import { requireDomainAccess } from "$lib/server/access.js";
 import { ReportNotFoundError } from "@beesolve/dmarc-consumer/report";
 import { dmarcRecordSchema } from "@beesolve/dmarc-parser";
 import { error } from "@sveltejs/kit";
@@ -12,19 +14,9 @@ const reportKeySchema = v.object({
 });
 
 export const load: PageServerLoad = async ({ params, locals }) => {
-  const user = locals.user;
-  if (user == null) {
-    error(403, "Access denied");
-  }
+  requireDomainAccess({ locals, domain: params.domain });
 
-  if (user.type !== "admin" && !user.domains.includes(params.domain)) {
-    error(403, "Access denied — you do not have access to this domain");
-  }
-
-  const decoded = v.safeParse(
-    reportKeySchema,
-    JSON.parse(Buffer.from(params.reportId, "base64url").toString()),
-  );
+  const decoded = v.safeParse(reportKeySchema, decodeReportKey(params.reportId));
 
   if (!decoded.success) {
     error(400, "Invalid report identifier");
