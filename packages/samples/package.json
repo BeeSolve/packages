@@ -32,7 +32,7 @@
     "aws-cdk": "catalog:",
     "aws-cdk-lib": "catalog:",
     "constructs": "catalog:",
-    "kit-on-lambda": "^0.8.1",
+    "kit-on-lambda": "^0.8.2",
     "react": "catalog:",
     "react-dom": "^19.2.8",
     "valibot": "catalog:"

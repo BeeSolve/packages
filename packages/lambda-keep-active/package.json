@@ -30,8 +30,8 @@
     "prepublishOnly": "bun run --bun build.ts"
   },
   "dependencies": {
-    "@aws-sdk/client-lambda": "^3.1124.0",
-    "@aws-sdk/client-resource-groups-tagging-api": "^3.1124.0",
+    "@aws-sdk/client-lambda": "^3.1127.0",
+    "@aws-sdk/client-resource-groups-tagging-api": "^3.1127.0",
     "@beesolve/cdk-constructs": "workspace:^"
   },
   "devDependencies": {
