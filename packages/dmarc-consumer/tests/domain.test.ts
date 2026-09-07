@@ -115,4 +115,85 @@ describe("Domains", () => {
       expect(result).toEqual([]);
     });
   });
+
+  describe("getByDomain", () => {
+    it("parses and returns the item when present", async () => {
+      const storedItem = {
+        pk: "domain#example.org",
+        sk: "domain",
+        domain: "example.org",
+        totalMessages: 100,
+        totalPass: 85,
+        totalFail: 15,
+      };
+
+      const dynamo = makeDynamo();
+      dynamo.send.mockResolvedValueOnce({ Item: storedItem });
+
+      const domains = new Domains({ dynamo, tableName: "test-table", reverseIndexName: "reverse" });
+
+      const result = await domains.getByDomain({ domain: "example.org" });
+
+      expect(result?.domain).toBe("example.org");
+      expect(result?.totalMessages).toBe(100);
+
+      const input = getCommandInput(dynamo.send);
+      expect(input.TableName).toBe("test-table");
+      expect(input.Key).toEqual({ pk: "domain#example.org", sk: "domain" });
+    });
+
+    it("returns null when no item is returned", async () => {
+      const dynamo = makeDynamo();
+      dynamo.send.mockResolvedValueOnce({});
+
+      const domains = new Domains({ dynamo, tableName: "test-table", reverseIndexName: "reverse" });
+
+      const result = await domains.getByDomain({ domain: "example.org" });
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe("putDns", () => {
+    it("sends an UpdateCommand that sets the dns field", async () => {
+      const dns = {
+        fetchedAt: "2024-01-01T00:00:00.000Z",
+        spf: { raw: "v=spf1 -all", all: "-all", lookupCount: 0, valid: true },
+      } as const;
+
+      const dynamo = makeDynamo();
+      const domains = new Domains({ dynamo, tableName: "test-table", reverseIndexName: "reverse" });
+
+      await domains.putDns({ domain: "example.org", dns });
+
+      expect(dynamo.send).toHaveBeenCalledTimes(1);
+
+      const input = getCommandInput(dynamo.send);
+      expect(input.TableName).toBe("test-table");
+      expect(input.Key).toEqual({ pk: "domain#example.org", sk: "domain" });
+      expect(input.UpdateExpression).toBe("SET #dns = :dns");
+      expect(input.ExpressionAttributeNames).toEqual({ "#dns": "dns" });
+
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- bun:test mock calls are untyped; narrowing confirms shape
+      const values = input.ExpressionAttributeValues as Record<string, unknown>;
+      expect(values[":dns"]).toEqual(dns);
+    });
+  });
+
+  describe("clearDns", () => {
+    it("sends an UpdateCommand that removes the dns field", async () => {
+      const dynamo = makeDynamo();
+      const domains = new Domains({ dynamo, tableName: "test-table", reverseIndexName: "reverse" });
+
+      await domains.clearDns({ domain: "example.org" });
+
+      expect(dynamo.send).toHaveBeenCalledTimes(1);
+
+      const input = getCommandInput(dynamo.send);
+      expect(input.TableName).toBe("test-table");
+      expect(input.Key).toEqual({ pk: "domain#example.org", sk: "domain" });
+      expect(input.UpdateExpression).toBe("REMOVE #dns");
+      expect(input.ExpressionAttributeNames).toEqual({ "#dns": "dns" });
+    });
+  });
 });

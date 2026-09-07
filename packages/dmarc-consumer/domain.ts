@@ -1,7 +1,8 @@
 import type { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
-import { QueryCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
+import { GetCommand, QueryCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import * as v from "valibot";
 
+import type { DomainDns } from "./dnsRecord.js";
 import { domainDnsSchema } from "./dnsRecord.js";
 
 export const schema = v.object({
@@ -65,6 +66,45 @@ export class Domains {
     );
 
     return items.map((item) => this.parseOne(item));
+  };
+
+  readonly getByDomain = async (props: { readonly domain: string }): Promise<Domain | null> => {
+    const { Item: item } = await this.props.dynamo.send(
+      new GetCommand({
+        TableName: this.props.tableName,
+        Key: { pk: `domain#${props.domain}`, sk: "domain" },
+      }),
+    );
+
+    if (item == null) return null;
+
+    return this.parseOne(item);
+  };
+
+  readonly putDns = async (props: {
+    readonly domain: string;
+    readonly dns: DomainDns;
+  }): Promise<void> => {
+    await this.props.dynamo.send(
+      new UpdateCommand({
+        TableName: this.props.tableName,
+        Key: { pk: `domain#${props.domain}`, sk: "domain" },
+        UpdateExpression: "SET #dns = :dns",
+        ExpressionAttributeNames: { "#dns": "dns" },
+        ExpressionAttributeValues: { ":dns": props.dns },
+      }),
+    );
+  };
+
+  readonly clearDns = async (props: { readonly domain: string }): Promise<void> => {
+    await this.props.dynamo.send(
+      new UpdateCommand({
+        TableName: this.props.tableName,
+        Key: { pk: `domain#${props.domain}`, sk: "domain" },
+        UpdateExpression: "REMOVE #dns",
+        ExpressionAttributeNames: { "#dns": "dns" },
+      }),
+    );
   };
 
   private readonly parseOne = (item: unknown): Domain => {

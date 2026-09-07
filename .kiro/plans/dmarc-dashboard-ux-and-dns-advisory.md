@@ -208,12 +208,12 @@ For the dashboard package specifically, also run its type-check (`bun run --filt
 
 ### Task 2: Domain record accessors for the DNS field
 
-- [ ] In `packages/dmarc-consumer/domain.ts` `Domains` class, add:
+- [x] In `packages/dmarc-consumer/domain.ts` `Domains` class, add:
   - `getByDomain({ domain }): Promise<Domain | null>` — `GetCommand` on `Key: { pk: \`domain#${domain}\`, sk: "domain" }`, parse via existing `parseOne`, return `null` when absent.
   - `putDns({ domain, dns }: { domain: string; dns: DomainDns }): Promise<void>` — `UpdateCommand` with `UpdateExpression: "SET #dns = :dns"`, `ExpressionAttributeNames: { "#dns": "dns" }`, `ExpressionAttributeValues: { ":dns": dns }`. Must NOT touch the counter fields.
   - `clearDns({ domain }): Promise<void>` — `UpdateCommand` with `UpdateExpression: "REMOVE #dns"`, `ExpressionAttributeNames: { "#dns": "dns" }`.
-- [ ] Keep the existing `upsert`/`list`/`parseOne` behavior unchanged.
-- [ ] Include tests: extend `packages/dmarc-consumer/tests/domain.test.ts` — assert `getByDomain` parses a returned item and returns null on empty; `putDns` sends the correct `SET #dns` expression and value; `clearDns` sends `REMOVE #dns`.
+- [x] Keep the existing `upsert`/`list`/`parseOne` behavior unchanged.
+- [x] Include tests: extend `packages/dmarc-consumer/tests/domain.test.ts` — assert `getByDomain` parses a returned item and returns null on empty; `putDns` sends the correct `SET #dns` expression and value; `clearDns` sends `REMOVE #dns`.
 
 **Files:** `packages/dmarc-consumer/domain.ts`, `packages/dmarc-consumer/tests/domain.test.ts`
 
