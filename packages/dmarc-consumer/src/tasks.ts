@@ -2,8 +2,8 @@ import { SQSClient } from "@aws-sdk/client-sqs";
 import { createSqsHandlers } from "@beesolve/sqs-handler";
 import * as v from "valibot";
 
-import { Backfill } from "../backfill.ts";
 import { IpInfoCache } from "../ipInfo.ts";
+import { JobRuns } from "../jobRuns.ts";
 import { Reports } from "../report.ts";
 import { toDynamoClient } from "./dynamo.ts";
 import { runBackfill } from "./runBackfill.ts";
@@ -25,7 +25,7 @@ const ipInfoCache = new IpInfoCache({
   tableName: env.TABLE_NAME,
   apiKey: env.IPINFO_API_KEY,
 });
-const backfill = new Backfill({ dynamo, tableName: env.TABLE_NAME });
+const backfill = new JobRuns({ dynamo, tableName: env.TABLE_NAME, kind: "ipBackfill" });
 
 export const [handler, tasks] = createSqsHandlers({
   fifo: false,

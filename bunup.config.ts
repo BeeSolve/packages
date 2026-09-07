@@ -47,7 +47,6 @@ const workspace: Array<DefineWorkspaceItem> = [
         "dnsRecord.ts",
         "processingStats.ts",
         "ipInfo.ts",
-        "backfill.ts",
         "sdk.ts",
         "cdk.ts",
       ],

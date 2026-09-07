@@ -243,16 +243,16 @@ For the dashboard package specifically, also run its type-check (`bun run --filt
 
 ### Task 4: Generalize the job-run tracker + rename SDK to `AdminSdk`
 
-- [ ] In `packages/dmarc-consumer/backfill.ts`, generalize the run-state machine so it is parameterized by a **job kind** (`ipBackfill` | `dnsRefresh`):
-  - Introduce `jobKinds = ["ipBackfill", "dnsRefresh"] as const` + `JobKind` type (`v.picklist`).
-  - The config item `sk` becomes kind-specific (e.g. `sk: "ipBackfill"` / `sk: "dnsRefresh"`), and the run-history `pk` prefix becomes kind-specific (e.g. `backfill#<domain>` for ip, `dnsRefresh#<domain>` for dns). Keep `startRun`/`completeRun`/`failRun`/`deriveCanRun` shared, taking the kind (and, for backfill, the existing `ipsEnriched`/`reportsScanned` counters remain; DNS runs can omit them or record a `selectorsChecked` count — keep counters optional).
-  - Preserve existing `ipBackfill` behavior exactly (same `sk`/`pk` values it uses today) so stored records and the existing overview flow are unaffected. Consider keeping a thin `Backfill`-compatible surface or updating call sites in the same task.
-- [ ] Rename `BackfillSdk` → `AdminSdk` in `packages/dmarc-consumer/sdk.ts`. **Clean rename — do NOT keep a deprecated `BackfillSdk` re-export alias** (we are the sole consumer, so breaking changes are accepted; this drives the major bump in Task 12). Remove the `BackfillSdk` name entirely from the export, the build entry, and all importers.
+- [x] In `packages/dmarc-consumer/backfill.ts`, generalize the run-state machine so it is parameterized by a **job kind** (`ipBackfill` | `dnsRefresh`):
+  - Introduce `jobKinds = ["ipBackfill", "dnsRefresh"] as const` + `JobKind` type (`v.picklist`). (File renamed `backfill.ts` → `jobRuns.ts`; class renamed `Backfill` → `JobRuns` and now takes a `kind`.)
+  - The config item `sk` becomes kind-specific (`ipBackfill` / `dnsRefresh`), and the run-history `pk` prefix becomes kind-specific (`backfill#<domain>` for ip — UNCHANGED, `dnsRefresh#<domain>` for dns). `startRun`/`completeRun`/`failRun`/`deriveCanRun` shared; `completeRun` takes a generic optional `counts` (`ipsEnriched`/`reportsScanned`/`selectorsChecked`) and only writes provided fields.
+  - Preserved existing `ipBackfill` behavior exactly (same `sk`/`pk` values, same expressions).
+- [x] Rename `BackfillSdk` → `AdminSdk` in `packages/dmarc-consumer/sdk.ts`. **Clean rename — no deprecated alias.**
   - `startIpBackfill` (was `start`), `getIpBackfillStatuses` (was `getStatuses`) — same behavior, `ipBackfill` kind.
-  - `startDnsRefresh({ domain })` — guarded `startRun` for `dnsRefresh` kind; on success enqueue `tasks.refreshDomainDns({ domain, runId })`; return `{ enqueued, runId } | { enqueued: false, reason: "already-running" }`.
+  - `startDnsRefresh({ domain })` — guarded `startRun` for `dnsRefresh` kind; enqueue wired in Task 5 (`// todo(task5)`); returns `{ enqueued, runId } | { enqueued: false, reason: "already-running" }`.
   - `getDnsRefreshStatuses()` — `canRun`/`lastRun` per domain for `dnsRefresh` kind.
-- [ ] Update the export name in `package.json`/build if the SDK module is exported by a named entry. Update any existing importers of `BackfillSdk` (the dashboard `+page.server.ts`) to `AdminSdk`.
-- [ ] Include tests: extend `packages/dmarc-consumer/tests/backfill.test.ts` (or add `tests/adminSdk.test.ts`) — assert the `dnsRefresh` kind uses distinct keys, `deriveCanRun` semantics match, and `startDnsRefresh` enqueues the right task. Existing backfill tests must still pass.
+- [x] Updated build entry (`bunup.config.ts`: `backfill.ts` → dropped, internal `jobRuns.ts` bundled into `sdk`). Updated importers: `src/tasks.ts`, `src/runBackfill.ts`, dashboard `app.d.ts`/`hooks.server.ts`/`+page.server.ts` (`backfill` service → `adminSdk`).
+- [x] Tests: renamed `tests/backfill.test.ts` → `tests/jobRuns.test.ts` with `dnsRefresh`-kind coverage; rewrote `tests/sdk.test.ts` to mock only leaf modules (`src/dynamo.ts`, `src/tasks.ts`) and exercise the real `JobRuns` — avoids the global `mock.module` leak onto `jobRuns.test.ts`.
 
 **Files:** `packages/dmarc-consumer/backfill.ts`, `packages/dmarc-consumer/sdk.ts`, `packages/dmarc-consumer/package.json`/`build.ts` (if export name changes), `packages/dmarc-consumer/tests/*`
 

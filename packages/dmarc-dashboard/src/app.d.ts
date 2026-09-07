@@ -6,7 +6,7 @@ import type { Domains } from "@beesolve/dmarc-consumer/domain";
 import type { IpInfoCache } from "@beesolve/dmarc-consumer/ip-info";
 import type { ProcessingStats } from "@beesolve/dmarc-consumer/processing-stats";
 import type { Reports } from "@beesolve/dmarc-consumer/report";
-import type { BackfillSdk } from "@beesolve/dmarc-consumer/sdk";
+import type { AdminSdk } from "@beesolve/dmarc-consumer/sdk";
 import type { Email } from "@beesolve/email-service/sdk";
 
 declare global {
@@ -25,7 +25,7 @@ declare global {
         reports: Reports;
         stats: ProcessingStats;
         ipInfoCache: IpInfoCache;
-        backfill: BackfillSdk;
+        adminSdk: AdminSdk;
         authClient: AuthClient;
         email: Email;
       };

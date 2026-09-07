@@ -86,8 +86,7 @@ describe("runBackfill", () => {
       (_props: {
         readonly domain: string;
         readonly runId: string;
-        readonly ipsEnriched: number;
-        readonly reportsScanned: number;
+        readonly counts?: { readonly ipsEnriched?: number; readonly reportsScanned?: number };
       }): Promise<void> => Promise.resolve(),
     );
     const failRun = mock(
@@ -126,8 +125,7 @@ describe("runBackfill", () => {
     expect(completeRun.mock.calls[0]?.[0]).toEqual({
       domain: "example.com",
       runId: "run-1",
-      ipsEnriched: 4,
-      reportsScanned: 3,
+      counts: { ipsEnriched: 4, reportsScanned: 3 },
     });
     expect(failRun).not.toHaveBeenCalled();
   });
@@ -151,8 +149,7 @@ describe("runBackfill", () => {
       (_props: {
         readonly domain: string;
         readonly runId: string;
-        readonly ipsEnriched: number;
-        readonly reportsScanned: number;
+        readonly counts?: { readonly ipsEnriched?: number; readonly reportsScanned?: number };
       }): Promise<void> => Promise.resolve(),
     );
     const failRun = mock(

@@ -8,7 +8,7 @@ import { Domains } from "@beesolve/dmarc-consumer/domain";
 import { IpInfoCache } from "@beesolve/dmarc-consumer/ip-info";
 import { ProcessingStats } from "@beesolve/dmarc-consumer/processing-stats";
 import { Reports } from "@beesolve/dmarc-consumer/report";
-import { BackfillSdk } from "@beesolve/dmarc-consumer/sdk";
+import { AdminSdk } from "@beesolve/dmarc-consumer/sdk";
 import { Email } from "@beesolve/email-service/sdk";
 import { redirect, type Handle } from "@sveltejs/kit";
 import { sequence } from "@sveltejs/kit/hooks";
@@ -46,7 +46,7 @@ const ipInfoCache = new IpInfoCache({
   tableName: env.DMARC_TABLE_NAME,
   apiKey: env.IPINFO_API_KEY,
 });
-const backfill = new BackfillSdk();
+const adminSdk = new AdminSdk();
 const authClient = new AuthClient();
 const email = new Email();
 
@@ -60,7 +60,7 @@ const authGuard: Handle = async ({ event, resolve }) => {
     reports,
     stats,
     ipInfoCache,
-    backfill,
+    adminSdk,
     authClient,
     email,
   };

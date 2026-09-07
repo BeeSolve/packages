@@ -1,34 +1,22 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
 
-import type { BackfillConfig, BackfillStatus } from "../backfill.ts";
-
 process.env.TABLE_NAME = "test-table";
 process.env.BEESOLVE_TASKS_MAIN_QUEUE_URL = "https://sqs.test/queue";
 
-const startRun = mock(
-  (_props: { readonly domain: string; readonly runId: string; readonly startedAt: string }) =>
-    Promise.resolve(),
-);
-const readConfig = mock((): Promise<BackfillConfig | null> => Promise.resolve(null));
+const send = mock((_command: unknown): Promise<unknown> => Promise.resolve({}));
 const backfillDomain = mock((_props: { readonly domain: string; readonly runId: string }) =>
   Promise.resolve(),
 );
 
-const { deriveCanRun } = await import("../backfill.ts");
-
-void mock.module("../backfill.ts", () => ({
-  Backfill: class {
-    readonly startRun = startRun;
-    readonly readConfig = readConfig;
-  },
-  deriveCanRun,
+void mock.module("../src/dynamo.ts", () => ({
+  toDynamoClient: () => ({ send }),
 }));
 
 void mock.module("../src/tasks.ts", () => ({
   tasks: { backfillDomain },
 }));
 
-const { BackfillSdk } = await import("../sdk.ts");
+const { AdminSdk } = await import("../sdk.ts");
 
 function transactionCanceled(): Error {
   const error = new Error("Transaction cancelled");
@@ -46,50 +34,31 @@ function validationCanceled(): Error {
   return error;
 }
 
-function configWith(domain: string, status: BackfillStatus): BackfillConfig {
-  const startedAt =
-    status === "started" || status === "pending"
-      ? new Date().toISOString()
-      : "2024-01-01T00:00:00.000Z";
-  return {
-    pk: "system#config",
-    sk: "ipBackfill",
-    domains: {
-      [domain]: {
-        status,
-        runId: "run-1",
-        startedAt,
-        finishedAt: status === "finished" ? "2024-01-01T00:05:00.000Z" : undefined,
-        ipsEnriched: status === "finished" ? 7 : undefined,
-      },
-    },
-  };
+function commandName(command: unknown): string {
+  return command != null && typeof command === "object" ? command.constructor.name : "";
 }
 
 beforeEach(() => {
-  startRun.mockReset();
-  readConfig.mockReset();
+  send.mockReset();
   backfillDomain.mockReset();
-  startRun.mockImplementation(() => Promise.resolve());
-  readConfig.mockImplementation(() => Promise.resolve(null));
+  send.mockImplementation(() => Promise.resolve({}));
   backfillDomain.mockImplementation(() => Promise.resolve());
 });
 
-describe("BackfillSdk", () => {
-  describe("start", () => {
+describe("AdminSdk", () => {
+  describe("startIpBackfill", () => {
     it("writes started via the model transaction and then enqueues with the generated runId", async () => {
-      const sdk = new BackfillSdk();
+      const sdk = new AdminSdk();
 
-      const result = await sdk.start({ domain: "example.com" });
+      const result = await sdk.startIpBackfill({ domain: "example.com" });
 
       expect(result.enqueued).toBe(true);
       if (!result.enqueued) throw new Error("expected enqueued result");
 
-      expect(startRun).toHaveBeenCalledTimes(1);
-      expect(startRun.mock.calls[0]?.[0]).toMatchObject({
-        domain: "example.com",
-        runId: result.runId,
-      });
+      const transactCommand = send.mock.calls.find(
+        (call) => commandName(call[0]) === "TransactWriteCommand",
+      );
+      expect(transactCommand).toBeDefined();
 
       expect(backfillDomain).toHaveBeenCalledTimes(1);
       expect(backfillDomain.mock.calls[0]?.[0]).toEqual({
@@ -99,22 +68,32 @@ describe("BackfillSdk", () => {
     });
 
     it("returns already-running when the transaction is cancelled and does not enqueue", async () => {
-      startRun.mockImplementationOnce(() => Promise.reject(transactionCanceled()));
-      const sdk = new BackfillSdk();
+      send.mockImplementation((command: unknown) => {
+        if (commandName(command) === "TransactWriteCommand") {
+          return Promise.reject(transactionCanceled());
+        }
+        return Promise.resolve({});
+      });
+      const sdk = new AdminSdk();
 
-      const result = await sdk.start({ domain: "example.com" });
+      const result = await sdk.startIpBackfill({ domain: "example.com" });
 
       expect(result).toEqual({ enqueued: false, reason: "already-running" });
       expect(backfillDomain).not.toHaveBeenCalled();
     });
 
     it("propagates non-cancellation errors and does not enqueue", async () => {
-      startRun.mockImplementationOnce(() => Promise.reject(new Error("boom")));
-      const sdk = new BackfillSdk();
+      send.mockImplementation((command: unknown) => {
+        if (commandName(command) === "TransactWriteCommand") {
+          return Promise.reject(new Error("boom"));
+        }
+        return Promise.resolve({});
+      });
+      const sdk = new AdminSdk();
 
       let thrown: unknown;
       try {
-        await sdk.start({ domain: "example.com" });
+        await sdk.startIpBackfill({ domain: "example.com" });
       } catch (error) {
         thrown = error;
       }
@@ -125,12 +104,17 @@ describe("BackfillSdk", () => {
     });
 
     it("rethrows a cancelled transaction that is not a condition failure (e.g. validation)", async () => {
-      startRun.mockImplementationOnce(() => Promise.reject(validationCanceled()));
-      const sdk = new BackfillSdk();
+      send.mockImplementation((command: unknown) => {
+        if (commandName(command) === "TransactWriteCommand") {
+          return Promise.reject(validationCanceled());
+        }
+        return Promise.resolve({});
+      });
+      const sdk = new AdminSdk();
 
       let thrown: unknown;
       try {
-        await sdk.start({ domain: "example.com" });
+        await sdk.startIpBackfill({ domain: "example.com" });
       } catch (error) {
         thrown = error;
       }
@@ -141,29 +125,60 @@ describe("BackfillSdk", () => {
     });
   });
 
-  describe("getStatuses", () => {
-    it("returns an empty record when the config is not found", async () => {
-      readConfig.mockResolvedValueOnce(null);
-      const sdk = new BackfillSdk();
+  describe("startDnsRefresh", () => {
+    it("performs the guarded start and returns the generated runId", async () => {
+      const sdk = new AdminSdk();
 
-      const result = await sdk.getStatuses();
+      const result = await sdk.startDnsRefresh({ domain: "example.com" });
+
+      expect(result.enqueued).toBe(true);
+      if (!result.enqueued) throw new Error("expected enqueued result");
+
+      const transactCommand = send.mock.calls.find(
+        (call) => commandName(call[0]) === "TransactWriteCommand",
+      );
+      expect(transactCommand).toBeDefined();
+    });
+
+    it("returns already-running when the transaction is cancelled", async () => {
+      send.mockImplementation((command: unknown) => {
+        if (commandName(command) === "TransactWriteCommand") {
+          return Promise.reject(transactionCanceled());
+        }
+        return Promise.resolve({});
+      });
+      const sdk = new AdminSdk();
+
+      const result = await sdk.startDnsRefresh({ domain: "example.com" });
+
+      expect(result).toEqual({ enqueued: false, reason: "already-running" });
+    });
+  });
+
+  describe("getIpBackfillStatuses", () => {
+    it("returns an empty record when the config is not found", async () => {
+      send.mockImplementation(() => Promise.resolve({ Item: undefined }));
+      const sdk = new AdminSdk();
+
+      const result = await sdk.getIpBackfillStatuses();
 
       expect(result).toEqual({});
-      expect(readConfig).toHaveBeenCalledTimes(1);
     });
 
     it("gates a started domain to canRun false with a lastRun summary", async () => {
       const startedAt = new Date().toISOString();
-      readConfig.mockResolvedValueOnce({
-        pk: "system#config",
-        sk: "ipBackfill",
-        domains: {
-          "busy.com": { status: "started", runId: "run-1", startedAt },
-        },
-      });
-      const sdk = new BackfillSdk();
+      send.mockImplementation(() =>
+        Promise.resolve({
+          Item: {
+            pk: "system#config",
+            sk: "ipBackfill",
+            domains: { "busy.com": { status: "started", runId: "run-1", startedAt } },
+          },
+        }),
+      );
+      const sdk = new AdminSdk();
 
-      const result = await sdk.getStatuses();
+      const result = await sdk.getIpBackfillStatuses();
 
       expect(result).toEqual({
         "busy.com": {
@@ -173,16 +188,33 @@ describe("BackfillSdk", () => {
             startedAt,
             finishedAt: undefined,
             ipsEnriched: undefined,
+            selectorsChecked: undefined,
           },
         },
       });
     });
 
     it("returns canRun true with a lastRun summary for a finished domain", async () => {
-      readConfig.mockResolvedValueOnce(configWith("done.com", "finished"));
-      const sdk = new BackfillSdk();
+      send.mockImplementation(() =>
+        Promise.resolve({
+          Item: {
+            pk: "system#config",
+            sk: "ipBackfill",
+            domains: {
+              "done.com": {
+                status: "finished",
+                runId: "run-1",
+                startedAt: "2024-01-01T00:00:00.000Z",
+                finishedAt: "2024-01-01T00:05:00.000Z",
+                ipsEnriched: 7,
+              },
+            },
+          },
+        }),
+      );
+      const sdk = new AdminSdk();
 
-      const result = await sdk.getStatuses();
+      const result = await sdk.getIpBackfillStatuses();
 
       expect(result).toEqual({
         "done.com": {
@@ -192,9 +224,21 @@ describe("BackfillSdk", () => {
             startedAt: "2024-01-01T00:00:00.000Z",
             finishedAt: "2024-01-01T00:05:00.000Z",
             ipsEnriched: 7,
+            selectorsChecked: undefined,
           },
         },
       });
+    });
+  });
+
+  describe("getDnsRefreshStatuses", () => {
+    it("returns an empty record when the config is not found", async () => {
+      send.mockImplementation(() => Promise.resolve({ Item: undefined }));
+      const sdk = new AdminSdk();
+
+      const result = await sdk.getDnsRefreshStatuses();
+
+      expect(result).toEqual({});
     });
   });
 });

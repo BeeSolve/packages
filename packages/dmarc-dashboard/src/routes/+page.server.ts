@@ -11,7 +11,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 
   const [allDomains, statuses] = await Promise.all([
     locals.services.domains.list(),
-    locals.services.backfill.getStatuses(),
+    locals.services.adminSdk.getIpBackfillStatuses(),
   ]);
   const visibleDomains =
     user.type === "admin"
@@ -51,7 +51,7 @@ export const actions: Actions = {
       error(403, "Access denied");
     }
 
-    const result = await locals.services.backfill.start({ domain });
+    const result = await locals.services.adminSdk.startIpBackfill({ domain });
     if (!result.enqueued) {
       return fail(409, { error: "A backfill is already running for this domain." });
     }

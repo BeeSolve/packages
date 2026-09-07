@@ -1,7 +1,7 @@
 import { describe, expect, it, mock } from "bun:test";
 
-import type { BackfillConfig } from "../backfill.ts";
-import { Backfill, deriveCanRun } from "../backfill.ts";
+import type { JobKind, JobRunConfig } from "../jobRuns.ts";
+import { deriveCanRun, JobRuns } from "../jobRuns.ts";
 
 function makeDynamo() {
   const send = mock(() => Promise.resolve({}));
@@ -27,29 +27,29 @@ function asRecord(value: unknown): Record<string, unknown> {
 
 function configWith(
   domain: string,
-  status: BackfillConfig["domains"][string]["status"],
-  startedAt = new Date().toISOString(),
-): BackfillConfig {
+  status: JobRunConfig["domains"][string]["status"],
+  props: { readonly kind?: JobKind; readonly startedAt?: string } = {},
+): JobRunConfig {
   return {
     pk: "system#config",
-    sk: "ipBackfill",
+    sk: props.kind ?? "ipBackfill",
     domains: {
       [domain]: {
         status,
         runId: "run-1",
-        startedAt,
+        startedAt: props.startedAt ?? new Date().toISOString(),
       },
     },
   };
 }
 
-describe("Backfill", () => {
+describe("JobRuns", () => {
   describe("startRun", () => {
     it("seeds the domains map, then sends a guarded config Update and a guarded history Put", async () => {
       const dynamo = makeDynamo();
-      const backfill = new Backfill({ dynamo, tableName: "t" });
+      const jobRuns = new JobRuns({ dynamo, tableName: "t", kind: "ipBackfill" });
 
-      await backfill.startRun({
+      await jobRuns.startRun({
         domain: "example.com",
         runId: "run-123",
         startedAt: "2024-01-01T00:00:00.000Z",
@@ -72,8 +72,6 @@ describe("Backfill", () => {
 
       const condition = configUpdate.ConditionExpression;
       expect(typeof condition).toBe("string");
-      // Guards on the nested status: a missing entry, a terminal status
-      // (finished/failed), or a stale started run may start a run.
       expect(condition).toContain("attribute_not_exists(#domains.#domain)");
       expect(condition).toContain("#domains.#domain.#status IN (:finished, :failed)");
       expect(condition).toContain("#domains.#domain.#startedAt < :staleBefore");
@@ -95,18 +93,43 @@ describe("Backfill", () => {
       expect(historyItem.sk).toBe("run#run-123");
       expect(historyItem.status).toBe("started");
     });
+
+    it("uses the dnsRefresh config sk and run pk prefix for the dnsRefresh kind", async () => {
+      const dynamo = makeDynamo();
+      const jobRuns = new JobRuns({ dynamo, tableName: "t", kind: "dnsRefresh" });
+
+      await jobRuns.startRun({
+        domain: "example.com",
+        runId: "run-123",
+        startedAt: "2024-01-01T00:00:00.000Z",
+      });
+
+      const seed = getCommandInput(dynamo.send, 0);
+      expect(seed.Key).toEqual({ pk: "system#config", sk: "dnsRefresh" });
+
+      const input = getCommandInput(dynamo.send, 1);
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- bun:test mock calls are untyped; narrowing confirms shape
+      const transactItems = input.TransactItems as Array<Record<string, unknown>>;
+
+      const configUpdate = asRecord(transactItems[0]?.Update);
+      expect(configUpdate.Key).toEqual({ pk: "system#config", sk: "dnsRefresh" });
+
+      const historyPut = asRecord(transactItems[1]?.Put);
+      const historyItem = asRecord(historyPut.Item);
+      expect(historyItem.pk).toBe("dnsRefresh#example.com");
+      expect(historyItem.sk).toBe("run#run-123");
+    });
   });
 
   describe("completeRun", () => {
     it("sends a single transaction updating both the config entry and the run history item", async () => {
       const dynamo = makeDynamo();
-      const backfill = new Backfill({ dynamo, tableName: "t" });
+      const jobRuns = new JobRuns({ dynamo, tableName: "t", kind: "ipBackfill" });
 
-      await backfill.completeRun({
+      await jobRuns.completeRun({
         domain: "example.com",
         runId: "run-123",
-        ipsEnriched: 42,
-        reportsScanned: 100,
+        counts: { ipsEnriched: 42, reportsScanned: 100 },
       });
 
       expect(dynamo.send).toHaveBeenCalledTimes(1);
@@ -132,14 +155,38 @@ describe("Backfill", () => {
       expect(historyValues[":reportsScanned"]).toBe(100);
       expect(historyValues[":finishedAt"]).toBe(configValues[":finishedAt"]);
     });
+
+    it("only writes the counts provided, omitting absent ones", async () => {
+      const dynamo = makeDynamo();
+      const jobRuns = new JobRuns({ dynamo, tableName: "t", kind: "dnsRefresh" });
+
+      await jobRuns.completeRun({
+        domain: "example.com",
+        runId: "run-123",
+        counts: { selectorsChecked: 3 },
+      });
+
+      const input = getCommandInput(dynamo.send);
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- bun:test mock calls are untyped; narrowing confirms shape
+      const transactItems = input.TransactItems as Array<Record<string, unknown>>;
+
+      const configUpdate = asRecord(transactItems[0]?.Update);
+      const configValues = asRecord(configUpdate.ExpressionAttributeValues);
+      expect(configValues[":selectorsChecked"]).toBe(3);
+      expect(":ipsEnriched" in configValues).toBe(false);
+      expect(":reportsScanned" in configValues).toBe(false);
+
+      const historyUpdate = asRecord(transactItems[1]?.Update);
+      expect(historyUpdate.Key).toEqual({ pk: "dnsRefresh#example.com", sk: "run#run-123" });
+    });
   });
 
   describe("failRun", () => {
     it("sends a single transaction updating both the config entry and the run history item with the error", async () => {
       const dynamo = makeDynamo();
-      const backfill = new Backfill({ dynamo, tableName: "t" });
+      const jobRuns = new JobRuns({ dynamo, tableName: "t", kind: "ipBackfill" });
 
-      await backfill.failRun({ domain: "example.com", runId: "run-123", error: "boom" });
+      await jobRuns.failRun({ domain: "example.com", runId: "run-123", error: "boom" });
 
       expect(dynamo.send).toHaveBeenCalledTimes(1);
 
@@ -167,8 +214,8 @@ describe("Backfill", () => {
       const dynamo = makeDynamo();
       dynamo.send.mockResolvedValueOnce({ Item: undefined });
 
-      const backfill = new Backfill({ dynamo, tableName: "t" });
-      const result = await backfill.readConfig();
+      const jobRuns = new JobRuns({ dynamo, tableName: "t", kind: "ipBackfill" });
+      const result = await jobRuns.readConfig();
 
       expect(result).toBeNull();
     });
@@ -177,10 +224,23 @@ describe("Backfill", () => {
       const dynamo = makeDynamo();
       dynamo.send.mockResolvedValueOnce({ Item: configWith("example.com", "finished") });
 
-      const backfill = new Backfill({ dynamo, tableName: "t" });
-      const result = await backfill.readConfig();
+      const jobRuns = new JobRuns({ dynamo, tableName: "t", kind: "ipBackfill" });
+      const result = await jobRuns.readConfig();
 
       expect(result?.domains["example.com"]?.status).toBe("finished");
+    });
+
+    it("reads the dnsRefresh config from its own sk", async () => {
+      const dynamo = makeDynamo();
+      dynamo.send.mockResolvedValueOnce({
+        Item: configWith("example.com", "finished", { kind: "dnsRefresh" }),
+      });
+
+      const jobRuns = new JobRuns({ dynamo, tableName: "t", kind: "dnsRefresh" });
+      await jobRuns.readConfig();
+
+      const input = getCommandInput(dynamo.send);
+      expect(input.Key).toEqual({ pk: "system#config", sk: "dnsRefresh" });
     });
   });
 });
@@ -206,7 +266,7 @@ describe("deriveCanRun", () => {
   });
 
   it("returns true when a started run is stale (older than the worker lifetime)", () => {
-    const config = configWith("example.com", "started", "2024-01-01T00:00:00.000Z");
+    const config = configWith("example.com", "started", { startedAt: "2024-01-01T00:00:00.000Z" });
     expect(deriveCanRun(config, "example.com")).toBe(true);
   });
 

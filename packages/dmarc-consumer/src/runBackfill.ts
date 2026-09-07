@@ -1,14 +1,14 @@
 import { dmarcRecordSchema } from "@beesolve/dmarc-parser";
 import * as v from "valibot";
 
-import type { Backfill } from "../backfill.ts";
 import type { IpInfoCache } from "../ipInfo.ts";
+import type { JobRuns } from "../jobRuns.ts";
 import type { Reports } from "../report.ts";
 
 export async function runBackfill(props: {
   readonly reports: Pick<Reports, "queryByDomain">;
   readonly ipInfoCache: Pick<IpInfoCache, "enrichMany">;
-  readonly backfill: Pick<Backfill, "completeRun" | "failRun">;
+  readonly backfill: Pick<JobRuns, "completeRun" | "failRun">;
   readonly domain: string;
   readonly runId: string;
 }): Promise<void> {
@@ -38,8 +38,7 @@ export async function runBackfill(props: {
     await props.backfill.completeRun({
       domain: props.domain,
       runId: props.runId,
-      ipsEnriched: Object.keys(enriched).length,
-      reportsScanned,
+      counts: { ipsEnriched: Object.keys(enriched).length, reportsScanned },
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
