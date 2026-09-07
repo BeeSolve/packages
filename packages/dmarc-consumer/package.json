@@ -20,6 +20,12 @@
         "default": "./dist/cdk.js"
       }
     },
+    "./dns-record": {
+      "import": {
+        "types": "./dist/dnsRecord.d.ts",
+        "default": "./dist/dnsRecord.js"
+      }
+    },
     "./domain": {
       "import": {
         "types": "./dist/domain.d.ts",

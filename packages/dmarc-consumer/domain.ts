@@ -2,6 +2,8 @@ import type { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { QueryCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import * as v from "valibot";
 
+import { domainDnsSchema } from "./dnsRecord.js";
+
 export const schema = v.object({
   pk: v.string(),
   sk: v.literal("domain"),
@@ -9,6 +11,7 @@ export const schema = v.object({
   totalMessages: v.number(),
   totalPass: v.number(),
   totalFail: v.number(),
+  dns: v.optional(domainDnsSchema),
 });
 
 export type Domain = v.InferOutput<typeof schema>;

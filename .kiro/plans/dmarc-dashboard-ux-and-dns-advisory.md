@@ -1,6 +1,6 @@
 # DMARC Dashboard UX Reframe + DNS Setup Advisory
 
-## Status: Not Started
+## Status: In Progress
 
 ## Problem Statement
 
@@ -192,13 +192,13 @@ For the dashboard package specifically, also run its type-check (`bun run --filt
 
 ### Task 1: DNS record parsers + schema on the domain record
 
-- [ ] In `packages/dmarc-consumer/domain.ts`, add the schemas: `spfAllQualifiers`/`SpfAllQualifier`, `spfMechanismSchema`, `dmarcPolicies`, `alignmentModes`, `dmarcRecordDnsSchema`, `dkimSelectorSchema`, `domainDnsSchema`/`DomainDns` (all as specified in Architecture → Types and Schemas). Use `v.picklist` with `as const` arrays for literal unions.
-- [ ] Extend the existing `schema` with `dns: v.optional(domainDnsSchema)`. Confirm existing stored records (without `dns`) still parse (optional field).
-- [ ] Add pure parsers in the same file (or a colocated `dnsParse.ts` — pick one and be consistent):
+- [x] In `packages/dmarc-consumer/domain.ts`, add the schemas: `spfAllQualifiers`/`SpfAllQualifier`, `spfMechanismSchema`, `dmarcPolicies`, `alignmentModes`, `dmarcRecordDnsSchema`, `dkimSelectorSchema`, `domainDnsSchema`/`DomainDns` (all as specified in Architecture → Types and Schemas). Use `v.picklist` with `as const` arrays for literal unions. (Schemas/types moved to dedicated `dnsRecord.ts` module — repository file `domain.ts` stays pure data-access.)
+- [x] Extend the existing `schema` with `dns: v.optional(domainDnsSchema)`. Confirm existing stored records (without `dns`) still parse (optional field).
+- [x] Add pure parsers in a dedicated `dnsRecord.ts` module (not the repository file `domain.ts`):
   - `parseSpfRecord(txt: string): SpfMechanism` — detect `v=spf1`, extract the trailing `all` qualifier (`-all`/`~all`/`?all`/`+all`), count DNS-lookup mechanisms (`include:`, `a`, `mx`, `ptr`, `exists:`, `redirect=`) for the 10-lookup guidance, set `valid`.
   - `parseDmarcRecord(txt: string): DmarcRecordDns` — detect `v=DMARC1`, parse `p`, `sp`, `pct` (number), `adkim`, `aspf`, `rua` (split addresses), set `valid`.
-- [ ] Export all new types, schemas, and parsers.
-- [ ] Include tests: `packages/dmarc-consumer/tests/dnsParse.test.ts` — assert parsing of representative SPF records (`-all`, `~all`, over-10-lookups), a `p=reject; pct=100; adkim=s` DMARC record, a `p=none` record, and malformed/non-matching strings (`valid:false`).
+- [x] Export all new types, schemas, and parsers (via new `./dns-record` package export entry).
+- [x] Include tests: `packages/dmarc-consumer/tests/dnsParse.test.ts` — assert parsing of representative SPF records (`-all`, `~all`, over-10-lookups), a `p=reject; pct=100; adkim=s` DMARC record, a `p=none` record, and malformed/non-matching strings (`valid:false`).
 
 **Files:** `packages/dmarc-consumer/domain.ts` (+ optional `dnsParse.ts`), `packages/dmarc-consumer/tests/dnsParse.test.ts`
 
