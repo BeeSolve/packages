@@ -223,17 +223,17 @@ For the dashboard package specifically, also run its type-check (`bun run --filt
 
 ### Task 3: DNS resolver (`dns.ts`) — pure resolution + parsing, no cache
 
-- [ ] Create `packages/dmarc-consumer/dns.ts`.
-- [ ] `resolveDomainDns({ domain, dkimSelectors }: { domain: string; dkimSelectors: Array<string> }): Promise<DomainDns>`:
-  - Use `import { resolveTxt } from "node:dns/promises"`.
+- [x] Create `packages/dmarc-consumer/dns.ts`.
+- [x] `resolveDomainDns({ domain, dkimSelectors }: { domain: string; dkimSelectors: Array<string> }): Promise<DomainDns>`:
+  - Use `import { resolveTxt } from "node:dns/promises"` directly (no injectable seam — tests mock the module via `mock.module`).
   - Resolve `_dmarc.<domain>` → join TXT chunks → `parseDmarcRecord`.
   - Resolve `<domain>` → find the `v=spf1` record → `parseSpfRecord`.
   - For each selector in `dkimSelectors`, resolve `<selector>._domainkey.<domain>` → `{ selector, found: true, raw }`, or `{ selector, found: false }` on `ENODATA`/`ENOTFOUND`.
   - Set `fetchedAt: new Date().toISOString()`. Catch per-lookup errors so one failing lookup doesn't abort the others; record a top-level `error` string only when the whole resolution is unusable.
   - **No Dynamo access** — this function only resolves + parses.
-- [ ] `isDnsStale({ dns, ttlMs }: { dns?: DomainDns; ttlMs: number }): boolean` — pure: `true` when `dns == null`, `dns.fetchedAt == null`, or `Date.now() - Date.parse(dns.fetchedAt) > ttlMs`.
-- [ ] Add `./dns` to `packages/dmarc-consumer/package.json` `exports` (mirror `./ip-info`) and wire into the build (`build.ts`/bunup entries — follow how `ipInfo.ts` is built).
-- [ ] Include tests: `packages/dmarc-consumer/tests/dns.test.ts` — unit-test `isDnsStale` (null, missing `fetchedAt`, fresh, stale). Keep `resolveDomainDns` network calls out of the tests (it is exercised via the worker path). Optionally test the per-lookup error mapping by injecting a stub resolver if `resolveDomainDns` is written to accept an optional resolver override.
+- [x] `isDnsStale({ dns, ttlMs }: { dns?: DomainDns; ttlMs: number }): boolean` — pure: `true` when `dns == null`, `dns.fetchedAt == null`, or `Date.now() - Date.parse(dns.fetchedAt) > ttlMs`.
+- [x] Add `./dns` to `packages/dmarc-consumer/package.json` `exports` (mirror `./ip-info`) and wire into the build (root `bunup.config.ts` entries — follow how `ipInfo.ts` is built).
+- [x] Include tests: `packages/dmarc-consumer/tests/dns.test.ts` — unit-test `isDnsStale`; `resolveDomainDns` per-lookup error mapping via `mock.module("node:dns/promises", ...)` (no real network, no injection param).
 
 **Files:** `packages/dmarc-consumer/dns.ts`, `packages/dmarc-consumer/package.json`, `packages/dmarc-consumer/build.ts`, `packages/dmarc-consumer/tests/dns.test.ts`
 

@@ -2,8 +2,8 @@ import type { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { GetCommand, QueryCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import * as v from "valibot";
 
-import type { DomainDns } from "./dnsRecord.js";
-import { domainDnsSchema } from "./dnsRecord.js";
+import type { DomainDns } from "./dnsRecord.ts";
+import { domainDnsSchema } from "./dnsRecord.ts";
 
 export const schema = v.object({
   pk: v.string(),
