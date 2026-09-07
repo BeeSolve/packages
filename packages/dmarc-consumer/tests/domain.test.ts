@@ -196,4 +196,34 @@ describe("Domains", () => {
       expect(input.ExpressionAttributeNames).toEqual({ "#dns": "dns" });
     });
   });
+
+  describe("addSelectors", () => {
+    it("sends an ADD update with a Set value for the selectors attribute", async () => {
+      const dynamo = makeDynamo();
+      const domains = new Domains({ dynamo, tableName: "test-table", reverseIndexName: "reverse" });
+
+      await domains.addSelectors({ domain: "example.org", selectors: ["sel1", "sel2"] });
+
+      expect(dynamo.send).toHaveBeenCalledTimes(1);
+
+      const input = getCommandInput(dynamo.send);
+      expect(input.Key).toEqual({ pk: "domain#example.org", sk: "domain" });
+      expect(input.UpdateExpression).toBe("ADD #selectors :selectors");
+      expect(input.ExpressionAttributeNames).toEqual({ "#selectors": "selectors" });
+
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- bun:test mock calls are untyped; narrowing confirms shape
+      const values = input.ExpressionAttributeValues as Record<string, unknown>;
+      expect(values[":selectors"]).toBeInstanceOf(Set);
+      expect(values[":selectors"]).toEqual(new Set(["sel1", "sel2"]));
+    });
+
+    it("does not send an update when there are no selectors", async () => {
+      const dynamo = makeDynamo();
+      const domains = new Domains({ dynamo, tableName: "test-table", reverseIndexName: "reverse" });
+
+      await domains.addSelectors({ domain: "example.org", selectors: [] });
+
+      expect(dynamo.send).not.toHaveBeenCalled();
+    });
+  });
 });

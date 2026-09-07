@@ -76,6 +76,7 @@ export async function handler(
 
     await upsertDomainAggregates(parsedReports);
     await enrichSourceIps(parsedReports);
+    await persistSelectors(parsedReports);
   }
 
   for (const id of failedIds) {
@@ -138,5 +139,34 @@ async function enrichSourceIps(reports: Array<DmarcReport>): Promise<void> {
     await ipInfoCache.enrichMany({ ips: Array.from(ips) });
   } catch (error) {
     console.error("Failed to enrich source IPs:", error);
+  }
+}
+
+async function persistSelectors(reports: Array<DmarcReport>): Promise<void> {
+  const selectorsByDomain = new Map<string, Set<string>>();
+
+  for (const report of reports) {
+    const domain = report.policyPublished.domain;
+    for (const rawRecord of report.records) {
+      const parsed = v.safeParse(dmarcRecordSchema, rawRecord);
+      if (!parsed.success) continue;
+      for (const dkimResult of parsed.output.authResults.dkim) {
+        if (dkimResult.selector == null || dkimResult.selector === "") continue;
+        const existing = selectorsByDomain.get(domain);
+        if (existing != null) {
+          existing.add(dkimResult.selector);
+        } else {
+          selectorsByDomain.set(domain, new Set([dkimResult.selector]));
+        }
+      }
+    }
+  }
+
+  for (const [domain, selectors] of selectorsByDomain) {
+    try {
+      await domains.addSelectors({ domain, selectors: Array.from(selectors) });
+    } catch (error) {
+      console.error(`Failed to persist DKIM selectors for ${domain}:`, error);
+    }
   }
 }

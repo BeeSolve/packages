@@ -2,7 +2,7 @@ import { uuid7 } from "@beesolve/helpers";
 import * as v from "valibot";
 
 import type { JobStatusSummary } from "./jobRuns.ts";
-import { deriveCanRun, JobRuns } from "./jobRuns.ts";
+import { deriveCanRun, isAlreadyRunning, JobRuns } from "./jobRuns.ts";
 import { toDynamoClient } from "./src/dynamo.ts";
 import { tasks } from "./src/tasks.ts";
 
@@ -65,7 +65,7 @@ export class AdminSdk {
       throw error;
     }
 
-    // todo(task5): enqueue tasks.refreshDomainDns once the DNS worker exists
+    await tasks.refreshDomainDns({ domain: props.domain, runId });
     return { enqueued: true, runId };
   };
 
@@ -95,18 +95,4 @@ export class AdminSdk {
 
     return statuses;
   };
-}
-
-function isAlreadyRunning(error: unknown): boolean {
-  if (error == null || typeof error !== "object") return false;
-  if (!("name" in error) || error.name !== "TransactionCanceledException") return false;
-  if (!("CancellationReasons" in error) || !Array.isArray(error.CancellationReasons)) return false;
-
-  const configReason = error.CancellationReasons[0];
-  return (
-    configReason != null &&
-    typeof configReason === "object" &&
-    "Code" in configReason &&
-    configReason.Code === "ConditionalCheckFailed"
-  );
 }

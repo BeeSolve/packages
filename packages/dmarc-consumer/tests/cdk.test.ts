@@ -11,6 +11,7 @@ import { DmarcConsumer } from "../cdk.ts";
 beforeAll(() => {
   mkdirSync(new URL("../consumer", import.meta.url), { recursive: true });
   mkdirSync(new URL("../tasks", import.meta.url), { recursive: true });
+  mkdirSync(new URL("../dnsCron", import.meta.url), { recursive: true });
 });
 
 function makeStack() {
@@ -138,6 +139,33 @@ describe("DmarcConsumer construct", () => {
             Action: Match.arrayWith(["sqs:SendMessage"]),
           }),
         ]),
+      },
+    });
+  });
+
+  it("creates a daily EventBridge schedule for the DNS refresh cron", () => {
+    const stack = makeStack();
+    new DmarcConsumer(stack, "Consumer");
+
+    const template = Template.fromStack(stack);
+    template.hasResourceProperties("AWS::Events::Rule", {
+      ScheduleExpression: "rate(1 day)",
+    });
+  });
+
+  it("creates a DNS cron Lambda with table read and tasks-queue enqueue access", () => {
+    const stack = makeStack();
+    new DmarcConsumer(stack, "Consumer");
+
+    const template = Template.fromStack(stack);
+    template.hasResourceProperties("AWS::Lambda::Function", {
+      Handler: "dnsCron.handler",
+      Environment: {
+        Variables: Match.objectLike({
+          TABLE_NAME: Match.anyValue(),
+          REVERSE_INDEX_NAME: "reverse",
+          BEESOLVE_TASKS_MAIN_QUEUE_URL: Match.anyValue(),
+        }),
       },
     });
   });

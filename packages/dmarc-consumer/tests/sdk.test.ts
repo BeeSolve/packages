@@ -7,13 +7,16 @@ const send = mock((_command: unknown): Promise<unknown> => Promise.resolve({}));
 const backfillDomain = mock((_props: { readonly domain: string; readonly runId: string }) =>
   Promise.resolve(),
 );
+const refreshDomainDns = mock((_props: { readonly domain: string; readonly runId: string }) =>
+  Promise.resolve(),
+);
 
 void mock.module("../src/dynamo.ts", () => ({
   toDynamoClient: () => ({ send }),
 }));
 
 void mock.module("../src/tasks.ts", () => ({
-  tasks: { backfillDomain },
+  tasks: { backfillDomain, refreshDomainDns },
 }));
 
 const { AdminSdk } = await import("../sdk.ts");
@@ -41,8 +44,10 @@ function commandName(command: unknown): string {
 beforeEach(() => {
   send.mockReset();
   backfillDomain.mockReset();
+  refreshDomainDns.mockReset();
   send.mockImplementation(() => Promise.resolve({}));
   backfillDomain.mockImplementation(() => Promise.resolve());
+  refreshDomainDns.mockImplementation(() => Promise.resolve());
 });
 
 describe("AdminSdk", () => {
@@ -138,6 +143,12 @@ describe("AdminSdk", () => {
         (call) => commandName(call[0]) === "TransactWriteCommand",
       );
       expect(transactCommand).toBeDefined();
+
+      expect(refreshDomainDns).toHaveBeenCalledTimes(1);
+      expect(refreshDomainDns.mock.calls[0]?.[0]).toEqual({
+        domain: "example.com",
+        runId: result.runId,
+      });
     });
 
     it("returns already-running when the transaction is cancelled", async () => {
@@ -152,6 +163,7 @@ describe("AdminSdk", () => {
       const result = await sdk.startDnsRefresh({ domain: "example.com" });
 
       expect(result).toEqual({ enqueued: false, reason: "already-running" });
+      expect(refreshDomainDns).not.toHaveBeenCalled();
     });
   });
 

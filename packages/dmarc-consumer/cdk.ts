@@ -5,8 +5,8 @@ import { detailType, eventSource, statsDetailType } from "@beesolve/dmarc-report
 import { SqsHandler } from "@beesolve/sqs-handler/cdk";
 import { Duration, RemovalPolicy } from "aws-cdk-lib";
 import { AttributeType, Billing, ProjectionType, TableV2 } from "aws-cdk-lib/aws-dynamodb";
-import { Rule } from "aws-cdk-lib/aws-events";
-import { SqsQueue } from "aws-cdk-lib/aws-events-targets";
+import { Rule, Schedule } from "aws-cdk-lib/aws-events";
+import { LambdaFunction as LambdaFunctionTarget, SqsQueue } from "aws-cdk-lib/aws-events-targets";
 import type { Function as LambdaFunction, FunctionOptions } from "aws-cdk-lib/aws-lambda";
 import { Construct } from "constructs";
 
@@ -97,11 +97,32 @@ export class DmarcConsumer extends Construct {
         timeout: Duration.minutes(5),
         environment: {
           TABLE_NAME: this.table.tableName,
+          REVERSE_INDEX_NAME: this.reverseIndexName,
           ...(props?.ipInfoApiKey != null ? { IPINFO_API_KEY: props.ipInfoApiKey } : {}),
         },
       },
     });
 
     this.backfill.forEachHandler((handler) => this.table.grantReadWriteData(handler));
+
+    const dnsCron = new Nodejs24Function(this, "DnsCron", {
+      description: "DMARC DNS refresh cron — enqueues DNS refresh tasks for stale domains",
+      entry: `${fileURLToPath(new URL(".", import.meta.url))}dnsCron/`,
+      handler: "dnsCron.handler",
+      memorySize: 256,
+      timeout: Duration.minutes(1),
+      environment: {
+        TABLE_NAME: this.table.tableName,
+        REVERSE_INDEX_NAME: this.reverseIndexName,
+      },
+    });
+
+    this.table.grantReadData(dnsCron);
+    this.backfill.grantAccess(dnsCron);
+
+    new Rule(this, "DnsCronSchedule", {
+      schedule: Schedule.rate(Duration.days(1)),
+      targets: [new LambdaFunctionTarget(dnsCron)],
+    });
   }
 }

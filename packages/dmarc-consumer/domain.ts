@@ -13,6 +13,7 @@ export const schema = v.object({
   totalPass: v.number(),
   totalFail: v.number(),
   dns: v.optional(domainDnsSchema),
+  selectors: v.optional(v.set(v.string())),
 });
 
 export type Domain = v.InferOutput<typeof schema>;
@@ -50,6 +51,23 @@ export class Domains {
           ":pass": props.totalPass,
           ":fail": props.totalFail,
         },
+      }),
+    );
+  };
+
+  readonly addSelectors = async (props: {
+    readonly domain: string;
+    readonly selectors: Array<string>;
+  }): Promise<void> => {
+    if (props.selectors.length === 0) return;
+
+    await this.props.dynamo.send(
+      new UpdateCommand({
+        TableName: this.props.tableName,
+        Key: { pk: `domain#${props.domain}`, sk: "domain" },
+        UpdateExpression: "ADD #selectors :selectors",
+        ExpressionAttributeNames: { "#selectors": "selectors" },
+        ExpressionAttributeValues: { ":selectors": new Set(props.selectors) },
       }),
     );
   };

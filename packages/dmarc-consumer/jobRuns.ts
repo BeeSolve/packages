@@ -104,6 +104,25 @@ export function deriveCanRun(config: JobRunConfig | null, domain: string): boole
   return isStaleStartedAt(entry.startedAt, Date.now());
 }
 
+/**
+ * Returns `true` when an error is a `startRun` transaction cancellation caused
+ * by the guard (a non-stale run already in progress for the domain), as opposed
+ * to any other cancellation reason.
+ */
+export function isAlreadyRunning(error: unknown): boolean {
+  if (error == null || typeof error !== "object") return false;
+  if (!("name" in error) || error.name !== "TransactionCanceledException") return false;
+  if (!("CancellationReasons" in error) || !Array.isArray(error.CancellationReasons)) return false;
+
+  const configReason = error.CancellationReasons[0];
+  return (
+    configReason != null &&
+    typeof configReason === "object" &&
+    "Code" in configReason &&
+    configReason.Code === "ConditionalCheckFailed"
+  );
+}
+
 export class JobRuns {
   constructor(
     private readonly props: {

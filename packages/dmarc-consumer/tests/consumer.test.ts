@@ -49,7 +49,7 @@ function makeSqsEvent(bodies: Array<unknown>): SQSEvent {
   };
 }
 
-function makeValidEventBody(domain = "example.org") {
+function makeValidEventBody(domain = "example.org", selectors: Array<string> = []) {
   return {
     source: "dmarc-reports",
     "detail-type": "DmarcReportParsed",
@@ -74,7 +74,10 @@ function makeValidEventBody(domain = "example.org") {
           policyEvaluated: { disposition: "none", dkim: "pass", spf: "pass" },
           identifiers: { headerFrom: domain },
           authResults: {
-            dkim: [{ domain, result: "pass" }],
+            dkim:
+              selectors.length > 0
+                ? selectors.map((selector) => ({ domain, result: "pass", selector }))
+                : [{ domain, result: "pass" }],
             spf: [{ domain, result: "pass" }],
           },
         },
@@ -203,5 +206,29 @@ describe("consumer handler", () => {
     const result = await handler(event);
 
     expect(result.batchItemFailures).toEqual([]);
+  });
+
+  it("persists observed DKIM selectors with an ADD to a String Set", async () => {
+    const { handler } = await import("../src/consumer.ts");
+
+    const body = makeValidEventBody("example.org", ["sel1", "sel2"]);
+
+    const event = makeSqsEvent([body]);
+    await handler(event);
+
+    // persist + upsert + addSelectors
+    expect(sendMock).toHaveBeenCalledTimes(3);
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- bun:test mock calls are untyped; narrowing confirms shape
+    const calls = sendMock.mock.calls as unknown as Array<
+      Array<{ input: Record<string, unknown> }>
+    >;
+    const selectorCall = calls.find(
+      (call) => call[0]?.input?.UpdateExpression === "ADD #selectors :selectors",
+    );
+    expect(selectorCall).toBeDefined();
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- bun:test mock calls are untyped; narrowing confirms shape
+    const values = selectorCall?.[0]?.input?.ExpressionAttributeValues as Record<string, unknown>;
+    expect(values[":selectors"]).toBeInstanceOf(Set);
+    expect(values[":selectors"]).toEqual(new Set(["sel1", "sel2"]));
   });
 });
