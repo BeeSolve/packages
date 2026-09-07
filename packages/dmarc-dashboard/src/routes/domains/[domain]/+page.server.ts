@@ -1,7 +1,9 @@
+import { buildAdvisory } from "$lib/server/advisory.js";
 import { aggregateReports } from "$lib/server/aggregate.js";
-import { error } from "@sveltejs/kit";
+import { error, fail } from "@sveltejs/kit";
+import * as v from "valibot";
 
-import type { PageServerLoad } from "./$types.js";
+import type { Actions, PageServerLoad } from "./$types.js";
 
 export const load: PageServerLoad = async ({ params, locals, url }) => {
   const user = locals.user;
@@ -53,6 +55,16 @@ export const load: PageServerLoad = async ({ params, locals, url }) => {
 
   const aggregate = aggregateReports(result.reports);
 
+  const [domainRecord, dnsRefreshStatuses, ipBackfillStatuses] = await Promise.all([
+    locals.services.domains.getByDomain({ domain: params.domain }),
+    locals.services.adminSdk.getDnsRefreshStatuses(),
+    locals.services.adminSdk.getIpBackfillStatuses(),
+  ]);
+  const dns = domainRecord?.dns;
+  const advisory = buildAdvisory({ dns, aggregate });
+  const dnsRefreshStatus = dnsRefreshStatuses[params.domain] ?? { canRun: true };
+  const ipBackfillStatus = ipBackfillStatuses[params.domain] ?? { canRun: true };
+
   const breakdownIps = aggregate.sourceIpBreakdown.map((row) => row.ip);
   const enrichment = await locals.services.ipInfoCache.getMany({ ips: breakdownIps });
 
@@ -76,6 +88,10 @@ export const load: PageServerLoad = async ({ params, locals, url }) => {
     displayMonth,
     currentMonth,
     today: todayIso,
+    dns: dns ?? null,
+    advisory,
+    dnsRefreshStatus,
+    ipBackfillStatus,
     aggregate: {
       ...aggregate,
       sourceIpBreakdown,
@@ -93,4 +109,42 @@ export const load: PageServerLoad = async ({ params, locals, url }) => {
     })),
     cursor: result.cursor,
   };
+};
+
+export const actions: Actions = {
+  default: async ({ request, params, locals }) => {
+    const user = locals.user;
+    if (user == null) {
+      error(403, "Access denied");
+    }
+
+    const { domain } = params;
+    if (user.type !== "admin" && !user.domains.includes(domain)) {
+      error(403, "Access denied — you do not have access to this domain");
+    }
+
+    const formData = await request.formData();
+    const intentResult = v.safeParse(
+      v.picklist(["refresh-dns", "refresh-ips"]),
+      formData.get("intent"),
+    );
+    if (!intentResult.success) {
+      return fail(400, { error: "Invalid action." });
+    }
+    const intent = intentResult.output;
+
+    if (intent === "refresh-dns") {
+      const result = await locals.services.adminSdk.startDnsRefresh({ domain });
+      if (!result.enqueued) {
+        return fail(409, { intent, error: "A DNS refresh is already running for this domain." });
+      }
+      return { intent, started: true };
+    }
+
+    const result = await locals.services.adminSdk.startIpBackfill({ domain });
+    if (!result.enqueued) {
+      return fail(409, { intent, error: "An IP refresh is already running for this domain." });
+    }
+    return { intent, started: true };
+  },
 };
