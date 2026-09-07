@@ -277,9 +277,9 @@ For the dashboard package specifically, also run its type-check (`bun run --filt
 
 ### Task 6: First-time DNS bootstrap on new-domain ingest
 
-- [ ] In `packages/dmarc-consumer/src/consumer.ts` `upsertDomainAggregates`: detect when a domain aggregate is created for the **first time** (e.g. `upsert` returns/reports the pre-update absence, or a follow-up `getByDomain` shows no `dns`), and enqueue `tasks.refreshDomainDns({ domain, runId })` for that domain (guarded via the `AdminSdk`/tracker so a concurrent refresh isn't double-started). Fire-and-forget: swallow+log enqueue errors so ingest never fails on it — mirror the error handling around `enrichSourceIps`.
-- [ ] Wire the `tasks` client / `AdminSdk` into `consumer.ts` (it currently has `domains`; add the enqueue path and the `BEESOLVE_TASKS_MAIN_QUEUE_URL` env to the consumer's `envSchema` + CDK `Consumer` environment + queue grant).
-- [ ] Include tests: extend `packages/dmarc-consumer/tests/consumer.test.ts` (or the relevant suite) — assert a brand-new domain triggers exactly one `refreshDomainDns` enqueue and an already-known domain does not.
+- [x] Detect first-time domain creation via `Domains.upsert` returning `{ created }` (`ReturnValues: "ALL_OLD"` → `Attributes` absent means newly created). The post-persist pipeline (`processReportBatch` in `src/reportBatch.ts`) enqueues `AdminSdk.startDnsRefresh({ domain })` for each newly-created domain (guarded via the tracker), fire-and-forget (swallow+log), mirroring `enrichSourceIps`.
+- [x] Wire `AdminSdk` into `consumer.ts`; added `BEESOLVE_TASKS_MAIN_QUEUE_URL` to the consumer `envSchema`; CDK `this.backfill.grantAccess(consumer)` adds the queue-url env + `sqs:SendMessage`. Extracted the pipeline into a pure DI module (`reportBatch.ts`, type-only imports of the service classes) so it carries no live-client/`sdk.ts` load — keeps `consumer.test.ts` free of `mock.module` and avoids a process-global mock collision with `sdk.test.ts`.
+- [x] Include tests: rewrote `tests/consumer.test.ts` to exercise the pure `processReportBatch` with injected fakes — brand-new domain triggers exactly one `startDnsRefresh`, existing domain triggers none, ingest still succeeds when the enqueue rejects; plus persist-fail, aggregation, and selector-ADD coverage. `tests/domain.test.ts` covers `upsert` `created`; `tests/cdk.test.ts` asserts the consumer's queue-url env/grant.
 
 **Files:** `packages/dmarc-consumer/src/consumer.ts`, `packages/dmarc-consumer/cdk.ts` (consumer queue-enqueue grant + env), `packages/dmarc-consumer/tests/consumer.test.ts`
 

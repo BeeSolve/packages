@@ -105,6 +105,8 @@ export class DmarcConsumer extends Construct {
 
     this.backfill.forEachHandler((handler) => this.table.grantReadWriteData(handler));
 
+    this.backfill.grantAccess(consumer);
+
     const dnsCron = new Nodejs24Function(this, "DnsCron", {
       description: "DMARC DNS refresh cron — enqueues DNS refresh tasks for stale domains",
       entry: `${fileURLToPath(new URL(".", import.meta.url))}dnsCron/`,

@@ -1,234 +1,240 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
 
-import type { SQSEvent } from "aws-lambda";
+import type { DmarcReport } from "@beesolve/dmarc-reports";
 
-process.env.TABLE_NAME = "test-table";
-process.env.REVERSE_INDEX_NAME = "reverse";
+import type { IpInfoCacheItem } from "../ipInfo.ts";
+import { processReportBatch } from "../src/reportBatch.ts";
 
-const sendMock = mock(() => Promise.resolve({}));
+const persist = mock((_props: { readonly reports: Array<DmarcReport> }): Promise<void> =>
+  Promise.resolve(),
+);
 
-void mock.module("@aws-sdk/client-dynamodb", () => ({
-  DynamoDBClient: class {
-    send = sendMock;
-  },
-}));
+const upsert = mock(
+  (_props: {
+    readonly domain: string;
+    readonly totalMessages: number;
+    readonly totalPass: number;
+    readonly totalFail: number;
+  }): Promise<{ readonly created: boolean }> => Promise.resolve({ created: true }),
+);
 
-void mock.module("@aws-sdk/lib-dynamodb", () => ({
-  DynamoDBDocumentClient: {
-    from: () => ({ send: sendMock }),
-  },
-  BatchWriteCommand: class {
-    constructor(public readonly input: unknown) {}
-  },
-  QueryCommand: class {
-    constructor(public readonly input: unknown) {}
-  },
-  UpdateCommand: class {
-    constructor(public readonly input: unknown) {}
-  },
-}));
+const addSelectors = mock(
+  (_props: { readonly domain: string; readonly selectors: Array<string> }): Promise<void> =>
+    Promise.resolve(),
+);
 
-function makeSqsEvent(bodies: Array<unknown>): SQSEvent {
+const enrichMany = mock(
+  (_props: { readonly ips: Array<string> }): Promise<Record<string, IpInfoCacheItem>> =>
+    Promise.resolve({}),
+);
+
+const startDnsRefresh = mock(
+  (_props: {
+    readonly domain: string;
+  }): Promise<{ readonly enqueued: true; readonly runId: string }> =>
+    Promise.resolve({ enqueued: true, runId: "run-1" }),
+);
+
+function deps() {
   return {
-    Records: bodies.map((body, i) => ({
-      messageId: `msg-${i}`,
-      receiptHandle: `handle-${i}`,
-      body: JSON.stringify(body),
-      attributes: {
-        ApproximateReceiveCount: "1",
-        SentTimestamp: "1704067200000",
-        SenderId: "123456789012",
-        ApproximateFirstReceiveTimestamp: "1704067200000",
-      },
-      messageAttributes: {},
-      md5OfBody: "abc",
-      eventSource: "aws:sqs",
-      eventSourceARN: "arn:aws:sqs:us-east-1:123456789012:queue",
-      awsRegion: "us-east-1",
-    })),
+    reports: { persist },
+    domains: { upsert, addSelectors },
+    ipInfoCache: { enrichMany },
+    adminSdk: { startDnsRefresh },
   };
 }
 
-function makeValidEventBody(domain = "example.org", selectors: Array<string> = []) {
+function makeReport(props: {
+  readonly domain?: string;
+  readonly selectors?: Array<string>;
+  readonly count?: number;
+  readonly disposition?: "none" | "quarantine" | "reject";
+}): DmarcReport {
+  const domain = props.domain ?? "example.org";
+  const selectors = props.selectors ?? [];
+  const count = props.count ?? 5;
+  const disposition = props.disposition ?? "none";
+
   return {
-    source: "dmarc-reports",
-    "detail-type": "DmarcReportParsed",
-    detail: {
-      reportMetadata: {
-        orgName: "Google Inc.",
-        email: "noreply@google.com",
-        reportId: "rpt-001",
-        dateRange: { begin: 1704067200, end: 1704153600 },
-      },
-      policyPublished: {
-        domain,
-        adkim: "r",
-        aspf: "r",
-        p: "none",
-        pct: 100,
-      },
-      records: [
-        {
-          sourceIp: "192.0.2.1",
-          count: 5,
-          policyEvaluated: { disposition: "none", dkim: "pass", spf: "pass" },
-          identifiers: { headerFrom: domain },
-          authResults: {
-            dkim:
-              selectors.length > 0
-                ? selectors.map((selector) => ({ domain, result: "pass", selector }))
-                : [{ domain, result: "pass" }],
-            spf: [{ domain, result: "pass" }],
-          },
-        },
-      ],
+    reportMetadata: {
+      orgName: "Google Inc.",
+      email: "noreply@google.com",
+      reportId: "rpt-001",
+      dateRange: { begin: 1704067200, end: 1704153600 },
     },
+    policyPublished: {
+      domain,
+      adkim: "r",
+      aspf: "r",
+      p: "none",
+      pct: 100,
+    },
+    records: [
+      {
+        sourceIp: "192.0.2.1",
+        count,
+        policyEvaluated: { disposition, dkim: "pass", spf: "pass" },
+        identifiers: { headerFrom: domain },
+        authResults: {
+          dkim:
+            selectors.length > 0
+              ? selectors.map((selector) => ({ domain, result: "pass", selector }))
+              : [{ domain, result: "pass" }],
+          spf: [{ domain, result: "pass" }],
+        },
+      },
+    ],
   };
 }
 
-describe("consumer handler", () => {
+describe("processReportBatch", () => {
   beforeEach(() => {
-    sendMock.mockClear();
-    sendMock.mockResolvedValue({});
+    persist.mockReset();
+    persist.mockImplementation(() => Promise.resolve());
+    upsert.mockReset();
+    upsert.mockImplementation(() => Promise.resolve({ created: true }));
+    addSelectors.mockReset();
+    addSelectors.mockImplementation(() => Promise.resolve());
+    enrichMany.mockReset();
+    enrichMany.mockImplementation(() => Promise.resolve({}));
+    startDnsRefresh.mockReset();
+    startDnsRefresh.mockImplementation(() => Promise.resolve({ enqueued: true, runId: "run-1" }));
   });
 
-  it("persists valid events to DynamoDB", async () => {
-    const { handler } = await import("../src/consumer.ts");
+  it("persists successfully and signals no failure", async () => {
+    const result = await processReportBatch({
+      ...deps(),
+      parsedReports: [makeReport({})],
+    });
 
-    const event = makeSqsEvent([makeValidEventBody()]);
-    const result = await handler(event);
-
-    expect(result.batchItemFailures).toEqual([]);
-    expect(sendMock).toHaveBeenCalledTimes(2);
+    expect(result.persistFailed).toBe(false);
+    expect(persist).toHaveBeenCalledTimes(1);
+    expect(persist.mock.calls[0]?.[0]?.reports.length).toBe(1);
   });
 
-  it("reports batch item failure for invalid records", async () => {
-    const { handler } = await import("../src/consumer.ts");
+  it("signals total failure when persist throws", async () => {
+    persist.mockRejectedValueOnce(new Error("DynamoDB error"));
 
-    const event = makeSqsEvent([{ invalid: "data" }]);
-    const result = await handler(event);
+    const result = await processReportBatch({
+      ...deps(),
+      parsedReports: [makeReport({}), makeReport({})],
+    });
 
-    expect(result.batchItemFailures.length).toBe(1);
-    expect(result.batchItemFailures[0]?.itemIdentifier).toBe("msg-0");
+    expect(result.persistFailed).toBe(true);
+    expect(upsert).not.toHaveBeenCalled();
+    expect(addSelectors).not.toHaveBeenCalled();
+    expect(startDnsRefresh).not.toHaveBeenCalled();
   });
 
-  it("reports all records as failures when DynamoDB write fails", async () => {
-    sendMock.mockRejectedValueOnce(new Error("DynamoDB error"));
+  it("upserts domain aggregates with the totals for a single report", async () => {
+    await processReportBatch({
+      ...deps(),
+      parsedReports: [makeReport({ domain: "example.org", count: 5 })],
+    });
 
-    const { handler } = await import("../src/consumer.ts");
-
-    const event = makeSqsEvent([makeValidEventBody(), makeValidEventBody()]);
-    const result = await handler(event);
-
-    expect(result.batchItemFailures.length).toBe(2);
-  });
-
-  it("handles mixed valid and invalid records", async () => {
-    const { handler } = await import("../src/consumer.ts");
-
-    const event = makeSqsEvent([makeValidEventBody(), { bad: "record" }]);
-    const result = await handler(event);
-
-    expect(sendMock).toHaveBeenCalledTimes(2);
-    expect(result.batchItemFailures.length).toBe(1);
-    expect(result.batchItemFailures[0]?.itemIdentifier).toBe("msg-1");
-  });
-
-  it("upserts domain aggregates after persisting reports", async () => {
-    const { handler } = await import("../src/consumer.ts");
-
-    const event = makeSqsEvent([makeValidEventBody()]);
-    await handler(event);
-
-    expect(sendMock).toHaveBeenCalledTimes(2);
-    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- bun:test mock calls are untyped; narrowing confirms shape
-    const calls = sendMock.mock.calls as unknown as Array<Array<{ input: unknown }>>;
-    expect(calls[1]?.[0]?.input).toEqual({
-      TableName: "test-table",
-      Key: { pk: "domain#example.org", sk: "domain" },
-      UpdateExpression:
-        "SET #domain = :domain ADD #totalMessages :msgs, #totalPass :pass, #totalFail :fail",
-      ExpressionAttributeNames: {
-        "#domain": "domain",
-        "#totalMessages": "totalMessages",
-        "#totalPass": "totalPass",
-        "#totalFail": "totalFail",
-      },
-      ExpressionAttributeValues: {
-        ":domain": "example.org",
-        ":msgs": 5,
-        ":pass": 5,
-        ":fail": 0,
-      },
+    expect(upsert).toHaveBeenCalledTimes(1);
+    expect(upsert.mock.calls[0]?.[0]).toEqual({
+      domain: "example.org",
+      totalMessages: 5,
+      totalPass: 5,
+      totalFail: 0,
     });
   });
 
-  it("aggregates multiple reports for the same domain", async () => {
-    const { handler } = await import("../src/consumer.ts");
+  it("aggregates multiple reports for the same domain into one upsert", async () => {
+    await processReportBatch({
+      ...deps(),
+      parsedReports: [
+        makeReport({ domain: "example.org", count: 5 }),
+        makeReport({ domain: "example.org", count: 5 }),
+      ],
+    });
 
-    const event = makeSqsEvent([
-      makeValidEventBody("example.org"),
-      makeValidEventBody("example.org"),
-    ]);
-    const result = await handler(event);
-
-    expect(result.batchItemFailures).toEqual([]);
-    expect(sendMock).toHaveBeenCalledTimes(2);
-    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- bun:test mock calls are untyped; narrowing confirms shape
-    const calls = sendMock.mock.calls as unknown as Array<Array<{ input: unknown }>>;
-    expect(calls[1]?.[0]?.input).toEqual({
-      TableName: "test-table",
-      Key: { pk: "domain#example.org", sk: "domain" },
-      UpdateExpression:
-        "SET #domain = :domain ADD #totalMessages :msgs, #totalPass :pass, #totalFail :fail",
-      ExpressionAttributeNames: {
-        "#domain": "domain",
-        "#totalMessages": "totalMessages",
-        "#totalPass": "totalPass",
-        "#totalFail": "totalFail",
-      },
-      ExpressionAttributeValues: {
-        ":domain": "example.org",
-        ":msgs": 10,
-        ":pass": 10,
-        ":fail": 0,
-      },
+    expect(upsert).toHaveBeenCalledTimes(1);
+    expect(upsert.mock.calls[0]?.[0]).toEqual({
+      domain: "example.org",
+      totalMessages: 10,
+      totalPass: 10,
+      totalFail: 0,
     });
   });
 
-  it("continues even if domain upsert fails", async () => {
-    sendMock.mockResolvedValueOnce({});
-    sendMock.mockRejectedValueOnce(new Error("UpdateCommand failed"));
+  it("splits failing message counts into totalFail", async () => {
+    await processReportBatch({
+      ...deps(),
+      parsedReports: [makeReport({ domain: "example.org", count: 5, disposition: "reject" })],
+    });
 
-    const { handler } = await import("../src/consumer.ts");
-
-    const event = makeSqsEvent([makeValidEventBody()]);
-    const result = await handler(event);
-
-    expect(result.batchItemFailures).toEqual([]);
+    expect(upsert.mock.calls[0]?.[0]).toEqual({
+      domain: "example.org",
+      totalMessages: 5,
+      totalPass: 0,
+      totalFail: 5,
+    });
   });
 
-  it("persists observed DKIM selectors with an ADD to a String Set", async () => {
-    const { handler } = await import("../src/consumer.ts");
+  it("swallows a per-domain upsert rejection without throwing", async () => {
+    upsert.mockRejectedValueOnce(new Error("UpdateCommand failed"));
 
-    const body = makeValidEventBody("example.org", ["sel1", "sel2"]);
+    const result = await processReportBatch({
+      ...deps(),
+      parsedReports: [makeReport({ domain: "example.org" })],
+    });
 
-    const event = makeSqsEvent([body]);
-    await handler(event);
+    expect(result.persistFailed).toBe(false);
+  });
 
-    // persist + upsert + addSelectors
-    expect(sendMock).toHaveBeenCalledTimes(3);
-    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- bun:test mock calls are untyped; narrowing confirms shape
-    const calls = sendMock.mock.calls as unknown as Array<
-      Array<{ input: Record<string, unknown> }>
-    >;
-    const selectorCall = calls.find(
-      (call) => call[0]?.input?.UpdateExpression === "ADD #selectors :selectors",
-    );
-    expect(selectorCall).toBeDefined();
-    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- bun:test mock calls are untyped; narrowing confirms shape
-    const values = selectorCall?.[0]?.input?.ExpressionAttributeValues as Record<string, unknown>;
-    expect(values[":selectors"]).toBeInstanceOf(Set);
-    expect(values[":selectors"]).toEqual(new Set(["sel1", "sel2"]));
+  it("persists observed DKIM selectors as the seen set", async () => {
+    await processReportBatch({
+      ...deps(),
+      parsedReports: [makeReport({ domain: "example.org", selectors: ["sel1", "sel2"] })],
+    });
+
+    expect(addSelectors).toHaveBeenCalledTimes(1);
+    expect(addSelectors.mock.calls[0]?.[0]?.domain).toBe("example.org");
+    expect(new Set(addSelectors.mock.calls[0]?.[0]?.selectors)).toEqual(new Set(["sel1", "sel2"]));
+  });
+
+  it("does not call addSelectors when no selectors are observed", async () => {
+    await processReportBatch({
+      ...deps(),
+      parsedReports: [makeReport({ domain: "example.org", selectors: [] })],
+    });
+
+    expect(addSelectors).not.toHaveBeenCalled();
+  });
+
+  it("bootstraps exactly one DNS refresh for a brand-new domain", async () => {
+    upsert.mockImplementation(() => Promise.resolve({ created: true }));
+
+    await processReportBatch({
+      ...deps(),
+      parsedReports: [makeReport({ domain: "example.org" })],
+    });
+
+    expect(startDnsRefresh).toHaveBeenCalledTimes(1);
+    expect(startDnsRefresh.mock.calls[0]?.[0]).toEqual({ domain: "example.org" });
+  });
+
+  it("does not bootstrap DNS refresh for an already-existing domain", async () => {
+    upsert.mockImplementation(() => Promise.resolve({ created: false }));
+
+    await processReportBatch({
+      ...deps(),
+      parsedReports: [makeReport({ domain: "example.org" })],
+    });
+
+    expect(startDnsRefresh).not.toHaveBeenCalled();
+  });
+
+  it("does not throw when the DNS bootstrap enqueue rejects", async () => {
+    startDnsRefresh.mockRejectedValueOnce(new Error("enqueue failed"));
+
+    const result = await processReportBatch({
+      ...deps(),
+      parsedReports: [makeReport({ domain: "example.org" })],
+    });
+
+    expect(result.persistFailed).toBe(false);
   });
 });

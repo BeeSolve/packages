@@ -143,6 +143,23 @@ describe("DmarcConsumer construct", () => {
     });
   });
 
+  it("grants the consumer Lambda tasks-queue enqueue access and the queue-url env", () => {
+    const stack = makeStack();
+    new DmarcConsumer(stack, "Consumer");
+
+    const template = Template.fromStack(stack);
+    template.hasResourceProperties("AWS::Lambda::Function", {
+      Handler: "consumer.handler",
+      Environment: {
+        Variables: Match.objectLike({
+          TABLE_NAME: Match.anyValue(),
+          REVERSE_INDEX_NAME: "reverse",
+          BEESOLVE_TASKS_MAIN_QUEUE_URL: Match.anyValue(),
+        }),
+      },
+    });
+  });
+
   it("creates a daily EventBridge schedule for the DNS refresh cron", () => {
     const stack = makeStack();
     new DmarcConsumer(stack, "Consumer");

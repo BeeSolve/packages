@@ -1,4 +1,3 @@
-import { dmarcRecordSchema } from "@beesolve/dmarc-parser";
 import type { DmarcReport } from "@beesolve/dmarc-reports";
 import {
   dmarcProcessingStatsEventSchema,
@@ -11,12 +10,18 @@ import { Domains } from "../domain.ts";
 import { IpInfoCache } from "../ipInfo.ts";
 import { ProcessingStats } from "../processingStats.ts";
 import { Reports } from "../report.ts";
+import { AdminSdk } from "../sdk.ts";
 import { toDynamoClient } from "./dynamo.ts";
+import { processReportBatch } from "./reportBatch.ts";
+
+export { processReportBatch } from "./reportBatch.ts";
+export type { ReportBatchDeps } from "./reportBatch.ts";
 
 const envSchema = v.object({
   TABLE_NAME: v.string(),
   REVERSE_INDEX_NAME: v.string(),
   IPINFO_API_KEY: v.optional(v.string()),
+  BEESOLVE_TASKS_MAIN_QUEUE_URL: v.string(),
 });
 const env = v.parse(envSchema, process.env);
 
@@ -33,6 +38,7 @@ const ipInfoCache = new IpInfoCache({
   tableName: env.TABLE_NAME,
   apiKey: env.IPINFO_API_KEY,
 });
+const adminSdk = new AdminSdk();
 
 export async function handler(
   event: SQSEvent,
@@ -64,19 +70,20 @@ export async function handler(
   }
 
   if (parsedReports.length > 0) {
-    try {
-      await reports.persist({ reports: parsedReports });
-    } catch (error) {
-      console.error("Failed to persist reports to DynamoDB:", error);
+    const { persistFailed } = await processReportBatch({
+      reports,
+      domains,
+      ipInfoCache,
+      adminSdk,
+      parsedReports,
+    });
+
+    if (persistFailed) {
       for (const record of event.Records) {
         batchItemFailures.push({ itemIdentifier: record.messageId });
       }
       return { batchItemFailures };
     }
-
-    await upsertDomainAggregates(parsedReports);
-    await enrichSourceIps(parsedReports);
-    await persistSelectors(parsedReports);
   }
 
   for (const id of failedIds) {
@@ -84,89 +91,4 @@ export async function handler(
   }
 
   return { batchItemFailures };
-}
-
-async function upsertDomainAggregates(reports: Array<DmarcReport>): Promise<void> {
-  const aggregates = new Map<
-    string,
-    { totalMessages: number; totalPass: number; totalFail: number }
-  >();
-
-  for (const report of reports) {
-    const domain = report.policyPublished.domain;
-    const totalMessages = report.records.reduce((sum, record) => sum + record.count, 0);
-    const totalFail = report.records
-      .filter((record) => record.policyEvaluated.disposition !== "none")
-      .reduce((sum, record) => sum + record.count, 0);
-    const totalPass = totalMessages - totalFail;
-
-    const existing = aggregates.get(domain);
-    if (existing != null) {
-      existing.totalMessages += totalMessages;
-      existing.totalPass += totalPass;
-      existing.totalFail += totalFail;
-    } else {
-      aggregates.set(domain, { totalMessages, totalPass, totalFail });
-    }
-  }
-
-  for (const [domain, totals] of aggregates) {
-    try {
-      await domains.upsert({ domain, ...totals });
-    } catch (error) {
-      console.error(`Failed to upsert domain aggregate for ${domain}:`, error);
-    }
-  }
-}
-
-// Populates the per-IP ipinfo cache for every unique source IP seen in the
-// batch. No-op when IPINFO_API_KEY is not configured. Enrichment failures are
-// logged and swallowed so they never fail report persistence.
-async function enrichSourceIps(reports: Array<DmarcReport>): Promise<void> {
-  const ips = new Set<string>();
-  for (const report of reports) {
-    for (const rawRecord of report.records) {
-      const parsed = v.safeParse(dmarcRecordSchema, rawRecord);
-      if (parsed.success) {
-        ips.add(parsed.output.sourceIp);
-      }
-    }
-  }
-
-  if (ips.size === 0) return;
-
-  try {
-    await ipInfoCache.enrichMany({ ips: Array.from(ips) });
-  } catch (error) {
-    console.error("Failed to enrich source IPs:", error);
-  }
-}
-
-async function persistSelectors(reports: Array<DmarcReport>): Promise<void> {
-  const selectorsByDomain = new Map<string, Set<string>>();
-
-  for (const report of reports) {
-    const domain = report.policyPublished.domain;
-    for (const rawRecord of report.records) {
-      const parsed = v.safeParse(dmarcRecordSchema, rawRecord);
-      if (!parsed.success) continue;
-      for (const dkimResult of parsed.output.authResults.dkim) {
-        if (dkimResult.selector == null || dkimResult.selector === "") continue;
-        const existing = selectorsByDomain.get(domain);
-        if (existing != null) {
-          existing.add(dkimResult.selector);
-        } else {
-          selectorsByDomain.set(domain, new Set([dkimResult.selector]));
-        }
-      }
-    }
-  }
-
-  for (const [domain, selectors] of selectorsByDomain) {
-    try {
-      await domains.addSelectors({ domain, selectors: Array.from(selectors) });
-    } catch (error) {
-      console.error(`Failed to persist DKIM selectors for ${domain}:`, error);
-    }
-  }
 }

@@ -32,8 +32,8 @@ export class Domains {
     readonly totalMessages: number;
     readonly totalPass: number;
     readonly totalFail: number;
-  }): Promise<void> => {
-    await this.props.dynamo.send(
+  }): Promise<{ readonly created: boolean }> => {
+    const response = await this.props.dynamo.send(
       new UpdateCommand({
         TableName: this.props.tableName,
         Key: { pk: `domain#${props.domain}`, sk: "domain" },
@@ -51,8 +51,11 @@ export class Domains {
           ":pass": props.totalPass,
           ":fail": props.totalFail,
         },
+        ReturnValues: "ALL_OLD",
       }),
     );
+
+    return { created: response.Attributes == null };
   };
 
   readonly addSelectors = async (props: {

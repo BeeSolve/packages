@@ -59,6 +59,45 @@ describe("Domains", () => {
       expect(names["#totalPass"]).toBe("totalPass");
       expect(names["#totalFail"]).toBe("totalFail");
     });
+
+    it("returns created true when the item did not exist before", async () => {
+      const dynamo = makeDynamo();
+      dynamo.send.mockResolvedValueOnce({});
+      const domains = new Domains({ dynamo, tableName: "test-table", reverseIndexName: "reverse" });
+
+      const result = await domains.upsert({
+        domain: "example.org",
+        totalMessages: 5,
+        totalPass: 4,
+        totalFail: 1,
+      });
+
+      const input = getCommandInput(dynamo.send);
+      expect(input.ReturnValues).toBe("ALL_OLD");
+      expect(result.created).toBe(true);
+    });
+
+    it("returns created false when the item existed before", async () => {
+      const dynamo = makeDynamo();
+      dynamo.send.mockResolvedValueOnce({
+        Attributes: {
+          domain: "example.org",
+          totalMessages: 1,
+          totalPass: 1,
+          totalFail: 0,
+        },
+      });
+      const domains = new Domains({ dynamo, tableName: "test-table", reverseIndexName: "reverse" });
+
+      const result = await domains.upsert({
+        domain: "example.org",
+        totalMessages: 5,
+        totalPass: 4,
+        totalFail: 1,
+      });
+
+      expect(result.created).toBe(false);
+    });
   });
 
   describe("list", () => {
