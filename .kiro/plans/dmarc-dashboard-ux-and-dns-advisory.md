@@ -289,8 +289,8 @@ For the dashboard package specifically, also run its type-check (`bun run --filt
 
 ### Task 7: ADR for DNS worker/cron + on-domain-record cache decision
 
-- [ ] Create `packages/dmarc-consumer/docs/adr-002-dns-cache-on-domain-record.md` following the repo ADR format (Status/Context/Decision/Rationale/Consequences/Alternatives Considered).
-- [ ] Capture: DNS cached on the domain record (single-table, backward-compatible optional field) vs a separate cache item; **out-of-band SQS worker + daily cron + first-time bootstrap + on-demand button** (why not inline in SSR); **internal 24h TTL instead of DNS-published TTL** (`resolveTxt` has no TTL, raw-query dependency declined); generalized job-run tracker shared with IP backfill; observation-driven DKIM selectors.
+- [x] Created `packages/dmarc-consumer/docs/adr-003-dns-cache-on-domain-record.md` (numbered `003` to avoid collision with the existing `adr-002-ip-enrichment-cache.md`) following the repo ADR format.
+- [x] Captured: DNS cached on the domain record (single-table, backward-compatible optional field) vs a separate cache item; out-of-band SQS worker + daily cron + first-time bootstrap + on-demand button (why not inline in SSR); internal 24h TTL instead of DNS-published TTL; generalized job-run tracker shared with IP backfill; observation-driven DKIM selectors (self-updating String Set at ingest).
 
 **Files:** `packages/dmarc-consumer/docs/adr-002-dns-cache-on-domain-record.md`
 
