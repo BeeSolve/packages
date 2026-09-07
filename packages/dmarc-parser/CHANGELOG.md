@@ -1,5 +1,11 @@
 # @beesolve/dmarc-parser
 
+## 0.1.2
+
+### Patch Changes
+
+- 8b821bc: chore: upgrade dependencies
+
 ## 0.1.1
 
 ### Patch Changes

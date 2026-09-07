@@ -1,5 +1,11 @@
 # @beesolve/lambda-keep-active
 
+## 2.1.5
+
+### Patch Changes
+
+- 8b821bc: chore: upgrade dependencies
+
 ## 2.1.4
 
 ### Patch Changes
