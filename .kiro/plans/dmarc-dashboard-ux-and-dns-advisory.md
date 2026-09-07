@@ -300,19 +300,10 @@ For the dashboard package specifically, also run its type-check (`bun run --filt
 
 ### Task 8: Setup advisory builder (dashboard, pure function + tests)
 
-- [ ] Create `packages/dmarc-dashboard/src/lib/server/advisory.ts` with `advisorySeverities`, `AdvisorySeverity`, `AdvisoryFinding`, and `buildAdvisory({ dns, aggregate }): Array<AdvisoryFinding>`.
-- [ ] Findings to implement (each with a stable `id`, `severity`, plain-language `title`, and an actionable `detail`):
-  - `policy-none` (warning): `dns.dmarc.policy === "none"` AND aggregate shows failing-but-unactioned volume (`suspicious` verdicts / `totalFail === 0` while SPF/DKIM pass rates are low) → advise moving to `quarantine` then `reject` after verifying senders.
-  - `policy-missing` (critical): no valid `_dmarc` record → advise publishing one.
-  - `pct-partial` (info): `dns.dmarc.pct != null && dns.dmarc.pct < 100` → policy applies to a fraction of mail.
-  - `spf-softfail` (info/warning): `dns.spf.all` is `~all`/`?all`/`+all` → consider `-all` once senders verified; `+all` is critical.
-  - `spf-lookups` (warning): `dns.spf.lookupCount != null && dns.spf.lookupCount > 10` → SPF exceeds the 10-DNS-lookup limit; flatten includes.
-  - `spf-missing` (warning): no valid SPF record.
-  - `dkim-selector-missing` (warning): a selector in `dns.dkimSelectors` with `found:false` that is actively signing (present in observed selectors) → publish/repair the DKIM key.
-  - `spoofing-blocked` (ok/info, positive framing): high `aggregate.spoofingAttempts` → DMARC is correctly rejecting spoofed mail.
-  - `dns-unavailable` (info): `dns == null || dns.error != null` → could not read DNS; findings limited to report-derived signals.
-- [ ] Keep it a pure function (no I/O). Import `DomainAggregate` from `$lib/server/aggregate.js` and `DomainDns` from `@beesolve/dmarc-consumer/domain`.
-- [ ] Include tests: `packages/dmarc-dashboard/tests/advisory.test.ts` (or the dashboard's test dir convention) — cover each finding’s trigger and non-trigger, and the graceful `dns == null` path.
+- [x] Create `packages/dmarc-dashboard/src/lib/server/advisory.ts` with `advisorySeverities`, `AdvisorySeverity`, `AdvisoryFinding`, and `buildAdvisory({ dns, aggregate }): Array<AdvisoryFinding>`.
+- [x] Findings implemented (each with a stable `id`, `severity`, plain-language `title`, and an actionable `detail`): `policy-none` (warning when auth failing, else info), `policy-missing` (critical), `pct-partial` (info), `spf-softfail` (info for `~all`/`?all`, critical for `+all`), `spf-lookups` (warning), `spf-missing` (warning), `dkim-selector-missing:<selector>` (warning per unpublished signing selector), `spoofing-blocked` (ok, positive framing), `dns-unavailable` (info).
+- [x] Pure function (no I/O). Imports `DomainAggregate` from `./aggregate.ts` and `DomainDns` from `@beesolve/dmarc-consumer/dns-record` (the export where the type lives).
+- [x] Include tests: `packages/dmarc-dashboard/tests/advisory.test.ts` — covers each finding's trigger and non-trigger, and the graceful `dns == null`/`dns.error` path (22 tests).
 
 **Files:** `packages/dmarc-dashboard/src/lib/server/advisory.ts`, `packages/dmarc-dashboard/tests/advisory.test.ts`
 
