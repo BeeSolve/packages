@@ -27,11 +27,16 @@
   }
 </script>
 
-<a href="/recipients" class="back">← Recipients</a>
+<nav class="breadcrumbs">
+  <ul>
+    <li><a href="/recipients">Recipients</a></li>
+    <li aria-current="page">{data.email}</li>
+  </ul>
+</nav>
 
 <h1>{data.email}</h1>
 
-<div class="summary-cards">
+<div class="layout-card summary-cards" style="--min-card-width: 9rem; --gap: var(--vs-base);">
   <SummaryCard label="Received" value={data.stats.received.toLocaleString()} />
   <SummaryCard label="Sent" value={data.stats.sent.toLocaleString()} />
   <SummaryCard label="Delivered" value={data.stats.delivered.toLocaleString()} />
@@ -41,7 +46,7 @@
   <SummaryCard label="Failed" value={data.stats.failed.toLocaleString()} />
 </div>
 
-<div class="toolbar">
+<div class="cluster" style="--gap: var(--vs-base);">
   <MonthPicker year={data.year} month={data.month} startDate={data.startDate} />
 </div>
 
@@ -50,7 +55,7 @@
 {#if visible.length === 0}
   <p>No messages for this month in the loaded pages.</p>
 {:else}
-  <div class="table-scroll">
+  <div class="table">
     <table>
       <thead>
         <tr>
@@ -79,10 +84,10 @@
 {/if}
 
 <style>
-  .back {
-    display: inline-block;
-    margin-bottom: var(--vs-base);
-    font-size: 0.875rem;
+  .breadcrumbs > ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
   }
 
   h1 {
@@ -97,17 +102,7 @@
   }
 
   .summary-cards {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
-    gap: var(--vs-base);
     margin-bottom: var(--vs-base);
-  }
-
-  .toolbar {
-    display: flex;
-    align-items: center;
-    gap: var(--vs-base);
-    flex-wrap: wrap;
   }
 
   .load-more {

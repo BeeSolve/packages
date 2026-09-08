@@ -14,7 +14,7 @@
 {#if paginator.items.length === 0}
   <p>No recipients found.</p>
 {:else}
-  <div class="table-scroll">
+  <div class="table">
     <table>
       <thead>
         <tr>

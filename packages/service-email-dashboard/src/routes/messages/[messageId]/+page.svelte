@@ -22,11 +22,16 @@
   const recipientEntries = $derived(Object.entries(data.message.logByRecipient));
 </script>
 
-<a href="/messages" class="back">← Messages</a>
+<nav class="breadcrumbs">
+  <ul>
+    <li><a href="/messages">Messages</a></li>
+    <li aria-current="page">{data.message.subject}</li>
+  </ul>
+</nav>
 
 <h1>{data.message.subject}</h1>
 
-<div class="meta">
+<div class="card meta">
   <div><span class="meta-label">From</span> {data.message.sender}</div>
   <div><span class="meta-label">Status</span> <MessageStatusBadge status={data.message.status} /></div>
   <div><span class="meta-label">Created</span> {formatDateTime(data.message.createdAt)}</div>
@@ -71,7 +76,7 @@
 <h2>Per-recipient timeline</h2>
 
 {#each recipientEntries as [recipient, entries]}
-  <section class="recipient-timeline">
+  <section class="card recipient-timeline">
     <h3>
       <a href="/recipients/{encodeURIComponent(recipient)}">{recipient}</a>
     </h3>
@@ -104,10 +109,10 @@
 {/each}
 
 <style>
-  .back {
-    display: inline-block;
-    margin-bottom: var(--vs-base);
-    font-size: 0.875rem;
+  .breadcrumbs > ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
   }
 
   h1 {
@@ -121,11 +126,7 @@
   }
 
   .meta {
-    display: grid;
-    gap: 0.35rem;
-    padding: var(--pad-m);
-    border: var(--border-1);
-    border-radius: var(--br-m);
+    --gap: 0.35rem;
     margin-bottom: var(--vs-base);
     font-size: 0.9rem;
     overflow-wrap: anywhere;
@@ -156,9 +157,6 @@
 
   .recipient-timeline {
     margin-top: var(--vs-m);
-    padding: var(--pad-m) var(--pad-l);
-    border: var(--border-05);
-    border-radius: var(--br-m);
   }
 
   .recipient-timeline:first-of-type {

@@ -28,7 +28,7 @@
 
 <h1>Overview</h1>
 
-<div class="summary-cards">
+<div class="layout-card summary-cards" style="--min-card-width: 9rem; --gap: var(--vs-base);">
   <SummaryCard label="Received" value={stats.received.toLocaleString()} />
   <SummaryCard label="Sent" value={stats.sent.toLocaleString()} />
   <SummaryCard label="Delivered" value={stats.delivered.toLocaleString()} />
@@ -38,36 +38,25 @@
   <SummaryCard label="Failed" value={stats.failed.toLocaleString()} />
 </div>
 
-<div class="rates">
-  <div class="rate-card">
-    <small class="rate-label">Delivery rate</small>
-    <strong>{deliveryRate}%</strong>
-  </div>
-  <div class="rate-card" class:flagged={bounceFlagged}>
-    <small class="rate-label">Bounce rate</small>
-    <strong>{bounceRate}%</strong>
-    {#if bounceFlagged}
-      <small class="rate-warn">Above SES 5% threshold</small>
-    {/if}
-  </div>
-  <div class="rate-card" class:flagged={complaintFlagged}>
-    <small class="rate-label">Complaint rate</small>
-    <strong>{complaintRate}%</strong>
-    {#if complaintFlagged}
-      <small class="rate-warn">Above SES 0.1% threshold</small>
-    {/if}
-  </div>
-  <div class="rate-card">
-    <small class="rate-label">Avg delivery latency</small>
-    <strong>
-      {#if data.averageDeliveryMs != null}
-        {(data.averageDeliveryMs / 1000).toFixed(1)}s
-      {:else}
-        —
-      {/if}
-    </strong>
-    <small class="rate-label">recent messages</small>
-  </div>
+<div class="layout-card rates" style="--min-card-width: 11rem; --gap: var(--vs-base);">
+  <SummaryCard label="Delivery rate" value="{deliveryRate}%" />
+  <SummaryCard
+    label="Bounce rate"
+    value="{bounceRate}%"
+    flagged={bounceFlagged}
+    warn={bounceFlagged ? "Above SES 5% threshold" : undefined}
+  />
+  <SummaryCard
+    label="Complaint rate"
+    value="{complaintRate}%"
+    flagged={complaintFlagged}
+    warn={complaintFlagged ? "Above SES 0.1% threshold" : undefined}
+  />
+  <SummaryCard
+    label="Avg delivery latency"
+    value={data.averageDeliveryMs != null ? `${(data.averageDeliveryMs / 1000).toFixed(1)}s` : "—"}
+    subtitle="recent messages"
+  />
 </div>
 
 <h2>Recent messages (this month)</h2>
@@ -75,7 +64,7 @@
 {#if data.recent.length === 0}
   <p>No messages this month.</p>
 {:else}
-  <div class="table-scroll">
+  <div class="table">
     <table>
       <thead>
         <tr>
@@ -111,40 +100,10 @@
   }
 
   .summary-cards {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
-    gap: var(--vs-base);
     margin-bottom: var(--vs-base);
   }
 
   .rates {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
-    gap: var(--vs-base);
     margin-bottom: var(--vs-l);
-  }
-
-  .rate-card {
-    display: flex;
-    flex-direction: column;
-    gap: 0.15rem;
-    padding: var(--pad-m);
-    border: var(--border-1);
-    border-radius: var(--br-m);
-  }
-
-  .rate-card.flagged {
-    border-color: var(--error);
-    background: color-mix(in oklab, var(--error) 8%, var(--bg));
-  }
-
-  .rate-label {
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--fg-5);
-  }
-
-  .rate-warn {
-    color: var(--error);
   }
 </style>

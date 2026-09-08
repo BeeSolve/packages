@@ -36,10 +36,10 @@
 
 <h1>Messages</h1>
 
-<div class="toolbar">
+<div class="cluster toolbar" style="--gap: var(--vs-base);">
   <MonthPicker year={data.year} month={data.month} startDate={data.startDate} />
 
-  <form class="search" onsubmit={onSearch}>
+  <form class="cluster search" style="--gap: var(--vs-s);" onsubmit={onSearch}>
     <input
       type="email"
       name="email"
@@ -61,7 +61,7 @@
 {#if paginator.items.length === 0}
   <p>No messages for this month.</p>
 {:else}
-  <div class="table-scroll">
+  <div class="table">
     <table>
       <thead>
         <tr>
@@ -98,18 +98,8 @@
   }
 
   .toolbar {
-    display: flex;
-    align-items: center;
     justify-content: space-between;
-    gap: var(--vs-base);
-    flex-wrap: wrap;
     margin-bottom: var(--vs-base);
-  }
-
-  .search {
-    display: flex;
-    align-items: center;
-    gap: var(--vs-s);
   }
 
   .search input {
