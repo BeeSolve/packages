@@ -71,9 +71,11 @@
     <ol class="timeline">
       {#each entries as entry}
         <li class="timeline-item">
-          <span class="timeline-badge"><MessageStatusBadge status={entry.status} /></span>
           <div class="timeline-content">
-            <span class="timeline-time">{formatDateTime(entry.timestamp)}</span>
+            <div class="timeline-head">
+              <span class="timeline-badge"><MessageStatusBadge status={entry.status} /></span>
+              <span class="timeline-time">{formatDateTime(entry.timestamp)}</span>
+            </div>
             <p class="timeline-detail">
               {#if entry.status === "delivered"}
                 Delivered in {(entry.deliveryMs / 1000).toFixed(1)}s
@@ -144,39 +146,73 @@
   }
 
   .recipient-timeline {
-    margin-bottom: var(--vs-base);
+    margin-top: var(--vs-m);
+    padding: var(--pad-m) var(--pad-l);
+    border: var(--border-05);
+    border-radius: var(--br-m);
+  }
+
+  .recipient-timeline:first-of-type {
+    margin-top: 0;
   }
 
   .recipient-timeline h3 {
-    font-size: 1rem;
+    font-size: 0.95rem;
+    font-weight: var(--fw-medium);
     margin: 0 0 var(--vs-s);
+  }
+
+  .recipient-timeline h3 a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .recipient-timeline h3 a:hover {
+    text-decoration: underline;
   }
 
   .timeline {
     list-style: none;
     margin: 0;
     padding: 0;
-    border-left: 2px solid var(--fg-1);
+    border-left: var(--border-1);
   }
 
   .timeline-item {
-    display: grid;
-    grid-template-columns: auto 1fr;
-    align-items: start;
-    column-gap: var(--vs-s);
-    padding: 0 0 var(--vs-base) var(--vs-base);
+    position: relative;
+    padding: 0 0 var(--vs-s) var(--vs-base);
+  }
+
+  .timeline-item:last-child {
+    padding-bottom: 0;
+  }
+
+  .timeline-item::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.35rem;
+    width: 0.5rem;
+    height: 0.5rem;
+    transform: translateX(-50%);
+    border-radius: 50%;
+    background: var(--primary);
+    box-shadow: 0 0 0 2px var(--bg);
+  }
+
+  .timeline-content {
+    min-width: 0;
+  }
+
+  .timeline-head {
+    display: flex;
+    align-items: center;
+    gap: var(--vs-s);
+    flex-wrap: wrap;
   }
 
   .timeline-badge {
     display: inline-flex;
-  }
-
-  .timeline-content {
-    display: flex;
-    flex-direction: column;
-    gap: 0.15rem;
-    min-width: 0;
-    padding-top: 0.15rem;
   }
 
   .timeline-time {
@@ -186,7 +222,7 @@
   }
 
   .timeline-detail {
-    margin: 0;
+    margin: var(--vs-xs) 0 0;
     font-size: 0.85rem;
     color: var(--fg-7);
   }
