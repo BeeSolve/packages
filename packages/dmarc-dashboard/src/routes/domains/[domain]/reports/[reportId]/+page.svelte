@@ -25,14 +25,22 @@
   }
 </script>
 
-<h1>Report: {data.report.orgName}</h1>
+<header class="report-header">
+  <div class="report-header-main">
+    <nav class="breadcrumbs">
+      <ul>
+        <li><a href="/">Domains</a></li>
+        <li><a href="/domains/{data.domain}">{data.domain}</a></li>
+        <li aria-current="page">Report: {data.report.orgName}</li>
+      </ul>
+    </nav>
+    <h1>Report: {data.report.orgName}</h1>
+  </div>
 
-<p class="back-link">
-  <a href="/domains/{data.domain}">&larr; Back to {data.domain}</a>
-  <button class="button mini btn-raw-json" onclick={() => (showRawJson = true)}>View Raw JSON</button>
-</p>
+  <button class="button ghost" onclick={() => (showRawJson = true)}>View Raw JSON</button>
+</header>
 
-<section class="metadata">
+<section class="card metadata">
   <dl>
     <div class="dl-item">
       <dt>Organization</dt>
@@ -75,7 +83,7 @@
   {#if data.report.records.length === 0}
     <p>No records in this report.</p>
   {:else}
-    <div class="table-scroll">
+    <div class="table">
       <table>
         <thead>
           <tr>
@@ -149,6 +157,24 @@
 <RawJsonModal bind:open={showRawJson} json={data.rawDmarcReport} />
 
 <style>
+  .breadcrumbs > ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .report-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--vs-s);
+    margin-bottom: var(--vs-m);
+  }
+
+  .report-header-main {
+    min-width: 0;
+  }
+
   h1 {
     font-size: 1.5rem;
     margin: 0 0 0.25rem;
@@ -159,26 +185,8 @@
     margin: 0 0 0.75rem;
   }
 
-  .back-link {
-    margin: 0 0 var(--vs-m);
-    font-size: 0.875rem;
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-  }
-
-  .btn-raw-json {
-    margin-left: auto;
-  }
-
-  /* Metadata panel: use graffiti card tokens rather than a raw .card so the
-     dl grid can live directly inside. */
   .metadata {
     margin-bottom: var(--vs-l);
-    padding: var(--pad-l) var(--vs-base);
-    background: var(--fg-05);
-    border-radius: var(--br-l);
-    border: var(--border-1);
   }
 
   dl {

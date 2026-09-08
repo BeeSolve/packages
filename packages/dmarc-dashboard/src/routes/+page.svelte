@@ -16,7 +16,7 @@
 
 <h1>Domain Overview</h1>
 
-<div class="summary-cards">
+<div class="layout-card summary-cards" style="--min-card-width: 11rem; --gap: var(--vs-base);">
   <SummaryCard label="Domains" value={data.domains.length} />
   <SummaryCard label="Total Messages" value={totals.messages.toLocaleString()} />
   <SummaryCard label="Delivered / not actioned" value="{overallDeliveredRate}%" />
@@ -26,7 +26,7 @@
 {#if data.domains.length === 0}
   <p>No domains found.</p>
 {:else}
-  <div class="table-scroll">
+  <div class="table">
     <table>
       <thead>
         <tr>
@@ -59,13 +59,7 @@
     margin: 0 0 1.25rem;
   }
 
-  /* Gap: responsive grid for the overview cards (graffiti .stat-card
-     supplies the card visuals via SummaryCard). auto-fit keeps them in a row
-     on wide screens and wraps gracefully when space runs out. */
   .summary-cards {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
-    gap: var(--vs-base);
     margin-bottom: var(--vs-l);
   }
 

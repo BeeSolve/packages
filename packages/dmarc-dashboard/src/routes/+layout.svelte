@@ -74,42 +74,6 @@
     color: var(--primary);
   }
 
-  /* Gap: the app's data tables are bare <table> elements (not graffiti's
-     `.table` wrapper). On narrow screens their many columns push the page
-     wider than the viewport, causing the whole layout to scroll sideways.
-     This shared wrapper confines horizontal overflow to the table itself,
-     matching graffiti's own `.table { overflow-x: auto }` pattern. */
-  :global(.table-scroll) {
-    position: relative;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    max-width: 100%;
-    scrollbar-gutter: stable;
-  }
-
-  /* Keep table content from collapsing awkwardly narrow while scrolling. */
-  :global(.table-scroll > table) {
-    min-width: max-content;
-  }
-
-  /* Gap: pure-CSS "has scrolled" detection is not reliable, so the mobile
-     overflow hint is a static caption pinned to the top-right of the scroll
-     port (sticky so it stays put as the table scrolls under it). */
-  @media (max-width: 640px) {
-    :global(.table-scroll)::after {
-      content: "scroll \2192";
-      position: sticky;
-      inset-inline-end: 0;
-      float: right;
-      display: block;
-      width: max-content;
-      padding: 0.1rem 0.4rem;
-      font-size: 0.7rem;
-      color: var(--fg-5);
-      pointer-events: none;
-    }
-  }
-
   .app {
     min-height: 100vh;
     display: flex;

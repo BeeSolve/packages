@@ -100,8 +100,13 @@
 
 <header class="domain-header">
   <div class="domain-header-main">
+    <nav class="breadcrumbs">
+      <ul>
+        <li><a href="/">Domains</a></li>
+        <li aria-current="page">{data.domain}</li>
+      </ul>
+    </nav>
     <h1>{data.domain}</h1>
-    <p class="back-link"><a href="/">&larr; Back to domains</a></p>
   </div>
 
   <div class="dropdown end" style="--anchor: --domain-actions">
@@ -178,7 +183,7 @@
   {/if}
 </dialog>
 
-<section class="setup-health">
+<section class="card setup-health">
   <div class="setup-head">
     <h2>Setup health</h2>
     <div class="dns-summary">
@@ -234,7 +239,7 @@
 </section>
 
 <div class="top-bar">
-  <div class="summary-cards">
+  <div class="layout-card summary-cards" style="--min-card-width: 9rem; --gap: var(--vs-s);">
     <SummaryCard label="Total Messages" value={data.aggregate.totalMessages.toLocaleString()} />
     <SummaryCard label="Delivered / not actioned" value="{passRate}%" />
     <SummaryCard label="Unique IPs" value={data.aggregate.uniqueIps} />
@@ -287,7 +292,7 @@
         {#if data.aggregate.sourceIpBreakdown.length === 0}
           <p class="empty">No source IPs found{data.dateFilter ? " for this date" : ""}.</p>
         {:else}
-          <div class="table-scroll">
+          <div class="table">
             <table>
               <thead>
                 <tr>
@@ -360,7 +365,7 @@
         {#if data.aggregate.senderAlignment.length === 0}
           <p class="empty">No aligned senders found{data.dateFilter ? " for this date" : ""}.</p>
         {:else}
-          <div class="table-scroll">
+          <div class="table">
             <table>
               <thead>
                 <tr>
@@ -419,7 +424,7 @@
         {#if data.reports.length === 0}
           <p class="empty">No reports found{data.dateFilter ? " for this date" : " for this domain"}.</p>
         {:else}
-          <div class="table-scroll">
+          <div class="table">
             <table>
               <thead>
                 <tr>
@@ -455,7 +460,7 @@
 
           {#if data.cursor}
             <p class="load-more">
-              <a href="?cursor={data.cursor}">Load more &rarr;</a>
+              <a href="?cursor={data.cursor}" class="button ghost">Load more &rarr;</a>
             </p>
           {/if}
         {/if}
@@ -475,17 +480,18 @@
     margin: 0 0 0.75rem;
   }
 
-  .back-link {
-    margin: 0;
-    font-size: 0.875rem;
-  }
-
   .domain-header {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: space-between;
     gap: var(--vs-s);
     margin-bottom: var(--vs-m);
+  }
+
+  .breadcrumbs > ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
   }
 
   .domain-header-main {
@@ -556,15 +562,8 @@
     font-size: 0.9rem;
   }
 
-  /* Gap: graffiti has no "panel with a header row of controls" layout, so the
-     setup-health container and its head row are ours. Findings inside reuse
-     graffiti .tag (severity chip) and .callout (background notice). */
   .setup-health {
     margin-bottom: var(--vs-l);
-    padding: var(--pad-l) var(--vs-base);
-    background: var(--fg-05);
-    border-radius: var(--br-l);
-    border: var(--border-1);
   }
 
   .setup-head {
@@ -572,7 +571,6 @@
     align-items: baseline;
     flex-wrap: wrap;
     gap: var(--vs-s);
-    margin-bottom: var(--vs-s);
     min-height: 2rem;
   }
 
@@ -673,12 +671,7 @@
     max-width: 60ch;
   }
 
-  /* Gap: graffiti has no cards+aside top-bar layout, so this positioning is
-     ours. The cards themselves are graffiti .stat-card (see SummaryCard). */
   .summary-cards {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
-    gap: var(--vs-s);
     flex: 1;
     min-width: 0;
     align-content: start;
@@ -852,7 +845,6 @@
     }
 
     .summary-cards {
-      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
       width: 100%;
     }
 

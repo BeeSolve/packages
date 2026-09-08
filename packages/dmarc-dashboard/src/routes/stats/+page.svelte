@@ -19,7 +19,7 @@
   Last 30 days ({data.dateRange.startDate} — {data.dateRange.endDate})
 </p>
 
-<div class="summary-cards">
+<div class="layout-card summary-cards" style="--min-card-width: 11rem; --gap: var(--vs-base);">
   <SummaryCard label="Processed" value={data.totals.processed.toLocaleString()} />
   <SummaryCard label="Manual Uploads" value={data.totals.manualUpload.toLocaleString()} />
   <SummaryCard label="Total Rejected" value={data.totals.totalRejected.toLocaleString()} />
@@ -42,7 +42,7 @@
 {:else}
   <section class="section">
     <h2>Daily Breakdown</h2>
-    <div class="table-scroll">
+    <div class="table">
       <table>
         <thead>
           <tr>
@@ -105,9 +105,6 @@
   }
 
   .summary-cards {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--vs-base);
     margin-bottom: var(--vs-l);
   }
 
