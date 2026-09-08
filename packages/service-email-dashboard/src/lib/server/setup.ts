@@ -1,5 +1,9 @@
 import type { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { GetCommand, PutCommand } from "@aws-sdk/lib-dynamodb";
+import * as v from "valibot";
+
+import type { SetupConfig } from "./schema";
+import { setupSchema } from "./schema";
 
 export class Setup {
   constructor(
@@ -9,7 +13,7 @@ export class Setup {
     },
   ) {}
 
-  readonly isComplete = async (): Promise<boolean> => {
+  readonly get = async (): Promise<SetupConfig | null> => {
     const { Item: item } = await this.props.dynamo.send(
       new GetCommand({
         TableName: this.props.tableName,
@@ -17,7 +21,7 @@ export class Setup {
       }),
     );
 
-    return item != null;
+    return item == null ? null : v.parse(setupSchema, item);
   };
 
   readonly markComplete = async ({

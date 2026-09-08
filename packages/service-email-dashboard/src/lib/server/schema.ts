@@ -28,6 +28,14 @@ export const statsSchema = v.object({
 });
 export type Stats = v.InferOutput<typeof statsSchema>;
 
+export const setupSchema = v.object({
+  pk: v.literal("system#config"),
+  sk: v.literal("setup"),
+  completedAt: v.string(),
+  adminEmail: emailSchema,
+});
+export type SetupConfig = v.InferOutput<typeof setupSchema>;
+
 export function encodeCursor(key: Record<string, unknown> | undefined): string | undefined {
   if (key == null) return undefined;
   return Buffer.from(JSON.stringify(key), "utf8").toString("base64");

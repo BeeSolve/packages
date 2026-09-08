@@ -19,21 +19,21 @@ function getCommandInput(send: ReturnType<typeof mock>, index = 0): Record<strin
   return command.input as Record<string, unknown>;
 }
 
-describe("Setup.isComplete", () => {
-  it("returns false when the setup item does not exist", async () => {
+describe("Setup.get", () => {
+  it("returns null when the setup item does not exist", async () => {
     const { dynamo, send } = makeDynamo();
     send.mockResolvedValueOnce({ Item: undefined });
     const setup = new Setup({ dynamo, tableName: "test-table" });
 
-    const result = await setup.isComplete();
-    expect(result).toBe(false);
+    const result = await setup.get();
+    expect(result).toBeNull();
 
     const input = getCommandInput(send);
     expect(input.TableName).toBe("test-table");
     expect(input.Key).toEqual({ pk: "system#config", sk: "setup" });
   });
 
-  it("returns true when the setup item exists", async () => {
+  it("returns the config when the setup item exists", async () => {
     const { dynamo, send } = makeDynamo();
     send.mockResolvedValueOnce({
       Item: {
@@ -45,8 +45,8 @@ describe("Setup.isComplete", () => {
     });
     const setup = new Setup({ dynamo, tableName: "test-table" });
 
-    const result = await setup.isComplete();
-    expect(result).toBe(true);
+    const result = await setup.get();
+    expect(result).not.toBeNull();
   });
 });
 

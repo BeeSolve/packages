@@ -4,14 +4,14 @@ import * as v from "valibot";
 import type { Actions, PageServerLoad } from "./$types.js";
 
 export const load: PageServerLoad = async ({ locals }) => {
-  const isComplete = await locals.services.setup.isComplete();
-  if (isComplete) redirect(303, "/sign-in");
+  const setup = await locals.services.setup.get();
+  if (setup != null) redirect(303, "/sign-in");
 };
 
 export const actions: Actions = {
   default: async ({ request, locals }) => {
-    const isComplete = await locals.services.setup.isComplete();
-    if (isComplete) redirect(303, "/sign-in");
+    const setup = await locals.services.setup.get();
+    if (setup != null) redirect(303, "/sign-in");
 
     const formData = await request.formData();
     const email = formData.get("email");
