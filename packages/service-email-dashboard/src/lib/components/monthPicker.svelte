@@ -141,14 +141,16 @@
     display: flex;
     align-items: center;
     gap: var(--vs-s);
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
   }
 
   .month-picker select {
     margin: 0;
+    min-width: 0;
   }
 
   .month-picker button[type="button"] {
     margin-block-start: 0;
+    flex: 0 0 auto;
   }
 </style>
