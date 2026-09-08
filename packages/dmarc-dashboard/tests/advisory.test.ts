@@ -190,14 +190,34 @@ describe("buildAdvisory", () => {
     });
   });
 
-  describe("dns-unavailable", () => {
-    it("degrades gracefully when dns is undefined", () => {
+  describe("dns-not-checked", () => {
+    it("emits a neutral onboarding finding when dns has never been checked", () => {
       const findings = buildAdvisory({ dns: undefined, aggregate: makeAggregate() });
-      expect(byId(findings, "dns-unavailable")?.severity).toBe("info");
-      // report-derived findings still evaluated
-      expect(ids(findings)).toContain("policy-missing");
+      expect(byId(findings, "dns-not-checked")?.severity).toBe("info");
     });
 
+    it("suppresses record-absent findings when dns is undefined", () => {
+      const findings = buildAdvisory({ dns: undefined, aggregate: makeAggregate() });
+      expect(ids(findings)).not.toContain("policy-missing");
+      expect(ids(findings)).not.toContain("spf-missing");
+    });
+
+    it("does not emit dns-unavailable when dns is undefined", () => {
+      const findings = buildAdvisory({ dns: undefined, aggregate: makeAggregate() });
+      expect(ids(findings)).not.toContain("dns-unavailable");
+    });
+
+    it("still evaluates report-derived findings when dns is undefined", () => {
+      const findings = buildAdvisory({
+        dns: undefined,
+        aggregate: makeAggregate({ spoofingAttempts: 7 }),
+      });
+      expect(byId(findings, "spoofing-blocked")?.severity).toBe("ok");
+      expect(ids(findings)).toContain("dns-not-checked");
+    });
+  });
+
+  describe("dns-unavailable", () => {
     it("notes dns-unavailable when the record carries an error", () => {
       const dns = makeDns({ error: "ENOTFOUND" });
       const findings = buildAdvisory({ dns, aggregate: makeAggregate() });

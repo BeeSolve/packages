@@ -14,25 +14,45 @@ export interface AdvisoryFinding {
 
 /**
  * Combines the cached DNS records with the report-derived aggregate to produce
- * a list of plain-language setup findings. Pure — no I/O. Degrades gracefully
- * when DNS could not be read: report-derived findings still render and a
- * `dns-unavailable` note is added.
+ * a list of plain-language setup findings. Pure — no I/O.
+ *
+ * When DNS has never been checked (`dns == null`) the record-absent findings
+ * are suppressed in favour of a neutral `dns-not-checked` onboarding finding;
+ * report-derived findings still render. When DNS was fetched but the lookup
+ * failed (`dns != null && dns.error != null`) a `dns-unavailable` note is added
+ * and report-derived findings still render.
  */
 export function buildAdvisory(props: {
   readonly dns?: DomainDns;
   readonly aggregate: DomainAggregate;
 }): Array<AdvisoryFinding> {
   const { dns, aggregate } = props;
+
+  if (dns == null) {
+    return [
+      dnsNotCheckedFinding,
+      ...spoofingFindings({ spoofingAttempts: aggregate.spoofingAttempts }),
+    ];
+  }
+
   const authFailing = aggregate.spfPassRate < 80 || aggregate.dkimPassRate < 80;
 
   return [
-    ...dmarcFindings({ dmarc: dns?.dmarc, authFailing }),
-    ...spfFindings({ spf: dns?.spf }),
-    ...dkimFindings({ selectors: dns?.dkimSelectors }),
+    ...dmarcFindings({ dmarc: dns.dmarc, authFailing }),
+    ...spfFindings({ spf: dns.spf }),
+    ...dkimFindings({ selectors: dns.dkimSelectors }),
     ...spoofingFindings({ spoofingAttempts: aggregate.spoofingAttempts }),
     ...dnsAvailabilityFindings({ dns }),
   ];
 }
+
+const dnsNotCheckedFinding: AdvisoryFinding = {
+  id: "dns-not-checked",
+  severity: "info",
+  title: "DNS not checked yet",
+  detail:
+    "Run a DNS check to read this domain's SPF, DMARC and DKIM records and see its setup health. Until then, guidance is based only on observed report data.",
+};
 
 function dmarcFindings(props: {
   readonly dmarc?: DmarcRecordDns;
@@ -155,8 +175,8 @@ function spoofingFindings(props: { readonly spoofingAttempts: number }): Array<A
   ];
 }
 
-function dnsAvailabilityFindings(props: { readonly dns?: DomainDns }): Array<AdvisoryFinding> {
-  if (props.dns != null && props.dns.error == null) return [];
+function dnsAvailabilityFindings(props: { readonly dns: DomainDns }): Array<AdvisoryFinding> {
+  if (props.dns.error == null) return [];
 
   return [
     {
@@ -164,7 +184,7 @@ function dnsAvailabilityFindings(props: { readonly dns?: DomainDns }): Array<Adv
       severity: "info",
       title: "DNS records could not be read",
       detail:
-        "The latest DNS lookup failed or has not run yet, so guidance below is based only on observed report data. Try refreshing DNS.",
+        "The latest DNS lookup failed, so guidance below is based only on observed report data. Try refreshing DNS.",
     },
   ];
 }

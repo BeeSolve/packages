@@ -184,6 +184,17 @@
     <div class="dns-summary">
       {#if data.dns == null}
         <span class="dns-note">DNS not checked yet</span>
+        <button
+          type="button"
+          class="button ghost small dns-check-inline"
+          aria-disabled={!data.dnsRefreshStatus.canRun}
+          onclick={() => {
+            if (!data.dnsRefreshStatus.canRun) return;
+            openConfirm("refresh-dns");
+          }}
+        >
+          Check DNS
+        </button>
       {:else}
         <span class="dns-metric">DMARC <code>p={data.dns.dmarc?.policy ?? "—"}</code></span>
         {#if data.dns.dmarc?.pct != null}
@@ -556,6 +567,7 @@
     flex-wrap: wrap;
     gap: var(--vs-s);
     margin-bottom: var(--vs-s);
+    min-height: 2rem;
   }
 
   .setup-head h2 {
@@ -564,11 +576,17 @@
 
   .dns-summary {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     flex-wrap: wrap;
     gap: 0.75rem;
     font-size: 0.85rem;
     color: var(--fg-7);
+    min-height: 1.75rem;
+  }
+
+  .dns-check-inline {
+    font-size: 0.8rem;
+    padding-block: 0.15rem;
   }
 
   .dns-metric code {
