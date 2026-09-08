@@ -1,5 +1,31 @@
 # @beesolve/email-service-dashboard
 
+## 0.3.5
+
+### Patch Changes
+
+- cf7de0c: Add `@beesolve/lambda-keep-active` as a direct dependency.
+
+  The `kit-on-lambda` adapter generates a Lambda handler that imports `@beesolve/lambda-keep-active/runtime`. Without declaring the package as a dependency, esbuild fails to resolve the import during the production build under a clean install (as in CI), breaking the lambda bundle.
+
+- 9dfeceb: Migrate hand-rolled UI to graffiti design-system components across the dashboard.
+
+  - Summary and rate grids now use graffiti's Card Grid (`.layout-card`) instead of custom grid CSS.
+  - Toolbar and search rows on the messages and recipient pages use graffiti Cluster (`.cluster`).
+  - Back links on the message and recipient detail pages are now graffiti Breadcrumbs.
+  - The message-detail info panel and per-recipient timeline wrapper adopt graffiti Card (`.card`); the timeline component itself is unchanged.
+  - The overview rate cards render via the shared `SummaryCard` (graffiti Stat Card), with the SES-threshold "flagged" error tint preserved as a small non-colliding modifier.
+  - Data tables use graffiti's Table wrapper (`.table`), removing the custom `.table-scroll` shim from the layout.
+
+  No behavior changes — data loading, forms, dialogs, and the month picker are untouched. The layout scaffold was intentionally left hand-rolled (graffiti App Shell would regress the whole-page scroll model).
+
+- d098af7: Rebuild the per-recipient timeline on the message detail page using graffiti's built-in `.timeline` component instead of a hand-rolled layout.
+
+  - Each entry is now a graffiti timeline item with a small tone-coloured marker on a single continuous connector line (success/error/warning/info mapped from the event status).
+  - The status badge, timestamp, and detail sit inline on a single row, so graffiti's marker alignment keeps the dot level with the badge. This fixes the earlier misaligned dots, doubled connector lines, and mid-word text wrapping caused by custom timeline CSS colliding with graffiti's own `.timeline` rules.
+  - Removed the redundant "(at …)" timestamp from each detail line — the entry timestamp is already shown on the row.
+  - Also added the `DASHBOARD_REQUESTS_BUCKET` entry to `.env.local.example`.
+
 ## 0.3.4
 
 ### Patch Changes
