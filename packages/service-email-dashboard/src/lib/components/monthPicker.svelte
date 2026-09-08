@@ -2,12 +2,22 @@
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
 
-  let { year, month }: { year: number; month: number } = $props();
+  let {
+    year,
+    month,
+    startDate,
+  }: { year: number; month: number; startDate: string } = $props();
 
   const now = new Date();
   const currentYear = now.getUTCFullYear();
   const currentMonth = now.getUTCMonth() + 1;
-  const firstYear = 2024;
+
+  const startBound = $derived.by(() => {
+    const parsed = new Date(startDate);
+    return { year: parsed.getUTCFullYear(), month: parsed.getUTCMonth() + 1 };
+  });
+  const startYear = $derived(startBound.year);
+  const startMonth = $derived(startBound.month);
 
   const monthNames = [
     "January",
@@ -25,7 +35,7 @@
   ];
 
   const years = $derived(
-    Array.from({ length: currentYear - firstYear + 1 }, (_unused, index) => firstYear + index),
+    Array.from({ length: currentYear - startYear + 1 }, (_unused, index) => startYear + index),
   );
 
   // A year+month combination is in the future when it is strictly after the
@@ -36,10 +46,18 @@
     return false;
   }
 
+  function isBefore(candidateYear: number, candidateMonth: number): boolean {
+    if (candidateYear < startYear) return true;
+    if (candidateYear === startYear && candidateMonth < startMonth) return true;
+    return false;
+  }
+
   const atCurrentMonth = $derived(year === currentYear && month === currentMonth);
+  const atStartMonth = $derived(year === startYear && month === startMonth);
 
   function navigate(nextYear: number, nextMonth: number): void {
     if (isFuture(nextYear, nextMonth)) return;
+    if (isBefore(nextYear, nextMonth)) return;
 
     // Preserve existing query params, reset pagination cursor, and set the
     // selected year/month.
@@ -81,13 +99,19 @@
 </script>
 
 <div class="month-picker">
-  <button type="button" class="button mini ghost" onclick={goPrevious} aria-label="Previous month">
+  <button
+    type="button"
+    class="button mini ghost"
+    onclick={goPrevious}
+    disabled={atStartMonth}
+    aria-label="Previous month"
+  >
     ‹
   </button>
 
   <select value={String(year)} onchange={onYearChange} aria-label="Year">
     {#each years as yearOption}
-      <option value={String(yearOption)} disabled={isFuture(yearOption, month)}>
+      <option value={String(yearOption)} disabled={isBefore(yearOption, month) || isFuture(yearOption, month)}>
         {yearOption}
       </option>
     {/each}
@@ -95,7 +119,7 @@
 
   <select value={String(month)} onchange={onMonthChange} aria-label="Month">
     {#each monthNames as name, index}
-      <option value={String(index + 1)} disabled={isFuture(year, index + 1)}>
+      <option value={String(index + 1)} disabled={isBefore(year, index + 1) || isFuture(year, index + 1)}>
         {name}
       </option>
     {/each}

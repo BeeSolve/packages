@@ -42,7 +42,7 @@
 </div>
 
 <div class="toolbar">
-  <MonthPicker year={data.year} month={data.month} />
+  <MonthPicker year={data.year} month={data.month} startDate={data.startDate} />
 </div>
 
 <h2>Message history</h2>

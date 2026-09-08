@@ -28,7 +28,7 @@
 <h1>Messages</h1>
 
 <div class="toolbar">
-  <MonthPicker year={data.year} month={data.month} />
+  <MonthPicker year={data.year} month={data.month} startDate={data.startDate} />
 
   <form class="search" onsubmit={onSearch}>
     <input
