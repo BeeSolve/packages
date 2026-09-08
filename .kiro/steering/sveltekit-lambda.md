@@ -1,5 +1,15 @@
 # SvelteKit + kit-on-lambda — Known Issues
 
+## UI Components — Graffiti First (mandatory)
+
+The dashboards use the `@drop-in/graffiti` design system (imported via `import "@drop-in/graffiti"`). Graffiti is the single source of truth for UI.
+
+- **Always use a graffiti component or utility class when one exists** for what you are building — cards, stat cards, chips/tags, dialogs, drawers, dropdown menus, tabs, pagination, breadcrumbs, tooltips, avatars, toggle switches, timelines/steps, and layout utilities (Stack, Cluster, Card Grid, Surface, Readable, App Shell, Reel/Carousel, Table wrapper). Compose the graffiti class in the markup; do not re-implement it in a component `<style>` block.
+- **Only hand-roll a component when graffiti has no suitable equivalent** (e.g. a calendar/date-picker, a bar chart). When you must hand-roll, build on graffiti design tokens (`--fg-*`, `--bg`, `--pad-*`, `--vs-*`, `--br-*`, `--border-*`, semantic colors) rather than hardcoded values.
+- **Never hand-roll a class name that collides with a graffiti global class** (e.g. `.timeline`, `.card`, `.tag`). Graffiti's global rules will apply to your element and fight your scoped CSS. Use a distinct class name or, preferably, adopt the graffiti component.
+- Custom `<style>` should be limited to: semantic tinting via component variables (e.g. `--tag-color`), small layout scaffolding graffiti does not provide, and genuine gaps. Prefer extending graffiti over overriding it.
+- Before writing new component CSS, check `node_modules/@drop-in/graffiti/dist/index.css` (or https://graffiti-ui.com) for an existing component. If it exists, use it.
+
 ## Vite SSR Externals
 
 When using `@beesolve/lambda-fetch-api` in SvelteKit hooks (e.g. `createSessionHandle()`), the vite config **must** externalize it:
