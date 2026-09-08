@@ -2,6 +2,8 @@
   let { open = $bindable(false), json }: { open: boolean; json: unknown } = $props();
 
   let dialog = $state<HTMLDialogElement | null>(null);
+  let copied = $state(false);
+  let copiedTimer: ReturnType<typeof setTimeout> | null = null;
 
   const formatted = $derived(JSON.stringify(json, null, 2));
 
@@ -19,15 +21,31 @@
   });
 
   async function copyToClipboard() {
-    await navigator.clipboard.writeText(formatted);
+    try {
+      await navigator.clipboard.writeText(formatted);
+    } catch {
+      return;
+    }
+    copied = true;
+    if (copiedTimer != null) clearTimeout(copiedTimer);
+    copiedTimer = setTimeout(() => {
+      copied = false;
+      copiedTimer = null;
+    }, 1500);
   }
 </script>
 
 <dialog bind:this={dialog} class="raw-json-dialog" onclose={() => (open = false)} aria-label="Raw JSON report data">
   <button class="button close" onclick={() => (open = false)} aria-label="Close">&times;</button>
   <header class="modal-header">
+    <button
+      class="button mini ghost tip bottom"
+      aria-label={copied ? "Copied" : null}
+      onclick={copyToClipboard}
+    >
+      {copied ? "Copied ✓" : "Copy"}
+    </button>
     <h2>Raw Report (JSON)</h2>
-    <button class="button mini ghost" onclick={copyToClipboard}>Copy</button>
   </header>
   <div class="modal-body">
     <pre><code>{formatted}</code></pre>
@@ -36,8 +54,11 @@
 
 <style>
   /* graffiti styles <dialog> (centering, backdrop, radius, shadow, open/close
-     animation) and `> .close`. We only widen it for the JSON payload — the
-     default dialog is capped at 40ch — and lay out the body. */
+     animation) and `> .close`, which it pins top-right at
+     `inset-inline-end: var(--pad-m)`. Copy sits at the header's left edge and
+     the header reserves a right gutter, so the pinned × never overlaps it. We
+     only widen the dialog for the JSON payload — the default dialog is capped
+     at 40ch — and lay out the body. */
   .raw-json-dialog {
     max-inline-size: 900px;
     inline-size: calc(100% - var(--pad-xxl) * 2);
@@ -54,9 +75,10 @@
   .modal-header {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-start;
     gap: var(--vs-base);
     padding: var(--pad-l) var(--vs-base);
+    padding-inline-end: var(--pad-xxl);
     border-bottom: var(--border-1);
     flex-shrink: 0;
   }
