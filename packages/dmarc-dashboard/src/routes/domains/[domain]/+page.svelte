@@ -8,7 +8,43 @@
 
   let { data, form } = $props();
 
-  let submittingIntent = $state<null | "refresh-dns" | "refresh-ips">(null);
+  let confirmIntent = $state<null | "refresh-dns" | "refresh-ips">(null);
+  let confirmDialog = $state<HTMLDialogElement | null>(null);
+
+  const refreshActions = {
+    "refresh-dns": {
+      label: "Refresh DNS",
+      inline: "Re-check SPF, DMARC and DKIM DNS records.",
+      description:
+        "Re-read this domain's SPF, DMARC and DKIM DNS records so the setup findings reflect the current published configuration.",
+    },
+    "refresh-ips": {
+      label: "Refresh IP details",
+      inline: "Look up operator and country for source IPs.",
+      description:
+        "Look up the network operator (ASN / organisation) and country for this domain's source IPs, so the source IP table shows who is really sending.",
+    },
+  } as const;
+
+  const confirmAction = $derived(confirmIntent == null ? null : refreshActions[confirmIntent]);
+
+  function openConfirm(intent: "refresh-dns" | "refresh-ips"): void {
+    confirmIntent = intent;
+  }
+
+  function closeConfirm(): void {
+    confirmIntent = null;
+  }
+
+  $effect(() => {
+    const element = confirmDialog;
+    if (element == null) return;
+    if (confirmIntent != null && !element.open) {
+      element.showModal();
+    } else if (confirmIntent == null && element.open) {
+      element.close();
+    }
+  });
 
   const dkimFoundCount = $derived(
     (data.dns?.dkimSelectors ?? []).filter((selector) => selector.found).length,
@@ -62,9 +98,85 @@
   }
 </script>
 
-<h1>{data.domain}</h1>
+<header class="domain-header">
+  <div class="domain-header-main">
+    <h1>{data.domain}</h1>
+    <p class="back-link"><a href="/">&larr; Back to domains</a></p>
+  </div>
 
-<p class="back-link"><a href="/">&larr; Back to domains</a></p>
+  <div class="dropdown end" style="--anchor: --domain-actions">
+    <button
+      type="button"
+      class="button ghost icon actions-trigger"
+      popovertarget="domain-actions-menu"
+      aria-label="Domain actions"
+    >
+      &vellip;
+    </button>
+    <div class="dropdown-menu" popover id="domain-actions-menu">
+      <button
+        type="button"
+        class="action-item"
+        aria-disabled={!data.dnsRefreshStatus.canRun}
+        onclick={() => {
+          if (!data.dnsRefreshStatus.canRun) return;
+          openConfirm("refresh-dns");
+        }}
+      >
+        <span class="action-label">{refreshActions["refresh-dns"].label}</span>
+        <span class="action-inline">{refreshActions["refresh-dns"].inline}</span>
+        {#if data.dnsRefreshStatus.lastRun != null}
+          <LastRunStatus
+            lastRun={data.dnsRefreshStatus.lastRun}
+            count={data.dnsRefreshStatus.lastRun.selectorsChecked}
+            unit="selectors"
+          />
+        {/if}
+      </button>
+      <button
+        type="button"
+        class="action-item"
+        aria-disabled={!data.ipBackfillStatus.canRun}
+        onclick={() => {
+          if (!data.ipBackfillStatus.canRun) return;
+          openConfirm("refresh-ips");
+        }}
+      >
+        <span class="action-label">{refreshActions["refresh-ips"].label}</span>
+        <span class="action-inline">{refreshActions["refresh-ips"].inline}</span>
+        {#if data.ipBackfillStatus.lastRun != null}
+          <LastRunStatus
+            lastRun={data.ipBackfillStatus.lastRun}
+            count={data.ipBackfillStatus.lastRun.ipsEnriched}
+            unit="IPs"
+          />
+        {/if}
+      </button>
+    </div>
+  </div>
+</header>
+
+<dialog bind:this={confirmDialog} class="confirm-dialog" onclose={closeConfirm} aria-label="Confirm action">
+  {#if confirmAction != null}
+    <h2>{confirmAction.label}</h2>
+    <p class="confirm-description">{confirmAction.description}</p>
+    <div class="confirm-actions">
+      <button type="button" class="button ghost" onclick={closeConfirm}>Cancel</button>
+      <form
+        method="POST"
+        use:enhance={() => {
+          closeConfirm();
+          return async ({ update }) => {
+            await update();
+          };
+        }}
+      >
+        <input type="hidden" name="intent" value={confirmIntent} />
+        <button type="submit" class="button">Proceed</button>
+      </form>
+    </div>
+  {/if}
+</dialog>
 
 <section class="setup-health">
   <div class="setup-head">
@@ -80,35 +192,6 @@
         <span class="dns-metric">SPF <code>{data.dns.spf?.all ?? "—"}</code></span>
         <span class="dns-metric">DKIM <code>{dkimFoundCount}</code> found</span>
         <span class="dns-checked">Last checked {formatDateTime(data.dns.fetchedAt)}</span>
-      {/if}
-    </div>
-    <div class="dns-refresh">
-      <form
-        method="POST"
-        use:enhance={() => {
-          submittingIntent = "refresh-dns";
-          return async ({ update }) => {
-            await update();
-            submittingIntent = null;
-          };
-        }}
-      >
-        <input type="hidden" name="intent" value="refresh-dns" />
-        <button
-          type="submit"
-          class="button mini ghost refresh-btn"
-          disabled={!data.dnsRefreshStatus.canRun || submittingIntent === "refresh-dns"}
-          title="Re-read this domain's SPF, DMARC and DKIM DNS records so the setup findings reflect the current published configuration."
-        >
-          {submittingIntent === "refresh-dns" ? "Refreshing…" : "Refresh DNS"}
-        </button>
-      </form>
-      {#if data.dnsRefreshStatus.lastRun != null}
-        <LastRunStatus
-          lastRun={data.dnsRefreshStatus.lastRun}
-          count={data.dnsRefreshStatus.lastRun.selectorsChecked}
-          unit="selectors"
-        />
       {/if}
     </div>
   </div>
@@ -174,35 +257,6 @@
       </summary>
       <section class="section">
         <h2>Source IP Analysis</h2>
-        <div class="ip-refresh">
-          <form
-            method="POST"
-            use:enhance={() => {
-              submittingIntent = "refresh-ips";
-              return async ({ update }) => {
-                await update();
-                submittingIntent = null;
-              };
-            }}
-          >
-            <input type="hidden" name="intent" value="refresh-ips" />
-            <button
-              type="submit"
-              class="button mini ghost refresh-btn"
-              disabled={!data.ipBackfillStatus.canRun || submittingIntent === "refresh-ips"}
-              title="Look up the network operator (ASN / organisation) and country for this domain's source IPs, so the source IP table shows who is really sending."
-            >
-              {submittingIntent === "refresh-ips" ? "Refreshing…" : "Refresh IP details"}
-            </button>
-          </form>
-          {#if data.ipBackfillStatus.lastRun != null}
-            <LastRunStatus
-              lastRun={data.ipBackfillStatus.lastRun}
-              count={data.ipBackfillStatus.lastRun.ipsEnriched}
-              unit="IPs"
-            />
-          {/if}
-        </div>
         {#if formResult?.intent === "refresh-ips" && formResult.started}
           <div class="callout fill notice">
             Refreshing IP details for {data.domain}. This runs in the background.
@@ -411,8 +465,72 @@
   }
 
   .back-link {
-    margin: 0 0 var(--vs-m);
+    margin: 0;
     font-size: 0.875rem;
+  }
+
+  .domain-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--vs-s);
+    margin-bottom: var(--vs-m);
+  }
+
+  .domain-header-main {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    min-width: 0;
+  }
+
+  .actions-trigger {
+    font-size: 1.35rem;
+    line-height: 1;
+  }
+
+  /* Gap: graffiti dropdown items are single-line links/buttons; our refresh
+     actions stack a label, an inline explanation and a run status, so the
+     item is a column. Everything else (surface, hover, dimmed aria-disabled)
+     is graffiti .dropdown-menu. */
+  .action-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    white-space: normal;
+  }
+
+  .action-label {
+    font-weight: var(--fw-medium);
+    color: var(--fg);
+  }
+
+  .action-inline {
+    font-size: 0.8rem;
+    color: var(--fg-5);
+  }
+
+  .confirm-dialog {
+    max-inline-size: 34rem;
+  }
+
+  .confirm-dialog h2 {
+    margin: 0 0 0.5rem;
+  }
+
+  .confirm-description {
+    margin: 0 0 var(--vs-base);
+    color: var(--fg-7);
+  }
+
+  .confirm-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--vs-s);
+  }
+
+  .confirm-actions form {
+    display: inline;
   }
 
   .error {
@@ -460,24 +578,6 @@
   .dns-note,
   .dns-checked {
     color: var(--fg-5);
-  }
-
-  .dns-refresh {
-    display: flex;
-    align-items: center;
-    gap: 0.65rem;
-    flex-wrap: wrap;
-    margin-inline-start: auto;
-  }
-
-  .dns-refresh form,
-  .ip-refresh form {
-    display: inline;
-  }
-
-  .dns-refresh button[type="submit"],
-  .ip-refresh button[type="submit"] {
-    margin-block-start: 0;
   }
 
   .advisory-ok {
@@ -536,18 +636,6 @@
   .advisory-detail {
     color: var(--fg-7);
     max-width: 80ch;
-  }
-
-  .ip-refresh {
-    display: flex;
-    align-items: center;
-    gap: 0.65rem;
-    flex-wrap: wrap;
-    margin-bottom: var(--vs-s);
-  }
-
-  .refresh-btn {
-    white-space: nowrap;
   }
 
   .hint {
