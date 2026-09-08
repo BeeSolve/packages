@@ -39,6 +39,29 @@ export class Recipients {
     };
   };
 
+  readonly listEmails = async (): Promise<Array<string>> => {
+    const emails: Array<string> = [];
+    let startKey: Record<string, unknown> | undefined;
+    do {
+      const { Items: items = [], LastEvaluatedKey: lastKey } = await this.props.dynamo.send(
+        new QueryCommand({
+          TableName: this.props.tableName,
+          IndexName: this.props.reverseIndexName,
+          KeyConditionExpression: "#sk = :sk",
+          ExpressionAttributeNames: { "#sk": "sk", "#pk": "pk" },
+          ExpressionAttributeValues: { ":sk": "recipient" },
+          ProjectionExpression: "#pk",
+          ExclusiveStartKey: startKey,
+        }),
+      );
+      for (const rawRecipient of items) {
+        if (typeof rawRecipient.pk === "string") emails.push(rawRecipient.pk);
+      }
+      startKey = lastKey;
+    } while (startKey != null);
+    return emails.sort();
+  };
+
   readonly getStats = async ({ email }: { readonly email: string }) => {
     const normalizedEmail = email.trim().toLowerCase();
 

@@ -12,6 +12,15 @@
   );
 
   let searchEmail = $state("");
+  let recipientEmails = $state<Array<string>>([]);
+  let loaded = $state(false);
+
+  async function loadRecipientEmails(): Promise<void> {
+    if (loaded) return;
+    loaded = true;
+    const response = await fetch("/recipients/keys");
+    if (response.ok) recipientEmails = await response.json();
+  }
 
   function onSearch(event: SubmitEvent): void {
     event.preventDefault();
@@ -34,10 +43,17 @@
     <input
       type="email"
       name="email"
+      list="recipient-emails"
       placeholder="Search by recipient email"
       bind:value={searchEmail}
+      onfocus={loadRecipientEmails}
       aria-label="Recipient email"
     />
+    <datalist id="recipient-emails">
+      {#each recipientEmails as email}
+        <option value={email}></option>
+      {/each}
+    </datalist>
     <button type="submit" class="button mini">Search</button>
   </form>
 </div>
