@@ -78,16 +78,55 @@
      `.table` wrapper). On narrow screens their many columns push the page
      wider than the viewport, causing the whole layout to scroll sideways.
      This shared wrapper confines horizontal overflow to the table itself,
-     matching graffiti's own `.table { overflow-x: auto }` pattern. */
+     matching graffiti's own `.table { overflow-x: auto }` pattern.
+
+     Gap: graffiti ships no scrollable-table utility and no scroll-shadow, so
+     the horizontal-overflow affordance is hand-rolled. The four background
+     layers are the classic background-attachment scroll-shadow technique:
+     two `local` "cover" gradients pinned to each edge mask the shadow at the
+     scroll extremes, and two `scroll` radial "shadow" gradients reveal it
+     only while content is clipped on that side. Pure CSS, no JS. */
   :global(.table-scroll) {
+    position: relative;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     max-width: 100%;
+    scrollbar-gutter: stable;
+    background:
+      linear-gradient(to right, var(--bg) 30%, transparent),
+      linear-gradient(to left, var(--bg) 30%, transparent) 100% 0,
+      radial-gradient(ellipse at 0 50%, color-mix(in oklab, var(--fg) 18%, transparent), transparent 70%),
+      radial-gradient(ellipse at 100% 50%, color-mix(in oklab, var(--fg) 18%, transparent), transparent 70%) 100% 0;
+    background-repeat: no-repeat;
+    background-size:
+      2.5rem 100%,
+      2.5rem 100%,
+      1rem 100%,
+      1rem 100%;
+    background-attachment: local, local, scroll, scroll;
   }
 
   /* Keep table content from collapsing awkwardly narrow while scrolling. */
   :global(.table-scroll > table) {
     min-width: max-content;
+  }
+
+  /* Gap: pure-CSS "has scrolled" detection is not reliable, so the mobile
+     overflow hint is a static caption pinned to the top-right of the scroll
+     port (sticky so it stays put as the table scrolls under it). */
+  @media (max-width: 640px) {
+    :global(.table-scroll)::after {
+      content: "scroll \2192";
+      position: sticky;
+      inset-inline-end: 0;
+      float: right;
+      display: block;
+      width: max-content;
+      padding: 0.1rem 0.4rem;
+      font-size: 0.7rem;
+      color: var(--fg-5);
+      pointer-events: none;
+    }
   }
 
   .app {
