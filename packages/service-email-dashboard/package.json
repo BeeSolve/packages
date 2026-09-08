@@ -38,6 +38,7 @@
     "@beesolve/email-service": "workspace:^",
     "@beesolve/helpers": "workspace:^",
     "@beesolve/lambda-fetch-api": "workspace:^",
+    "@beesolve/lambda-keep-active": "workspace:^",
     "@drop-in/graffiti": "^4.30.0",
     "kit-on-lambda": "^0.8.3",
     "valibot": "catalog:"
