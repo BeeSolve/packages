@@ -34,7 +34,6 @@ describe("GlobalStats.get", () => {
     expect(result.delivered).toBe(7);
     expect(result.bounced).toBe(2);
     expect(result.failed).toBe(0);
-    expect(result.total).toBe(19);
   });
 
   it("returns zero-filled stats when the item is absent", async () => {
@@ -53,7 +52,6 @@ describe("GlobalStats.get", () => {
       complained: 0,
       rejected: 0,
       failed: 0,
-      total: 0,
     });
   });
 });

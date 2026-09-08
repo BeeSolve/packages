@@ -39,7 +39,6 @@
   <SummaryCard label="Complained" value={data.stats.complained.toLocaleString()} />
   <SummaryCard label="Rejected" value={data.stats.rejected.toLocaleString()} />
   <SummaryCard label="Failed" value={data.stats.failed.toLocaleString()} />
-  <SummaryCard label="Total" value={data.stats.total.toLocaleString()} />
 </div>
 
 <div class="toolbar">

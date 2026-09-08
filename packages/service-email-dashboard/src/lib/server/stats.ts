@@ -37,7 +37,7 @@ export class GlobalStats {
   };
 
   private readonly toModel = (value: Stats | null) => {
-    const item = {
+    return {
       received: value?.received ?? 0,
       sent: value?.sent ?? 0,
       delivered: value?.delivered ?? 0,
@@ -45,11 +45,6 @@ export class GlobalStats {
       complained: value?.complained ?? 0,
       rejected: value?.rejected ?? 0,
       failed: value?.failed ?? 0,
-    };
-
-    return {
-      ...item,
-      total: Object.values(item).reduce((result, current) => (result += current), 0),
     };
   };
 }

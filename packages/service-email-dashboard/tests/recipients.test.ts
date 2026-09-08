@@ -74,7 +74,6 @@ describe("Recipients.getStats", () => {
     expect(result.stats.delivered).toBe(3);
     expect(result.stats.bounced).toBe(1);
     expect(result.stats.sent).toBe(0);
-    expect(result.stats.total).toBe(4);
   });
 
   it("returns a zero-filled recipient for the normalized email when absent", async () => {
@@ -95,7 +94,6 @@ describe("Recipients.getStats", () => {
         complained: 0,
         rejected: 0,
         failed: 0,
-        total: 0,
       },
     });
   });
