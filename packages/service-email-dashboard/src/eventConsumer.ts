@@ -122,7 +122,7 @@ export const createHandler = ({
               deliveredAt: parsed.detail.delivery.timestamp,
               deliveryMs: parsed.detail.delivery.processingTimeMillis,
               timestamp: parsed.detail.delivery.timestamp,
-              recipients: parsed.detail.mail.destination,
+              recipients: parsed.detail.delivery.recipients,
             },
           });
           continue;
