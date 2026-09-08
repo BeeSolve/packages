@@ -509,6 +509,8 @@
     flex-direction: column;
     gap: 0.15rem;
     white-space: normal;
+    align-items: flex-start;
+    text-align: start;
   }
 
   .action-label {
@@ -559,6 +561,10 @@
      graffiti .tag (severity chip) and .callout (background notice). */
   .setup-health {
     margin-bottom: var(--vs-l);
+    padding: var(--pad-l) var(--vs-base);
+    background: var(--fg-05);
+    border-radius: var(--br-l);
+    border: var(--border-1);
   }
 
   .setup-head {
@@ -615,7 +621,7 @@
 
   .advisory-row {
     display: flex;
-    align-items: baseline;
+    align-items: flex-start;
     gap: 0.6rem;
     font-size: 0.85rem;
   }
@@ -626,6 +632,10 @@
     font-size: 0.65rem;
     letter-spacing: 0.03em;
     flex-shrink: 0;
+    min-inline-size: 4.75rem;
+    justify-content: center;
+    text-align: center;
+    margin-block-start: 0.05rem;
   }
 
   /* Severity hue only — the chip pill itself is graffiti .tag. */
