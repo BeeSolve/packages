@@ -12,6 +12,13 @@
     return new Date(value).toLocaleString();
   }
 
+  function timelineTone(status: string): string {
+    if (status === "delivered") return "success";
+    if (status === "bounced" || status === "rejected") return "error";
+    if (status === "complained") return "warning";
+    return "info";
+  }
+
   const recipientEntries = $derived(Object.entries(data.message.logByRecipient));
 </script>
 
@@ -70,28 +77,25 @@
     </h3>
     <ol class="timeline">
       {#each entries as entry}
-        <li class="timeline-item">
-          <div class="timeline-content">
-            <div class="timeline-head">
-              <span class="timeline-badge"><MessageStatusBadge status={entry.status} /></span>
-              <span class="timeline-time">{formatDateTime(entry.timestamp)}</span>
-            </div>
-            <p class="timeline-detail">
-              {#if entry.status === "delivered"}
-                Delivered in {(entry.deliveryMs / 1000).toFixed(1)}s
-                (at {formatDateTime(entry.deliveredAt)})
-              {:else if entry.status === "bounced"}
-                {entry.bounceType} / {entry.bounceSubType}
-                {#if entry.diagnosticCode != null}— {entry.diagnosticCode}{/if}
-                (at {formatDateTime(entry.at)})
-              {:else if entry.status === "complained"}
-                {entry.feedbackType ?? "complaint"} (at {formatDateTime(entry.at)})
-              {:else if entry.status === "rejected"}
-                {entry.reason} (at {formatDateTime(entry.at)})
-              {:else if entry.status === "requested"}
-                Request {entry.requestId}
-              {/if}
-            </p>
+        <li class={timelineTone(entry.status)}>
+          <span class="marker"></span>
+          <div class="timeline-body">
+            <MessageStatusBadge status={entry.status} />
+            <time class="timeline-time">{formatDateTime(entry.timestamp)}</time>
+            {#if entry.status === "delivered"}
+              <span class="timeline-detail">Delivered in {(entry.deliveryMs / 1000).toFixed(1)}s</span>
+            {:else if entry.status === "bounced"}
+              <span class="timeline-detail">
+                {entry.bounceType} / {entry.bounceSubType}{#if entry.diagnosticCode != null}
+                  — {entry.diagnosticCode}{/if}
+              </span>
+            {:else if entry.status === "complained"}
+              <span class="timeline-detail">{entry.feedbackType ?? "complaint"}</span>
+            {:else if entry.status === "rejected"}
+              <span class="timeline-detail">{entry.reason}</span>
+            {:else if entry.status === "requested"}
+              <span class="timeline-detail">Request {entry.requestId}</span>
+            {/if}
           </div>
         </li>
       {/each}
@@ -124,6 +128,11 @@
     border-radius: var(--br-m);
     margin-bottom: var(--vs-base);
     font-size: 0.9rem;
+    overflow-wrap: anywhere;
+  }
+
+  .meta > div {
+    min-width: 0;
   }
 
   .meta-label {
@@ -163,68 +172,48 @@
   }
 
   .recipient-timeline h3 a {
-    color: inherit;
-    text-decoration: none;
+    color: var(--primary);
+    text-decoration: underline;
   }
 
   .recipient-timeline h3 a:hover {
     text-decoration: underline;
   }
 
+  /* Uses graffiti's built-in .timeline component (marker + connecting line +
+     grid layout). We tune the marker down to a small dot and lay the badge,
+     timestamp, and detail out inline on a single row so graffiti's marker
+     alignment keeps the dot level with the row. */
   .timeline {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    border-left: var(--border-1);
+    --timeline-marker-size: 0.75rem;
+    --timeline-gap: var(--vs-base);
   }
 
-  .timeline-item {
-    position: relative;
-    padding: 0 0 var(--vs-s) var(--vs-base);
+  .timeline .marker {
+    border: none;
+    box-shadow: none;
+    background: var(--timeline-marker-color, var(--fg-5));
   }
 
-  .timeline-item:last-child {
-    padding-bottom: 0;
-  }
-
-  .timeline-item::before {
-    content: "";
-    position: absolute;
-    left: 0;
-    top: 0.35rem;
-    width: 0.5rem;
-    height: 0.5rem;
-    transform: translateX(-50%);
-    border-radius: 50%;
-    background: var(--primary);
-    box-shadow: 0 0 0 2px var(--bg);
-  }
-
-  .timeline-content {
-    min-width: 0;
-  }
-
-  .timeline-head {
+  .timeline-body {
     display: flex;
-    align-items: center;
-    gap: var(--vs-s);
+    align-items: baseline;
     flex-wrap: wrap;
-  }
-
-  .timeline-badge {
-    display: inline-flex;
+    gap: var(--vs-s);
+    min-width: 0;
   }
 
   .timeline-time {
     font-size: 0.8rem;
     color: var(--fg-5);
     font-variant-numeric: tabular-nums;
+    white-space: nowrap;
   }
 
   .timeline-detail {
-    margin: var(--vs-xs) 0 0;
     font-size: 0.85rem;
     color: var(--fg-7);
+    min-width: 0;
   }
 
   .error {
