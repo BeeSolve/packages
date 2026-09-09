@@ -5,7 +5,7 @@ SvelteKit dashboard for viewing DMARC reports — deployed on AWS Lambda behind 
 ## Architecture
 
 ```
-┌────────────┐     ┌──────────────┐     ┌────────┐     ┌──────────┐
+┌────────────┐     ┌──────────────┐     ┌─────────┐     ┌──────────┐
 │ CloudFront │ ──► │ Lambda (SSR) │ ──► │ DynamoDB│     │   SES    │
 └────────────┘     └──────────────┘     └─────────┘     └──────────┘
        │                                                      ▲

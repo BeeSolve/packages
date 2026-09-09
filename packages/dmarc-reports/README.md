@@ -5,7 +5,7 @@ DMARC report ingestion pipeline — receives aggregate reports via SES, parses t
 ## Architecture
 
 ```
-                    ┌─────────┐
+                   ┌─────────┐
 DMARC reports ──►  │   SES   │
 (email)            └────┬────┘
                         │

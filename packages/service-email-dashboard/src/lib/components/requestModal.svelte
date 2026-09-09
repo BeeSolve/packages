@@ -1,9 +1,16 @@
 <script lang="ts">
-  let { open = $bindable(false), json }: { open: boolean; json: unknown } = $props();
+  import type { EmailRequest } from "$lib/server/requests";
+
+  let { open = $bindable(false), request }: { open: boolean; request: EmailRequest } = $props();
 
   let dialog = $state<HTMLDialogElement | null>(null);
 
-  const formatted = $derived(JSON.stringify(json, null, 2));
+  // Wrap the email HTML in a minimal document with a light CSP that blocks
+  // script/plugin execution (defense in depth on top of the sandboxed iframe)
+  // while still allowing images and styles so the email renders as sent.
+  const srcdoc = $derived(
+    `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="script-src 'none'; frame-src 'none'; object-src 'none'"><base target="_blank"></head><body>${request.html}</body></html>`,
+  );
 
   $effect(() => {
     const element = dialog;
@@ -14,20 +21,21 @@
       element.close();
     }
   });
-
-  async function copyToClipboard() {
-    await navigator.clipboard.writeText(formatted);
-  }
 </script>
 
-<dialog bind:this={dialog} class="request-dialog" onclose={() => (open = false)} aria-label="Email request JSON">
+<dialog bind:this={dialog} class="request-dialog" onclose={() => (open = false)} aria-label="Email preview">
   <button class="button close" onclick={() => (open = false)} aria-label="Close">&times;</button>
   <header class="modal-header">
-    <h2>Email request (JSON)</h2>
-    <button class="button mini ghost" onclick={copyToClipboard}>Copy</button>
+    <h2>{request.subject}</h2>
   </header>
   <div class="modal-body">
-    <pre><code>{formatted}</code></pre>
+    <iframe
+      class="email-preview"
+      title="Email HTML preview"
+      sandbox=""
+      referrerpolicy="no-referrer"
+      {srcdoc}
+    ></iframe>
   </div>
 </dialog>
 
@@ -48,9 +56,10 @@
   .modal-header {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-start;
     gap: var(--vs-base);
     padding: var(--pad-l) var(--vs-base);
+    padding-inline-end: var(--pad-xxl);
     border-bottom: var(--border-1);
     flex-shrink: 0;
   }
@@ -61,18 +70,18 @@
   }
 
   .modal-body {
-    overflow: auto;
+    overflow: hidden;
     padding: var(--vs-base);
+    display: flex;
+    min-block-size: 0;
   }
 
-  pre {
-    margin: 0;
-    white-space: pre-wrap;
-    word-break: break-word;
-    font-family: ui-monospace, "SF Mono", Menlo, monospace;
-    font-size: 0.8rem;
-    line-height: 1.5;
-    color: var(--fg);
+  .email-preview {
+    inline-size: 100%;
+    min-block-size: 240px;
+    block-size: 60vh;
+    border: none;
+    background: #fff;
   }
 
   .close {

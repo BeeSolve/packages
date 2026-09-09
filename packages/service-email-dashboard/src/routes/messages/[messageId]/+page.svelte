@@ -60,7 +60,7 @@
     }}
   >
     <button type="submit" class="button" disabled={requesting}>
-      {requesting ? "Requesting…" : "Request message body"}
+      {requesting ? "Loading…" : "Preview message"}
     </button>
   </form>
 
@@ -70,7 +70,7 @@
 </section>
 
 {#if form?.request != null}
-  <RequestModal bind:open={modalOpen} json={form.request} />
+  <RequestModal bind:open={modalOpen} request={form.request} />
 {/if}
 
 <h2>Per-recipient timeline</h2>

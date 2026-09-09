@@ -43,12 +43,12 @@ bun add @beesolve/auth-service
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                     CloudFront Distribution                       │
-│                        app.example.com                            │
+│                     CloudFront Distribution                     │
+│                        app.example.com                          │
 ├──────────────┬─────────────────────┬────────────────────────────┤
-│  /auth/*     │  /api/*             │  /*                         │
+│  /auth/*     │  /api/*             │  /*                        │
 │  OAC→Lambda  │  API Gateway        │  S3 or Lambda (your app)   │
-│  Function URL│  + Authorizer       │                             │
+│  Function URL│  + Authorizer       │                            │
 └──────┬───────┴──────────┬──────────┴────────────────────────────┘
        │                  │
        ▼                  ▼
