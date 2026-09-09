@@ -6,22 +6,25 @@ All packages target Node.js 24+ and are published as ESM.
 
 ## Packages
 
-| Package                                                       | Description                                                                                     |
-| ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| [`@beesolve/auth-service`](packages/service-auth)             | Email code authentication with session management, Lambda authorizer, and SvelteKit integration |
-| [`@beesolve/email-service`](packages/service-email)           | Transactional email service with React Email templates and SES                                  |
-| [`@beesolve/action-tokens`](packages/action-tokens)           | DynamoDB-backed one-time action tokens (OTP codes, magic links, email verification)             |
-| [`@beesolve/lambda-fetch-api`](packages/lambda-fetch-api)     | Fetch API adapter for AWS Lambda — write handlers as `(request: Request) => Response`           |
-| [`@beesolve/sqs-handler`](packages/sqs-handler)               | Type-safe SQS consumer with CDK construct and dead-letter queue                                 |
-| [`@beesolve/cdk-constructs`](packages/cdk-constructs)         | Opinionated CDK constructs: Nodejs24Function, SqsWithDlq, StaticWebsite                         |
-| [`@beesolve/cdk-email-alarms`](packages/cdk-email-alarms)     | CDK construct for email-based CloudWatch alarms                                                 |
-| [`@beesolve/lambda-keep-active`](packages/lambda-keep-active) | Lambda warmer — periodic invocations to prevent cold starts                                     |
-| [`@beesolve/dmarc-parser`](packages/dmarc-parser)             | DMARC aggregate report parser — XML parsing, decompression, and MIME extraction                 |
-| [`@beesolve/dmarc-reports`](packages/dmarc-reports)           | DMARC report ingestion pipeline — SES to S3 to EventBridge via Lambda                           |
-| [`@beesolve/dmarc-consumer`](packages/dmarc-consumer)         | DMARC consumer — persists parsed DMARC reports from EventBridge to DynamoDB                     |
-| [`@beesolve/helpers`](packages/helpers)                       | Shared TypeScript utilities (serialization, retry, type guards)                                 |
-| [`@beesolve/lint-config`](packages/lint-config)               | Shared Oxlint + Oxfmt linting and formatting configuration                                      |
-| [`@beesolve/samples`](packages/samples)                       | Deployable reference implementations showcasing the packages above (not published to npm)       |
+| Package                                                                 | Description                                                                                     |
+| ----------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| [`@beesolve/auth-service`](packages/service-auth)                       | Email code authentication with session management, Lambda authorizer, and SvelteKit integration |
+| [`@beesolve/email-service`](packages/service-email)                     | Transactional email service with React Email templates and SES                                  |
+| [`@beesolve/email-service-dashboard`](packages/service-email-dashboard) | Email service dashboard — SvelteKit app for viewing email delivery status                       |
+| [`@beesolve/action-tokens`](packages/action-tokens)                     | DynamoDB-backed one-time action tokens (OTP codes, magic links, email verification)             |
+| [`@beesolve/lambda-fetch-api`](packages/lambda-fetch-api)               | Fetch API adapter for AWS Lambda — write handlers as `(request: Request) => Response`           |
+| [`@beesolve/sqs-handler`](packages/sqs-handler)                         | Type-safe SQS consumer with CDK construct and dead-letter queue                                 |
+| [`@beesolve/cdk-constructs`](packages/cdk-constructs)                   | Opinionated CDK constructs: Nodejs24Function, SqsWithDlq, StaticWebsite                         |
+| [`@beesolve/cdk-email-alarms`](packages/cdk-email-alarms)               | CDK construct for email-based CloudWatch alarms                                                 |
+| [`@beesolve/lambda-keep-active`](packages/lambda-keep-active)           | Lambda warmer — periodic invocations to prevent cold starts                                     |
+| [`@beesolve/dmarc-parser`](packages/dmarc-parser)                       | DMARC aggregate report parser — XML parsing, decompression, and MIME extraction                 |
+| [`@beesolve/dmarc-reports`](packages/dmarc-reports)                     | DMARC report ingestion pipeline — SES to S3 to EventBridge via Lambda                           |
+| [`@beesolve/dmarc-consumer`](packages/dmarc-consumer)                   | DMARC consumer — persists parsed DMARC reports from EventBridge to DynamoDB                     |
+| [`@beesolve/dmarc-dashboard`](packages/dmarc-dashboard)                 | DMARC dashboard — SvelteKit app for viewing DMARC reports                                       |
+| [`@beesolve/helpers`](packages/helpers)                                 | Shared TypeScript utilities (serialization, retry, type guards)                                 |
+| [`@beesolve/hmac`](packages/hmac)                                       | HMAC signer — create and validate HMAC signatures and signed URLs                               |
+| [`@beesolve/lint-config`](packages/lint-config)                         | Shared Oxlint + Oxfmt linting and formatting configuration                                      |
+| [`@beesolve/samples`](packages/samples)                                 | Deployable reference implementations showcasing the packages above (not published to npm)       |
 
 ## Installation
 
