@@ -855,7 +855,7 @@ Detailed how-to guides:
 
 Architecture Decision Records:
 
-- [ADR-001: OAC over origin token](docs/adr-001-oac-over-origin-token.md)
+- [ADR-007: OAC over origin token](docs/adr-007-oac-over-origin-token.md)
 - [ADR-002: SSR authorizer pattern](docs/adr-002-ssr-authorizer-pattern.md)
 - [ADR-003: In-process session resolution](docs/adr-003-inprocess-session-resolution.md)
 - [ADR-004: CloudFront Function ensure cookie](docs/adr-004-cloudfront-function-ensure-cookie.md)

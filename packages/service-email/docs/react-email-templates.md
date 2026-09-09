@@ -12,7 +12,7 @@ The pre-build approach sidesteps this entirely:
 2. Your **Lambda** imports those JSON files (bundled as tiny strings) and calls `hydrateTemplate()` to fill in runtime values.
 3. No React in the Lambda bundle.
 
-See [ADR-001](adr-001-prebuild-templates.md) for the full design rationale.
+See [ADR-003](adr-003-prebuild-templates.md) for the full design rationale.
 
 ## Setup
 

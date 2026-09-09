@@ -1,4 +1,4 @@
-# ADR: Session Rotation Design Decisions
+# ADR-009: Session Rotation Design Decisions
 
 ## Status
 

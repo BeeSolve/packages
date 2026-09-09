@@ -1,4 +1,4 @@
-# ADR-001: Handle RUA (Aggregate) Reports Only
+# ADR-004: Handle RUA (Aggregate) Reports Only
 
 ## Status
 

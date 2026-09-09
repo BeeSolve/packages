@@ -1,4 +1,4 @@
-# ADR-001: Single-Region DynamoDB Table
+# ADR-002: Single-Region DynamoDB Table
 
 ## Status
 

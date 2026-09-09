@@ -376,4 +376,4 @@ Subscribe to `SES Bounce` and `SES Complaint` events via EventBridge and suppres
 
 - [EventBridge events](docs/eventbridge-events.md) — full CDK wiring, all event types, bounce/complaint handling, event correlation
 - [React email templates](docs/react-email-templates.md) — writing templates, build script, multi-locale workflow, local preview
-- [ADR-001: Pre-build templates](docs/adr-001-prebuild-templates.md) — why templates are compiled at build time instead of rendered in Lambda
+- [ADR-003: Pre-build templates](docs/adr-003-prebuild-templates.md) — why templates are compiled at build time instead of rendered in Lambda

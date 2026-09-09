@@ -1,4 +1,4 @@
-# ADR-001: Pre-build email templates instead of runtime rendering
+# ADR-003: Pre-build email templates instead of runtime rendering
 
 ## Status
 

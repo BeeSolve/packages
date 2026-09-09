@@ -1,4 +1,4 @@
-# ADR: Use AsyncLocalStorage for AWS Event/Context Propagation
+# ADR-002: Use AsyncLocalStorage for AWS Event/Context Propagation
 
 **Status:** Accepted  
 **Date:** 2026-05-17  

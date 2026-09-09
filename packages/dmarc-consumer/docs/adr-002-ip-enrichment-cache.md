@@ -125,4 +125,4 @@ Rejected — see Rationale #2 (duplication, no refresh path).
 ## References
 
 - [ipinfo.io Lite API](https://ipinfo.io/developers/lite-api)
-- [ADR-001: Handle RUA (Aggregate) Reports Only](./adr-001-rua-only.md)
+- [ADR-004: Handle RUA (Aggregate) Reports Only](./adr-004-rua-only.md)

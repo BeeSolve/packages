@@ -121,4 +121,4 @@ is `appId`.
 ## References
 
 - `docs/how-to/consuming-events.md` — "Isolating multiple apps on a shared account"
-- `adr-auth-service-package-extraction.md` §7 (configurable EventBridge source)
+- `adr-008-auth-service-package-extraction.md` §7 (configurable EventBridge source)

@@ -1,4 +1,4 @@
-# ADR: Extract Email-Code Auth into Publishable Packages
+# ADR-008: Extract Email-Code Auth into Publishable Packages
 
 **Status:** Accepted  
 **Date:** 2026-05-22  

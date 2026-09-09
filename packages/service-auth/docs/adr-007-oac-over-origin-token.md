@@ -1,4 +1,4 @@
-# ADR-001: Replace Origin Verification Token with CloudFront OAC
+# ADR-007: Replace Origin Verification Token with CloudFront OAC
 
 ## Status
 
