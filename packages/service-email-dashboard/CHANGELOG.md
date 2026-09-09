@@ -1,5 +1,11 @@
 # @beesolve/email-service-dashboard
 
+## 0.3.6
+
+### Patch Changes
+
+- e20cd28: preview email
+
 ## 0.3.5
 
 ### Patch Changes
