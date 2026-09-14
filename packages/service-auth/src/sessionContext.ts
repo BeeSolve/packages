@@ -7,13 +7,11 @@ import {
 } from "@beesolve/lambda-fetch-api";
 import * as v from "valibot";
 
-const setCookieParam = v.object({ sid: v.string(), maxAge: v.number() });
+import { validSessionSchema } from "./validSession.ts";
 
-const validSessionSchema = v.object({
-  userId: v.string(),
-  sessionId: v.string(),
-  expiresAt: v.string(),
-});
+export type { ValidSession } from "./validSession.ts";
+
+const setCookieParam = v.object({ sid: v.string(), maxAge: v.number() });
 
 const sessionContextSchema = v.variant("type", [
   v.object({ type: v.literal("none") }),
@@ -39,7 +37,6 @@ const sessionContextSchema = v.variant("type", [
 ]);
 
 export type SessionContext = v.InferOutput<typeof sessionContextSchema>;
-export type ValidSession = v.InferOutput<typeof validSessionSchema>;
 
 export const sessionStringSchema = v.pipe(
   v.string(),

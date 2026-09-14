@@ -35,6 +35,22 @@ export function withDevSession(
   const expiresAt = new Date();
   expiresAt.setUTCFullYear(expiresAt.getUTCFullYear() + 1);
 
+  const validSession: ValidSession =
+    session.impersonating === true
+      ? {
+          sessionId: session.sessionId ?? "dev-session",
+          userId: session.userId,
+          expiresAt: session.expiresAt ?? expiresAt.toISOString(),
+          impersonating: true,
+          impersonatedBy: session.impersonatedBy ?? "dev-operator",
+        }
+      : {
+          sessionId: session.sessionId ?? "dev-session",
+          userId: session.userId,
+          expiresAt: session.expiresAt ?? expiresAt.toISOString(),
+          impersonating: false,
+        };
+
   const fakeEvent = {
     version: "2.0",
     routeKey: "ANY /",
@@ -48,11 +64,7 @@ export function withDevSession(
         lambda: {
           session: JSON.stringify({
             type: "valid",
-            validSession: {
-              sessionId: session.sessionId ?? "dev-session",
-              userId: session.userId,
-              expiresAt: session.expiresAt ?? expiresAt.toISOString(),
-            },
+            validSession,
             setCookiesParams: [{ sid: "dev-session", maxAge: 2_592_000 }],
           }),
         },
