@@ -11,7 +11,8 @@ type Event =
   | PasskeyRegistered
   | PasskeyAuthUsed
   | ImpersonationStarted
-  | ImpersonationEnded;
+  | ImpersonationEnded
+  | ImpersonationExpired;
 
 interface EmailInvitation {
   readonly type: "EmailInvitation";
@@ -151,6 +152,15 @@ interface ImpersonationEnded {
     readonly currentUserId: string;
     readonly targetUserId: string;
     readonly endedAt: string;
+  };
+}
+
+interface ImpersonationExpired {
+  readonly type: "ImpersonationExpired";
+  readonly detail: {
+    readonly currentUserId: string;
+    readonly targetUserId: string;
+    readonly expiredAt: string;
   };
 }
 

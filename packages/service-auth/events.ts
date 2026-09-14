@@ -94,6 +94,36 @@ const passkeyAuthUsedSchema = v.object({
   }),
 });
 
+const impersonationStartedSchema = v.object({
+  "detail-type": v.literal("ImpersonationStarted"),
+  source: v.string(),
+  detail: v.object({
+    currentUserId: v.string(),
+    targetUserId: v.string(),
+    startedAt: v.string(),
+  }),
+});
+
+const impersonationEndedSchema = v.object({
+  "detail-type": v.literal("ImpersonationEnded"),
+  source: v.string(),
+  detail: v.object({
+    currentUserId: v.string(),
+    targetUserId: v.string(),
+    endedAt: v.string(),
+  }),
+});
+
+const impersonationExpiredSchema = v.object({
+  "detail-type": v.literal("ImpersonationExpired"),
+  source: v.string(),
+  detail: v.object({
+    currentUserId: v.string(),
+    targetUserId: v.string(),
+    expiredAt: v.string(),
+  }),
+});
+
 const authEventSchema = v.variant("detail-type", [
   emailCodeAuthSchema,
   emailAddressVerifiedSchema,
@@ -104,6 +134,9 @@ const authEventSchema = v.variant("detail-type", [
   emailInvitationSchema,
   passkeyRegisteredSchema,
   passkeyAuthUsedSchema,
+  impersonationStartedSchema,
+  impersonationEndedSchema,
+  impersonationExpiredSchema,
 ]);
 
 export type EmailCodeAuthEvent = v.InferOutput<typeof emailCodeAuthSchema>;
@@ -115,6 +148,9 @@ export type SessionInvalidatedEvent = v.InferOutput<typeof sessionInvalidatedSch
 export type EmailInvitationEvent = v.InferOutput<typeof emailInvitationSchema>;
 export type PasskeyRegisteredEvent = v.InferOutput<typeof passkeyRegisteredSchema>;
 export type PasskeyAuthUsedEvent = v.InferOutput<typeof passkeyAuthUsedSchema>;
+export type ImpersonationStartedEvent = v.InferOutput<typeof impersonationStartedSchema>;
+export type ImpersonationEndedEvent = v.InferOutput<typeof impersonationEndedSchema>;
+export type ImpersonationExpiredEvent = v.InferOutput<typeof impersonationExpiredSchema>;
 
 export type EmailCodeAuthDetail = EmailCodeAuthEvent["detail"];
 export type EmailAddressVerifiedDetail = EmailAddressVerifiedEvent["detail"];
@@ -125,6 +161,9 @@ export type SessionInvalidatedDetail = SessionInvalidatedEvent["detail"];
 export type EmailInvitationDetail = EmailInvitationEvent["detail"];
 export type PasskeyRegisteredDetail = PasskeyRegisteredEvent["detail"];
 export type PasskeyAuthUsedDetail = PasskeyAuthUsedEvent["detail"];
+export type ImpersonationStartedDetail = ImpersonationStartedEvent["detail"];
+export type ImpersonationEndedDetail = ImpersonationEndedEvent["detail"];
+export type ImpersonationExpiredDetail = ImpersonationExpiredEvent["detail"];
 
 export type AuthEvent = v.InferOutput<typeof authEventSchema>;
 
@@ -138,46 +177,49 @@ export function parseAuthEvent(body: string): AuthEvent | null {
 }
 
 export function isEmailCodeAuth(event: unknown): event is EmailCodeAuthEvent {
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-  return (event as Record<string, unknown> | null)?.["detail-type"] === "EmailCodeAuth";
+  return v.is(emailCodeAuthSchema, event);
 }
 
 export function isEmailAddressVerified(event: unknown): event is EmailAddressVerifiedEvent {
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-  return (event as Record<string, unknown> | null)?.["detail-type"] === "EmailAddressVerified";
+  return v.is(emailAddressVerifiedSchema, event);
 }
 
 export function isDataToken(event: unknown): event is DataTokenEvent {
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-  return (event as Record<string, unknown> | null)?.["detail-type"] === "DataToken";
+  return v.is(dataTokenSchema, event);
 }
 
 export function isSuccessfulAuth(event: unknown): event is SuccessfulAuthEvent {
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-  return (event as Record<string, unknown> | null)?.["detail-type"] === "SuccessfulAuth";
+  return v.is(successfulAuthSchema, event);
 }
 
 export function isUnsuccessfulAuth(event: unknown): event is UnsuccessfulAuthEvent {
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-  return (event as Record<string, unknown> | null)?.["detail-type"] === "UnsuccessfulAuth";
+  return v.is(unsuccessfulAuthSchema, event);
 }
 
 export function isSessionInvalidated(event: unknown): event is SessionInvalidatedEvent {
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-  return (event as Record<string, unknown> | null)?.["detail-type"] === "SessionInvalidated";
+  return v.is(sessionInvalidatedSchema, event);
 }
 
 export function isEmailInvitation(event: unknown): event is EmailInvitationEvent {
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-  return (event as Record<string, unknown> | null)?.["detail-type"] === "EmailInvitation";
+  return v.is(emailInvitationSchema, event);
 }
 
 export function isPasskeyRegistered(event: unknown): event is PasskeyRegisteredEvent {
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-  return (event as Record<string, unknown> | null)?.["detail-type"] === "PasskeyRegistered";
+  return v.is(passkeyRegisteredSchema, event);
 }
 
 export function isPasskeyAuthUsed(event: unknown): event is PasskeyAuthUsedEvent {
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-  return (event as Record<string, unknown> | null)?.["detail-type"] === "PasskeyAuthUsed";
+  return v.is(passkeyAuthUsedSchema, event);
+}
+
+export function isImpersonationStarted(event: unknown): event is ImpersonationStartedEvent {
+  return v.is(impersonationStartedSchema, event);
+}
+
+export function isImpersonationEnded(event: unknown): event is ImpersonationEndedEvent {
+  return v.is(impersonationEndedSchema, event);
+}
+
+export function isImpersonationExpired(event: unknown): event is ImpersonationExpiredEvent {
+  return v.is(impersonationExpiredSchema, event);
 }
