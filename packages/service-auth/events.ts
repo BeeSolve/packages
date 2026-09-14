@@ -114,16 +114,6 @@ const impersonationEndedSchema = v.object({
   }),
 });
 
-const impersonationExpiredSchema = v.object({
-  "detail-type": v.literal("ImpersonationExpired"),
-  source: v.string(),
-  detail: v.object({
-    currentUserId: v.string(),
-    targetUserId: v.string(),
-    expiredAt: v.string(),
-  }),
-});
-
 const authEventSchema = v.variant("detail-type", [
   emailCodeAuthSchema,
   emailAddressVerifiedSchema,
@@ -136,7 +126,6 @@ const authEventSchema = v.variant("detail-type", [
   passkeyAuthUsedSchema,
   impersonationStartedSchema,
   impersonationEndedSchema,
-  impersonationExpiredSchema,
 ]);
 
 export type EmailCodeAuthEvent = v.InferOutput<typeof emailCodeAuthSchema>;
@@ -150,7 +139,6 @@ export type PasskeyRegisteredEvent = v.InferOutput<typeof passkeyRegisteredSchem
 export type PasskeyAuthUsedEvent = v.InferOutput<typeof passkeyAuthUsedSchema>;
 export type ImpersonationStartedEvent = v.InferOutput<typeof impersonationStartedSchema>;
 export type ImpersonationEndedEvent = v.InferOutput<typeof impersonationEndedSchema>;
-export type ImpersonationExpiredEvent = v.InferOutput<typeof impersonationExpiredSchema>;
 
 export type EmailCodeAuthDetail = EmailCodeAuthEvent["detail"];
 export type EmailAddressVerifiedDetail = EmailAddressVerifiedEvent["detail"];
@@ -163,7 +151,6 @@ export type PasskeyRegisteredDetail = PasskeyRegisteredEvent["detail"];
 export type PasskeyAuthUsedDetail = PasskeyAuthUsedEvent["detail"];
 export type ImpersonationStartedDetail = ImpersonationStartedEvent["detail"];
 export type ImpersonationEndedDetail = ImpersonationEndedEvent["detail"];
-export type ImpersonationExpiredDetail = ImpersonationExpiredEvent["detail"];
 
 export type AuthEvent = v.InferOutput<typeof authEventSchema>;
 
@@ -218,8 +205,4 @@ export function isImpersonationStarted(event: unknown): event is ImpersonationSt
 
 export function isImpersonationEnded(event: unknown): event is ImpersonationEndedEvent {
   return v.is(impersonationEndedSchema, event);
-}
-
-export function isImpersonationExpired(event: unknown): event is ImpersonationExpiredEvent {
-  return v.is(impersonationExpiredSchema, event);
 }
