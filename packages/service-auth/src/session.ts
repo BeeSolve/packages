@@ -34,6 +34,7 @@ const authorizerSchema = v.object({
   id: v.string(),
   sessionId: v.string(),
   userId: v.string(),
+  impersonatedBy: v.optional(v.string()),
   startedAt: v.pipe(v.string(), v.isoTimestamp()),
   createdAt: v.pipe(v.string(), v.isoTimestamp()),
   expiresAt: v.pipe(
@@ -96,6 +97,7 @@ export class Sessions {
           "expiresAt",
           "userId",
           "sessionId",
+          "impersonatedBy",
           "startedAt",
           "createdAt",
         ].join(),
@@ -149,6 +151,7 @@ export class Sessions {
     readonly userId: string;
     readonly maxAge?: number;
     readonly data: NewSession["data"];
+    readonly impersonatedBy?: string;
   }) => {
     const { model, item, maxAge } = this.toNewSession({
       ...props,
@@ -210,6 +213,7 @@ export class Sessions {
         sessionId: props.session.sessionId,
         userId: props.session.userId,
         startedAt: props.session.startedAt,
+        impersonatedBy: props.session.impersonatedBy,
         data: props.data,
       });
 
@@ -315,6 +319,7 @@ export class Sessions {
     readonly startedAt: undefined | string;
     readonly data: NewSession["data"];
     readonly maxAge?: number;
+    readonly impersonatedBy?: string;
   }) => {
     const maxAge = props.maxAge ?? this.props.defaultMaxAge ?? 2_592_000;
 
@@ -327,6 +332,7 @@ export class Sessions {
       sessionId: props.sessionId ?? randomBytes(32).toString("base64url"),
       expiresAt: Math.round(expiresAt.getTime() / 1000),
       userId: props.userId,
+      impersonatedBy: props.impersonatedBy,
       data: props.data,
       createdAt,
       updatedAt: createdAt,
