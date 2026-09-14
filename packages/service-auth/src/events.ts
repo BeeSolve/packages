@@ -9,7 +9,8 @@ type Event =
   | EmailInvitation
   | DataToken
   | PasskeyRegistered
-  | PasskeyAuthUsed;
+  | PasskeyAuthUsed
+  | ImpersonationStarted;
 
 interface EmailInvitation {
   readonly type: "EmailInvitation";
@@ -131,6 +132,15 @@ interface PasskeyAuthUsed {
   readonly detail: {
     readonly userId: string;
     readonly credentialId: string;
+  };
+}
+
+interface ImpersonationStarted {
+  readonly type: "ImpersonationStarted";
+  readonly detail: {
+    readonly currentUserId: string;
+    readonly targetUserId: string;
+    readonly startedAt: string;
   };
 }
 
