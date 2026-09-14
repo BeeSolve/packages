@@ -17,6 +17,7 @@ import { parseDataTokenCookie, parseSid } from "./src/cookie.ts";
 import { toDynamoClient } from "./src/dynamo.ts";
 import { BadRequestError, ForbiddenError, NotFoundError, UnauthorizedError } from "./src/errors.ts";
 import { Events } from "./src/events.ts";
+import { endImpersonation } from "./src/handlers/endImpersonation.ts";
 import { passkeyAuthComplete } from "./src/handlers/passkeyAuthComplete.ts";
 import { passkeyAuthOptions } from "./src/handlers/passkeyAuthOptions.ts";
 import { passkeyRegisterComplete } from "./src/handlers/passkeyRegisterComplete.ts";
@@ -179,6 +180,15 @@ const fetch = async (request: Request): Promise<Response> => {
         requestBody,
         headers: request.headers,
         retrySessionDelete: (sid) => void tasks.deleteSession(sid),
+      });
+    }
+
+    if (path === "/auth/endImpersonation") {
+      return await endImpersonation({
+        sessions,
+        events,
+        requestBody,
+        headers: request.headers,
       });
     }
 
