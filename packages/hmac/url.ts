@@ -9,7 +9,11 @@ const signatureParam = "signature";
  * stable regardless of their original order. The signed URL can later be
  * checked with {@link ensureValidUrl}.
  */
-export function signUrl(props: { url: URL; expiresInSeconds: number; hmac: HmacSigner }): string {
+export function signUrl(props: {
+  url: URL;
+  expiresInSeconds: number;
+  hmac: Pick<HmacSigner, "sign">;
+}): string {
   const url = new URL(props.url);
   const expiresAt = Math.floor(Date.now() / 1000) + props.expiresInSeconds;
 
@@ -29,7 +33,10 @@ export function signUrl(props: { url: URL; expiresInSeconds: number; hmac: HmacS
  * Returns nothing on success and throws a {@link SignedUrlError} with a
  * {@link SignedUrlErrorCode} describing why verification failed.
  */
-export function ensureValidUrl(props: { url: URL; hmac: HmacSigner }): void {
+export function ensureValidUrl(props: {
+  url: URL;
+  hmac: Pick<HmacSigner, "isValidSignature">;
+}): void {
   const signature = props.url.searchParams.get(signatureParam);
   if (signature == null) {
     throw new SignedUrlError({
