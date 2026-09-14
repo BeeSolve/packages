@@ -1,13 +1,12 @@
 import type { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import * as v from "valibot";
 
-import { type AuthorizeResult, authorize } from "./src/authorize.ts";
+import { type AuthorizeResult, authorize, type ValidSession } from "./src/authorize.ts";
 import { addSetCookies } from "./src/cookie.ts";
 import { toDynamoClient } from "./src/dynamo.ts";
 import { Sessions } from "./src/session.ts";
 
-export type { AuthorizeResult };
-export type ValidSession = { userId: string; sessionId: string; expiresAt: string };
+export type { AuthorizeResult, ValidSession };
 
 const envSchema = v.object({
   BEESOLVE_AUTH_SESSIONS_TABLE_NAME: v.string(),

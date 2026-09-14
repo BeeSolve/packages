@@ -1,5 +1,8 @@
 import { parseSid } from "./cookie.ts";
 import { Sessions } from "./session.ts";
+import type { ValidSession } from "./validSession.ts";
+
+export type { ValidSession };
 
 type SetCookieParam = { sid: string; maxAge: number };
 
@@ -12,7 +15,7 @@ export type AuthorizeResult =
     }
   | {
       type: "valid";
-      validSession: { userId: string; sessionId: string; expiresAt: string };
+      validSession: ValidSession;
       setCookiesParams: Array<SetCookieParam>;
     };
 
@@ -64,13 +67,25 @@ export async function authorize(props: {
         ]
       : [{ sid: newSession.id, maxAge }];
 
+  const validSession: ValidSession =
+    session.impersonatedBy != null
+      ? {
+          userId: newSession.userId,
+          sessionId: session.id,
+          expiresAt: newSession.expiresAt,
+          impersonating: true as const,
+          impersonatedBy: session.impersonatedBy,
+        }
+      : {
+          userId: newSession.userId,
+          sessionId: session.id,
+          expiresAt: newSession.expiresAt,
+          impersonating: false as const,
+        };
+
   return {
     type: "valid",
-    validSession: {
-      userId: newSession.userId,
-      sessionId: session.id,
-      expiresAt: newSession.expiresAt,
-    },
+    validSession,
     setCookiesParams,
   };
 }
