@@ -3,6 +3,7 @@ import { App } from "aws-cdk-lib";
 import { CookieFunctionStack } from "./authCookieFunction/stack.ts";
 import { EmailAuthorizerStack } from "./authEmailAuthorizer/stack.ts";
 import { EmailSimpleStack } from "./authEmailSimple/stack.ts";
+import { ImpersonationStack } from "./authImpersonation/stack.ts";
 import { SpaWithApiStack } from "./authSpaWithApi/stack.ts";
 import { AuthWithEmailStack } from "./authWithEmail/stack.ts";
 import { AuthWithPasskeysStack } from "./authWithPasskeys/stack.ts";
@@ -43,6 +44,10 @@ new CookieFunctionStack(app, "SamplesAuthCookieFunction", {
 });
 
 new SpaWithApiStack(app, "SamplesAuthSpaWithApi", {
+  env: { account, region },
+});
+
+new ImpersonationStack(app, "SamplesAuthImpersonation", {
   env: { account, region },
 });
 

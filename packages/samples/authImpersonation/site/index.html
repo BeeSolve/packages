@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Auth Impersonation Sample</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        max-width: 40rem;
+        margin: 2rem auto;
+        padding: 0 1rem;
+        line-height: 1.5;
+      }
+      fieldset {
+        margin-bottom: 1.5rem;
+      }
+      label {
+        display: block;
+        margin-bottom: 0.25rem;
+      }
+      input {
+        padding: 0.4rem;
+        min-width: 16rem;
+      }
+      button {
+        padding: 0.4rem 0.9rem;
+        cursor: pointer;
+      }
+      .banner {
+        background: #fff3cd;
+        border: 1px solid #ffe08a;
+        padding: 0.75rem 1rem;
+        border-radius: 0.4rem;
+        margin-bottom: 1rem;
+        font-weight: 600;
+      }
+      .hidden {
+        display: none;
+      }
+      .status {
+        color: #b00;
+        min-height: 1.5rem;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Auth Impersonation Sample</h1>
+    <p>
+      Demonstrates operator-less impersonation: a signed-in user calls an authorized API endpoint
+      that forwards their own session cookie to the <code>impersonate</code> SDK command.
+    </p>
+
+    <div id="banner" class="banner hidden"></div>
+    <div id="status" class="status"></div>
+
+    <section id="signInSection">
+      <fieldset>
+        <legend>Sign in</legend>
+        <label for="email">Email address</label>
+        <input id="email" type="email" placeholder="you@example.com" />
+        <button id="requestCode">Request code</button>
+      </fieldset>
+
+      <fieldset id="codeSection" class="hidden">
+        <legend>Enter code</legend>
+        <p>No email is wired in this sample — the dev code is <code>000000</code>.</p>
+        <label for="code">Code</label>
+        <input id="code" type="text" inputmode="numeric" placeholder="000000" />
+        <button id="completeSignIn">Sign in</button>
+      </fieldset>
+    </section>
+
+    <section id="appSection" class="hidden">
+      <p id="identity"></p>
+
+      <fieldset>
+        <legend>Impersonate</legend>
+        <label for="targetUserId">Target user id</label>
+        <input id="targetUserId" type="text" placeholder="target-user-id" />
+        <button id="impersonate">Impersonate</button>
+      </fieldset>
+
+      <button id="stopImpersonating" class="hidden">Stop impersonating</button>
+      <button id="signOut">Sign out</button>
+    </section>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+      const status = $("status");
+      let signInToken = null;
+
+      function setStatus(message) {
+        status.textContent = message ?? "";
+      }
+
+      async function postJson(path, body) {
+        const response = await fetch(path, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json", Accept: "application/json" },
+          body: JSON.stringify(body),
+        });
+        if (!response.ok) {
+          let detail = response.statusText;
+          try {
+            const data = await response.json();
+            detail = data.error ?? data.type ?? detail;
+          } catch {}
+          throw new Error(detail);
+        }
+        return response.json();
+      }
+
+      async function refresh() {
+        const response = await fetch("/api/me", { credentials: "include" });
+        if (!response.ok) {
+          $("signInSection").classList.remove("hidden");
+          $("appSection").classList.add("hidden");
+          $("banner").classList.add("hidden");
+          return;
+        }
+        const me = await response.json();
+        $("signInSection").classList.add("hidden");
+        $("appSection").classList.remove("hidden");
+        $("identity").textContent = "Signed in as " + me.userId;
+
+        if (me.impersonating) {
+          $("banner").textContent =
+            "Impersonating " + me.userId + " (as " + me.impersonatedBy + ")";
+          $("banner").classList.remove("hidden");
+          $("stopImpersonating").classList.remove("hidden");
+        } else {
+          $("banner").classList.add("hidden");
+          $("stopImpersonating").classList.add("hidden");
+        }
+      }
+
+      $("requestCode").addEventListener("click", async () => {
+        setStatus("");
+        try {
+          const result = await postJson("/auth/signInRequest", {
+            emailAddress: $("email").value.trim(),
+          });
+          signInToken = result.token;
+          $("codeSection").classList.remove("hidden");
+        } catch (error) {
+          setStatus("Request failed: " + error.message);
+        }
+      });
+
+      $("completeSignIn").addEventListener("click", async () => {
+        setStatus("");
+        try {
+          await postJson("/auth/signInComplete", {
+            token: signInToken,
+            code: $("code").value.trim(),
+            redirectTo: "/",
+          });
+          await refresh();
+        } catch (error) {
+          setStatus("Sign in failed: " + error.message);
+        }
+      });
+
+      $("impersonate").addEventListener("click", async () => {
+        setStatus("");
+        try {
+          await postJson("/api/impersonate", {
+            targetUserId: $("targetUserId").value.trim(),
+          });
+          await refresh();
+        } catch (error) {
+          setStatus("Impersonate failed: " + error.message);
+        }
+      });
+
+      $("stopImpersonating").addEventListener("click", async () => {
+        setStatus("");
+        try {
+          await postJson("/auth/endImpersonation", { redirectTo: "/" });
+          await refresh();
+        } catch (error) {
+          setStatus("Stop impersonating failed: " + error.message);
+        }
+      });
+
+      $("signOut").addEventListener("click", async () => {
+        setStatus("");
+        try {
+          await postJson("/auth/signOut", { redirectTo: "/" });
+          await refresh();
+        } catch (error) {
+          setStatus("Sign out failed: " + error.message);
+        }
+      });
+
+      refresh();
+    </script>
+  </body>
+</html>

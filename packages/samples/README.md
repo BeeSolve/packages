@@ -34,6 +34,12 @@ Demonstrates the authorizer + `ensureCookieFunction` pattern with caching disabl
 
 React SPA with a separate tRPC API backend. The SPA is served from CloudFront (S3 origin) and communicates with an API Gateway endpoint protected by the Lambda authorizer. Demonstrates the auth service in a non-SvelteKit context.
 
+### authImpersonation
+
+Demonstrates operator-less session impersonation. A plain static SPA (single `index.html`, no build step) signs in via email code, then calls an authorized API endpoint (`POST /api/impersonate`) that invokes the `impersonate` SDK command, forwarding the caller's own session cookie. The impersonator's session is mutated in place, so the same cookie now resolves to an impersonating session. The API's session context exposes `session.impersonating` / `session.impersonatedBy`, which the SPA renders as a banner. `POST /auth/endImpersonation` (handled by the auth service) stops impersonation, and an EventBridge consumer audits `ImpersonationStarted` / `ImpersonationEnded`.
+
+Authorization is the caller's responsibility — the sample includes a trivial `canImpersonate` check (allowlist via `SAMPLES_IMPERSONATORS`) as a placeholder; real applications must enforce a proper permission model. Note the sign-out edge case: signing out ends the impersonator's session entirely, so stop impersonating first if you want to return to your own identity.
+
 ## Deployment
 
 Each sample deploys independently:
@@ -46,6 +52,7 @@ bun run deploy:authWithPasskeys
 bun run deploy:emailVerify
 bun run deploy:authCookieFunction
 bun run deploy:authSpaWithApi
+bun run deploy:authImpersonation
 ```
 
 ### Environment setup
@@ -100,6 +107,7 @@ samples/
 ├── authWithPasskeys/      # Auth with passkey (WebAuthn) support
 ├── authCookieFunction/    # Auth with ensureCookieFunction + disabled cache
 ├── authSpaWithApi/        # React SPA with tRPC API
+├── authImpersonation/     # Operator-less session impersonation + audit consumer
 ├── emailVerify/           # Standalone email verification (action-tokens)
 ├── shared/                # Reusable components and utilities
 ├── app.ts                 # CDK app entry — registers all stacks

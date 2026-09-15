@@ -12,6 +12,7 @@
     "deploy:emailVerify": "cd emailVerify/site && bun run vite build && cd - && bun run cdk deploy SamplesEmailVerify --require-approval never",
     "deploy:authCookieFunction": "cd authCookieFunction/site && bun run vite build && cd - && bun run cdk deploy SamplesAuthCookieFunction --require-approval never",
     "deploy:authSpaWithApi": "cd authSpaWithApi/site && bun run vite build && cd - && bun run cdk deploy SamplesAuthSpaWithApi --require-approval never",
+    "deploy:authImpersonation": "bun run cdk deploy SamplesAuthImpersonation --require-approval never",
     "deploy:dmarcReports": "bun run cdk deploy SamplesDmarcReports --require-approval never"
   },
   "dependencies": {
