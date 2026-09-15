@@ -75,10 +75,9 @@ Guidance for consumers:
 const resource = [...base, [...pathParts.slice(0, 2), "*"].join("/")].join(":");
 ```
 
-Combined with authorizer result caching (default `balanced` = 45s, `relaxed` = 1h), an `Allow` for one path grants a wildcard `Allow` on that method for the cache window. This is _not_ a privilege-escalation vector here because downstream code re-derives identity from the validated `session` blob rather than trusting the ARN — but it is broader than necessary. Options to tighten, in order of preference:
+Combined with authorizer result caching (default `balanced` = 45s, `relaxed` = 1h), an `Allow` for one path grants a wildcard `Allow` on that method for the cache window. This is _not_ a privilege-escalation vector here because downstream code re-derives identity from the validated `session` blob rather than trusting the ARN — but it is broader than necessary.
 
-- Scope the `Resource` to the actual requested `methodArn` (drop the `*` wildcard) so the cached decision applies only to the path that was authorized. This is safe with per-cookie `identitySource` caching and is the recommended change.
-- If wildcarding must stay for caching efficiency, document it explicitly and keep the cache TTL short (`balanced` or lower) for security-sensitive consumers.
+Resolution is tracked in **ADR-012 (Proposed)**: scope the `Resource` to the actual requested `methodArn` so the cached decision applies only to the path that was authorized. The trade-off is reduced authorizer-cache granularity for long-TTL consumers; see ADR-012 for the full impact analysis and implementation plan.
 
 ### 3. No trailing-slash normalization (accepted)
 
