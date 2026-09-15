@@ -79,7 +79,7 @@ export function ensureValidUrl(props: {
 
 function sortSearchParams(url: URL): void {
   const entries = [...url.searchParams.entries()].sort(([leftKey], [rightKey]) =>
-    leftKey < rightKey ? -1 : leftKey > rightKey ? 1 : 0,
+    leftKey.localeCompare(rightKey),
   );
 
   url.search = "";
