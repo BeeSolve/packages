@@ -1,6 +1,28 @@
 # Implementation Plan — Impersonation Feature
 
 > **Last updated:** 2026-07-24 — aligned with `@beesolve/auth-service@0.11.0`
+>
+> **Reconciled after implementation:** `ImpersonationExpired` and the DynamoDB
+> Streams approach were **dropped** — the feature ships only `ImpersonationStarted`
+> and `ImpersonationEnded` (see ADR-010). Sections describing the expiry event,
+> its stream Lambda, and the `impersonationExpiredEvents` CDK prop are marked
+> **SUPERSEDED** below. Version bump is `0.15.1 → 0.16.0`; `endImpersonation`
+> redirects with **303** (matching `signOut`), not 301.
+>
+> **Session model reworked (see ADR-012):** the impersonation session model
+> described below (independent impersonation session; operator's original session
+> left untouched with only its cookie swapped) was **superseded** for security.
+> The shipped design instead: preserves the operator's original session as an
+> **inactive server-side copy** under a new id (an `active` flag, default `true`,
+> gates authorization; the exposed original id is burned by deleting the live
+> row); caps the impersonation lifetime to `min(requested, maxImpersonationDuration,
+originalExpiresAt − 5min)` so it always ends before the original would; stores
+> an internal `originalSessionRef` on the impersonation row (never exposed to the
+> client); and on `endImpersonation` restores the inactive copy if it still exists
+> (else logs the operator out). The SDK `impersonate` command takes the operator's
+> **cookie header** (not a bare id) and revalidates the session server-side. There
+> is a single strict behavior — no `lax`/`strict` option. Design-decision and
+> schema sections below that predate this are annotated **SUPERSEDED BY ADR-012**.
 
 ## Problem Statement
 
@@ -18,13 +40,19 @@ This plan adds impersonation support: an SDK command to start an impersonation s
 
 4. **SDK command to start, auth endpoint to end** — starting impersonation is a privileged server-to-server operation (SDK). Ending it is a browser action that needs to set a new cookie, so it's a public auth endpoint like `signOut`.
 
-5. **Short-lived sessions** — impersonation sessions have a configurable max age (default 1 hour, max 4 hours) to limit exposure.
+5. **Short-lived sessions** — impersonation sessions have a configurable max age (default 1 hour, max 4 hours) to limit exposure. **[SUPERSEDED BY ADR-012: lifetime is additionally capped to `originalExpiresAt − 5min` so impersonation never outlives the operator's own session.]**
 
 6. **Authorization is the caller's responsibility** — the auth-service is an authentication layer. It doesn't know who is an "admin." The calling service must verify the operator has permission to impersonate before invoking the SDK command.
 
-7. **Breaking change to session context** — `ValidSession` changes from `{ userId, sessionId, expiresAt }` to a discriminated union. This will be a minor version bump (0.12.0). All consumers must update their session reading code.
+7. **Breaking change to session context** — `ValidSession` changes from `{ userId, sessionId, expiresAt }` to a discriminated union. This will be a minor version bump (0.15.1 → 0.16.0). All consumers must update their session reading code.
 
 ## DynamoDB Schema Change
+
+> **SUPERSEDED BY ADR-012:** in addition to `impersonatedBy`, the shipped design
+> adds an optional `active` attribute (default `true`; `false` marks the inactive
+> preserved original copy, which the authorizer refuses) and an internal
+> `originalSessionRef` attribute on the impersonation row pointing at the inactive
+> copy. Both are optional (no migration).
 
 No table or index changes. A single optional attribute is added to session items:
 
@@ -49,7 +77,7 @@ type ValidSession = {
   expiresAt: string;
 };
 
-// After (0.12.0)
+// After (0.16.0)
 type ValidSession =
   | { userId: string; sessionId: string; expiresAt: string; impersonating: false }
   | {
@@ -145,7 +173,7 @@ const { sid, maxAge } = await auth.invoke({
 
 // Set the cookie on the response to the operator's browser
 const response = new Response(null, {
-  status: 301,
+  status: 303,
   headers: {
     Location: "/dashboard",
   },
@@ -175,7 +203,7 @@ A public endpoint accessible from the browser. Creates a new session for the ori
 3. Create a new normal session for `impersonatedBy` (the operator).
 4. Delete the impersonation session.
 5. Emit `ImpersonationEnded` event.
-6. Respond with 301 redirect + `Set-Cookie` (clear old, set new).
+6. Respond with 303 redirect + `Set-Cookie` (clear old, set new).
 
 ### Implementation
 
@@ -232,7 +260,7 @@ export async function endImpersonation({
   }
 
   return new Response(null, {
-    status: 301,
+    status: 303,
     headers: addSetCookies({
       headers: new Headers({
         "Cache-Control": "no-store",
@@ -248,11 +276,13 @@ export async function endImpersonation({
 
 Three new events added to the auth event bus:
 
-| `detail-type`          | Fired when                                       | Key fields                                   |
-| ---------------------- | ------------------------------------------------ | -------------------------------------------- |
-| `ImpersonationStarted` | SDK `impersonate` command succeeds               | `currentUserId`, `targetUserId`, `startedAt` |
-| `ImpersonationEnded`   | `/auth/endImpersonation` completes               | `currentUserId`, `targetUserId`, `endedAt`   |
-| `ImpersonationExpired` | Authorizer detects expired impersonation session | `currentUserId`, `targetUserId`, `expiredAt` |
+> **SUPERSEDED:** `ImpersonationExpired` was dropped. Only the two events below
+> are implemented — see ADR-010 and Resolved Decisions #1.
+
+| `detail-type`          | Fired when                         | Key fields                                   |
+| ---------------------- | ---------------------------------- | -------------------------------------------- |
+| `ImpersonationStarted` | SDK `impersonate` command succeeds | `currentUserId`, `targetUserId`, `startedAt` |
+| `ImpersonationEnded`   | `/auth/endImpersonation` completes | `currentUserId`, `targetUserId`, `endedAt`   |
 
 ### Event Schemas
 
@@ -274,49 +304,11 @@ interface ImpersonationEnded {
     readonly endedAt: string;
   };
 }
-
-interface ImpersonationExpired {
-  readonly type: "ImpersonationExpired";
-  readonly detail: {
-    readonly currentUserId: string;
-    readonly targetUserId: string;
-    readonly expiredAt: string;
-  };
-}
 ```
 
-### `ImpersonationExpired` via DynamoDB Streams
-
-When `impersonationExpiredEvents` is enabled in CDK, a stream Lambda processes session deletions (both TTL-based and explicit):
-
-```ts
-// Stream handler (simplified)
-export async function handler(event: DynamoDBStreamEvent) {
-  for (const record of event.Records) {
-    if (record.eventName !== "REMOVE") continue;
-
-    const oldImage = record.dynamodb?.OldImage;
-    if (oldImage == null) continue;
-
-    const impersonatedBy = oldImage.impersonatedBy?.S;
-    if (impersonatedBy == null) continue; // not an impersonation session
-
-    const userId = oldImage.userId?.S;
-    const expiresAt = oldImage.expiresAt?.N;
-
-    await events.putEvents({
-      type: "ImpersonationExpired",
-      detail: {
-        currentUserId: impersonatedBy,
-        targetUserId: userId,
-        expiredAt: new Date(Number(expiresAt) * 1000).toISOString(),
-      },
-    });
-  }
-}
-```
-
-This approach keeps the authorizer lightweight (no EventBridge dependency) and only adds cost when the feature is explicitly opted into.
+> **SUPERSEDED:** the `ImpersonationExpired` interface and the
+> "`ImpersonationExpired` via DynamoDB Streams" subsection that followed were
+> removed — the event is not implemented (ADR-010).
 
 ## Flows
 
@@ -336,7 +328,7 @@ sequenceDiagram
     SDK->>DDB: PutItem (userId=targetUserId, impersonatedBy=currentUserId, TTL=maxAge)
     SDK->>EB: ImpersonationStarted {currentUserId, targetUserId, startedAt}
     SDK-->>AdminAPI: {sid, maxAge}
-    AdminAPI-->>Admin: 301 + Set-Cookie: __Host-SID=sid (clear old + set new)
+    AdminAPI-->>Admin: 303 + Set-Cookie: __Host-SID=sid (clear old + set new)
     Note over Admin: Browser now has impersonation session cookie
 ```
 
@@ -381,8 +373,8 @@ sequenceDiagram
     API->>DDB: PutItem (new session for impersonatedBy user)
     API->>DDB: DeleteItem (impersonation session)
     API->>EB: ImpersonationEnded {currentUserId, targetUserId, endedAt}
-    API-->>CF: 301 + Set-Cookie (clear old, set operator session)
-    CF-->>Browser: 301 → /admin
+    API-->>CF: 303 + Set-Cookie (clear old, set operator session)
+    CF-->>Browser: 303 → /admin
     Note over Browser: Browser now has operator's own session
 ```
 
@@ -399,9 +391,14 @@ sequenceDiagram
     DDB-->>Auth: {userId: target, impersonatedBy: operator, expiresAt: past}
     Auth-->>Browser: context {type: "expired", ...}
     Note over Browser: Handler returns 401 / redirect to login
-    Note over DDB: TTL eventually deletes the item
-    Note over DDB: If impersonationExpiredEvents enabled:<br/>DDB Stream → Lambda → EventBridge ImpersonationExpired
+    Note over DDB: TTL eventually deletes the item (no event emitted)
 ```
+
+> **SUPERSEDED:** the original diagram noted an optional
+> `impersonationExpiredEvents` DynamoDB-stream path emitting `ImpersonationExpired`
+> on TTL delete. That was dropped (ADR-010): a lapsed impersonation session is
+> observed synchronously as `expired`, exactly like a normal session, and no
+> expiry event is emitted.
 
 ## Handler Usage Examples
 
@@ -484,7 +481,7 @@ export const fetch = withSession(authorizer, async (request, session) => {
   });
 
   return new Response(null, {
-    status: 301,
+    status: 303,
     headers: addSetCookies({
       headers: new Headers({
         "Cache-Control": "no-store",
@@ -508,7 +505,7 @@ async function endImpersonation() {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ redirectTo: "/admin/users" }),
   });
-  // Browser follows 301 redirect back to admin panel
+  // Browser follows 303 redirect back to admin panel
 }
 ```
 
@@ -524,7 +521,7 @@ export type ValidSession = {
   expiresAt: string;
 };
 
-// After (0.12.0)
+// After (0.16.0)
 export type ValidSession =
   | { userId: string; sessionId: string; expiresAt: string; impersonating: false }
   | {
@@ -642,26 +639,13 @@ Minimal — no new tables or indexes. Changes:
 readonly maxImpersonationDuration?: Duration;
 ```
 
-3. **Optional CDK prop** for DynamoDB Streams-based expiration events:
+> **SUPERSEDED:** a third prop, `impersonationExpiredEvents?: boolean`, was
+> planned to enable a DynamoDB Stream + Lambda emitting `ImpersonationExpired` on
+> TTL delete. It was **not implemented** (ADR-010). No stream, no stream Lambda,
+> no extra IAM grant, and no `impersonationExpiredEvents` prop exist. The Sessions
+> table keeps its existing shape.
 
-```ts
-/**
- * When true, enables DynamoDB Streams on the Sessions table and deploys
- * a Lambda that emits `ImpersonationExpired` events when impersonation
- * sessions are TTL-deleted. Adds cost (Stream read units + Lambda invocations).
- *
- * @default false
- */
-readonly impersonationExpiredEvents?: boolean;
-```
-
-When enabled, the construct creates:
-
-- A DynamoDB Stream (NEW_AND_OLD_IMAGES) on the Sessions table
-- A Lambda that filters for `eventName: "REMOVE"` items where `impersonatedBy` was present
-- EventBridge `events:PutEvents` permission for the stream Lambda
-
-## Breaking Changes (0.11.x → 0.12.0)
+## Breaking Changes (0.15.1 → 0.16.0)
 
 | Change                                           | Impact                                                                                                                             |
 | ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
@@ -682,7 +666,7 @@ When enabled, the construct creates:
 
 - In `src/authorize.ts`: read `impersonatedBy` from session row, build `validSession` as discriminated union
 - In `sessionAuthorizer.ts`: update `ValidSession` type export to match
-- (Optional) Emit `ImpersonationExpired` event on expired impersonation sessions
+  <!-- SUPERSEDED: the planned "(Optional) Emit ImpersonationExpired on expired sessions" was dropped — the authorizer emits no expiry event (ADR-010). -->
 
 ### Task 3: Update `ValidSession` and `SessionContext` types
 
@@ -701,19 +685,18 @@ When enabled, the construct creates:
 - New handler `src/handlers/endImpersonation.ts`
 - Wire into `api.ts` router
 - Emit `ImpersonationEnded` event
-- Return redirect with cookie swap (supports content negotiation: JSON `{ redirectTo }` when `Accept: application/json`, otherwise 301)
+- Return redirect with cookie swap (supports content negotiation: JSON `{ redirectTo }` when `Accept: application/json`, otherwise 303)
 
 ### Task 6: Add event types
 
-- Add `ImpersonationStarted`, `ImpersonationEnded`, `ImpersonationExpired` to `src/events.ts` and consumer-facing `events.ts`
+- Add `ImpersonationStarted`, `ImpersonationEnded` to `src/events.ts` and consumer-facing `events.ts`
 - Add type guards and schema validation
+  <!-- SUPERSEDED: ImpersonationExpired was dropped from this task (ADR-010). -->
 
 ### Task 7: CDK changes
 
 - Add `maxImpersonationDuration` prop, pass as env var to SDK handler
-- Add optional `impersonationExpiredEvents` prop:
-  - When `true`: enables DynamoDB Streams on the Sessions table + a Lambda that filters for TTL-deleted items with `impersonatedBy` and emits `ImpersonationExpired` to EventBridge
-  - When `false` (default): no stream, no extra Lambda, no expired event
+  <!-- SUPERSEDED: the planned optional `impersonationExpiredEvents` prop (DynamoDB Streams + expiry Lambda) was dropped (ADR-010). No stream or expiry Lambda was built. -->
 
 ### Task 8: Tests
 
@@ -732,19 +715,19 @@ When enabled, the construct creates:
 
 ## Checklist
 
-- [ ] Task 1: Session schema + `createOne` changes
-- [ ] Task 2: Authorizer context discrimination
-- [ ] Task 3: `ValidSession` / `SessionContext` type update
-- [ ] Task 4: `impersonate` SDK command
-- [ ] Task 5: `/auth/endImpersonation` endpoint
-- [ ] Task 6: Event types (Started, Ended, Expired)
-- [ ] Task 7: CDK prop for max duration
-- [ ] Task 8: Tests
-- [ ] Task 9: Documentation update
+- [x] Task 1: Session schema + `createOne` changes
+- [x] Task 2: Authorizer context discrimination
+- [x] Task 3: `ValidSession` / `SessionContext` type update
+- [x] Task 4: `impersonate` SDK command
+- [x] Task 5: `/auth/endImpersonation` endpoint
+- [x] Task 6: Event types (Started, Ended — Expired dropped per ADR-010)
+- [x] Task 7: CDK prop for max duration
+- [x] Task 8: Tests
+- [x] Task 9: Documentation update
 
 ## Resolved Decisions
 
-1. **`ImpersonationExpired` event** — deferred from the authorizer. Will be implemented via DynamoDB Streams: a separate Lambda subscribes to session table TTL deletions, checks for `impersonatedBy`, and emits the event. This is an **optional CDK setting** (`impersonationExpiredEvents: true`) since it adds a Stream + Lambda (cost and complexity). Not required for core impersonation functionality.
+1. **`ImpersonationExpired` event — REVERSED, not implemented.** This was originally planned via DynamoDB Streams (a Lambda subscribing to session-table TTL deletions, checking for `impersonatedBy`, emitting the event, gated behind an optional `impersonationExpiredEvents` CDK setting). That decision was **reversed** — see [ADR-010](../../packages/service-auth/docs/adr-010-no-impersonation-expiry-event.md). Rationale: TTL deletion latency is up to 48h, so the event would be far too late for audit or real-time use; and it would be asymmetric with normal-session expiry, which is not evented either (a lapsed impersonation session is simply observed as `expired` on the next request). No stream, no expiry Lambda, no `impersonationExpiredEvents` prop, and no `ImpersonationExpired` type/guard were built.
 
 2. **`endImpersonation` routing** — reads `__Host-SID` directly from the cookie and looks up the session in DynamoDB within the handler. Same pattern as `signOut`. Stays on the auth function URL behind CloudFront OAC, no additional Lambda or API Gateway route needed.
 
