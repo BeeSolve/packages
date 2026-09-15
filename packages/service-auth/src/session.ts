@@ -13,6 +13,7 @@ import {
   PutCommand,
   QueryCommand,
   TransactWriteCommand,
+  UpdateCommand,
 } from "@aws-sdk/lib-dynamodb";
 import { splitArrayToChunks } from "@beesolve/helpers";
 import * as v from "valibot";
@@ -34,7 +35,7 @@ const authorizerSchema = v.object({
   id: v.string(),
   sessionId: v.string(),
   userId: v.string(),
-  impersonatedBy: v.optional(v.string()),
+  impersonatedId: v.optional(v.string()),
   startedAt: v.pipe(v.string(), v.isoTimestamp()),
   createdAt: v.pipe(v.string(), v.isoTimestamp()),
   expiresAt: v.pipe(
@@ -97,7 +98,7 @@ export class Sessions {
           "expiresAt",
           "userId",
           "sessionId",
-          "impersonatedBy",
+          "impersonatedId",
           "startedAt",
           "createdAt",
         ].join(),
@@ -151,7 +152,6 @@ export class Sessions {
     readonly userId: string;
     readonly maxAge?: number;
     readonly data: NewSession["data"];
-    readonly impersonatedBy?: string;
   }) => {
     const { model, item, maxAge } = this.toNewSession({
       ...props,
@@ -213,7 +213,7 @@ export class Sessions {
         sessionId: props.session.sessionId,
         userId: props.session.userId,
         startedAt: props.session.startedAt,
-        impersonatedBy: props.session.impersonatedBy,
+        impersonatedId: props.session.impersonatedId,
         data: props.data,
       });
 
@@ -283,6 +283,60 @@ export class Sessions {
     );
   };
 
+  readonly impersonate = async (props: {
+    readonly id: string;
+    readonly impersonatedId: string;
+  }): Promise<void> => {
+    try {
+      await this.props.dynamo.send(
+        new UpdateCommand({
+          TableName: this.props.tableName,
+          Key: { id: props.id },
+          UpdateExpression: "SET #impersonatedId = :impersonatedId, #updatedAt = :updatedAt",
+          ConditionExpression: "attribute_exists(id) AND attribute_not_exists(#impersonatedId)",
+          ExpressionAttributeNames: {
+            "#impersonatedId": "impersonatedId",
+            "#updatedAt": "updatedAt",
+          },
+          ExpressionAttributeValues: {
+            ":impersonatedId": props.impersonatedId,
+            ":updatedAt": new Date().toISOString(),
+          },
+        }),
+      );
+    } catch (error) {
+      if (error instanceof ConditionalCheckFailedException)
+        throw new BadRequestError(`Session does not exist or is already impersonating.`);
+
+      throw error;
+    }
+  };
+
+  readonly stopImpersonating = async (id: string): Promise<void> => {
+    try {
+      await this.props.dynamo.send(
+        new UpdateCommand({
+          TableName: this.props.tableName,
+          Key: { id },
+          UpdateExpression: "REMOVE #impersonatedId SET #updatedAt = :updatedAt",
+          ConditionExpression: "attribute_exists(id) AND attribute_exists(#impersonatedId)",
+          ExpressionAttributeNames: {
+            "#impersonatedId": "impersonatedId",
+            "#updatedAt": "updatedAt",
+          },
+          ExpressionAttributeValues: {
+            ":updatedAt": new Date().toISOString(),
+          },
+        }),
+      );
+    } catch (error) {
+      if (error instanceof ConditionalCheckFailedException)
+        throw new BadRequestError(`Session does not exist or is not impersonating.`);
+
+      throw error;
+    }
+  };
+
   readonly delete = async (id: string) => {
     await this.props.dynamo.send(
       new DeleteCommand({
@@ -319,7 +373,7 @@ export class Sessions {
     readonly startedAt: undefined | string;
     readonly data: NewSession["data"];
     readonly maxAge?: number;
-    readonly impersonatedBy?: string;
+    readonly impersonatedId?: string;
   }) => {
     const maxAge = props.maxAge ?? this.props.defaultMaxAge ?? 2_592_000;
 
@@ -332,7 +386,7 @@ export class Sessions {
       sessionId: props.sessionId ?? randomBytes(32).toString("base64url"),
       expiresAt: Math.round(expiresAt.getTime() / 1000),
       userId: props.userId,
-      impersonatedBy: props.impersonatedBy,
+      impersonatedId: props.impersonatedId,
       data: props.data,
       createdAt,
       updatedAt: createdAt,

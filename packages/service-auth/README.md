@@ -232,6 +232,28 @@ window.location.href = redirectTo;
 // Without Accept: application/json → 303 redirect (for native form submissions)
 ```
 
+**POST /auth/endImpersonation**
+
+```ts
+const res = await fetch("/auth/endImpersonation", {
+  method: "POST",
+  headers: { "Content-Type": "application/json", Accept: "application/json" },
+  body: JSON.stringify({ redirectTo: "/admin/users" }),
+  credentials: "include",
+});
+const { redirectTo } = await res.json();
+window.location.href = redirectTo;
+// → 200 JSON with redirectTo; the current session reverts to normal (no cookie change)
+// Without Accept: application/json → 303 redirect (for native form submissions)
+// → 400 if the current session is not an impersonation session
+```
+
+Ends the current impersonation by removing `impersonatedId` from the current
+session — the same session reverts to normal — and emits `ImpersonationEnded`.
+Reads `__Host-SID` from the cookie and looks up the session itself —
+same public-endpoint pattern as `/auth/signOut` (behind CloudFront OAC). See the
+[Impersonation](#impersonation) section.
+
 ## Integration Patterns
 
 ### Pattern 1: SPA + Lambda Authorizer
@@ -380,6 +402,11 @@ export async function handler(request: Request, resHeaders: Headers): Promise<Re
 
 The authorizer always returns `Allow` — session state (`"valid"`, `"expired"`, `"invalid"`) is passed as context. This lets handlers differentiate between anonymous, expired, and authenticated requests.
 
+> `validSession` is a discriminated union on an `impersonating` flag —
+> `{ userId, sessionId, expiresAt, impersonating: false }` or the same plus
+> `impersonating: true, impersonatedBy`. Reading `session.userId` still works
+> unchanged (it is always the effective user). See [Impersonation](#impersonation).
+
 ### tRPC example
 
 ```ts
@@ -426,7 +453,174 @@ await auth.invoke({
   type: "deleteAllSessions",
   request: { accountId: id, exceptSessionId: "keep-this" },
 });
+
+// Start impersonating another user (from your admin-panel backend Lambda).
+// Authorization is YOUR responsibility — auth-service does not decide who may
+// impersonate, so verify the impersonator's permission before invoking this.
+// Pass the impersonator's own Cookie header; the SDK parses __Host-SID and
+// mutates that session server-side. It returns nothing — after it succeeds the
+// impersonator's EXISTING cookie automatically resolves to an impersonating session.
+await auth.invoke({
+  type: "impersonate",
+  request: {
+    targetUserId: "user-to-act-as",
+    cookieHeader: request.headers.get("cookie") ?? "", // the impersonator's Cookie header
+  },
+});
+// No cookie swap, no new session — the same __Host-SID now resolves to an
+// impersonating session on the next request.
 ```
+
+See the [Impersonation](#impersonation) section for the full lifecycle.
+
+> **SDK commands act on the `accountId`/`targetUserId` you pass, with no notion of
+> a "current user".** `deleteAllSessions`, `sessionList`, etc. operate purely on
+> the id in the request. If your calling code derives that id from a request that
+> is under impersonation (where the projected `session.userId` is the **target**),
+> the command acts on the **target**, not the impersonator — e.g.
+> `deleteAllSessions({ accountId: session.userId })` while impersonating force-signs-out
+> the impersonated user. The SDK is a privileged admin surface and cannot detect
+> impersonation (it never sees a session); avoiding this is the caller's
+> responsibility. See the impersonation [edge case](#️-edge-case-acting-as-current-user-affects-the-target).
+
+## Impersonation
+
+Impersonation lets an impersonator (admin, support agent) act as another user for
+debugging and support, while preserving an audit trail of who initiated it.
+Impersonation is a reversible mutation on the impersonator's **own** session: no
+new cookie is issued, the same session simply flips into impersonating mode by
+gaining an `impersonatedId` attribute. Existing handlers keep working unchanged.
+
+- **`userId` is always the effective (target) user.** Handlers that read
+  `session.userId` load the impersonated user's data with no changes.
+- **`impersonating` flag.** `validSession` is a discriminated union:
+  `{ userId, sessionId, expiresAt, impersonating: false }` or the same plus
+  `impersonating: true, impersonatedBy`. Detect impersonation by narrowing on the
+  flag; `impersonatedBy` is the impersonator's account ID (the real session owner).
+- **One session, one lifetime.** There is no separate impersonation session and
+  no duration cap — the impersonator's session expires exactly when it always
+  would, whether or not it is impersonating.
+- **Authorization is the caller's responsibility.** auth-service authenticates;
+  it does not decide who may impersonate. Verify the impersonator's permission
+  before starting impersonation.
+
+> ### ⚠️ Edge case: acting-as-current-user affects the target
+>
+> Because the impersonation session is the impersonator's own session and
+> `session.userId` projects to the **target** while impersonating, any
+> "act as the current user" operation keyed on `session.userId` operates on the
+> **target**. The sharpest example: a "sign out of all my devices" action keyed
+> on `session.userId` would delete the **target's** sessions, not the
+> impersonator's. Callers exposing such operations must account for this.
+>
+> The impersonation session also follows the **impersonator's** lifecycle — the
+> impersonator's own sign-out ends it; the target signing out elsewhere does not.
+>
+> A future mitigation (a caller-side check, or a `force`/param on the sign-out
+> endpoint that detects an impersonating session) is possible but out of scope
+> for now. See [ADR-012](docs/adr-012-impersonation-session-preservation.md).
+
+### Detecting impersonation in a handler (in-process)
+
+```ts
+import { SessionAuthorizer, withSession } from "@beesolve/auth-service/sessionAuthorizer";
+
+const authorizer = new SessionAuthorizer();
+
+export const fetch = withSession(authorizer, async (request, session) => {
+  // session.userId is always the effective user (the target).
+  const data = await loadUserData(session.userId);
+
+  if (session.impersonating) {
+    // session.impersonatedBy is the impersonator's account id — audit / show a banner.
+    console.log(`Acting as ${session.userId}, impersonated by ${session.impersonatedBy}`);
+  }
+
+  return new Response(JSON.stringify(data));
+});
+```
+
+### Detecting impersonation in a SvelteKit hook
+
+```ts
+// hooks.server.ts
+const authGuard: Handle = async ({ event, resolve }) => {
+  const session = event.locals.session;
+
+  if (session.type === "valid" && session.validSession.impersonating) {
+    event.locals.impersonatedBy = session.validSession.impersonatedBy;
+  }
+
+  return resolve(event);
+};
+```
+
+### Blocking sensitive actions while impersonating
+
+```ts
+export const fetch = withSession(authorizer, async (request, session) => {
+  if (session.impersonating) {
+    return new Response(
+      JSON.stringify({ message: "Cannot perform this action while impersonating." }),
+      { status: 403, headers: { "Content-Type": "application/json" } },
+    );
+  }
+
+  // ... delete account, change email, etc.
+});
+```
+
+### Starting impersonation (SDK)
+
+Invoke the `impersonate` SDK command from your admin backend, passing the
+impersonator's own `Cookie` header. The SDK parses `__Host-SID` and mutates that
+session server-side; it returns nothing. There is no cookie swap and no new
+session — after it succeeds the impersonator's existing cookie automatically
+resolves to an impersonating session on the next request.
+
+```ts
+await auth.invoke({
+  type: "impersonate",
+  request: { targetUserId, cookieHeader: request.headers.get("cookie") ?? "" },
+});
+// Nothing to set — the same __Host-SID now resolves to an impersonating session.
+```
+
+This emits `ImpersonationStarted`.
+
+> `targetUserId` is trusted and **not** validated against any account — the
+> auth-service treats user ids as opaque and does not own the user directory.
+> The caller must ensure `targetUserId` is a real user it is authorised to
+> impersonate. Impersonating a non-existent id fails safe (the resulting session
+> simply resolves to a user that owns nothing), but validity is the caller's
+> responsibility (see [ADR-012](docs/adr-012-impersonation-session-preservation.md)).
+
+### Ending impersonation (endpoint)
+
+The impersonator's browser calls `POST /auth/endImpersonation`. The endpoint
+removes `impersonatedId` from the current session — the same session reverts to
+normal, with no cookie change — and emits `ImpersonationEnded`. It returns 200
+JSON `{ redirectTo }` when called with `Accept: application/json`, otherwise a
+303 redirect (same pattern as `/auth/signOut`). If the current session is not an
+impersonation session it returns 400.
+
+```ts
+async function endImpersonation() {
+  const res = await fetch("/auth/endImpersonation", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({ redirectTo: "/admin/users" }),
+    credentials: "include",
+  });
+  const { redirectTo } = await res.json();
+  window.location.href = redirectTo;
+}
+```
+
+Both lifecycle events are emitted for audit; there is no expiry event — an
+impersonation session that simply lapses is observed as `expired` on the next
+request, exactly like a normal session (see
+[ADR-010](docs/adr-010-no-impersonation-expiry-event.md)).
 
 ## EventBridge Events
 
@@ -442,6 +636,8 @@ All events are emitted on the configured bus with source `beesolve.auth.api` (or
 | `SessionInvalidated`   | Sign-out                                | `sessionId`                                                                  |
 | `PasskeyRegistered`    | New passkey credential stored           | `userId`, `credentialId`                                                     |
 | `PasskeyAuthUsed`      | Successful passkey sign-in              | `userId`, `credentialId`                                                     |
+| `ImpersonationStarted` | SDK `impersonate` command succeeds      | `currentUserId`, `targetUserId`, `startedAt`                                 |
+| `ImpersonationEnded`   | `/auth/endImpersonation` completes      | `currentUserId`, `targetUserId`, `endedAt`                                   |
 
 > **You must subscribe to `EmailCodeAuth` and send the email yourself.** Use `@beesolve/email-service` or any email provider. See the `authWithEmail` sample for a complete implementation.
 

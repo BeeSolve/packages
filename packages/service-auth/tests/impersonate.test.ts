@@ -2,8 +2,6 @@ import { describe, expect, it, mock } from "bun:test";
 
 import { encodeToStringifiable } from "@beesolve/helpers";
 
-import { Sessions } from "../src/session.ts";
-
 process.env.SESSIONS_TABLE_NAME = "sessions";
 process.env.SESSIONS_USER_ID_INDEX_NAME = "userIdGsi";
 process.env.ACCOUNTS_TABLE_NAME = "accounts";
@@ -43,126 +41,91 @@ function commandName(command: unknown): string {
   return command != null && typeof command === "object" ? command.constructor.name : "";
 }
 
-function putItem(send: { mock: { calls: Array<Array<unknown>> } }): Record<string, unknown> {
-  const call = send.mock.calls.find((call) => commandName(call[0]) === "PutCommand")?.[0];
-  if (call == null) throw new Error("expected a PutCommand");
+function commandInput(name: string): Record<string, unknown> {
+  const call = dynamoSend.mock.calls.find((call) => commandName(call[0]) === name)?.[0];
+  if (call == null) throw new Error(`expected a ${name}`);
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-  return (call as { input: { Item: Record<string, unknown> } }).input.Item;
+  return (call as { input: Record<string, unknown> }).input;
+}
+
+function sessionItem(
+  overrides: { userId?: string; impersonatedId?: string; expiresAtSeconds?: number } = {},
+) {
+  const now = new Date();
+  return {
+    id: "impersonator-sid",
+    sessionId: "logical-session-id",
+    userId: overrides.userId ?? "the-impersonator",
+    impersonatedId: overrides.impersonatedId,
+    startedAt: new Date(now.getTime() - 86_400_000).toISOString(),
+    createdAt: now.toISOString(),
+    expiresAt: overrides.expiresAtSeconds ?? Math.round((now.getTime() + 3_600_000) / 1000),
+  };
+}
+
+function mockDynamo(item: ReturnType<typeof sessionItem> | undefined) {
+  dynamoSend.mockReset();
+  putEventsCalls.length = 0;
+  dynamoSend.mockImplementation((command: unknown) => {
+    if (commandName(command) === "GetCommand") return Promise.resolve({ Item: item });
+    return Promise.resolve({});
+  });
 }
 
 async function invokeImpersonate(request: {
   targetUserId: string;
-  currentUserId: string;
-  maxAge?: number;
-}): Promise<{ sid: string; maxAge: number }> {
+  cookieHeader: string;
+}): Promise<undefined> {
   // oxlint-disable-next-line typescript/no-explicit-any, typescript/no-unsafe-type-assertion
   const event = encodeToStringifiable({ type: "impersonate", request }) as any;
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-  return (await handler(event, undefined)) as { sid: string; maxAge: number };
+  return (await handler(event, undefined)) as undefined;
 }
 
+const cookieHeader = "__Host-SID=impersonator-sid";
+
 describe("impersonate SDK command", () => {
-  it("creates a session with impersonatedBy and emits ImpersonationStarted", async () => {
-    dynamoSend.mockReset();
-    putEventsCalls.length = 0;
-    dynamoSend.mockImplementation(() => Promise.resolve({}));
+  it("mutates the impersonator's session with impersonatedId and emits ImpersonationStarted", async () => {
+    mockDynamo(sessionItem());
 
-    const result = await invokeImpersonate({
-      targetUserId: "target-user",
-      currentUserId: "operator-1",
-    });
+    const result = await invokeImpersonate({ targetUserId: "target-user", cookieHeader });
 
-    expect(typeof result.sid).toBe("string");
+    expect(result).toBeUndefined();
 
-    const item = putItem(dynamoSend);
-    expect(item.userId).toBe("target-user");
-    expect(item.impersonatedBy).toBe("operator-1");
+    const input = commandInput("UpdateCommand");
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    expect((input.Key as { id: string }).id).toBe("impersonator-sid");
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    expect((input.ExpressionAttributeValues as Record<string, unknown>)[":impersonatedId"]).toBe(
+      "target-user",
+    );
 
     expect(putEventsCalls).toHaveLength(1);
     const entry = putEventsCalls[0]?.Entries[0];
     expect(entry?.DetailType).toBe("ImpersonationStarted");
     const detail = JSON.parse(entry?.Detail ?? "{}");
-    expect(detail.currentUserId).toBe("operator-1");
+    expect(detail.currentUserId).toBe("the-impersonator");
     expect(detail.targetUserId).toBe("target-user");
+    expect(typeof detail.startedAt).toBe("string");
   });
 
-  it("defaults maxAge to 3600 when not provided", async () => {
-    dynamoSend.mockReset();
-    putEventsCalls.length = 0;
-    dynamoSend.mockImplementation(() => Promise.resolve({}));
+  it("throws when the cookie has no __Host-SID entry", async () => {
+    mockDynamo(sessionItem());
 
-    const result = await invokeImpersonate({
-      targetUserId: "target-user",
-      currentUserId: "operator-1",
-    });
-
-    expect(result.maxAge).toBe(3600);
+    expect(
+      invokeImpersonate({ targetUserId: "target-user", cookieHeader: "other=value" }),
+    ).rejects.toThrow();
   });
 
-  it("passes maxAge through when within the cap", async () => {
-    dynamoSend.mockReset();
-    putEventsCalls.length = 0;
-    dynamoSend.mockImplementation(() => Promise.resolve({}));
+  it("throws when the session has expired", async () => {
+    mockDynamo(sessionItem({ expiresAtSeconds: Math.round((Date.now() - 60_000) / 1000) }));
 
-    const result = await invokeImpersonate({
-      targetUserId: "target-user",
-      currentUserId: "operator-1",
-      maxAge: 7200,
-    });
-
-    expect(result.maxAge).toBe(7200);
+    expect(invokeImpersonate({ targetUserId: "target-user", cookieHeader })).rejects.toThrow();
   });
 
-  it("caps maxAge at 14400 (4 hours)", async () => {
-    dynamoSend.mockReset();
-    putEventsCalls.length = 0;
-    dynamoSend.mockImplementation(() => Promise.resolve({}));
+  it("throws when the session is already impersonating", async () => {
+    mockDynamo(sessionItem({ impersonatedId: "someone-else" }));
 
-    const result = await invokeImpersonate({
-      targetUserId: "target-user",
-      currentUserId: "operator-1",
-      maxAge: 999_999,
-    });
-
-    expect(result.maxAge).toBe(14400);
-  });
-});
-
-describe("Sessions.createOne impersonatedBy", () => {
-  it("writes impersonatedBy into the DynamoDB item when provided", async () => {
-    const send = mock((_command: unknown) => Promise.resolve({}));
-    const sessions = new Sessions({
-      dynamo: { send },
-      tableName: "sessions",
-      userIdIndexName: "userIdGsi",
-    });
-
-    await sessions.createOne({
-      userId: "target-user",
-      data: {},
-      impersonatedBy: "operator-1",
-    });
-
-    const item = putItem(send);
-    expect(item.userId).toBe("target-user");
-    expect(item.impersonatedBy).toBe("operator-1");
-  });
-
-  it("omits impersonatedBy (undefined) when not provided", async () => {
-    const send = mock((_command: unknown) => Promise.resolve({}));
-    const sessions = new Sessions({
-      dynamo: { send },
-      tableName: "sessions",
-      userIdIndexName: "userIdGsi",
-    });
-
-    await sessions.createOne({
-      userId: "normal-user",
-      data: {},
-    });
-
-    const item = putItem(send);
-    expect(item.userId).toBe("normal-user");
-    expect(item.impersonatedBy).toBeUndefined();
+    expect(invokeImpersonate({ targetUserId: "target-user", cookieHeader })).rejects.toThrow();
   });
 });

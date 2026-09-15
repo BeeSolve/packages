@@ -95,13 +95,6 @@ interface CoreProps {
   /** @default true when stage is "prod" */
   readonly contributorInsights?: boolean;
   readonly sdkHandlerReservedConcurrency?: number;
-  /**
-   * Maximum allowed impersonation session duration. SDK callers can request up
-   * to this value; the SDK handler caps requests at this limit.
-   *
-   * @default Duration.hours(4)
-   */
-  readonly maxImpersonationDuration?: Duration;
   /** Relying Party ID for passkeys (typically the domain without port, e.g. "example.com"). When set, passkey endpoints are enabled. */
   readonly rpId?: string;
   /** Relying Party display name for passkeys. @default "Auth" */
@@ -340,7 +333,6 @@ export class AuthGateway extends Construct {
       ...tables,
       eventBus,
       eventSource: this.eventSource,
-      maxImpersonationDuration: props.maxImpersonationDuration,
       logGroupProps: props.logGroupProps,
       alarms: props.alarms,
       warmer: props.warmer,
@@ -582,7 +574,6 @@ export class AuthService extends Construct {
       ...tables,
       eventBus,
       eventSource: this.eventSource,
-      maxImpersonationDuration: props.maxImpersonationDuration,
       logGroupProps: props.logGroupProps,
       alarms: props.alarms,
       warmer: props.warmer,
@@ -835,7 +826,6 @@ function createSdkHandler(
     accountsReverseIndexName: string;
     eventBus: IEventBus;
     eventSource: string;
-    maxImpersonationDuration?: Duration;
     logGroupProps?: LogGroupProps;
     alarms?: EmailAlarms;
     warmer?: LambdaKeepActive;
@@ -856,9 +846,6 @@ function createSdkHandler(
       ACCOUNTS_REVERSE_INDEX_NAME: props.accountsReverseIndexName,
       EVENT_BUS_ARN: props.eventBus.eventBusArn,
       EVENT_SOURCE: props.eventSource,
-      MAX_IMPERSONATION_DURATION: String(
-        Math.floor((props.maxImpersonationDuration ?? Duration.hours(4)).toSeconds()),
-      ),
     },
     logGroupProps: props.logGroupProps,
   });

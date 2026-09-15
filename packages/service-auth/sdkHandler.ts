@@ -6,7 +6,9 @@ import { keptActive } from "@beesolve/lambda-keep-active/runtime";
 import * as v from "valibot";
 
 import { Accounts } from "./src/account.ts";
+import { parseSid } from "./src/cookie.ts";
 import { toDynamoClient } from "./src/dynamo.ts";
+import { BadRequestError } from "./src/errors.ts";
 import { Events } from "./src/events.ts";
 import { type UserSession, Sessions } from "./src/session.ts";
 
@@ -17,7 +19,6 @@ const envSchema = v.object({
   ACCOUNTS_REVERSE_INDEX_NAME: v.string(),
   EVENT_BUS_ARN: v.string(),
   EVENT_SOURCE: v.string(),
-  MAX_IMPERSONATION_DURATION: v.optional(v.pipe(v.string(), v.transform(Number), v.number())),
 });
 const env = v.parse(envSchema, process.env);
 
@@ -58,8 +59,7 @@ const deleteAllSessionsSchema = v.object({
 
 const impersonateSchema = v.object({
   targetUserId: v.string(),
-  currentUserId: v.string(),
-  maxAge: v.optional(v.number()),
+  cookieHeader: v.string(),
 });
 
 type NewEmailAccountCommand = {
@@ -91,7 +91,7 @@ type DeleteAllSessionsRequest = {
 type ImpersonateCommand = {
   readonly type: "impersonate";
   readonly request: v.InferInput<typeof impersonateSchema>;
-  readonly response: { readonly sid: string; readonly maxAge: number };
+  readonly response: undefined;
 };
 
 export type Commands =
@@ -181,23 +181,28 @@ export const handler = keptActive(async (event: HandlerEvent) => {
 
   if (type === "impersonate") {
     const parsed = v.parse(impersonateSchema, request);
-    const cap = env.MAX_IMPERSONATION_DURATION ?? 14400;
-    const maxAge = Math.min(parsed.maxAge ?? 3600, cap);
-    const session = await sessions.createOne({
-      userId: parsed.targetUserId,
-      maxAge,
-      data: {},
-      impersonatedBy: parsed.currentUserId,
-    });
+
+    const sid = parseSid(parsed.cookieHeader);
+    if (sid == null) throw new BadRequestError(`Missing session cookie.`);
+
+    const session = await sessions.getOne(sid);
+    if (Date.now() > Date.parse(session.expiresAt))
+      throw new BadRequestError(`Session has expired.`);
+    if (session.impersonatedId != null)
+      throw new BadRequestError(`Session is already impersonating.`);
+
+    await sessions.impersonate({ id: sid, impersonatedId: parsed.targetUserId });
+
     await events.putEvents({
       type: "ImpersonationStarted",
       detail: {
-        currentUserId: parsed.currentUserId,
+        currentUserId: session.userId,
         targetUserId: parsed.targetUserId,
         startedAt: new Date().toISOString(),
       },
     });
-    return { sid: session.id, maxAge };
+
+    return;
   }
 
   assertUnreachable(type);

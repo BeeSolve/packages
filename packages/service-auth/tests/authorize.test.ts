@@ -6,7 +6,7 @@ import { Sessions } from "../src/session.ts";
 interface SessionItemOverrides {
   readonly id?: string;
   readonly userId?: string;
-  readonly impersonatedBy?: string;
+  readonly impersonatedId?: string;
   readonly expiresAtSeconds?: number;
   readonly createdAt?: string;
 }
@@ -19,7 +19,7 @@ function makeSessionItem(overrides: SessionItemOverrides = {}) {
     id: overrides.id ?? "session-id-123",
     sessionId: "logical-session-id",
     userId: overrides.userId ?? "target-user",
-    impersonatedBy: overrides.impersonatedBy,
+    impersonatedId: overrides.impersonatedId,
     startedAt: new Date(now.getTime() - 86_400_000).toISOString(),
     createdAt,
     expiresAt: overrides.expiresAtSeconds ?? Math.round((now.getTime() + 2_592_000_000) / 1000),
@@ -96,8 +96,8 @@ describe("authorize", () => {
     expect(result.validSession.sessionId).toBe("session-id-123");
   });
 
-  it("builds an impersonating valid session when impersonatedBy is present", async () => {
-    const item = makeSessionItem({ userId: "target-user", impersonatedBy: "operator-1" });
+  it("builds an impersonating valid session when impersonatedId is present", async () => {
+    const item = makeSessionItem({ userId: "the-impersonator", impersonatedId: "target-user" });
     const { sessions } = createSessions(item);
 
     const result = await authorize({ sessions, cookieHeader: "__Host-SID=session-id-123" });
@@ -106,7 +106,7 @@ describe("authorize", () => {
     if (result.type !== "valid") throw new Error("expected valid result");
     expect(result.validSession.impersonating).toBe(true);
     if (!result.validSession.impersonating) throw new Error("expected impersonating session");
-    expect(result.validSession.impersonatedBy).toBe("operator-1");
+    expect(result.validSession.impersonatedBy).toBe("the-impersonator");
     expect(result.validSession.userId).toBe("target-user");
   });
 });

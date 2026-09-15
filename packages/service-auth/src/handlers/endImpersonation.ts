@@ -1,15 +1,15 @@
 import * as v from "valibot";
 
-import { addSetCookies, parseSid } from "../cookie.ts";
+import { parseSid } from "../cookie.ts";
 import { BadRequestError } from "../errors.ts";
 import type { Events } from "../events.ts";
 import { parseBody } from "../request.ts";
-import { Sessions } from "../session.ts";
+import type { Sessions } from "../session.ts";
 
 interface Dependencies {
   readonly headers: Headers;
   readonly requestBody: () => Promise<unknown>;
-  readonly sessions: Pick<Sessions, "getOne" | "createOne" | "delete">;
+  readonly sessions: Pick<Sessions, "getOne" | "stopImpersonating">;
   readonly events: Pick<Events, "putEvents">;
 }
 
@@ -38,50 +38,34 @@ export async function endImpersonation({
   if (sid == null) throw new BadRequestError(`Missing cookie.`);
 
   const session = await sessions.getOne(sid);
-  if (session.impersonatedBy == null) throw new BadRequestError(`Not in an impersonation session.`);
+  if (session.impersonatedId == null) throw new BadRequestError(`Not in an impersonation session.`);
 
-  const newSession = await sessions.createOne({
-    userId: session.impersonatedBy,
-    data: Sessions.dataFromCloudFrontHeaders(Object.fromEntries(headers.entries())),
-  });
-
-  await sessions.delete(sid);
+  await sessions.stopImpersonating(sid);
 
   await events.putEvents({
     type: "ImpersonationEnded",
     detail: {
-      currentUserId: session.impersonatedBy,
-      targetUserId: session.userId,
+      currentUserId: session.userId,
+      targetUserId: session.impersonatedId,
       endedAt: new Date().toISOString(),
     },
   });
 
-  const cookies = [
-    { sid, maxAge: -1 },
-    { sid: newSession.id, maxAge: newSession.maxAge },
-  ];
-
   if (headers.get("accept")?.includes("application/json")) {
     return new Response(JSON.stringify({ redirectTo: redirectTo ?? "/" }), {
       status: 200,
-      headers: addSetCookies({
-        headers: new Headers({
-          "Cache-Control": "no-store",
-          "Content-Type": "application/json",
-        }),
-        cookies,
+      headers: new Headers({
+        "Cache-Control": "no-store",
+        "Content-Type": "application/json",
       }),
     });
   }
 
   return new Response(null, {
     status: 303,
-    headers: addSetCookies({
-      headers: new Headers({
-        "Cache-Control": "no-store",
-        Location: redirectTo ?? "/",
-      }),
-      cookies,
+    headers: new Headers({
+      "Cache-Control": "no-store",
+      Location: redirectTo ?? "/",
     }),
   });
 }

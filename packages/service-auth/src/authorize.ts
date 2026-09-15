@@ -1,6 +1,6 @@
 import { parseSid } from "./cookie.ts";
 import { Sessions } from "./session.ts";
-import type { ValidSession } from "./validSession.ts";
+import { type ValidSession, toValidSession } from "./validSession.ts";
 
 export type { ValidSession };
 
@@ -67,21 +67,12 @@ export async function authorize(props: {
         ]
       : [{ sid: newSession.id, maxAge }];
 
-  const validSession: ValidSession =
-    session.impersonatedBy != null
-      ? {
-          userId: newSession.userId,
-          sessionId: session.id,
-          expiresAt: newSession.expiresAt,
-          impersonating: true as const,
-          impersonatedBy: session.impersonatedBy,
-        }
-      : {
-          userId: newSession.userId,
-          sessionId: session.id,
-          expiresAt: newSession.expiresAt,
-          impersonating: false as const,
-        };
+  const validSession = toValidSession({
+    userId: newSession.userId,
+    sessionId: session.id,
+    expiresAt: newSession.expiresAt,
+    impersonatedId: newSession.impersonatedId,
+  });
 
   return {
     type: "valid",

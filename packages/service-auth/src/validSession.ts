@@ -17,3 +17,29 @@ export const validSessionSchema = v.variant("impersonating", [
 ]);
 
 export type ValidSession = v.InferOutput<typeof validSessionSchema>;
+
+interface SessionIdentity {
+  readonly userId: string;
+  readonly sessionId: string;
+  readonly expiresAt: string;
+  readonly impersonatedId?: string;
+}
+
+export function toValidSession(session: SessionIdentity): ValidSession {
+  if (session.impersonatedId != null) {
+    return {
+      userId: session.impersonatedId,
+      sessionId: session.sessionId,
+      expiresAt: session.expiresAt,
+      impersonating: true,
+      impersonatedBy: session.userId,
+    };
+  }
+
+  return {
+    userId: session.userId,
+    sessionId: session.sessionId,
+    expiresAt: session.expiresAt,
+    impersonating: false,
+  };
+}

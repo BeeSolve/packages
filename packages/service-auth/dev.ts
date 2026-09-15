@@ -42,7 +42,7 @@ export function withDevSession(
           userId: session.userId,
           expiresAt: session.expiresAt ?? expiresAt.toISOString(),
           impersonating: true,
-          impersonatedBy: session.impersonatedBy ?? "dev-operator",
+          impersonatedBy: session.impersonatedBy ?? "dev-impersonator",
         }
       : {
           sessionId: session.sessionId ?? "dev-session",
