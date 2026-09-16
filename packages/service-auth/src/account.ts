@@ -1,6 +1,7 @@
 import { ConditionalCheckFailedException } from "@aws-sdk/client-dynamodb";
 import type { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { PutCommand, QueryCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
+import { queryAll } from "@beesolve/dynamo-helpers";
 import * as v from "valibot";
 
 import { BadRequestError, NotFoundError } from "./errors.ts";
@@ -80,9 +81,9 @@ export class Accounts {
   };
 
   readonly getMany = async (userId: string) => {
-    // kiro: this should probably be paginated query (see ../../../bewatr-reporting dynamo utils)
-    const { Items: items = [] } = await this.props.dynamo.send(
-      new QueryCommand({
+    const items = await queryAll({
+      dynamo: this.props.dynamo,
+      input: {
         TableName: this.props.tableName,
         KeyConditionExpression: "#id = :id",
         ExpressionAttributeNames: {
@@ -91,8 +92,8 @@ export class Accounts {
         ExpressionAttributeValues: {
           ":id": userId,
         },
-      }),
-    );
+      },
+    });
 
     return items.map((item) => {
       const parsed = this.parseOne(item);

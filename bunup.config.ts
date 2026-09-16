@@ -182,6 +182,13 @@ const workspace: Array<DefineWorkspaceItem> = [
       entry: ["index.ts", "url.ts"],
     },
   },
+  {
+    name: "@beesolve/dynamo-helpers",
+    root: "packages/helpers-dynamo",
+    config: {
+      entry: ["index.ts"],
+    },
+  },
 ];
 
 export default defineWorkspace(

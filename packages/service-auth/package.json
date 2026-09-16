@@ -78,6 +78,7 @@
     "@beesolve/action-tokens": "workspace:^",
     "@beesolve/cdk-constructs": "workspace:^",
     "@beesolve/cdk-email-alarms": "workspace:^",
+    "@beesolve/dynamo-helpers": "workspace:^",
     "@beesolve/helpers": "workspace:^",
     "@beesolve/lambda-fetch-api": "workspace:^",
     "@beesolve/lambda-keep-active": "catalog:",

@@ -212,6 +212,27 @@
         "typescript",
       ],
     },
+    "packages/helpers-dynamo": {
+      "name": "@beesolve/dynamo-helpers",
+      "version": "0.1.0",
+      "dependencies": {
+        "@aws-sdk/client-dynamodb": "catalog:",
+        "@aws-sdk/credential-providers": "catalog:",
+        "@aws-sdk/lib-dynamodb": "catalog:",
+        "@beesolve/helpers": "workspace:^",
+      },
+      "devDependencies": {
+        "@types/bun": "catalog:",
+        "@types/node": "catalog:",
+        "valibot": "catalog:",
+      },
+      "peerDependencies": {
+        "typescript": "catalog:",
+      },
+      "optionalPeers": [
+        "typescript",
+      ],
+    },
     "packages/hmac": {
       "name": "@beesolve/hmac",
       "version": "0.3.1",
@@ -340,6 +361,7 @@
         "@beesolve/action-tokens": "workspace:^",
         "@beesolve/cdk-constructs": "workspace:^",
         "@beesolve/cdk-email-alarms": "workspace:^",
+        "@beesolve/dynamo-helpers": "workspace:^",
         "@beesolve/helpers": "workspace:^",
         "@beesolve/lambda-fetch-api": "workspace:^",
         "@beesolve/lambda-keep-active": "catalog:",
@@ -588,6 +610,8 @@
     "@beesolve/dmarc-parser": ["@beesolve/dmarc-parser@workspace:packages/dmarc-parser"],
 
     "@beesolve/dmarc-reports": ["@beesolve/dmarc-reports@workspace:packages/dmarc-reports"],
+
+    "@beesolve/dynamo-helpers": ["@beesolve/dynamo-helpers@workspace:packages/helpers-dynamo"],
 
     "@beesolve/email-service": ["@beesolve/email-service@workspace:packages/service-email"],
 

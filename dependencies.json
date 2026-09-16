@@ -4,6 +4,7 @@
   "packages/dmarc-parser",
   "packages/helpers",
   "packages/cdk-constructs",
+  "packages/helpers-dynamo",
   "packages/hmac",
   "packages/lambda-fetch-api",
   "packages/lambda-keep-active",
