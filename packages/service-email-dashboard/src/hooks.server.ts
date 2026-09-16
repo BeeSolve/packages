@@ -99,6 +99,7 @@ const fallbackSession =
           userId: devUserEmail,
           sessionId: "dev-session",
           expiresAt: new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString(),
+          impersonating: false,
         },
         setCookiesParams: [],
       } satisfies SessionContext)
