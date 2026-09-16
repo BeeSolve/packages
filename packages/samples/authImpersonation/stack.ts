@@ -1,32 +1,34 @@
 import { resolve } from "node:path";
 
 import { AuthGateway } from "@beesolve/auth-service/cdk";
-import { Nodejs24Function, StaticWebsite } from "@beesolve/cdk-constructs";
+import { Nodejs24Function } from "@beesolve/cdk-constructs";
 import type { App, StackProps } from "aws-cdk-lib";
-import { Duration, Fn, Stack } from "aws-cdk-lib";
-import {
-  AllowedMethods,
-  CachePolicy,
-  FunctionEventType,
-  OriginRequestPolicy,
-  ViewerProtocolPolicy,
-} from "aws-cdk-lib/aws-cloudfront";
+import { Duration, Fn, RemovalPolicy, Stack } from "aws-cdk-lib";
+import type { CfnDistribution } from "aws-cdk-lib/aws-cloudfront";
 import { HttpOrigin } from "aws-cdk-lib/aws-cloudfront-origins";
+import { AttributeType, BillingMode, ProjectionType, Table } from "aws-cdk-lib/aws-dynamodb";
 import { Rule } from "aws-cdk-lib/aws-events";
 import { LambdaFunction } from "aws-cdk-lib/aws-events-targets";
-import { Source } from "aws-cdk-lib/aws-s3-deployment";
+import { InvokeMode } from "aws-cdk-lib/aws-lambda";
+import { SvelteKit } from "kit-on-lambda/cdk";
+
+const reverseIndexName = "reverse";
 
 /**
  * Demonstrates operator-less session impersonation with @beesolve/auth-service.
  *
+ * The frontend is a SvelteKit app served via kit-on-lambda (SSR Lambda behind
+ * CloudFront), authorized by the session authorizer. The sample owns its own
+ * DynamoDB user-directory table so it can enumerate impersonatable accounts —
+ * auth-service authenticates identities but does not enumerate them.
+ *
  * Key concepts:
- * - Plain static SPA (single index.html) served via StaticWebsite (S3 + CloudFront)
- * - An authorized API Lambda behind `/api/*` protected by the session authorizer
- * - `POST /api/impersonate` calls the `impersonate` SDK command, forwarding the
- *   caller's own cookie header — the impersonator's session is mutated in place
- * - `grantSdkAccess` injects the SDK handler ARN so the API Lambda can invoke it
- * - The session authorizer exposes `impersonating` / `impersonatedBy` so the API
- *   can project the effective identity for the SPA
+ * - App-owned user directory (single-table: pk `user#<email>`, sk `user`) with a
+ *   reverse GSI keyed on `sk` for listing all users, injected into the SSR handler
+ * - `impersonate` SDK command mutates the impersonator's own session in place;
+ *   `grantSdkAccess` injects the SDK handler ARN so the SSR handler can invoke it
+ * - The session authorizer exposes `impersonating` / `impersonatedBy` so the app
+ *   can project the effective identity
  * - `POST /auth/endImpersonation` (handled by the auth service) stops impersonation
  * - An EventBridge consumer audits `ImpersonationStarted` / `ImpersonationEnded`
  * - No email delivery — uses dev code (000000)
@@ -48,39 +50,44 @@ export class ImpersonationStack extends Stack {
       authorizerCache: "disabled",
     });
 
-    const api = new Nodejs24Function(this, "Api", {
-      entry: `${__dirname}/api/handler.ts`,
-      handler: "handler.handler",
+    const table = new Table(this, "Users", {
+      partitionKey: { name: "pk", type: AttributeType.STRING },
+      sortKey: { name: "sk", type: AttributeType.STRING },
+      billingMode: BillingMode.PAY_PER_REQUEST,
+      removalPolicy: RemovalPolicy.DESTROY,
     });
-    auth.addAuthorizedEndpoint({ lambda: api, path: "/api/{proxy+}" });
-    auth.grantSdkAccess(api);
 
-    const site = new StaticWebsite(this, "Site", {
-      source: Source.asset(resolve(__dirname, "./site")),
-      mode: "singlePageApplication",
-      domain: undefined,
-      refererId: "samples-auth-impersonation",
-      contentSecurityPolicy: {
-        connectSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'"],
-        requireTrustedTypesFor: [],
+    table.addGlobalSecondaryIndex({
+      indexName: reverseIndexName,
+      partitionKey: { name: "sk", type: AttributeType.STRING },
+      sortKey: { name: "pk", type: AttributeType.STRING },
+      projectionType: ProjectionType.ALL,
+    });
+
+    const site = new SvelteKit(this, "Site", {
+      runtime: "node",
+      invokeMode: InvokeMode.BUFFERED,
+      buildDirectory: resolve(__dirname, "./site/build"),
+      toDefaultOrigin: ({ handler }) => {
+        auth.addAuthorizedEndpoint({ lambda: handler, path: "/{proxy+}" });
+        auth.grantSdkAccess(handler);
+        table.grantReadWriteData(handler);
+        handler.addEnvironment("SAMPLE_USERS_TABLE_NAME", table.tableName);
+        handler.addEnvironment("SAMPLE_USERS_REVERSE_INDEX", reverseIndexName);
+
+        if (auth.api.url == null) throw Error(`Unexpected error - missing api url`);
+        return new HttpOrigin(Fn.parseDomainName(auth.api.url));
       },
-      deploymentLambdaMemoryLimit: 3008,
     });
 
-    if (auth.api.url == null) throw Error(`Unexpected error - missing api url`);
-    site.distribution.addBehavior("/api/*", new HttpOrigin(Fn.parseDomainName(auth.api.url)), {
-      allowedMethods: AllowedMethods.ALLOW_ALL,
-      cachePolicy: CachePolicy.CACHING_DISABLED,
-      originRequestPolicy: OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
-      viewerProtocolPolicy: ViewerProtocolPolicy.HTTPS_ONLY,
-      functionAssociations: [
-        {
-          function: auth.ensureCookieFunction,
-          eventType: FunctionEventType.VIEWER_REQUEST,
-        },
-      ],
-    });
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    const cfnDist = site.distribution.node.defaultChild as CfnDistribution;
+    cfnDist.addPropertyOverride("DistributionConfig.DefaultCacheBehavior.FunctionAssociations", [
+      {
+        EventType: "viewer-request",
+        FunctionARN: auth.ensureCookieFunction.functionArn,
+      },
+    ]);
 
     const authBehaviour = auth.createAuthBehavior(site.distribution);
     site.distribution.addBehavior("/auth/*", authBehaviour.origin, authBehaviour);

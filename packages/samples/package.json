@@ -12,10 +12,12 @@
     "deploy:emailVerify": "cd emailVerify/site && bun run vite build && cd - && bun run cdk deploy SamplesEmailVerify --require-approval never",
     "deploy:authCookieFunction": "cd authCookieFunction/site && bun run vite build && cd - && bun run cdk deploy SamplesAuthCookieFunction --require-approval never",
     "deploy:authSpaWithApi": "cd authSpaWithApi/site && bun run vite build && cd - && bun run cdk deploy SamplesAuthSpaWithApi --require-approval never",
-    "deploy:authImpersonation": "bun run cdk deploy SamplesAuthImpersonation --require-approval never",
+    "deploy:authImpersonation": "cd authImpersonation/site && bun run vite build && cd - && bun run cdk deploy SamplesAuthImpersonation --require-approval never",
     "deploy:dmarcReports": "bun run cdk deploy SamplesDmarcReports --require-approval never"
   },
   "dependencies": {
+    "@aws-sdk/client-dynamodb": "catalog:",
+    "@aws-sdk/lib-dynamodb": "catalog:",
     "@beesolve/action-tokens": "workspace:^",
     "@beesolve/auth-service": "workspace:^",
     "@beesolve/cdk-constructs": "workspace:^",
@@ -25,6 +27,7 @@
     "@beesolve/dmarc-reports": "workspace:^",
     "@beesolve/email-service": "workspace:^",
     "@beesolve/lambda-fetch-api": "workspace:^",
+    "@beesolve/lambda-keep-active": "workspace:^",
     "@beesolve/sqs-handler": "workspace:^",
     "@tanstack/react-query": "^5.102.8",
     "@trpc/client": "^11.18.0",
