@@ -144,8 +144,7 @@ export class Sessions {
       }),
     );
 
-    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-    return items as Array<{ id: string; userId: string }>;
+    return v.parse(v.array(v.object({ id: v.string(), userId: v.string() })), items);
   };
 
   readonly createOne = async (props: {
@@ -392,31 +391,28 @@ export class Sessions {
       updatedAt: createdAt,
       startedAt: props.startedAt ?? createdAt,
     };
-    const model = this.parseOneFull(
-      item,
-      "Unexpected error occurred while creating session. Session has not been created.",
-    );
+    const model = this.parseOneFull(item);
 
     return { item, model, maxAge };
   };
 
-  // oxlint-disable-next-line beesolve/prefer-props-object
-  private readonly parseOne = (item: unknown, errorMessage: string = `Malformed session.`) => {
+  private readonly parseOne = (item: unknown) => {
     const result = v.safeParse(authorizerSchema, item);
     if (!result.success) {
       console.error(v.flatten(result.issues));
-      throw new BadRequestError(errorMessage);
+      throw new BadRequestError("Malformed session.");
     }
 
     return result.output;
   };
 
-  // oxlint-disable-next-line beesolve/prefer-props-object
-  private readonly parseOneFull = (item: unknown, errorMessage: string = `Malformed session.`) => {
+  private readonly parseOneFull = (item: unknown) => {
     const result = v.safeParse(schema, item);
     if (!result.success) {
       console.error(v.flatten(result.issues));
-      throw new BadRequestError(errorMessage);
+      throw new BadRequestError(
+        "Unexpected error occurred while creating session. Session has not been created.",
+      );
     }
 
     return result.output;

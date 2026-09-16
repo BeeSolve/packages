@@ -130,7 +130,7 @@ export async function signInComplete({
     readonly dataToken: string | undefined;
   }) {
     const [account, isNew] = await call(async () => {
-      const account = await accounts.getOne(props.emailAddress).catch(asNull);
+      const account = await accounts.getOne({ username: props.emailAddress }).catch(asNull);
       if (account != null) return [account, false];
 
       if (!props.allowSignUp) {

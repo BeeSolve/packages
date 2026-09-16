@@ -147,7 +147,7 @@ export const handler = keptActive(async (event: HandlerEvent) => {
 
   if (type === "accountIdByEmail") {
     const parsed = v.parse(accountIdByEmailSchema, request);
-    const account = await accounts.getOne(parsed.emailAddress).catch(asNull);
+    const account = await accounts.getOne({ username: parsed.emailAddress }).catch(asNull);
     if (account == null) return null;
 
     return { id: account.id };

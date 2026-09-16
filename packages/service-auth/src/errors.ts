@@ -1,8 +1,7 @@
 class AuthError extends Error {
   public readonly stringified: boolean;
 
-  // oxlint-disable-next-line typescript/no-explicit-any
-  constructor(message: any) {
+  constructor(message: unknown) {
     super(typeof message === "string" ? message : JSON.stringify(message));
     this.stringified = typeof message !== "string";
   }

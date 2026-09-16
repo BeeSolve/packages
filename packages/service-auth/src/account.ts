@@ -50,7 +50,13 @@ export class Accounts {
     },
   ) {}
 
-  readonly getOne = async (username: string, { exact = false }: { exact?: boolean } = {}) => {
+  readonly getOne = async ({
+    username,
+    exact = false,
+  }: {
+    readonly username: string;
+    readonly exact?: boolean;
+  }) => {
     const { Items: items = [] } = await this.props.dynamo.send(
       new QueryCommand({
         TableName: this.props.tableName,
@@ -74,6 +80,7 @@ export class Accounts {
   };
 
   readonly getMany = async (userId: string) => {
+    // kiro: this should probably be paginated query (see ../../../bewatr-reporting dynamo utils)
     const { Items: items = [] } = await this.props.dynamo.send(
       new QueryCommand({
         TableName: this.props.tableName,

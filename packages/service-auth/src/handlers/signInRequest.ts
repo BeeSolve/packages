@@ -45,7 +45,7 @@ export async function signInRequest({
     schema,
   });
 
-  const account = await accounts.getOne(emailAddress).catch(asNull);
+  const account = await accounts.getOne({ username: emailAddress }).catch(asNull);
 
   const token = randomBytes(32).toString("base64url");
   const code = generateOTP();

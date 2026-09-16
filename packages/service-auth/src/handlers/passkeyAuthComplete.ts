@@ -71,7 +71,7 @@ export async function passkeyAuthComplete({
     drainWhenValid: true,
   });
 
-  const account = await accounts.getOne(credentialId, { exact: true });
+  const account = await accounts.getOne({ username: credentialId, exact: true });
 
   if (account.type !== "passkey") {
     throw new BadRequestError("Credential is not a passkey.");
