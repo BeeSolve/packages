@@ -2,11 +2,11 @@
   "name": "@beesolve/cdk-constructs",
   "version": "0.3.1",
   "description": "",
-  "homepage": "https://github.com/beesolve/packages/tree/main/packages/cdk-constructs#readme",
+  "homepage": "https://github.com/BeeSolve/packages/tree/main/packages/cdk-constructs#readme",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/beesolve/packages.git"
+    "url": "git+https://github.com/BeeSolve/packages.git"
   },
   "files": [
     "dist"

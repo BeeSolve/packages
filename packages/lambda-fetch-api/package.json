@@ -2,11 +2,11 @@
   "name": "@beesolve/lambda-fetch-api",
   "version": "2.1.1",
   "description": "",
-  "homepage": "https://github.com/beesolve/packages/tree/main/packages/lambda-fetch-api#readme",
+  "homepage": "https://github.com/BeeSolve/packages/tree/main/packages/lambda-fetch-api#readme",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/beesolve/packages.git"
+    "url": "git+https://github.com/BeeSolve/packages.git"
   },
   "files": [
     "dist"

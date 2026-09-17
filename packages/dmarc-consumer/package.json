@@ -2,11 +2,11 @@
   "name": "@beesolve/dmarc-consumer",
   "version": "0.3.1",
   "description": "DMARC consumer — persists parsed DMARC reports from EventBridge to DynamoDB",
-  "homepage": "https://github.com/beesolve/packages/tree/main/packages/dmarc-consumer#readme",
+  "homepage": "https://github.com/BeeSolve/packages/tree/main/packages/dmarc-consumer#readme",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/beesolve/packages.git"
+    "url": "git+https://github.com/BeeSolve/packages.git"
   },
   "files": [
     "dist",

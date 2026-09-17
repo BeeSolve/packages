@@ -2,11 +2,11 @@
   "name": "@beesolve/dmarc-dashboard",
   "version": "0.7.2",
   "description": "DMARC dashboard — SvelteKit app for viewing DMARC reports",
-  "homepage": "https://github.com/beesolve/packages/tree/main/packages/dmarc-dashboard#readme",
+  "homepage": "https://github.com/BeeSolve/packages/tree/main/packages/dmarc-dashboard#readme",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/beesolve/packages.git"
+    "url": "git+https://github.com/BeeSolve/packages.git"
   },
   "files": [
     "dist"

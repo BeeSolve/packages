@@ -2,11 +2,11 @@
   "name": "@beesolve/lint-config",
   "version": "0.3.2",
   "description": "Shared Oxlint + Oxfmt configuration and custom rules for beesolve projects",
-  "homepage": "https://github.com/beesolve/packages/tree/main/packages/lint-config#readme",
+  "homepage": "https://github.com/BeeSolve/packages/tree/main/packages/lint-config#readme",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/beesolve/packages.git"
+    "url": "git+https://github.com/BeeSolve/packages.git"
   },
   "bin": {
     "beesolve-lint-setup": "./scripts/setup.ts"
