@@ -64,10 +64,16 @@ The scaffold adds a minimal entry to `bunup.config.ts`:
 
 If your package has multiple entry points or needs custom build options (e.g. `inferTypes`, additional entry files), update this entry manually.
 
-## 4. Register OIDC Trusted Publisher on npmjs.org
+## 4. Add the package to the root README
+
+Add a row for the new package to the **Packages** table in the root [`README.md`](../README.md).
+The link target is the package directory (which may differ from the `@beesolve/<name>`
+scope — e.g. `@beesolve/dynamo-helpers` lives in `packages/helpers-dynamo`).
+
+## 5. Register OIDC Trusted Publisher on npmjs.org
 
 The package must exist on npm before you can register a Trusted Publisher.
-Do the first publish manually (see step 5), then:
+Do the first publish manually (see step 6), then:
 
 1. Go to `https://www.npmjs.com/package/@beesolve/<name>/access`
 2. Click **Add Trusted Publisher → GitHub Actions**
@@ -76,7 +82,7 @@ Do the first publish manually (see step 5), then:
    - Repository: `packages`
    - Workflow file: `publish.yml`
 
-## 5. First manual publish
+## 6. First manual publish
 
 OIDC trust can only be registered after the package exists on npm, so the very first
 publish must be done manually:
@@ -90,7 +96,7 @@ rm *.tgz
 
 You must be logged in to npm (`npm whoami`). If not, run `npm login` first.
 
-## 6. Developer workflow — making changes
+## 7. Developer workflow — making changes
 
 When you change a package, add a changeset describing the bump type before opening a PR:
 

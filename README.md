@@ -22,6 +22,7 @@ All packages target Node.js 24+ and are published as ESM.
 | [`@beesolve/dmarc-consumer`](packages/dmarc-consumer)                   | DMARC consumer — persists parsed DMARC reports from EventBridge to DynamoDB                     |
 | [`@beesolve/dmarc-dashboard`](packages/dmarc-dashboard)                 | DMARC dashboard — SvelteKit app for viewing DMARC reports                                       |
 | [`@beesolve/helpers`](packages/helpers)                                 | Shared TypeScript utilities (serialization, retry, type guards)                                 |
+| [`@beesolve/dynamo-helpers`](packages/helpers-dynamo)                   | Shared DynamoDB access helpers — document client, query pagination, single-table batch get      |
 | [`@beesolve/hmac`](packages/hmac)                                       | HMAC signer — create and validate HMAC signatures and signed URLs                               |
 | [`@beesolve/lint-config`](packages/lint-config)                         | Shared Oxlint + Oxfmt linting and formatting configuration                                      |
 | [`@beesolve/samples`](packages/samples)                                 | Deployable reference implementations showcasing the packages above (not published to npm)       |

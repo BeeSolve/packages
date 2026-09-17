@@ -95,12 +95,13 @@ Next steps:
   1. Add your exports to packages/${name}/index.ts
   2. Add @beesolve/* dependencies to packages/${name}/package.json and run: bun install
   3. Run: bun run recalculate-dependencies  (if you added @beesolve/* deps)
-  4. Do the first manual publish:
+  4. Add a row for @beesolve/${name} to the Packages table in README.md
+  5. Do the first manual publish:
        cd packages/${name}
        bun pm pack
        npm publish *.tgz --access public
        rm *.tgz
-  5. Register OIDC Trusted Publisher:
+  6. Register OIDC Trusted Publisher:
        https://www.npmjs.com/package/@beesolve/${name}/access
        → Add Trusted Publisher → GitHub Actions
        Organization: BeeSolve  Repository: packages  Workflow: publish.yml
