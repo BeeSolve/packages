@@ -24,7 +24,7 @@ export async function handler(event: EventBridgeEvent<string, unknown>): Promise
   }
 
   if (isUnsuccessfulAuth(event)) {
-    const { emailAddress, reason } = event.detail;
-    console.log(`[UnsuccessfulAuth] ${emailAddress ?? "unknown"}: ${reason}`);
+    const { detail } = event;
+    console.log(`[UnsuccessfulAuth] ${detail.code}: ${detail.reason}`);
   }
 }

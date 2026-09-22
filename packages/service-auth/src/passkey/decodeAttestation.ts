@@ -1,4 +1,4 @@
-import { decodeCbor } from "../../passkey/cbor.ts";
+import { decodeCbor } from "./cbor.ts";
 
 interface AttestationObject {
   readonly fmt: string;

@@ -98,6 +98,23 @@ You must be logged in to npm (`npm whoami`). If not, run `npm login` first.
 
 ## 7. Developer workflow — making changes
 
+### Running tests
+
+Run the suite per package — each package's tests run in their own `bun test`
+process:
+
+```bash
+bun run test              # whole workspace: builds, then one process per package
+cd packages/<name> && bun test   # a single package
+```
+
+Do **not** run a bare `bun test` from the repo root. It runs every package in
+one shared process, which leaks module mocks across packages and produces
+spurious failures that don't reproduce per package. See
+[ADR-003](./adr-003-per-package-test-isolation.md).
+
+### Changesets
+
 When you change a package, add a changeset describing the bump type before opening a PR:
 
 ```bash

@@ -53,10 +53,17 @@ const successfulAuthSchema = v.object({
 const unsuccessfulAuthSchema = v.object({
   "detail-type": v.literal("UnsuccessfulAuth"),
   source: v.string(),
-  detail: v.object({
-    emailAddress: v.nullable(v.string()),
-    reason: v.string(),
-  }),
+  detail: v.variant("code", [
+    v.object({
+      code: v.literal("invalidToken"),
+      reason: v.string(),
+    }),
+    v.object({
+      code: v.literal("emailNotRegistered"),
+      emailAddress: v.string(),
+      reason: v.string(),
+    }),
+  ]),
 });
 
 const sessionInvalidatedSchema = v.object({
@@ -145,6 +152,7 @@ export type EmailAddressVerifiedDetail = EmailAddressVerifiedEvent["detail"];
 export type DataTokenDetail = DataTokenEvent["detail"];
 export type SuccessfulAuthDetail = SuccessfulAuthEvent["detail"];
 export type UnsuccessfulAuthDetail = UnsuccessfulAuthEvent["detail"];
+export type UnsuccessfulAuthCode = UnsuccessfulAuthDetail["code"];
 export type SessionInvalidatedDetail = SessionInvalidatedEvent["detail"];
 export type EmailInvitationDetail = EmailInvitationEvent["detail"];
 export type PasskeyRegisteredDetail = PasskeyRegisteredEvent["detail"];

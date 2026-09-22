@@ -7,9 +7,9 @@ import type { Accounts } from "../account.ts";
 import { BadRequestError, ForbiddenError } from "../errors.ts";
 import type { Events } from "../events.ts";
 import { coseKeyToPublicKey } from "../passkey/cose.ts";
+import { decodeAttestationObject } from "../passkey/decodeAttestation.ts";
 import { parseAuthenticatorData } from "../passkey/parseAuthData.ts";
 import { parseBody } from "../request.ts";
-import { decodeAttestationObject } from "./passkeyRegisterComplete/decodeAttestation.ts";
 
 interface Dependencies {
   readonly actionTokens: Pick<ActionTokensClient, "use">;

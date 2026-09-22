@@ -626,20 +626,25 @@ request, exactly like a normal session (see
 
 All events are emitted on the configured bus with source `beesolve.auth.api` (or `beesolve.auth.<appId>` when `appId` is set).
 
-| Event                  | When                                    | Key fields                                                                   |
-| ---------------------- | --------------------------------------- | ---------------------------------------------------------------------------- |
-| `EmailCodeAuth`        | Sign-in requested / code resent         | `accountId`, `code`, `expiresAt`, `emailAddress`, `referenceCode`, `baseUri` |
-| `EmailAddressVerified` | New account created (first sign-in)     | `accountId`, `emailAddress`, `verifiedAt`                                    |
-| `DataToken`            | Sign-in complete with `dataToken: true` | `accountId`, `emailAddress`, `dataToken`                                     |
-| `SuccessfulAuth`       | Sign-in succeeded                       | `userId`                                                                     |
-| `UnsuccessfulAuth`     | Sign-in failed (invalid/expired code)   | `emailAddress`, `reason`                                                     |
-| `SessionInvalidated`   | Sign-out                                | `sessionId`                                                                  |
-| `PasskeyRegistered`    | New passkey credential stored           | `userId`, `credentialId`                                                     |
-| `PasskeyAuthUsed`      | Successful passkey sign-in              | `userId`, `credentialId`                                                     |
-| `ImpersonationStarted` | SDK `impersonate` command succeeds      | `currentUserId`, `targetUserId`, `startedAt`                                 |
-| `ImpersonationEnded`   | `/auth/endImpersonation` completes      | `currentUserId`, `targetUserId`, `endedAt`                                   |
+| Event                  | When                                                                      | Key fields                                                                      |
+| ---------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `EmailCodeAuth`        | Sign-in requested / code resent                                           | `accountId`, `code`, `expiresAt`, `emailAddress`, `referenceCode`, `baseUri`    |
+| `EmailAddressVerified` | New account created (first sign-in)                                       | `accountId`, `emailAddress`, `verifiedAt`                                       |
+| `DataToken`            | Sign-in complete with `dataToken: true`                                   | `accountId`, `emailAddress`, `dataToken`                                        |
+| `SuccessfulAuth`       | Sign-in succeeded                                                         | `userId`                                                                        |
+| `UnsuccessfulAuth`     | Sign-in failed (invalid code, or unregistered email while sign-up is off) | `code`, `reason`, and `emailAddress` (only when `code` is `emailNotRegistered`) |
+| `SessionInvalidated`   | Sign-out                                                                  | `sessionId`                                                                     |
+| `PasskeyRegistered`    | New passkey credential stored                                             | `userId`, `credentialId`                                                        |
+| `PasskeyAuthUsed`      | Successful passkey sign-in                                                | `userId`, `credentialId`                                                        |
+| `ImpersonationStarted` | SDK `impersonate` command succeeds                                        | `currentUserId`, `targetUserId`, `startedAt`                                    |
+| `ImpersonationEnded`   | `/auth/endImpersonation` completes                                        | `currentUserId`, `targetUserId`, `endedAt`                                      |
 
 > **You must subscribe to `EmailCodeAuth` and send the email yourself.** Use `@beesolve/email-service` or any email provider. See the `authWithEmail` sample for a complete implementation.
+
+`UnsuccessfulAuth.detail` is a discriminated union on `code`:
+
+- `{ code: "invalidToken", reason }` — the submitted code was invalid, expired, or already used.
+- `{ code: "emailNotRegistered", emailAddress, reason }` — a sign-in was completed for an address that has no account while `allowSignUp` is `false`. Only this variant carries `emailAddress`; narrow on `code` before reading it. See [Unregistered sign-in behaviour](#unregistered-sign-in-behaviour).
 
 ### Consuming events
 
@@ -663,10 +668,23 @@ export async function handler(event: SQSEvent): Promise<void> {
 
     if (isUnsuccessfulAuth(authEvent)) {
       console.warn(`Failed sign-in: ${authEvent.detail.reason}`);
+
+      if (authEvent.detail.code === "emailNotRegistered") {
+        await notifyUnrecognisedSignIn({ to: authEvent.detail.emailAddress });
+      }
     }
   }
 }
 ```
+
+### Unregistered sign-in behaviour
+
+When `allowSignUp` is `false` and a sign-in is completed for an email address that has no account, the service does **not** tell the client the address is unknown. Revealing "email not registered" would let an attacker enumerate which addresses have accounts. Instead:
+
+- The endpoint returns the same response shape as a successful sign-in (a `303` redirect, or `200` JSON for `Accept: application/json`) but **without a session cookie** — no session is created.
+- An `UnsuccessfulAuth` event with `code: "emailNotRegistered"` and the attempted `emailAddress` is emitted.
+
+Subscribe to that event to notify the address owner that someone tried to sign in with their email and that they should contact an administrator. Reaching this path already requires possession of the emailed OTP code, and the `/auth/signInRequest` per-address throttle bounds how often the code (and therefore any notification) can be triggered.
 
 ## Local Development
 

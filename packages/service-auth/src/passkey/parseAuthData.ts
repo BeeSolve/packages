@@ -1,4 +1,4 @@
-import { decodeCbor } from "./cbor.js";
+import { decodeCbor } from "./cbor.ts";
 
 export interface AuthenticatorFlags {
   readonly userPresent: boolean;

@@ -24,7 +24,27 @@ export async function handler(event: EventBridgeEvent<string, unknown>): Promise
   }
 
   if (isUnsuccessfulAuth(event)) {
-    const { emailAddress, reason } = event.detail;
-    console.log(`[UnsuccessfulAuth] ${emailAddress ?? "unknown"}: ${reason}`);
+    const { detail } = event;
+    console.log(`[UnsuccessfulAuth] ${detail.code}: ${detail.reason}`);
+
+    if (detail.code === "emailNotRegistered") {
+      await email.sendEmail({
+        recipients: [detail.emailAddress],
+        subject: "Sign-in attempt to an unrecognised account",
+        html: `
+          <h2>Sign-in attempt</h2>
+          <p>Someone tried to sign in using this email address, but it is not registered in our system.</p>
+          <p>If this was you, please contact your administrator to request access.</p>
+          <p>If this was not you, you can safely ignore this message.</p>
+        `,
+        text: [
+          "Someone tried to sign in using this email address, but it is not registered in our system.",
+          "If this was you, please contact your administrator to request access.",
+          "If this was not you, you can safely ignore this message.",
+        ].join("\n"),
+      });
+
+      console.log(`[UnsuccessfulAuth] Notified ${detail.emailAddress} of unrecognised sign-in`);
+    }
   }
 }

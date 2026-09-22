@@ -100,10 +100,13 @@ interface DataToken {
 
 interface UnsuccessfulAuth {
   readonly type: "UnsuccessfulAuth";
-  readonly detail: {
-    readonly emailAddress: string | null;
-    readonly reason: string;
-  };
+  readonly detail:
+    | { readonly code: "invalidToken"; readonly reason: string }
+    | {
+        readonly code: "emailNotRegistered";
+        readonly emailAddress: string;
+        readonly reason: string;
+      };
 }
 
 interface SuccessfulAuth {

@@ -9,7 +9,7 @@ import type { ActionTokensClient } from "@beesolve/action-tokens/sdk";
 import { asNull, call } from "@beesolve/helpers";
 import * as v from "valibot";
 
-import type { Accounts } from "../account.ts";
+import type { Accounts, Account } from "../account.ts";
 import { addSetCookies } from "../cookie.ts";
 import { BadRequestError } from "../errors.ts";
 import type { Events } from "../events.ts";
@@ -69,7 +69,7 @@ export async function signInComplete({
       ) {
         await events.putEvents({
           type: "UnsuccessfulAuth",
-          detail: { emailAddress: null, reason: error.message },
+          detail: { code: "invalidToken", reason: error.message },
         });
       }
       throw error;
@@ -85,10 +85,15 @@ export async function signInComplete({
     dataToken,
   });
 
-  const session = await sessions.createOne({
-    userId: account.id,
-    data: Sessions.dataFromCloudFrontHeaders(Object.fromEntries(headers.entries())),
-  });
+  const session =
+    account == null
+      ? null
+      : await sessions.createOne({
+          userId: account.id,
+          data: Sessions.dataFromCloudFrontHeaders(Object.fromEntries(headers.entries())),
+        });
+
+  const cookies = session == null ? [] : [{ sid: session.id, maxAge: session.maxAge }];
 
   if (headers.get("accept")?.includes("application/json")) {
     return new Response(JSON.stringify({ redirectTo: redirectTo ?? "/" }), {
@@ -98,12 +103,7 @@ export async function signInComplete({
           "Cache-Control": "no-store",
           "Content-Type": "application/json",
         }),
-        cookies: [
-          {
-            sid: session.id,
-            maxAge: session.maxAge,
-          },
-        ],
+        cookies,
       }),
     });
   }
@@ -115,12 +115,7 @@ export async function signInComplete({
         "Cache-Control": "no-store",
         Location: redirectTo ?? "/",
       }),
-      cookies: [
-        {
-          sid: session.id,
-          maxAge: session.maxAge,
-        },
-      ],
+      cookies,
     }),
   });
 
@@ -128,17 +123,21 @@ export async function signInComplete({
     readonly emailAddress: string;
     readonly allowSignUp: boolean;
     readonly dataToken: string | undefined;
-  }) {
-    const [account, isNew] = await call(async () => {
+  }): Promise<Account | null> {
+    const [account, isNew] = await call(async (): Promise<[Account, boolean] | [null, false]> => {
       const account = await accounts.getOne({ username: props.emailAddress }).catch(asNull);
       if (account != null) return [account, false];
 
       if (!props.allowSignUp) {
         await events.putEvents({
           type: "UnsuccessfulAuth",
-          detail: { emailAddress: props.emailAddress, reason: "Email not registered." },
+          detail: {
+            code: "emailNotRegistered",
+            emailAddress: props.emailAddress,
+            reason: "Email not registered.",
+          },
         });
-        throw new BadRequestError("Email not registered.");
+        return [null, false];
       }
 
       return [
@@ -150,6 +149,8 @@ export async function signInComplete({
         true,
       ];
     });
+
+    if (account == null) return null;
 
     const promises = new Array();
     if (isNew) {
