@@ -1,6 +1,6 @@
 {
   "name": "@beesolve/dmarc-dashboard",
-  "version": "0.7.2",
+  "version": "0.8.0",
   "description": "DMARC dashboard — SvelteKit app for viewing DMARC reports",
   "homepage": "https://github.com/BeeSolve/packages/tree/main/packages/dmarc-dashboard#readme",
   "license": "MIT",

@@ -1,5 +1,18 @@
 # @beesolve/dmarc-dashboard
 
+## 0.8.0
+
+### Minor Changes
+
+- d3ad659: Send a notification email on an unregistered sign-in attempt.
+
+  The auth-events consumer now reacts to `UnsuccessfulAuth` events with `code: "emailNotRegistered"` (emitted by `@beesolve/auth-service` when a sign-in is completed for an address that has no account while sign-up is disabled) by emailing the attempted address to tell them someone tried to sign in with their email and that they should contact an administrator. Other `UnsuccessfulAuth` reasons continue to be logged only.
+
+### Patch Changes
+
+- Updated dependencies [d3ad659]
+  - @beesolve/auth-service@0.17.0
+
 ## 0.7.2
 
 ### Patch Changes
