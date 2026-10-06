@@ -253,15 +253,13 @@ const fetch = async (request: Request): Promise<Response> => {
     if (error instanceof Error) {
       const meta = errorResponseMap.get(error.constructor);
       if (meta != null) {
-        // todo: add Retry-After header for 429 responses (TokenThrottledError).
-        // TokenThrottledError currently carries no retry/window info - expose
-        // remainingSeconds on the error (from the throttle windowSeconds), then
-        // set headers: { "Retry-After": String(remainingSeconds) } here.
-        // Consumers (bewatr-reporting) already show a countdown on resendCode
-        // and need it on signInRequest too.
+        const headers: Record<string, string> = { "Content-Type": "application/json" };
+        if (error instanceof TokenThrottledError && error.retryAfterSeconds != null) {
+          headers["Retry-After"] = String(error.retryAfterSeconds);
+        }
         return new Response(JSON.stringify({ message: error.message, type: meta.type }), {
           status: meta.status,
-          headers: { "Content-Type": "application/json" },
+          headers,
         });
       }
     }

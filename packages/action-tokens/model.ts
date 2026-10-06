@@ -183,6 +183,7 @@ export class ActionTokens {
         ExpressionAttributeValues: {
           ":now": now,
         },
+        ReturnValuesOnConditionCheckFailure: "ALL_OLD" as const,
       },
     };
 
@@ -196,7 +197,11 @@ export class ActionTokens {
       if (error instanceof TransactionCanceledException) {
         const reasons = error.CancellationReasons ?? [];
         if (reasons[0]?.Code === "ConditionalCheckFailed") {
-          throw new TokenThrottledError("Too many requests. Try again later.");
+          const existingExpiresAt = Number(reasons[0].Item?.expiresAt?.N);
+          const retryAfterSeconds = Number.isFinite(existingExpiresAt)
+            ? Math.max(1, existingExpiresAt - now)
+            : undefined;
+          throw new TokenThrottledError("Too many requests. Try again later.", retryAfterSeconds);
         }
         if (reasons[1]?.Code === "ConditionalCheckFailed") {
           throw new TokenAlreadyExistsError("Token already exists.");
@@ -384,4 +389,12 @@ export class TokenAlreadyUsedUpError extends BaseTokenError {}
 export class TokenInvalidError extends BaseTokenError {}
 export class MalformedTokenError extends BaseTokenError {}
 export class UnexpectedError extends BaseTokenError {}
-export class TokenThrottledError extends BaseTokenError {}
+
+export class TokenThrottledError extends BaseTokenError {
+  public readonly retryAfterSeconds: number | undefined;
+
+  constructor(message: unknown, retryAfterSeconds?: number) {
+    super(message);
+    this.retryAfterSeconds = retryAfterSeconds;
+  }
+}

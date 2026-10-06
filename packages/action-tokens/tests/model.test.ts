@@ -1,12 +1,16 @@
 import { describe, expect, mock, test } from "bun:test";
 
-import { ConditionalCheckFailedException } from "@aws-sdk/client-dynamodb";
+import {
+  ConditionalCheckFailedException,
+  TransactionCanceledException,
+} from "@aws-sdk/client-dynamodb";
 import {
   DeleteCommand,
   type DynamoDBDocumentClient,
   GetCommand,
   PutCommand,
   QueryCommand,
+  TransactWriteCommand,
   UpdateCommand,
 } from "@aws-sdk/lib-dynamodb";
 
@@ -14,9 +18,11 @@ import {
   ActionTokens,
   ExpiredTokenError,
   MalformedTokenError,
+  TokenAlreadyExistsError,
   TokenAlreadyUsedUpError,
   TokenDoesNotExistError,
   TokenInvalidError,
+  TokenThrottledError,
   UnexpectedError,
 } from "../model.ts";
 
@@ -395,5 +401,92 @@ describe("ActionTokens.drain", () => {
     });
 
     expect(result).toBeUndefined();
+  });
+});
+
+describe("ActionTokens.createNewWithThrottling", () => {
+  const baseProps = {
+    owner: "tok-1",
+    action: "signInRequest",
+    value: "123456",
+    remainingUses: 3,
+    expiresAt: new Date(Date.now() + 600_000),
+    data: { emailAddress: "user@example.com" },
+    overwrite: true,
+    throttle: { id: "user@example.com", windowSeconds: 60 },
+  };
+
+  test("writes throttle record with ReturnValuesOnConditionCheckFailure ALL_OLD", async () => {
+    const send = mock(async (_command: unknown) => ({}));
+    const client = makeClient(send);
+
+    await client.createNewWithThrottling(baseProps);
+
+    const command = findCommand(send, TransactWriteCommand);
+    const throttlePut = command.input.TransactItems?.[0]?.Put;
+    expect(throttlePut?.ReturnValuesOnConditionCheckFailure).toBe("ALL_OLD");
+    expect(throttlePut?.Item?.owner).toBe("throttle#user@example.com");
+  });
+
+  test("throws TokenThrottledError with retryAfterSeconds from the existing record", async () => {
+    const now = Math.round(Date.now() / 1000);
+    const existingExpiresAt = now + 42;
+    const send = mock(async (_command: unknown) => {
+      throw new TransactionCanceledException({
+        $metadata: {},
+        message: "cancelled",
+        CancellationReasons: [
+          {
+            Code: "ConditionalCheckFailed",
+            Item: { expiresAt: { N: String(existingExpiresAt) } },
+          },
+          { Code: "None" },
+        ],
+      });
+    });
+    const client = makeClient(send);
+
+    const error = await client
+      .createNewWithThrottling(baseProps)
+      .catch((caught: unknown) => caught);
+    expect(error).toBeInstanceOf(TokenThrottledError);
+    if (!(error instanceof TokenThrottledError)) throw error;
+    // allow a 1s clock drift between the test's `now` and the model's `now`
+    expect(error.retryAfterSeconds).toBeGreaterThanOrEqual(41);
+    expect(error.retryAfterSeconds).toBeLessThanOrEqual(42);
+  });
+
+  test("throttled error retryAfterSeconds is undefined when the item is absent", async () => {
+    const send = mock(async (_command: unknown) => {
+      throw new TransactionCanceledException({
+        $metadata: {},
+        message: "cancelled",
+        CancellationReasons: [{ Code: "ConditionalCheckFailed" }, { Code: "None" }],
+      });
+    });
+    const client = makeClient(send);
+
+    const error = await client
+      .createNewWithThrottling(baseProps)
+      .catch((caught: unknown) => caught);
+    expect(error).toBeInstanceOf(TokenThrottledError);
+    if (!(error instanceof TokenThrottledError)) throw error;
+    expect(error.retryAfterSeconds).toBeUndefined();
+  });
+
+  test("throws TokenAlreadyExistsError when the token put fails", async () => {
+    const send = mock(async (_command: unknown) => {
+      throw new TransactionCanceledException({
+        $metadata: {},
+        message: "cancelled",
+        CancellationReasons: [{ Code: "None" }, { Code: "ConditionalCheckFailed" }],
+      });
+    });
+    const client = makeClient(send);
+
+    const error = await client
+      .createNewWithThrottling(baseProps)
+      .catch((caught: unknown) => caught);
+    expect(error).toBeInstanceOf(TokenAlreadyExistsError);
   });
 });
