@@ -1,5 +1,13 @@
 # @beesolve/action-tokens
 
+## 0.5.3
+
+### Patch Changes
+
+- b7c6890: `TokenThrottledError` now carries `retryAfterSeconds`, the number of seconds until the throttle window clears.
+
+  When `createNewWithThrottling` is rejected by an active throttle, the error exposes `retryAfterSeconds` (computed from the existing throttle record's `expiresAt`), so callers can surface an accurate retry delay. The field is `undefined` when the remaining window cannot be determined.
+
 ## 0.5.2
 
 ### Patch Changes
