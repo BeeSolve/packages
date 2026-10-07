@@ -9,9 +9,13 @@ permissions:
   id-token: write # npm OIDC Trusted Publishers
   pull-requests: write # changesets bot creates/updates the Version PR
 
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
 jobs:
   publish:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
         with:
