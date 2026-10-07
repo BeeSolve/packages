@@ -160,33 +160,22 @@ Add a row for the new package to the **Packages** table in the root [`README.md`
 The link target is the package directory (which may differ from the `@beesolve/<name>`
 scope — e.g. `@beesolve/dynamo-helpers` lives in `packages/helpers-dynamo`).
 
-## 6. Register OIDC Trusted Publisher on npmjs.org
+## 6. Publish a 0.0.0 placeholder and register the OIDC Trusted Publisher
 
-The package must exist on npm before you can register a Trusted Publisher.
-Do the first publish manually (see step 7), then:
+OIDC trust can only be registered after the package exists on npm. For a brand-new package
+that is not ready for a real release, publish a minimal `0.0.0` placeholder to reserve the
+`@beesolve/<name>` name and unblock OIDC configuration — do **not** do a first manual _real_
+publish.
 
-1. Go to `https://www.npmjs.com/package/@beesolve/<name>/access`
-2. Click **Add Trusted Publisher → GitHub Actions**
-3. Enter:
-   - Organization: `BeeSolve`
-   - Repository: `packages`
-   - Workflow file: `publish.yml`
+Follow the `publish-placeholder-package` skill (`.kiro/skills/publish-placeholder-package/SKILL.md`),
+which publishes a minimal `0.0.0` placeholder from a temp directory, then registers the GitHub
+Actions Trusted Publisher (`npm trust github @beesolve/<name> --repo BeeSolve/packages --file
+publish.yml --yes`, with the npmjs.org web UI as a fallback).
 
-## 7. First manual publish
+This is a one-time bootstrap. Once the placeholder exists and trust is registered, the first
+real release happens through the normal changesets flow (see below).
 
-OIDC trust can only be registered after the package exists on npm, so the very first
-publish must be done manually:
-
-```bash
-cd packages/<name>
-bun pm pack
-npm publish *.tgz --access public
-rm *.tgz
-```
-
-You must be logged in to npm (`npm whoami`). If not, run `npm login` first.
-
-## 8. Developer workflow — making changes
+## 7. Developer workflow — making changes
 
 ### Running tests
 

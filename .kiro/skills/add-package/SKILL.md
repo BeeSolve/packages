@@ -104,31 +104,21 @@ The scaffold adds a minimal entry to `bunup.config.ts`:
 
 If the package has multiple entry points or needs custom build options (e.g. `inferTypes`, additional entry files), update this entry manually.
 
-### 5. Register OIDC Trusted Publisher on npmjs.org
+### 5. Publish a 0.0.0 placeholder and register the OIDC Trusted Publisher
 
-The package must exist on npm before you can register a Trusted Publisher. Do the first publish manually (step 6), then:
+OIDC trust can only be registered after the package exists on npm. For a brand-new package not
+yet ready for a real release, publish a minimal `0.0.0` placeholder to reserve the
+`@beesolve/<name>` name and unblock OIDC configuration — do **not** do a first manual _real_
+publish.
 
-1. Go to `https://www.npmjs.com/package/@beesolve/<name>/access`
-2. Click **Add Trusted Publisher > GitHub Actions**
-3. Enter:
-   - Organization: `BeeSolve`
-   - Repository: `packages`
-   - Workflow file: `publish.yml`
+Follow the `publish-placeholder-package` skill (`.kiro/skills/publish-placeholder-package/SKILL.md`):
+it publishes a minimal `0.0.0` placeholder from a temp directory, polls until the name resolves
+on npm, then registers the GitHub Actions Trusted Publisher via
+`npm trust github @beesolve/<name> --repo BeeSolve/packages --file publish.yml --yes` (with the
+npmjs.org web UI as a fallback). This is a one-time bootstrap; the first real release then goes
+through the changesets flow below.
 
-### 6. First manual publish
-
-OIDC trust can only be registered after the package exists on npm, so the very first publish must be done manually:
-
-```bash
-cd packages/<name>
-bun pm pack
-npm publish *.tgz --access public
-rm *.tgz
-```
-
-You must be logged in to npm (`npm whoami`). If not, run `npm login` first.
-
-### 7. Update the changeset mapping in steering
+### 6. Update the changeset mapping in steering
 
 Add the new package to the known mappings list in `.kiro/steering/typescript.md` under the **Changesets** section:
 

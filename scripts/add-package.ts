@@ -96,13 +96,9 @@ Next steps:
   2. Add @beesolve/* dependencies to packages/${name}/package.json and run: bun install
   3. Run: bun run recalculate-dependencies  (if you added @beesolve/* deps)
   4. Add a row for @beesolve/${name} to the Packages table in README.md
-  5. Do the first manual publish:
-       cd packages/${name}
-       bun pm pack
-       npm publish *.tgz --access public
-       rm *.tgz
-  6. Register OIDC Trusted Publisher:
-       https://www.npmjs.com/package/@beesolve/${name}/access
-       → Add Trusted Publisher → GitHub Actions
-       Organization: BeeSolve  Repository: packages  Workflow: publish.yml
+  5. Reserve the npm name + configure OIDC before CI publishing:
+       follow the publish-placeholder-package skill
+       (.kiro/skills/publish-placeholder-package/SKILL.md)
+       — publishes a 0.0.0 placeholder, then registers the Trusted Publisher:
+       npm trust github @beesolve/${name} --repo BeeSolve/packages --file publish.yml --yes
 `);
