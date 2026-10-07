@@ -1,12 +1,17 @@
 import { resolve } from "node:path";
 
 import { sveltekit } from "@sveltejs/kit/vite";
+import adapter from "kit-on-lambda";
 import { defineConfig } from "vite";
 
 const sharedDir = resolve(import.meta.dirname, "../../shared");
 
 export default defineConfig({
-  plugins: [sveltekit()],
+  plugins: [
+    sveltekit({
+      adapter: adapter(),
+    }),
+  ],
   resolve: {
     alias: {
       $shared: sharedDir,

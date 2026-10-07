@@ -94,7 +94,7 @@
     "constructs": "catalog:"
   },
   "peerDependencies": {
-    "@sveltejs/kit": "^2.70.3",
+    "@sveltejs/kit": "^3.0.1",
     "aws-cdk-lib": "catalog:",
     "constructs": "catalog:",
     "typescript": "catalog:"

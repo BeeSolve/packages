@@ -1,4 +1,4 @@
-import { requireUser } from "$lib/server/access.js";
+import { requireUser } from "#lib/server/access.js";
 
 import type { PageServerLoad } from "./$types.js";
 

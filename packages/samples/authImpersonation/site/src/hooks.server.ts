@@ -1,11 +1,12 @@
-import { SampleUsers } from "$lib/server/sampleUsers";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { AuthClient } from "@beesolve/auth-service/sdk";
 import { createSessionHandle, type SessionContext } from "@beesolve/auth-service/sveltekit";
-import { redirect, type Handle } from "@sveltejs/kit";
-import { sequence } from "@sveltejs/kit/hooks";
+import { redirect } from "@sveltejs/kit";
+import { sequence, type Handle } from "@sveltejs/kit/hooks";
 import * as v from "valibot";
+
+import { SampleUsers } from "./lib/server/sampleUsers.js";
 
 const envSchema = v.object({
   SAMPLE_USERS_TABLE_NAME: v.string(),

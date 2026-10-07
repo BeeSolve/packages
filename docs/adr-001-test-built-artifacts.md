@@ -17,7 +17,7 @@ This produced two failure modes when tests were run without a prior build:
 1. **Module not found** — `Cannot find module '@beesolve/dmarc-reports'`, because
    its `dist/` had not been built yet.
 2. **CJS/ESM interop error** — `SyntaxError: Export named 'BatchGetCommand' not
-found in @aws-sdk/lib-dynamodb/.../dist-cjs/index.js`, a symptom that only
+   found in @aws-sdk/lib-dynamodb/.../dist-cjs/index.js`, a symptom that only
    appears through the bundled artifact.
 
 Several packages also ship **prebuilt Lambda handlers** as physical assets

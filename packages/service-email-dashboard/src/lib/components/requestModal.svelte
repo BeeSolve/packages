@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { EmailRequest } from "$lib/server/requests";
+  import type { EmailRequest } from "#lib/server/requests.js";
 
   let { open = $bindable(false), request }: { open: boolean; request: EmailRequest } = $props();
 

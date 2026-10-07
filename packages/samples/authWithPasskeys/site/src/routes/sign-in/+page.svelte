@@ -1,6 +1,6 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
-  import { browser } from "$app/environment";
+  import { browser } from "$app/env";
   import EmailForm from "$shared/components/emailForm.svelte";
   import { signInRequest } from "$shared/utils/authClient";
   import { signInWithPasskey } from "$shared/utils/passkeyClient";

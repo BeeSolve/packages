@@ -139,13 +139,13 @@ no helper to import and no source string to hand-build.
 Instead of parsing raw JSON and casting to `any`, import the typed helpers:
 
 ```ts
-import type { SQSEvent } from "aws-lambda";
 import {
   isEmailCodeAuth,
   isUnsuccessfulAuth,
   isSessionInvalidated,
   parseAuthEvent,
 } from "@beesolve/auth-service/events";
+import type { SQSEvent } from "aws-lambda";
 
 export const handler = async (event: SQSEvent): Promise<void> => {
   for (const record of event.Records) {

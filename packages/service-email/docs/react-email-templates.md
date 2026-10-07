@@ -88,9 +88,10 @@ import { Button, Column, Heading, Hr, Link, Row, Section, Text } from "@react-em
 Create a `build.ts` in your package that calls `buildTemplates`. Run it as part of your deploy pipeline before bundling the Lambda.
 
 ```ts
+import { join } from "node:path";
+
 // build.ts
 import { buildTemplates } from "@beesolve/email-service/templating";
-import { join } from "node:path";
 
 await buildTemplates({
   templatesDir: join(__dirname, "src/templates"),
@@ -122,8 +123,9 @@ build/
 In your Lambda, import the pre-built JSON and call `hydrateTemplate()` to replace the placeholder tokens with real runtime values.
 
 ```ts
-import { hydrateTemplate } from "@beesolve/email-service/templating";
 import { Email } from "@beesolve/email-service/sdk";
+import { hydrateTemplate } from "@beesolve/email-service/templating";
+
 import welcomeEn from "./build/welcome_en.json";
 import welcomeFr from "./build/welcome_fr.json";
 
@@ -187,6 +189,7 @@ For local development or environments where bundle size is not a concern, use `r
 
 ```ts
 import { renderEmail } from "@beesolve/email-service/templating";
+
 import WelcomeEmail from "./src/templates/welcome";
 
 const { html, text } = await renderEmail({

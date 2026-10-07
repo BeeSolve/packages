@@ -50,8 +50,8 @@ export const [handler, tasks] = createSqsHandlers({
 `SqsHandler` wires the queue, DLQ, and handler Lambda. Point `entry` at the file from step 2.
 
 ```ts
-import { Duration } from "aws-cdk-lib";
 import { SqsHandler } from "@beesolve/sqs-handler/cdk";
+import { Duration } from "aws-cdk-lib";
 
 const sqsHandler = new SqsHandler(stack, "Tasks", {
   handlerProps: {

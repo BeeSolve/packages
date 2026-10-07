@@ -1,6 +1,6 @@
 import { ActionTokensClient } from "@beesolve/action-tokens/sdk";
 import { Email } from "@beesolve/email-service/sdk";
-import type { Handle, ServerInit } from "@sveltejs/kit";
+import type { Handle, ServerInit } from "@sveltejs/kit/hooks";
 import * as v from "valibot";
 
 export const env = v.parse(

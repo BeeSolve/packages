@@ -115,11 +115,11 @@ export const handler = asCustomAuthorizedHttpV1Handler(async (request) => {
 Use `getAwsLambdaAuthorizerContext` (v2) or `getAwsCustomAuthorizerContext` (v1) to read the authorizer payload. Pass a [Standard Schema](https://standardschema.dev/)-compatible schema to validate and type the result — works with valibot, Zod, ArkType, and any other Standard Schema library.
 
 ```ts
-import * as v from "valibot";
 import {
   asLambdaAuthorizedHttpV2Handler,
   getAwsLambdaAuthorizerContext,
 } from "@beesolve/lambda-fetch-api";
+import * as v from "valibot";
 
 const AuthSchema = v.object({
   userId: v.string(),

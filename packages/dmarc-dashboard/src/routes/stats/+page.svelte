@@ -1,5 +1,5 @@
 <script lang="ts">
-  import SummaryCard from "$lib/components/summaryCard.svelte";
+  import SummaryCard from "#lib/components/summaryCard.svelte";
 
   let { data } = $props();
 

@@ -649,8 +649,8 @@ All events are emitted on the configured bus with source `beesolve.auth.api` (or
 ### Consuming events
 
 ```ts
-import type { SQSEvent } from "aws-lambda";
 import { parseAuthEvent, isEmailCodeAuth, isUnsuccessfulAuth } from "@beesolve/auth-service/events";
+import type { SQSEvent } from "aws-lambda";
 
 export async function handler(event: SQSEvent): Promise<void> {
   for (const record of event.Records) {
@@ -718,8 +718,9 @@ export const handle = sequence(
 Use `withDevSession` to wrap your fetch handler with a fake API Gateway context so `getSessionContext` works locally:
 
 ```ts
-import { serve } from "bun";
 import { withDevSession } from "@beesolve/auth-service/dev";
+import { serve } from "bun";
+
 import { myApiHandler } from "./api";
 
 const devApi = withDevSession(myApiHandler, { userId: "dev-user-123" });

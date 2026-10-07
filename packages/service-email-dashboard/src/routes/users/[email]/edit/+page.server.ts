@@ -1,6 +1,7 @@
-import { userTypes } from "$lib/server/users";
 import { error, fail, redirect } from "@sveltejs/kit";
 import * as v from "valibot";
+
+import { userTypes } from "#lib/server/users.js";
 
 import type { Actions, PageServerLoad } from "./$types.js";
 

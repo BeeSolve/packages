@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { browser } from "$app/environment";
+  import { browser } from "$app/env";
   import { signOut } from "$shared/utils/authClient";
   import { registerPasskey } from "$shared/utils/passkeyClient";
 

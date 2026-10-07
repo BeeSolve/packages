@@ -30,8 +30,8 @@ Published directly by SES when delivery events occur. The `Emails` CDK construct
 Create an EventBridge rule that matches the relevant sources and routes events to your consumer.
 
 ```ts
-import { Emails } from "@beesolve/email-service/cdk";
 import { Nodejs24Function } from "@beesolve/cdk-constructs";
+import { Emails } from "@beesolve/email-service/cdk";
 import { Rule } from "aws-cdk-lib/aws-events";
 import { LambdaFunction } from "aws-cdk-lib/aws-events-targets";
 
@@ -69,7 +69,6 @@ new Rule(this, "BounceComplaintRule", {
 Import `parseEmailEvent` and the type guard helpers from `@beesolve/email-service/events`:
 
 ```ts
-import type { SQSEvent } from "aws-lambda";
 import {
   isEmailSentFailure,
   isEmailSentSuccess,
@@ -80,6 +79,7 @@ import {
   isSesSend,
   parseEmailEvent,
 } from "@beesolve/email-service/events";
+import type { SQSEvent } from "aws-lambda";
 
 export const handler = async (event: SQSEvent): Promise<void> => {
   for (const record of event.Records) {

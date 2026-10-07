@@ -46,8 +46,8 @@ The construct provisions:
 ### List all monitored domains
 
 ```typescript
-import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { Domains } from "@beesolve/dmarc-consumer/domain";
 
 const dynamo = DynamoDBDocumentClient.from(new DynamoDBClient(), {

@@ -1,10 +1,10 @@
 <script lang="ts">
   import { enhance } from "$app/forms";
-  import Calendar from "$lib/components/calendar.svelte";
-  import LastRunStatus from "$lib/components/lastRunStatus.svelte";
-  import SummaryCard from "$lib/components/summaryCard.svelte";
-  import { ipOrigin } from "$lib/ipOrigin.js";
-  import { encodeReportKey } from "$lib/reportKey.js";
+  import Calendar from "#lib/components/calendar.svelte";
+  import LastRunStatus from "#lib/components/lastRunStatus.svelte";
+  import SummaryCard from "#lib/components/summaryCard.svelte";
+  import { ipOrigin } from "#lib/ipOrigin.js";
+  import { encodeReportKey } from "#lib/reportKey.js";
 
   let { data, form } = $props();
 

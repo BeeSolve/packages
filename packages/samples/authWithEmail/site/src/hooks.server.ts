@@ -1,6 +1,6 @@
 import { createInProcessSessionHandle } from "@beesolve/auth-service/sveltekit";
-import { redirect, type Handle } from "@sveltejs/kit";
-import { sequence } from "@sveltejs/kit/hooks";
+import { redirect } from "@sveltejs/kit";
+import { sequence, type Handle } from "@sveltejs/kit/hooks";
 
 const publicPaths = new Set(["/sign-in", "/sign-in/verify"]);
 

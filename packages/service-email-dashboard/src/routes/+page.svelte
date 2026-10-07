@@ -1,6 +1,6 @@
 <script lang="ts">
-  import MessageStatusBadge from "$lib/components/messageStatusBadge.svelte";
-  import SummaryCard from "$lib/components/summaryCard.svelte";
+  import MessageStatusBadge from "#lib/components/messageStatusBadge.svelte";
+  import SummaryCard from "#lib/components/summaryCard.svelte";
 
   let { data } = $props();
 

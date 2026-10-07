@@ -1,5 +1,3 @@
-import { Setup } from "$lib/server/setup";
-import { Users } from "$lib/server/users";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { AuthClient } from "@beesolve/auth-service/sdk";
@@ -10,9 +8,12 @@ import { ProcessingStats } from "@beesolve/dmarc-consumer/processing-stats";
 import { Reports } from "@beesolve/dmarc-consumer/report";
 import { AdminSdk } from "@beesolve/dmarc-consumer/sdk";
 import { Email } from "@beesolve/email-service/sdk";
-import { redirect, type Handle } from "@sveltejs/kit";
-import { sequence } from "@sveltejs/kit/hooks";
+import { redirect } from "@sveltejs/kit";
+import { sequence, type Handle } from "@sveltejs/kit/hooks";
 import * as v from "valibot";
+
+import { Setup } from "#lib/server/setup.js";
+import { Users } from "#lib/server/users.js";
 
 const envSchema = v.object({
   DMARC_TABLE_NAME: v.string(),

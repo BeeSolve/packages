@@ -30,8 +30,8 @@ console.log(hmac.isValidSignature({ value: data, signature: "invalid signature" 
 Sign a URL with an expiry and verify it later. The query parameters are sorted before signing, so the signature is stable regardless of parameter order.
 
 ```ts
-import { ensureValidUrl, signUrl, SignedUrlError } from "@beesolve/hmac/url";
 import { HmacSigner } from "@beesolve/hmac";
+import { ensureValidUrl, signUrl, SignedUrlError } from "@beesolve/hmac/url";
 
 const hmac = new HmacSigner({ preSharedKey: "your secure key" });
 

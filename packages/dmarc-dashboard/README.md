@@ -34,11 +34,11 @@ npm install \
 ## CDK Setup
 
 ```typescript
-import { App, Stack } from "aws-cdk-lib";
-import { DmarcDashboard } from "@beesolve/dmarc-dashboard/cdk";
-import { DmarcConsumer } from "@beesolve/dmarc-consumer/cdk";
-import { DmarcReports } from "@beesolve/dmarc-reports/cdk";
 import { AuthGateway } from "@beesolve/auth-service/cdk";
+import { DmarcConsumer } from "@beesolve/dmarc-consumer/cdk";
+import { DmarcDashboard } from "@beesolve/dmarc-dashboard/cdk";
+import { DmarcReports } from "@beesolve/dmarc-reports/cdk";
+import { App, Stack } from "aws-cdk-lib";
 
 const frontendUri = process.env.FRONTEND_URI;
 if (frontendUri == null) throw new Error("FRONTEND_URI environment variable is required");

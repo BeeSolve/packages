@@ -1,7 +1,7 @@
 <script lang="ts">
   import { enhance } from "$app/forms";
-  import MessageStatusBadge from "$lib/components/messageStatusBadge.svelte";
-  import RequestModal from "$lib/components/requestModal.svelte";
+  import MessageStatusBadge from "#lib/components/messageStatusBadge.svelte";
+  import RequestModal from "#lib/components/requestModal.svelte";
 
   let { data, form } = $props();
 

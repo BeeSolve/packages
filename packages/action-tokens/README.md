@@ -173,9 +173,9 @@ await tokens.drain({ owner: "user-123", action: "verify-email" });
 Import from `@beesolve/action-tokens/model` when you want to supply your own DynamoDB client or skip the env-var machinery.
 
 ```ts
-import { ActionTokens } from "@beesolve/action-tokens/model";
-import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
+import { ActionTokens } from "@beesolve/action-tokens/model";
 
 const dynamo = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 

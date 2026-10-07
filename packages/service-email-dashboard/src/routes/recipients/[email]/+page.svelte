@@ -1,8 +1,8 @@
 <script lang="ts">
-  import MessageStatusBadge from "$lib/components/messageStatusBadge.svelte";
-  import MonthPicker from "$lib/components/monthPicker.svelte";
-  import SummaryCard from "$lib/components/summaryCard.svelte";
-  import { createLoadMore } from "$lib/loadMore.svelte";
+  import MessageStatusBadge from "#lib/components/messageStatusBadge.svelte";
+  import MonthPicker from "#lib/components/monthPicker.svelte";
+  import SummaryCard from "#lib/components/summaryCard.svelte";
+  import { createLoadMore } from "#lib/loadMore.svelte.js";
 
   let { data } = $props();
 

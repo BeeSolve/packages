@@ -37,7 +37,7 @@ export function createLoadMore<Item>(
     const hasCursor = page.url.searchParams.get("cursor") != null;
     // A key that changes when the *base* query (everything except cursor) changes,
     // so switching month/filter resets the accumulation.
-    const params = new URLSearchParams(page.url.searchParams);
+    const params = new URLSearchParams(page.url.search);
     params.delete("cursor");
     const baseKey = `${page.url.pathname}?${params.toString()}`;
     const pageItems = getPageItems();
@@ -55,7 +55,7 @@ export function createLoadMore<Item>(
   const loadMoreHref = $derived.by(() => {
     const cursor = getCursor();
     if (cursor == null) return null;
-    const params = new URLSearchParams(page.url.searchParams);
+    const params = new URLSearchParams(page.url.search);
     for (const [key, value] of Object.entries(extraParams())) {
       params.set(key, value);
     }

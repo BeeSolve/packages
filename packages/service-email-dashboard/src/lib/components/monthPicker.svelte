@@ -61,7 +61,7 @@
 
     // Preserve existing query params, reset pagination cursor, and set the
     // selected year/month.
-    const params = new URLSearchParams(page.url.searchParams);
+    const params = new URLSearchParams(page.url.search);
     params.set("year", String(nextYear));
     params.set("month", String(nextMonth));
     params.delete("cursor");

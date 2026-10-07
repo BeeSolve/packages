@@ -142,8 +142,9 @@ If you run a custom Bun/Node fetch handler (not SvelteKit hooks), wrap it with
 authorizer context so `getSessionContext()` works locally:
 
 ```ts
-import { serve } from "bun";
 import { withDevSession } from "@beesolve/auth-service/dev";
+import { serve } from "bun";
+
 import { myApiHandler } from "./api";
 
 const devApi = withDevSession(myApiHandler, { userId: "dev-user-123" });

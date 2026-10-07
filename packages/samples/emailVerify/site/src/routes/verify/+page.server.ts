@@ -15,14 +15,17 @@ import type { Actions } from "./$types.js";
 export const actions: Actions = {
   default: async ({ request, locals }) => {
     const formData = await request.formData();
-    const intent = typeof formData.get("intent") === "string" ? formData.get("intent") : "";
-    const token = typeof formData.get("token") === "string" ? formData.get("token") : "";
+    const intentValue = formData.get("intent");
+    const intent = typeof intentValue === "string" ? intentValue : "";
+    const tokenValue = formData.get("token");
+    const token = typeof tokenValue === "string" ? tokenValue : "";
 
     if (intent === "resend") {
       return handleResend(token, locals);
     }
 
-    const code = typeof formData.get("code") === "string" ? formData.get("code") : "";
+    const codeValue = formData.get("code");
+    const code = typeof codeValue === "string" ? codeValue : "";
     return handleVerify(token, code, locals);
   },
 };

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { MessageStatus } from "$lib/server/messages";
+  import type { MessageStatus } from "#lib/server/messages.js";
 
   // Message lifecycle status (sent/delivered/bounced/complained/rejected/
   // requested), rendered as a small graffiti `.tag` pill. This is distinct

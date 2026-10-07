@@ -1,9 +1,10 @@
-import { decodeReportKey } from "$lib/reportKey.js";
-import { requireDomainAccess } from "$lib/server/access.js";
 import { ReportNotFoundError } from "@beesolve/dmarc-consumer/report";
 import { dmarcRecordSchema } from "@beesolve/dmarc-parser";
 import { error } from "@sveltejs/kit";
 import * as v from "valibot";
+
+import { decodeReportKey } from "#lib/reportKey.js";
+import { requireDomainAccess } from "#lib/server/access.js";
 
 import type { PageServerLoad } from "./$types.js";
 

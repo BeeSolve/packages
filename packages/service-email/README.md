@@ -161,9 +161,9 @@ await email.sendEmail({
 ### Custom SDK clients
 
 ```ts
-import { Email } from "@beesolve/email-service/sdk";
 import { S3Client } from "@aws-sdk/client-s3";
 import { SQSClient } from "@aws-sdk/client-sqs";
+import { Email } from "@beesolve/email-service/sdk";
 
 const email = new Email({
   s3Client: new S3Client({ region: "eu-west-1" }),
@@ -215,9 +215,10 @@ WelcomeEmail.PreviewProps = {
 ### Build script
 
 ```ts
+import { join } from "node:path";
+
 // build.ts
 import { buildTemplates } from "@beesolve/email-service/templating";
-import { join } from "node:path";
 
 await buildTemplates({
   templatesDir: join(__dirname, "src/templates"),
@@ -229,8 +230,9 @@ await buildTemplates({
 ### Hydrating at runtime
 
 ```ts
-import { hydrateTemplate } from "@beesolve/email-service/templating";
 import { Email } from "@beesolve/email-service/sdk";
+import { hydrateTemplate } from "@beesolve/email-service/templating";
+
 import welcomeEn from "./build/welcome_en.json";
 
 const emailClient = new Email();

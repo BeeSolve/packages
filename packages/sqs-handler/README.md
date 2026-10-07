@@ -38,8 +38,8 @@ bun add @beesolve/sqs-handler
 ## CDK Setup
 
 ```ts
-import { Duration } from "aws-cdk-lib";
 import { SqsHandler } from "@beesolve/sqs-handler/cdk";
+import { Duration } from "aws-cdk-lib";
 
 const sqsHandler = new SqsHandler(stack, "Tasks", {
   handlerProps: {
@@ -94,9 +94,9 @@ The construct automatically injects these into both the task handler and any Lam
 ### Define task functions
 
 ```ts
+import { SQSClient } from "@aws-sdk/client-sqs";
 // src/lib/server/tasks.ts
 import { createSqsHandlers } from "@beesolve/sqs-handler";
-import { SQSClient } from "@aws-sdk/client-sqs";
 
 export const [handler, tasks] = createSqsHandlers({
   fifo: false, // standard queue (no deduplicationId/groupId options)

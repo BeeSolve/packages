@@ -1,6 +1,6 @@
 <script lang="ts">
   import "@drop-in/graffiti";
-  import ThemeSwitcher from "$lib/components/themeSwitcher.svelte";
+  import ThemeSwitcher from "#lib/components/themeSwitcher.svelte";
 
   let { data, children } = $props();
 </script>

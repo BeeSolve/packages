@@ -16,7 +16,7 @@
 > **inactive server-side copy** under a new id (an `active` flag, default `true`,
 > gates authorization; the exposed original id is burned by deleting the live
 > row); caps the impersonation lifetime to `min(requested, maxImpersonationDuration,
-originalExpiresAt − 5min)` so it always ends before the original would; stores
+> originalExpiresAt − 5min)` so it always ends before the original would; stores
 > an internal `originalSessionRef` on the impersonation row (never exposed to the
 > client); and on `endImpersonation` restores the inactive copy if it still exists
 > (else logs the operator out). The SDK `impersonate` command takes the operator's
@@ -456,9 +456,9 @@ export const fetch = withSession(authorizer, async (request, session) => {
 ### Admin panel — starting impersonation
 
 ```ts
+import { addSetCookies } from "@beesolve/auth-service";
 import { AuthClient } from "@beesolve/auth-service/sdk";
 import { SessionAuthorizer, withSession } from "@beesolve/auth-service/sessionAuthorizer";
-import { addSetCookies } from "@beesolve/auth-service";
 
 const auth = new AuthClient();
 const authorizer = new SessionAuthorizer();

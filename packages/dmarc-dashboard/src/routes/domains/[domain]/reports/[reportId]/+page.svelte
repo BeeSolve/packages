@@ -1,6 +1,6 @@
 <script lang="ts">
-  import RawJsonModal from "$lib/components/rawJsonModal.svelte";
-  import { ipOrigin } from "$lib/ipOrigin.js";
+  import RawJsonModal from "#lib/components/rawJsonModal.svelte";
+  import { ipOrigin } from "#lib/ipOrigin.js";
 
   let { data } = $props();
 

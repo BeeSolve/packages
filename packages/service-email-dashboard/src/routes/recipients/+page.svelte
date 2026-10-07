@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { createLoadMore } from "$lib/loadMore.svelte";
+  import { createLoadMore } from "#lib/loadMore.svelte.js";
 
   let { data } = $props();
 

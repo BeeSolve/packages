@@ -1,8 +1,9 @@
-import { requireDomainAccess } from "$lib/server/access.js";
-import { buildAdvisory } from "$lib/server/advisory.js";
-import { aggregateReports } from "$lib/server/aggregate.js";
 import { fail } from "@sveltejs/kit";
 import * as v from "valibot";
+
+import { requireDomainAccess } from "#lib/server/access.js";
+import { buildAdvisory } from "#lib/server/advisory.js";
+import { aggregateReports } from "#lib/server/aggregate.js";
 
 import type { Actions, PageServerLoad } from "./$types.js";
 

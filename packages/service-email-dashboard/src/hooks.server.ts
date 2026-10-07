@@ -1,18 +1,19 @@
-import { Messages } from "$lib/server/messages";
-import { Recipients } from "$lib/server/recipients";
-import { Requests } from "$lib/server/requests";
-import { Setup } from "$lib/server/setup";
-import { GlobalStats } from "$lib/server/stats";
-import { Users } from "$lib/server/users";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { S3Client } from "@aws-sdk/client-s3";
 import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { AuthClient } from "@beesolve/auth-service/sdk";
 import { createSessionHandle, type SessionContext } from "@beesolve/auth-service/sveltekit";
 import { Email } from "@beesolve/email-service/sdk";
-import { redirect, type Handle } from "@sveltejs/kit";
-import { sequence } from "@sveltejs/kit/hooks";
+import { redirect } from "@sveltejs/kit";
+import { sequence, type Handle } from "@sveltejs/kit/hooks";
 import * as v from "valibot";
+
+import { Messages } from "#lib/server/messages.js";
+import { Recipients } from "#lib/server/recipients.js";
+import { Requests } from "#lib/server/requests.js";
+import { Setup } from "#lib/server/setup.js";
+import { GlobalStats } from "#lib/server/stats.js";
+import { Users } from "#lib/server/users.js";
 
 const envSchema = v.object({
   DASHBOARD_TABLE_NAME: v.string(),

@@ -49,10 +49,10 @@ npm install \
 Only the `./cdk` construct is exported. Construct an `AuthGateway` first, then hand it to the dashboard:
 
 ```typescript
-import { App, Stack } from "aws-cdk-lib";
-import { EventBus } from "aws-cdk-lib/aws-events";
 import { AuthGateway } from "@beesolve/auth-service/cdk";
 import { EmailServiceDashboard } from "@beesolve/email-service-dashboard/cdk";
+import { App, Stack } from "aws-cdk-lib";
+import { EventBus } from "aws-cdk-lib/aws-events";
 
 const frontendUri = process.env.FRONTEND_URI;
 if (frontendUri == null) throw new Error("FRONTEND_URI environment variable is required");

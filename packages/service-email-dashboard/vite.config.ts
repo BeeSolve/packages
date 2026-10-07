@@ -1,4 +1,5 @@
 import { sveltekit } from "@sveltejs/kit/vite";
+import adapter from "kit-on-lambda";
 import { defineConfig } from "vite";
 
 // Vite 8 uses lightningcss as its default CSS transformer. Without an explicit
@@ -19,7 +20,16 @@ const cssTargets = {
 };
 
 export default defineConfig({
-  plugins: [sveltekit()],
+  plugins: [
+    sveltekit({
+      adapter: adapter({ out: "dist/build" }),
+      // Use absolute asset paths (/_app/...) instead of relative (./_app/...).
+      // kit-on-lambda serves routes dynamically, so relative paths resolve
+      // against the current route depth (e.g. /domains/_app/...) and 404,
+      // stripping styling on nested routes.
+      paths: { relative: false },
+    }),
+  ],
   css: {
     transformer: "lightningcss",
     lightningcss: {
