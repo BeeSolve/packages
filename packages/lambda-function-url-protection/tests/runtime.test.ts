@@ -48,20 +48,18 @@ describe("protectFetch", () => {
     expect(response.status).toBe(403);
   });
 
-  it("rejects with 403 when the env var is unset", async () => {
+  it("passes through when the env var is unset", async () => {
     delete process.env[originTokenEnvVar];
-    const response = await inner(
-      new Request("https://lambda/", { headers: { "x-origin-token": token } }),
-    );
-    expect(response.status).toBe(403);
+    const response = await inner(new Request("https://lambda/"));
+    expect(response.status).toBe(200);
+    expect(await response.text()).toBe("ok");
   });
 
-  it("rejects with 403 when the env var is an empty string", async () => {
+  it("passes through when the env var is an empty string", async () => {
     process.env[originTokenEnvVar] = "";
-    const response = await inner(
-      new Request("https://lambda/", { headers: { "x-origin-token": "" } }),
-    );
-    expect(response.status).toBe(403);
+    const response = await inner(new Request("https://lambda/"));
+    expect(response.status).toBe(200);
+    expect(await response.text()).toBe("ok");
   });
 });
 
@@ -97,16 +95,18 @@ describe("protectHandler", () => {
     expect(result.statusCode).toBe(403);
   });
 
-  it("rejects with 403 when the env var is unset", async () => {
+  it("passes through when the env var is unset", async () => {
     delete process.env[originTokenEnvVar];
-    const result = await inner({ headers: { "x-origin-token": token } }, context);
-    expect(result.statusCode).toBe(403);
+    const result = await inner({ headers: {} }, context);
+    expect(result.statusCode).toBe(200);
+    expect(result.body).toBe("ok");
   });
 
-  it("rejects with 403 when the env var is an empty string", async () => {
+  it("passes through when the env var is an empty string", async () => {
     process.env[originTokenEnvVar] = "";
-    const result = await inner({ headers: { "x-origin-token": "" } }, context);
-    expect(result.statusCode).toBe(403);
+    const result = await inner({ headers: {} }, context);
+    expect(result.statusCode).toBe(200);
+    expect(result.body).toBe("ok");
   });
 });
 

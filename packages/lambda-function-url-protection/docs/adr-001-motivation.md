@@ -16,15 +16,15 @@ The verification has two halves that must agree: the CDK side that generates the
 
 Own both halves of the token contract in one standalone package:
 
-- A fail-closed runtime wrapper (`protectFetch` for `Fetch` handlers, `protectHandler` for Lambda proxy handlers) that rejects any request whose `x-origin-token` header does not match the `ORIGIN_TOKEN` value.
+- A runtime wrapper (`protectFetch` for `Fetch` handlers, `protectHandler` for Lambda proxy handlers) that rejects any request whose `x-origin-token` header does not match the `ORIGIN_TOKEN` value, when enforcement is engaged (see ADR-002 for when it engages).
 - A CDK helper (`protectedFunctionUrlOrigin`) that generates the secret, injects `ORIGIN_TOKEN` into the handler, creates the Function URL, and returns a CloudFront origin that sends the `x-origin-token` header.
 - Shared header and env-var constants (`originTokenHeader`, `originTokenEnvVar`) consumed by both halves so the names cannot drift apart.
 
 ## Rationale
 
-### 1. Fail-closed only
+### 1. Enforcement is opt-in by environment, fail-closed once engaged
 
-The runtime wrappers reject whenever the token is missing or does not match. There is no "allow when unconfigured" mode. The handler only ever runs inside Lambda, where `protectedFunctionUrlOrigin` is responsible for setting `ORIGIN_TOKEN`; an absent or empty value is therefore a misconfiguration, not a valid state, and must reject rather than fall open. A fail-open default would turn a wiring mistake into a silent security hole.
+The runtime wrappers enforce the token only when `ORIGIN_TOKEN` is set to a non-empty value. When it is unset or empty, the request is passed through. Once enforcement is engaged, it is fail-closed: a missing or mismatched header is rejected with a 403, never allowed through. See ADR-002 for why this supersedes the original "fail-closed only, reject when unconfigured" stance.
 
 ### 2. Constant-time comparison
 
@@ -42,7 +42,7 @@ The CDK side and the runtime side share `originTokenHeader` and `originTokenEnvV
 
 - Direct invocation of the Function URL, bypassing CloudFront, is rejected with a 403. The protection that the injected secret always implied is now actually enforced.
 - The header and env-var contract lives in one place, so the CDK and runtime halves stay in sync by construction.
-- Consumers who front the Lambda with an API Gateway authorizer rather than CloudFront do not exercise this path; for them the wrappers add a check that never fires, and the helper's Function URL assumptions do not apply.
+- Consumers who front the Lambda with an API Gateway origin or authorizer rather than the token-protected Function URL do not set `ORIGIN_TOKEN`, so the wrappers pass requests through and the check never fires. The same handler file can therefore serve both a token-protected Function URL origin and a non-token origin without branching (see ADR-002).
 - The protection is independent of the Function URL response mode. The same token check works for both streamed (`InvokeMode.RESPONSE_STREAM`) and buffered (`InvokeMode.BUFFERED`) responses, because `protectFetch` and `protectHandler` wrap the handler regardless of how its response is delivered.
 - keep-active pings invoke the Lambda directly and carry no origin token. Ordering therefore matters: the keep-active wrapper must run before the protection wrapper so a ping short-circuits before the token check rejects it (see the getting-started guide).
 

@@ -7,15 +7,23 @@ import { originTokenEnvVar, originTokenHeader } from "./shared";
 type Fetch = (request: Request) => Promise<Response>;
 
 /**
- * Wraps a `Fetch` handler so requests without a matching origin token are
- * rejected with a 403 before reaching the inner handler. Fail-closed: a
- * missing or misconfigured token always rejects.
+ * Wraps a `Fetch` handler so requests whose origin token does not match are
+ * rejected with a 403 before reaching the inner handler.
+ *
+ * Enforcement is opt-in by environment: it engages only when `ORIGIN_TOKEN` is
+ * set to a non-empty value (which `protectedFunctionUrlOrigin` does for the
+ * Function URL origin). When `ORIGIN_TOKEN` is unset or empty, the request is
+ * passed through unchanged, so the same handler can also serve origins that do
+ * not use the token mechanism (for example an API Gateway origin). While
+ * enforcement is engaged it is fail-closed: a missing or mismatched header is
+ * rejected.
  */
 export function protectFetch(fetch: Fetch): Fetch {
   return async (request: Request): Promise<Response> => {
-    const expected = process.env[originTokenEnvVar];
-    const presented = request.headers.get(originTokenHeader);
+    const expected = expectedToken();
+    if (expected == null) return fetch(request);
 
+    const presented = request.headers.get(originTokenHeader);
     if (!tokensMatch(expected, presented)) {
       return new Response(null, {
         status: 403,
@@ -28,9 +36,16 @@ export function protectFetch(fetch: Fetch): Fetch {
 }
 
 /**
- * Wraps an AWS Lambda proxy handler so events without a matching origin token
+ * Wraps an AWS Lambda proxy handler so events whose origin token does not match
  * are rejected with a 403 proxy result before reaching the inner handler.
- * Fail-closed: a missing or misconfigured token always rejects.
+ *
+ * Enforcement is opt-in by environment: it engages only when `ORIGIN_TOKEN` is
+ * set to a non-empty value (which `protectedFunctionUrlOrigin` does for the
+ * Function URL origin). When `ORIGIN_TOKEN` is unset or empty, the event is
+ * passed through unchanged, so the same handler can also serve origins that do
+ * not use the token mechanism (for example an API Gateway origin). While
+ * enforcement is engaged it is fail-closed: a missing or mismatched header is
+ * rejected.
  *
  * The wrapped handler's own result type is preserved; the only shape this
  * wrapper introduces is the 403 proxy result, so `Result` is unconstrained and
@@ -43,9 +58,10 @@ export function protectHandler<Event, Context, Result>(
     event: Event,
     context: Context,
   ): Promise<Result | APIGatewayProxyStructuredResultV2> => {
-    const expected = process.env[originTokenEnvVar];
-    const presented = readHeader(event, originTokenHeader);
+    const expected = expectedToken();
+    if (expected == null) return handler(event, context);
 
+    const presented = readHeader(event, originTokenHeader);
     if (!tokensMatch(expected, presented)) {
       return { statusCode: 403, headers: { "cache-control": "no-store" }, body: "" };
     }
@@ -54,8 +70,13 @@ export function protectHandler<Event, Context, Result>(
   };
 }
 
-function tokensMatch(expected: string | undefined, presented: string | null): boolean {
-  if (expected == null || expected.length === 0) return false;
+function expectedToken(): string | null {
+  const value = process.env[originTokenEnvVar];
+  if (value == null || value.length === 0) return null;
+  return value;
+}
+
+function tokensMatch(expected: string, presented: string | null): boolean {
   if (presented == null) return false;
 
   const expectedBuffer = Buffer.from(expected);

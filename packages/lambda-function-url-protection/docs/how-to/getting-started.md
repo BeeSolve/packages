@@ -12,7 +12,15 @@
 A Lambda Function URL created with `authType NONE` is publicly reachable. Putting
 CloudFront in front of it only helps if the handler refuses requests that did not
 come through the distribution. This package generates a shared secret on the CDK
-side and verifies it, fail-closed, on the runtime side.
+side and verifies it on the runtime side.
+
+Enforcement is opt-in by environment. The wrappers enforce the token only when
+`ORIGIN_TOKEN` is set to a non-empty value (which `protectedFunctionUrlOrigin`
+does). When it is unset or empty, requests pass through, so you can wrap a
+handler that is also deployed behind a non-token origin (for example an API
+Gateway origin) without it rejecting that traffic. Once enforcement is engaged
+it is fail-closed: a missing or mismatched `x-origin-token` header is rejected
+with a 403.
 
 The protection is independent of the response mode: it works with both streamed
 responses (`InvokeMode.RESPONSE_STREAM`) and buffered responses
@@ -116,9 +124,11 @@ composition order.
   `keptActive` must wrap `protectHandler` - the ping check runs first and
   short-circuits. Reversing them makes `protectHandler` reject valid pings with a
   403 before `keptActive` ever sees them.
-- `ORIGIN_TOKEN` is set by `protectedFunctionUrlOrigin`. If it is missing or
-  empty at runtime the wrappers reject every request by design (fail-closed);
-  check the CDK wiring rather than loosening the handler.
+- `ORIGIN_TOKEN` is set by `protectedFunctionUrlOrigin`. When it is present the
+  wrappers enforce the token and reject mismatches with a 403; when it is unset
+  or empty they pass requests through (enforcement is opt-in). If a
+  token-protected deployment unexpectedly lets traffic through, check that the
+  CDK side set `ORIGIN_TOKEN` rather than loosening the handler.
 
 ## See Also
 
