@@ -1,5 +1,34 @@
 # @beesolve/auth-service
 
+## 0.18.0
+
+### Minor Changes
+
+- 58111f6: Require SvelteKit 3: the `@sveltejs/kit` peer dependency range is now `^3.0.1` (was `^2.70.3`).
+
+  The SSR session integration (`createSessionHandle`, `createInProcessSessionHandle`) is used from SvelteKit `hooks.server.ts`. Consumers must upgrade their app to SvelteKit 3 to use this version. No runtime code changed.
+
+### Patch Changes
+
+- fa73c6b: Fix: depend on the internal `@beesolve/lambda-keep-active` package via `workspace:^` instead of `catalog:`.
+
+  `lambda-keep-active` is an intra-monorepo package, so it must be referenced with `workspace:^` like every other internal dependency - the `catalog:` is reserved for shared third-party dependencies. The package was also removed from the workspace catalog, where it did not belong. This resolves a changesets warning and ensures the published dependency range tracks the actual released version of `lambda-keep-active`.
+
+- b9e6f26: Publish agent-readable documentation inside the package tarball.
+
+  Each package now ships a `DOCS.md` index at its root and, for user-facing packages, how-to guides under `docs/how-to/`, so AI agents can read usage directly from `node_modules`. The `files` allowlist was extended to include `DOCS.md` (and `docs/how-to` for user-facing packages); ADRs remain unpublished. Every `DOCS.md` carries a keyword line for grep-based discovery, a directive to prefer the installed docs over prior knowledge, and absolute links to the GitHub repository for full working examples. No runtime code changed.
+
+- Updated dependencies [58111f6]
+- Updated dependencies [b9e6f26]
+  - @beesolve/lambda-keep-active@2.1.6
+  - @beesolve/action-tokens@0.5.4
+  - @beesolve/cdk-constructs@0.3.2
+  - @beesolve/cdk-email-alarms@0.1.6
+  - @beesolve/dynamo-helpers@0.2.1
+  - @beesolve/helpers@0.2.1
+  - @beesolve/lambda-fetch-api@2.1.2
+  - @beesolve/sqs-handler@0.2.6
+
 ## 0.17.1
 
 ### Patch Changes

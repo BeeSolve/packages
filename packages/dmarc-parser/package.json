@@ -1,6 +1,6 @@
 {
   "name": "@beesolve/dmarc-parser",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "DMARC aggregate report parser — XML parsing, decompression, and MIME extraction",
   "homepage": "https://github.com/BeeSolve/packages/tree/main/packages/dmarc-parser#readme",
   "license": "MIT",
