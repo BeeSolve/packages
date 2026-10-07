@@ -148,12 +148,12 @@ export function sortObjectKeysRecursively<T>(value: T): T {
     return value.map(sortObjectKeysRecursively) as T;
   }
   if (value != null && typeof value === "object") {
-    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
     return Object.fromEntries(
       Object.keys(value)
         .sort()
         // oxlint-disable-next-line typescript/no-unsafe-type-assertion
         .map((key) => [key, sortObjectKeysRecursively((value as Record<string, unknown>)[key])]),
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion
     ) as T;
   }
   return value;

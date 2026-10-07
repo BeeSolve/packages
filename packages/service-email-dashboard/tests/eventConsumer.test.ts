@@ -77,7 +77,6 @@ const recipient = "recipient@example.com";
 const sender = "sender@example.com";
 
 function sqsRecord({ messageId: id, body }: { messageId: string; body: string }): SQSRecord {
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- only fields the handler reads
   return {
     messageId: id,
     body,
@@ -88,6 +87,7 @@ function sqsRecord({ messageId: id, body }: { messageId: string; body: string })
     eventSource: "aws:sqs",
     eventSourceARN: "arn:aws:sqs:eu-west-1:0:queue",
     awsRegion: "eu-west-1",
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- only fields the handler reads
   } as SQSRecord;
 }
 

@@ -546,12 +546,12 @@ function sortKeys<T>(value: T): T {
     return value.map(sortKeys) as T;
   }
   if (value != null && typeof value === "object") {
-    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
     return Object.fromEntries(
       Object.keys(value)
         .sort()
         // oxlint-disable-next-line typescript/no-unsafe-type-assertion
         .map((key) => [key, sortKeys((value as Record<string, unknown>)[key])]),
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion
     ) as T;
   }
   return value;
