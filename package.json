@@ -16,7 +16,6 @@
       "@aws-sdk/client-lambda": "^3.1127.0",
       "@aws-sdk/credential-providers": "^3.1127.0",
       "@aws-sdk/client-resource-groups-tagging-api": "^3.1051.0",
-      "@beesolve/lambda-keep-active": "^2.0.0",
       "mimetext": "^3.0.28",
       "@aws-sdk/lib-dynamodb": "^3.1127.0",
       "@aws-sdk/client-eventbridge": "^3.1127.0",
