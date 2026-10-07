@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 
+import type { APIGatewayProxyResult, APIGatewayProxyResultV2 } from "aws-lambda";
+
 import { protectFetch, protectHandler } from "../runtime";
 import { originTokenEnvVar } from "../shared";
 
@@ -105,5 +107,31 @@ describe("protectHandler", () => {
     process.env[originTokenEnvVar] = "";
     const result = await inner({ headers: { "x-origin-token": "" } }, context);
     expect(result.statusCode).toBe(403);
+  });
+});
+
+describe("protectHandler with a v1 | v2 union result", () => {
+  const inner = protectHandler(
+    async (): Promise<APIGatewayProxyResult | APIGatewayProxyResultV2> => ({
+      statusCode: 200,
+      body: "ok",
+    }),
+  );
+  const context = {};
+
+  it("delegates and preserves the inner union result when the token matches", async () => {
+    process.env[originTokenEnvVar] = token;
+    const result = await inner({ headers: { "x-origin-token": token } }, context);
+    expect(typeof result === "object" && "statusCode" in result ? result.statusCode : null).toBe(
+      200,
+    );
+  });
+
+  it("rejects with 403 when the token is missing", async () => {
+    process.env[originTokenEnvVar] = token;
+    const result = await inner({ headers: {} }, context);
+    expect(typeof result === "object" && "statusCode" in result ? result.statusCode : null).toBe(
+      403,
+    );
   });
 });

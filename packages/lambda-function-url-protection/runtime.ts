@@ -1,6 +1,6 @@
 import { timingSafeEqual } from "node:crypto";
 
-import type { APIGatewayProxyResult } from "aws-lambda";
+import type { APIGatewayProxyStructuredResultV2 } from "aws-lambda";
 
 import { originTokenEnvVar, originTokenHeader } from "./shared";
 
@@ -31,11 +31,18 @@ export function protectFetch(fetch: Fetch): Fetch {
  * Wraps an AWS Lambda proxy handler so events without a matching origin token
  * are rejected with a 403 proxy result before reaching the inner handler.
  * Fail-closed: a missing or misconfigured token always rejects.
+ *
+ * The wrapped handler's own result type is preserved; the only shape this
+ * wrapper introduces is the 403 proxy result, so `Result` is unconstrained and
+ * may be a v1 result, a v2 result, or a union of both.
  */
-export function protectHandler<Event, Context, Result extends APIGatewayProxyResult>(
+export function protectHandler<Event, Context, Result>(
   handler: (event: Event, context: Context) => Promise<Result>,
-): (event: Event, context: Context) => Promise<Result | APIGatewayProxyResult> {
-  return async (event: Event, context: Context): Promise<Result | APIGatewayProxyResult> => {
+): (event: Event, context: Context) => Promise<Result | APIGatewayProxyStructuredResultV2> {
+  return async (
+    event: Event,
+    context: Context,
+  ): Promise<Result | APIGatewayProxyStructuredResultV2> => {
     const expected = process.env[originTokenEnvVar];
     const presented = readHeader(event, originTokenHeader);
 
