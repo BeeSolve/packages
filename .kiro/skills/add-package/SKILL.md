@@ -71,6 +71,23 @@ bun run recalculate-dependencies
 
 `recalculate-dependencies` re-derives the topological publish order from all `package.json` files and updates `dependencies.json`. Run it any time intra-monorepo dependencies change.
 
+### 3b. Add agentic documentation
+
+Every publishable package ships agent-readable docs inside its npm tarball. Create them now and keep them accurate with the `sync-package-docs` skill.
+
+For a **user-facing** package (something external users install directly):
+
+1. Add `"docs/how-to"` and `"DOCS.md"` to the `"files"` array in `package.json` (alongside `"dist"`).
+2. Create `DOCS.md` at the package root using the full template from `sync-package-docs`.
+3. Create at least `docs/how-to/getting-started.md` with a real, minimal usage example grounded in the package's exports.
+
+For an **internal plumbing** package (consumed mainly by other `@beesolve/*` packages):
+
+1. Add only `"DOCS.md"` to the `"files"` array (no `"docs/how-to"`).
+2. Create `DOCS.md` using the "no guides" variant from `sync-package-docs`.
+
+Never add `"docs"` (the whole folder) to `files` - ADRs must stay unpublished. See the `sync-package-docs` skill for the templates and the non-negotiable rules (no placeholders, no fabricated API names, mandatory Keywords line and canonical-docs directive).
+
 ### 4. Verify the build config
 
 The scaffold adds a minimal entry to `bunup.config.ts`:
@@ -128,5 +145,7 @@ bunx changeset
 ```
 
 Select the affected packages, choose `patch` / `minor` / `major`, write a short summary. Commit the generated `.changeset/<random-name>.md` file with the PR.
+
+If the change touches the public API (exports, construct props, error types) or a documented workflow, run a docs-sync pass with the `sync-package-docs` skill so the package's `DOCS.md` and `docs/how-to/` guides stay accurate.
 
 After the PR is merged to `main`, the Changesets bot opens a "Version Packages" PR that bumps versions and writes CHANGELOG entries. Merging that PR triggers the `publish.yml` workflow which publishes automatically.
