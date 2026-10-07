@@ -7,6 +7,7 @@
   "packages/helpers-dynamo",
   "packages/hmac",
   "packages/lambda-fetch-api",
+  "packages/lambda-function-url-protection",
   "packages/lambda-keep-active",
   "packages/dmarc-reports",
   "packages/lint-config",

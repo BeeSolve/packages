@@ -172,6 +172,10 @@ which publishes a minimal `0.0.0` placeholder from a temp directory, then regist
 Actions Trusted Publisher (`npm trust github @beesolve/<name> --repo BeeSolve/packages --file
 publish.yml --yes`, with the npmjs.org web UI as a fallback).
 
+The scaffold initializes the package's `package.json` at `0.1.0`, but the name is first
+reserved on npm by publishing a separate `0.0.0` placeholder — the `0.1.0` version is published
+later through the normal changeset release.
+
 This is a one-time bootstrap. Once the placeholder exists and trust is registered, the first
 real release happens through the normal changesets flow (see below).
 

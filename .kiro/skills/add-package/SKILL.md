@@ -115,8 +115,10 @@ Follow the `publish-placeholder-package` skill (`.kiro/skills/publish-placeholde
 it publishes a minimal `0.0.0` placeholder from a temp directory, polls until the name resolves
 on npm, then registers the GitHub Actions Trusted Publisher via
 `npm trust github @beesolve/<name> --repo BeeSolve/packages --file publish.yml --yes` (with the
-npmjs.org web UI as a fallback). This is a one-time bootstrap; the first real release then goes
-through the changesets flow below.
+npmjs.org web UI as a fallback). The scaffold initializes `package.json` at `0.1.0`, but the
+name is first reserved on npm by publishing a separate `0.0.0` placeholder; the `0.1.0` version
+is published later through the normal changeset release. This is a one-time bootstrap; the first
+real release then goes through the changesets flow below.
 
 ### 6. Update the changeset mapping in steering
 

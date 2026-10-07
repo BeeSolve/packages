@@ -152,6 +152,13 @@ const workspace: Array<DefineWorkspaceItem> = [
     },
   },
   {
+    name: "@beesolve/lambda-function-url-protection",
+    root: "packages/lambda-function-url-protection",
+    config: {
+      entry: ["index.ts", "runtime.ts"],
+    },
+  },
+  {
     name: "@beesolve/dmarc-dashboard",
     root: "packages/dmarc-dashboard",
     config: {
