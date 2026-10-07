@@ -7,7 +7,9 @@
     "url": "git+https://github.com/BeeSolve/packages.git"
   },
   "files": [
-    "dist"
+    "dist",
+    "docs/how-to",
+    "DOCS.md"
   ],
   "type": "module",
   "exports": {

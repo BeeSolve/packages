@@ -1,4 +1,6 @@
-# Running auth-service with kit-on-lambda locally
+# How to: Run auth-service with kit-on-lambda locally
+
+> Full working example: https://github.com/BeeSolve/packages/tree/main/packages/samples/authEmailSimple
 
 This guide covers how to run a SvelteKit app that uses **`@beesolve/auth-service`**
 and is deployed via **`kit-on-lambda`**, on your machine with `vite dev` — no Lambda,
@@ -164,8 +166,16 @@ cert with `devcert` or `mkcert` and run the dev server over TLS.
 - [ ] AWS credentials available in the shell
 - [ ] `@beesolve/lambda-fetch-api` in Vite `ssr.external` (authorizer pattern)
 
-## See also
+## Common Pitfalls
 
-- [`@beesolve/dmarc-dashboard`](https://github.com/beesolve/packages/tree/main/packages/dmarc-dashboard)
-  — a real app wired exactly this way (see its README "Local Development" section).
-- `kit-on-lambda` README → "Local development" for the adapter side.
+- **Missing Vite SSR external (authorizer pattern).** When using `createSessionHandle`, add `@beesolve/lambda-fetch-api` to `ssr.external`, or Vite bundles a duplicate `AsyncLocalStorage` and you get `getAws* called outside of a handler invocation` at runtime. `createInProcessSessionHandle` is unaffected.
+- **Using the default `dev-user` against a real backend.** The presets use `userId: "dev-user"`, which usually does not exist in your table, so user lookups fail and the UI looks logged out. Build a `fallbackSession` with a real user id, gated behind `import.meta.env.DEV`.
+- **Env vars not loaded before import.** SDK clients constructed at module load read `process.env` at import time. Load `.env.local` via `--env-file` in your `dev` script or the first request throws a validation error naming the missing key.
+
+## See Also
+
+- [Getting Started](./getting-started.md) - deploy the same app to AWS
+- [Put the auth service behind CloudFront](./cloudfront.md) - the production topology this mirrors
+- [`@beesolve/dmarc-dashboard`](https://github.com/BeeSolve/packages/tree/main/packages/dmarc-dashboard) - a real app wired exactly this way (see its README "Local Development" section)
+- [Minimal SvelteKit example on GitHub](https://github.com/BeeSolve/packages/tree/main/packages/samples/authEmailSimple)
+- `kit-on-lambda` README → "Local development" for the adapter side

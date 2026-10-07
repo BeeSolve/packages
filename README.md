@@ -35,6 +35,10 @@ npm install @beesolve/<package-name>
 
 Each package's README contains detailed usage instructions and API documentation.
 
+## Documentation
+
+Every published package ships a short set of how-to guides plus a `DOCS.md` index that are readable directly from `node_modules` without a git checkout, so AI coding agents can discover how to use a package in place. The [`packages/samples/`](packages/samples) directory contains full, deployable working examples that the guides link to.
+
 ## Prerequisites
 
 - [Bun](https://bun.sh) — package manager and script runner

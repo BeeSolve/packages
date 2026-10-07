@@ -1,4 +1,6 @@
-# CloudFront CDK example
+# How to: Put the auth service behind CloudFront
+
+> Full working example: https://github.com/BeeSolve/packages/tree/main/packages/samples/authSpaWithApi
 
 This example shows a complete CDK stack that places a CloudFront distribution in front of both the auth endpoints and an application API, all on the same domain.
 
@@ -10,7 +12,7 @@ This example shows a complete CDK stack that places a CloudFront distribution in
 
 ```ts
 import { AuthGateway } from "@beesolve/auth-service/cdk";
-import { Fn, Stack, type StackProps } from "aws-cdk-lib";
+import { Fn } from "aws-cdk-lib";
 import {
   AllowedMethods,
   CachePolicy,
@@ -19,58 +21,29 @@ import {
   ViewerProtocolPolicy,
 } from "aws-cdk-lib/aws-cloudfront";
 import { HttpOrigin, S3StaticWebsiteOrigin } from "aws-cdk-lib/aws-cloudfront-origins";
-import { Bucket } from "aws-cdk-lib/aws-s3";
-import { Function, Runtime, Code } from "aws-cdk-lib/aws-lambda";
-import { Construct } from "constructs";
 
-export class AppStack extends Stack {
-  constructor(scope: Construct, id: string, props?: StackProps) {
-    super(scope, id, props);
+const distribution = new Distribution(this, "Distribution", {
+  defaultBehavior: {
+    origin: new S3StaticWebsiteOrigin(frontendBucket),
+    viewerProtocolPolicy: ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+  },
+});
 
-    // --- Frontend assets -------------------------------------------------
-    const frontendBucket = new Bucket(this, "FrontendBucket", {
-      websiteIndexDocument: "index.html",
-    });
+const auth = new AuthGateway(this, "Auth", {
+  stage: "prod",
+  frontendUri: `https://${distribution.distributionDomainName}`,
+  allowSignUp: true,
+});
 
-    const distribution = new Distribution(this, "Distribution", {
-      defaultBehavior: {
-        origin: new S3StaticWebsiteOrigin(frontendBucket),
-        viewerProtocolPolicy: ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
-      },
-    });
+auth.addAuthorizedEndpoint({ lambda: apiHandler }); // defaults to /api/{proxy+}
 
-    const frontendUri = `https://${distribution.distributionDomainName}`;
-
-    // --- Auth ------------------------------------------------------------
-    const auth = new AuthGateway(this, "Auth", {
-      stage: "prod",
-      frontendUri,
-      allowSignUp: true,
-    });
-
-    // --- Application API -------------------------------------------------
-    const apiHandler = new Function(this, "ApiHandler", {
-      runtime: Runtime.NODEJS_22_X,
-      handler: "index.handler",
-      code: Code.fromInline(`exports.handler = async () => ({ statusCode: 200, body: "ok" })`),
-    });
-
-    auth.addAuthorizedEndpoint({ lambda: apiHandler }); // defaults to /api/{proxy+}
-
-    // --- CloudFront behaviors --------------------------------------------
-
-    // /auth/* → Lambda function URL with OAC (includes Lambda@Edge for body hashing)
-    distribution.addBehavior("/auth/*", auth.authBehavior.origin, auth.authBehavior);
-
-    // /api/* → API Gateway HTTP API (session-protected routes)
-    distribution.addBehavior("/api/*", new HttpOrigin(Fn.parseDomainName(auth.api.url!)), {
-      allowedMethods: AllowedMethods.ALLOW_ALL,
-      cachePolicy: CachePolicy.CACHING_DISABLED,
-      originRequestPolicy: OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
-      viewerProtocolPolicy: ViewerProtocolPolicy.HTTPS_ONLY,
-    });
-  }
-}
+distribution.addBehavior("/auth/*", auth.authBehavior.origin, auth.authBehavior);
+distribution.addBehavior("/api/*", new HttpOrigin(Fn.parseDomainName(auth.api.url!)), {
+  allowedMethods: AllowedMethods.ALLOW_ALL,
+  cachePolicy: CachePolicy.CACHING_DISABLED,
+  originRequestPolicy: OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
+  viewerProtocolPolicy: ViewerProtocolPolicy.HTTPS_ONLY,
+});
 ```
 
 ## What each piece does
@@ -126,3 +99,17 @@ const auth = new AuthGateway(this, "Auth", {
   warmer,
 });
 ```
+
+## Common Pitfalls
+
+- **Splitting auth and app across subdomains.** `__Host-SID` and `__Host-DataToken` have no `Domain` attribute, so the browser only sends them to the exact origin that set them. Route `/auth/*`, `/api/*`, and the frontend through one distribution; subdomains silently break cookie flow.
+- **Caching the `/api/*` behavior.** Session-protected API responses must use `CachePolicy.CACHING_DISABLED` and `OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER`, otherwise CloudFront strips or caches the cookie and the authorizer never sees it.
+- **Cross-stack behaviors.** When the distribution lives in a different stack than the auth construct, use `auth.createAuthBehavior(scope)` instead of `auth.authBehavior` to avoid CloudFormation cross-stack export issues with the Lambda@Edge version ARN.
+- **WAF in the wrong region.** WAF for CloudFront must be deployed in `us-east-1`. See the [WAF guide](./waf.md).
+
+## See Also
+
+- [Getting Started](./getting-started.md) - install through first deployment
+- [WAF rate limiting](./waf.md) - protect the public auth endpoints
+- [Full SPA + API example on GitHub](https://github.com/BeeSolve/packages/tree/main/packages/samples/authSpaWithApi)
+- [Minimal SSR example on GitHub](https://github.com/BeeSolve/packages/tree/main/packages/samples/authEmailSimple)

@@ -1,4 +1,6 @@
-# Data token — anonymous-to-authenticated handoff
+# How to: Data token - anonymous-to-authenticated handoff
+
+> Full working example (event consumer wiring): https://github.com/BeeSolve/packages/tree/main/packages/samples/authWithEmail
 
 The data token feature lets you carry anonymous-session data across the sign-in boundary. The canonical use case is linking an anonymous shopping cart (or any pre-auth state) to a newly authenticated account.
 
@@ -79,3 +81,15 @@ export const handler = async (event: SQSEvent): Promise<void> => {
 - The token value is opaque to the auth service; it is forwarded as-is. Your consumer is responsible for validating it against your own anonymous-session store.
 - The cookie `Max-Age` defaults to 900 seconds (15 minutes). Pass a custom value to `toDataTokenCookie(token, maxAge)` if you need a longer window.
 - Once the `DataToken` event fires, you should clear the anonymous session to prevent reuse.
+
+## Common Pitfalls
+
+- **Forgetting `dataToken: true`.** The auth Lambda only reads `__Host-DataToken` and emits the `DataToken` event when the construct is created with `dataToken: true`. Without it, the cookie is ignored.
+- **Setting the cookie after sign-in starts.** Write `__Host-DataToken` before the user initiates sign-in - it is read on `signInComplete`, so a cookie set too late never reaches the event.
+- **Trusting the token blindly.** The value is opaque to the auth service and merely forwarded. Validate it against your own anonymous-session store before merging data.
+
+## See Also
+
+- [Consuming auth events](./consuming-events.md) - general event consumer wiring
+- [Getting Started](./getting-started.md) - minimal end-to-end setup
+- [Full event-consumer example on GitHub](https://github.com/BeeSolve/packages/tree/main/packages/samples/authWithEmail)

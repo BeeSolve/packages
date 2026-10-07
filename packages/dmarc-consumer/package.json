@@ -10,7 +10,9 @@
   },
   "files": [
     "dist",
-    "consumer"
+    "consumer",
+    "docs/how-to",
+    "DOCS.md"
   ],
   "type": "module",
   "exports": {

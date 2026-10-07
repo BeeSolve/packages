@@ -9,7 +9,9 @@
     "url": "git+https://github.com/BeeSolve/packages.git"
   },
   "files": [
-    "dist"
+    "dist",
+    "docs/how-to",
+    "DOCS.md"
   ],
   "type": "module",
   "exports": {
@@ -81,7 +83,7 @@
     "@beesolve/dynamo-helpers": "workspace:^",
     "@beesolve/helpers": "workspace:^",
     "@beesolve/lambda-fetch-api": "workspace:^",
-    "@beesolve/lambda-keep-active": "catalog:",
+    "@beesolve/lambda-keep-active": "workspace:^",
     "@beesolve/sqs-handler": "workspace:^",
     "valibot": "catalog:"
   },

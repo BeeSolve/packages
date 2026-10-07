@@ -1,4 +1,6 @@
-# WAF Rate Limiting
+# How to: WAF rate limiting
+
+> Base CDK stack to extend: https://github.com/BeeSolve/packages/tree/main/packages/samples/authEmailSimple
 
 The `AuthGateway` and `AuthService` constructs can optionally create a WAF rule group for rate limiting requests to the auth endpoints. This is disabled by default due to additional AWS WAF costs.
 
@@ -110,3 +112,15 @@ This protects against:
 - OTP email flooding (spamming `/signInRequest`)
 - Brute-force attempts on `/signInComplete`
 - General abuse of the public auth endpoints
+
+## Common Pitfalls
+
+- **Deploying the WebACL outside `us-east-1`.** WAF for CloudFront is global and must live in `us-east-1`. If your stack is in another region, create the WAF resources in a separate `us-east-1` stack and pass the ARN via a cross-region reference.
+- **Creating a second WebACL.** A CloudFront distribution can only have one WebACL. The construct deliberately produces a reusable _rule group_ (`auth.wafRuleGroup`), not a WebACL - reference it from your existing WebACL rather than attaching a new one.
+- **Reading `auth.wafRuleGroup` when WAF is disabled.** It is only set when the `waf` prop is provided; it is `undefined` otherwise, so guard before dereferencing (`auth.wafRuleGroup!.attrArn` assumes `waf` was passed).
+
+## See Also
+
+- [Put the auth service behind CloudFront](./cloudfront.md) - where the WebACL is attached
+- [Getting Started](./getting-started.md) - the base stack this extends
+- [Base stack example on GitHub](https://github.com/BeeSolve/packages/tree/main/packages/samples/authEmailSimple)

@@ -1,4 +1,6 @@
-# Consuming auth events
+# How to: Consume auth events
+
+> Full working example: https://github.com/BeeSolve/packages/tree/main/packages/samples/authWithEmail
 
 `@beesolve/auth-service` publishes all events to EventBridge. The typical wiring is:
 
@@ -213,3 +215,18 @@ The raw `Accept-Language` header value, e.g. `"fr-FR,fr;q=0.9,en;q=0.8"`. Pass t
 | `UnsuccessfulAuth`     | `isUnsuccessfulAuth`     | Sign-in failed (invalid/expired code)     |
 | `SessionInvalidated`   | `isSessionInvalidated`   | Sign out                                  |
 | `EmailInvitation`      | `isEmailInvitation`      | _(reserved)_                              |
+
+## Common Pitfalls
+
+- **Two apps on one shared bus cross-fire.** EventBridge rules are a broadcast model: every rule whose pattern matches an event fires. If two deployments publish to the `default` bus with the default source `beesolve.auth.api` and both register a rule for `EmailCodeAuth`, a single sign-in triggers both consumers and the user gets an OTP email from every app. Isolate with a separate bus (`eventBusArn`) or a distinct source (`appId`) as shown above.
+- **Hardcoding the source or bus in the consumer rule.** Match `auth.eventSource` and bind to `auth.eventBus` rather than literal strings, so the rule follows whatever `appId`/bus the auth deployment uses and never drifts from the publisher.
+- **Routing SES events to a custom bus.** Only auth events (`EventBridge.putEvents`) can move to a custom bus. SES delivery/bounce/complaint events (`aws.ses`) can only reach the account `default` bus - SES configuration-set event destinations reject custom buses. Keep those consumer rules on `default`.
+- **Casting raw JSON instead of using type guards.** `parseAuthEvent` returns `null` for unknown or malformed records, so the loop safely skips events from other sources on the same bus. Narrow with `isEmailCodeAuth`, `isUnsuccessfulAuth`, etc. instead of casting.
+- **Not sending the email.** The auth service only emits `EmailCodeAuth`; you must subscribe and send the OTP email yourself (e.g. with `@beesolve/email-service`).
+
+## See Also
+
+- [Data token handoff](./data-token.md) - consume the `DataToken` event
+- [Getting Started](./getting-started.md) - minimal end-to-end setup
+- [Multi-app event isolation (ADR-006)](https://github.com/BeeSolve/packages/tree/main/packages/service-auth/docs/adr-006-multi-app-event-isolation.md)
+- [Full example with real email delivery on GitHub](https://github.com/BeeSolve/packages/tree/main/packages/samples/authWithEmail)

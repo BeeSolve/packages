@@ -15,7 +15,8 @@
     "oxfmt.json",
     "presets",
     "plugins",
-    "scripts"
+    "scripts",
+    "DOCS.md"
   ],
   "type": "module",
   "exports": {
