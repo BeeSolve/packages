@@ -1,5 +1,31 @@
 # @beesolve/dmarc-dashboard
 
+## 0.9.0
+
+### Minor Changes
+
+- 58111f6: Migrate the dashboard to SvelteKit 3 (requires `@sveltejs/kit` ^3 and `kit-on-lambda` ^1).
+
+  SvelteKit 3 no longer reads `svelte.config.js`, so the adapter and `paths` configuration now live in the `sveltekit(...)` plugin options inside `vite.config.ts`, and the `svelte.config.js` file has been removed. The removed `$lib` alias is replaced by a `#lib` Node subpath import (declared in `package.json` `imports`) with explicit file extensions. `tsconfig.json` now extends `$app/tsconfig`. The `Handle` type is imported from `@sveltejs/kit/hooks`, deprecated `json()` responses use `Response.json()`, and reads of the now-readonly `page.url.searchParams` were updated. The app's `typescript` devDependency is pinned to `~6.0.3` because the SvelteKit toolchain (`svelte-kit sync`, `svelte-check`) is not yet compatible with the TypeScript 7 native compiler.
+
+### Patch Changes
+
+- b9e6f26: Publish agent-readable documentation inside the package tarball.
+
+  Each package now ships a `DOCS.md` index at its root and, for user-facing packages, how-to guides under `docs/how-to/`, so AI agents can read usage directly from `node_modules`. The `files` allowlist was extended to include `DOCS.md` (and `docs/how-to` for user-facing packages); ADRs remain unpublished. Every `DOCS.md` carries a keyword line for grep-based discovery, a directive to prefer the installed docs over prior knowledge, and absolute links to the GitHub repository for full working examples. No runtime code changed.
+
+- Updated dependencies [58111f6]
+- Updated dependencies [fa73c6b]
+- Updated dependencies [58111f6]
+- Updated dependencies [b9e6f26]
+  - @beesolve/auth-service@0.18.0
+  - @beesolve/dmarc-parser@0.1.3
+  - @beesolve/lambda-keep-active@2.1.6
+  - @beesolve/cdk-constructs@0.3.2
+  - @beesolve/dmarc-consumer@0.3.2
+  - @beesolve/email-service@0.5.2
+  - @beesolve/lambda-fetch-api@2.1.2
+
 ## 0.8.0
 
 ### Minor Changes
