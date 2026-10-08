@@ -1,12 +1,33 @@
 <script lang="ts">
-  import { enhance } from "$app/forms";
+  import { page } from "$app/state";
+
   import MessageStatusBadge from "#lib/components/messageStatusBadge.svelte";
   import RequestModal from "#lib/components/requestModal.svelte";
+  import { getMessage, loadMessageBody } from "#lib/remote/messages.remote.js";
+  import type { EmailRequest } from "#lib/server/requests.js";
 
-  let { data, form } = $props();
+  const messageId = $derived(page.params.messageId ?? "");
 
   let requesting = $state(false);
   let modalOpen = $state(false);
+  let loadedRequest = $state<EmailRequest | null>(null);
+  let bodyUnavailable = $state(false);
+
+  async function previewMessage() {
+    requesting = true;
+    bodyUnavailable = false;
+    try {
+      const result = await loadMessageBody({ messageId });
+      if (result.bodyUnavailable === true) {
+        bodyUnavailable = true;
+      } else {
+        loadedRequest = result.request;
+        modalOpen = true;
+      }
+    } finally {
+      requesting = false;
+    }
+  }
 
   function formatDateTime(value: string): string {
     return new Date(value).toLocaleString();
@@ -18,95 +39,88 @@
     if (status === "complained") return "warning";
     return "info";
   }
-
-  const recipientEntries = $derived(Object.entries(data.message.logByRecipient));
 </script>
 
-<nav class="breadcrumbs">
-  <ul>
-    <li><a href="/messages">Messages</a></li>
-    <li aria-current="page">{data.message.subject}</li>
-  </ul>
-</nav>
+<svelte:boundary>
+  {#snippet pending()}
+    <p>Loading message…</p>
+  {/snippet}
 
-<h1>{data.message.subject}</h1>
+  {@const data = await getMessage({ messageId })}
+  {@const recipientEntries = Object.entries(data.message.logByRecipient)}
 
-<div class="card meta">
-  <div><span class="meta-label">From</span> {data.message.sender}</div>
-  <div><span class="meta-label">Status</span> <MessageStatusBadge status={data.message.status} /></div>
-  <div><span class="meta-label">Created</span> {formatDateTime(data.message.createdAt)}</div>
-  <div><span class="meta-label">Updated</span> {formatDateTime(data.message.updatedAt)}</div>
-  <div>
-    <span class="meta-label">Recipients</span>
-    {#each data.message.recipients as recipient, index}
-      <a href="/recipients/{encodeURIComponent(recipient)}">{recipient}</a>{#if index < data.message.recipients.length - 1},
-      {/if}
-    {/each}
+  <nav class="breadcrumbs">
+    <ul>
+      <li><a href="/messages">Messages</a></li>
+      <li aria-current="page">{data.message.subject}</li>
+    </ul>
+  </nav>
+
+  <h1>{data.message.subject}</h1>
+
+  <div class="card meta">
+    <div><span class="meta-label">From</span> {data.message.sender}</div>
+    <div><span class="meta-label">Status</span> <MessageStatusBadge status={data.message.status} /></div>
+    <div><span class="meta-label">Created</span> {formatDateTime(data.message.createdAt)}</div>
+    <div><span class="meta-label">Updated</span> {formatDateTime(data.message.updatedAt)}</div>
+    <div>
+      <span class="meta-label">Recipients</span>
+      {#each data.message.recipients as recipient, index}
+        <a href="/recipients/{encodeURIComponent(recipient)}">{recipient}</a>{#if index < data.message.recipients.length - 1},
+        {/if}
+      {/each}
+    </div>
   </div>
-</div>
 
-<section class="body-request">
-  <form
-    method="POST"
-    use:enhance={() => {
-      requesting = true;
-      return async ({ update, result }) => {
-        await update();
-        requesting = false;
-        if (result.type === "success" && result.data?.request != null) {
-          modalOpen = true;
-        }
-      };
-    }}
-  >
-    <button type="submit" class="button" disabled={requesting}>
+  <section class="body-request">
+    <button type="button" class="button" onclick={previewMessage} disabled={requesting}>
       {requesting ? "Loading…" : "Preview message"}
     </button>
-  </form>
 
-  {#if form?.bodyUnavailable}
-    <p class="error">Message body no longer available.</p>
-  {/if}
-</section>
-
-{#if form?.request != null}
-  <RequestModal bind:open={modalOpen} request={form.request} />
-{/if}
-
-<h2>Per-recipient timeline</h2>
-
-{#each recipientEntries as [recipient, entries]}
-  <section class="card recipient-timeline">
-    <h3>
-      <a href="/recipients/{encodeURIComponent(recipient)}">{recipient}</a>
-    </h3>
-    <ol class="timeline">
-      {#each entries as entry}
-        <li class={timelineTone(entry.status)}>
-          <span class="marker"></span>
-          <div class="timeline-body">
-            <MessageStatusBadge status={entry.status} />
-            <time class="timeline-time">{formatDateTime(entry.timestamp)}</time>
-            {#if entry.status === "delivered"}
-              <span class="timeline-detail">Delivered in {(entry.deliveryMs / 1000).toFixed(1)}s</span>
-            {:else if entry.status === "bounced"}
-              <span class="timeline-detail">
-                {entry.bounceType} / {entry.bounceSubType}{#if entry.diagnosticCode != null}
-                  — {entry.diagnosticCode}{/if}
-              </span>
-            {:else if entry.status === "complained"}
-              <span class="timeline-detail">{entry.feedbackType ?? "complaint"}</span>
-            {:else if entry.status === "rejected"}
-              <span class="timeline-detail">{entry.reason}</span>
-            {:else if entry.status === "requested"}
-              <span class="timeline-detail">Request {entry.requestId}</span>
-            {/if}
-          </div>
-        </li>
-      {/each}
-    </ol>
+    {#if bodyUnavailable}
+      <p class="error">Message body no longer available.</p>
+    {/if}
   </section>
-{/each}
+
+  {#if loadedRequest != null}
+    <RequestModal bind:open={modalOpen} request={loadedRequest} />
+  {/if}
+
+  <h2>Per-recipient timeline</h2>
+
+  {#each recipientEntries as [recipient, entries]}
+    <section class="card recipient-timeline">
+      <h3>
+        <a href="/recipients/{encodeURIComponent(recipient)}">{recipient}</a>
+      </h3>
+      <ol class="timeline">
+        {#each entries as entry}
+          <li class={timelineTone(entry.status)}>
+            <span class="marker"></span>
+            <div class="timeline-body">
+              <MessageStatusBadge status={entry.status} />
+              <time class="timeline-time">{formatDateTime(entry.timestamp)}</time>
+              {#if entry.status === "delivered"}
+                <span class="timeline-detail">Delivered in {(entry.deliveryMs / 1000).toFixed(1)}s</span>
+              {:else if entry.status === "bounced"}
+                <span class="timeline-detail">
+                  {entry.bounceType} / {entry.bounceSubType}{#if entry.diagnosticCode != null}
+                    — {entry.diagnosticCode}{/if}
+                </span>
+              {:else if entry.status === "complained"}
+                <span class="timeline-detail">{entry.feedbackType ?? "complaint"}</span>
+              {:else if entry.status === "rejected"}
+                <span class="timeline-detail">{entry.reason}</span>
+              {:else if entry.status === "requested"}
+                <span class="timeline-detail">Request {entry.requestId}</span>
+              {/if}
+            </div>
+          </li>
+        {/each}
+      </ol>
+    </section>
+  {/each}
+</svelte:boundary>
 
 <style>
   .breadcrumbs > ul {
@@ -147,11 +161,7 @@
     margin-bottom: var(--vs-l);
   }
 
-  .body-request form {
-    display: inline;
-  }
-
-  .body-request form button[type="submit"] {
+  .body-request button {
     margin-block-start: 0;
   }
 

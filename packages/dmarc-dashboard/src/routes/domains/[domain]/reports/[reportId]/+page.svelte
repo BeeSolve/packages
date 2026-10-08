@@ -1,16 +1,14 @@
 <script lang="ts">
+  import { page } from "$app/state";
+
   import RawJsonModal from "#lib/components/rawJsonModal.svelte";
   import { ipOrigin } from "#lib/ipOrigin.js";
-
-  let { data } = $props();
+  import { getReport } from "#lib/remote/reports.remote.js";
 
   let showRawJson = $state(false);
 
-  const passRate = $derived(
-    data.report.totalMessages > 0
-      ? Math.round((data.report.totalPass / data.report.totalMessages) * 100)
-      : 0,
-  );
+  const domain = $derived(page.params.domain ?? "");
+  const reportId = $derived(page.params.reportId ?? "");
 
   function formatDate(timestamp: number): string {
     return new Date(timestamp * 1000).toLocaleDateString("en-US", {
@@ -25,7 +23,18 @@
   }
 </script>
 
-<header class="report-header">
+<svelte:boundary>
+  {#snippet pending()}
+    <p>Loading report…</p>
+  {/snippet}
+
+  {@const data = await getReport({ domain, reportId })}
+  {@const passRate =
+    data.report.totalMessages > 0
+      ? Math.round((data.report.totalPass / data.report.totalMessages) * 100)
+      : 0}
+
+  <header class="report-header">
   <div class="report-header-main">
     <nav class="breadcrumbs">
       <ul>
@@ -155,6 +164,7 @@
 </section>
 
 <RawJsonModal bind:open={showRawJson} json={data.rawDmarcReport} />
+</svelte:boundary>
 
 <style>
   .breadcrumbs > ul {

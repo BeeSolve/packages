@@ -1,12 +1,17 @@
 <script lang="ts">
-  import { enhance } from "$app/forms";
+  import { page } from "$app/state";
+
   import Calendar from "#lib/components/calendar.svelte";
   import LastRunStatus from "#lib/components/lastRunStatus.svelte";
   import SummaryCard from "#lib/components/summaryCard.svelte";
   import { ipOrigin } from "#lib/ipOrigin.js";
+  import { getDomainOverview, refreshDomain } from "#lib/remote/domains.remote.js";
   import { encodeReportKey } from "#lib/reportKey.js";
 
-  let { data, form } = $props();
+  const domain = $derived(page.params.domain ?? "");
+  const cursor = $derived(page.url.searchParams.get("cursor") ?? undefined);
+  const dateParam = $derived(page.url.searchParams.get("date") ?? undefined);
+  const monthParam = $derived(page.url.searchParams.get("month") ?? undefined);
 
   let confirmIntent = $state<null | "refresh-dns" | "refresh-ips">(null);
   let confirmDialog = $state<HTMLDialogElement | null>(null);
@@ -36,6 +41,12 @@
     confirmIntent = null;
   }
 
+  const enhancedRefresh = refreshDomain.enhance(async ({ submit }) => {
+    closeConfirm();
+    await submit();
+    await getDomainOverview({ domain, cursor, date: dateParam, month: monthParam }).refresh();
+  });
+
   $effect(() => {
     const element = confirmDialog;
     if (element == null) return;
@@ -46,22 +57,18 @@
     }
   });
 
-  const dkimFoundCount = $derived(
-    (data.dns?.dkimSelectors ?? []).filter((selector) => selector.found).length,
-  );
-
   function formatDateTime(iso: string | null | undefined): string {
     if (iso == null) return "—";
     return new Date(iso).toLocaleString();
   }
 
   const formResult = $derived.by(() => {
-    if (form == null) return null;
-    const intent = "intent" in form ? form.intent : null;
-    const started = "started" in form ? form.started === true : false;
-    const errorMessage = "error" in form && typeof form.error === "string" ? form.error : null;
-    return { intent, started, errorMessage };
+    const result = refreshDomain.result;
+    if (result == null) return null;
+    return { intent: result.intent, started: result.started };
   });
+
+  const refreshIssues = $derived(refreshDomain.fields.allIssues());
 
   const verdictLabels: Record<string, string> = {
     legitimate: "Legitimate",
@@ -73,12 +80,6 @@
   function verdictLabel(verdict: string): string {
     return verdictLabels[verdict] ?? verdict;
   }
-
-  const passRate = $derived(
-    data.aggregate.totalMessages > 0
-      ? Math.round((data.aggregate.totalPass / data.aggregate.totalMessages) * 100)
-      : 0,
-  );
 
   function formatDate(timestamp: number): string {
     return new Date(timestamp * 1000).toLocaleDateString("en-US", {
@@ -94,11 +95,23 @@
       orgName: report.orgName,
       reportId: report.reportId,
     });
-    return `/domains/${data.domain}/reports/${key}`;
+    return `/domains/${domain}/reports/${key}`;
   }
 </script>
 
-<header class="domain-header">
+<svelte:boundary>
+  {#snippet pending()}
+    <p>Loading domain…</p>
+  {/snippet}
+
+  {@const data = await getDomainOverview({ domain, cursor, date: dateParam, month: monthParam })}
+  {@const dkimFoundCount = (data.dns?.dkimSelectors ?? []).filter((selector) => selector.found).length}
+  {@const passRate =
+    data.aggregate.totalMessages > 0
+      ? Math.round((data.aggregate.totalPass / data.aggregate.totalMessages) * 100)
+      : 0}
+
+  <header class="domain-header">
   <div class="domain-header-main">
     <nav class="breadcrumbs">
       <ul>
@@ -167,21 +180,18 @@
     <p class="confirm-description">{confirmAction.description}</p>
     <div class="confirm-actions">
       <button type="button" class="button ghost" onclick={closeConfirm}>Cancel</button>
-      <form
-        method="POST"
-        use:enhance={() => {
-          closeConfirm();
-          return async ({ update }) => {
-            await update();
-          };
-        }}
-      >
-        <input type="hidden" name="intent" value={confirmIntent} />
+      <form {...enhancedRefresh}>
+        <input {...refreshDomain.fields.domain.as("hidden", domain)} />
+        <input {...refreshDomain.fields.intent.as("hidden", confirmIntent ?? "refresh-dns")} />
         <button type="submit" class="button">Proceed</button>
       </form>
     </div>
   {/if}
 </dialog>
+
+{#each refreshIssues ?? [] as issue (issue.message)}
+  <p class="error">{issue.message}</p>
+{/each}
 
 <section class="card setup-health">
   <div class="setup-head">
@@ -216,9 +226,6 @@
     <div class="callout fill notice">
       Refreshing DNS for {data.domain}. This runs in the background.
     </div>
-  {/if}
-  {#if formResult?.intent === "refresh-dns" && formResult.errorMessage != null}
-    <p class="error">{formResult.errorMessage}</p>
   {/if}
 
   {#if data.advisory.length === 0}
@@ -277,9 +284,6 @@
           <div class="callout fill notice">
             Refreshing IP details for {data.domain}. This runs in the background.
           </div>
-        {/if}
-        {#if formResult?.intent === "refresh-ips" && formResult.errorMessage != null}
-          <p class="error">{formResult.errorMessage}</p>
         {/if}
         <p class="scope-note">
           Aggregate reports show domain-level statistics only. The specific sender
@@ -468,6 +472,7 @@
     </details>
   </div>
 </div>
+</svelte:boundary>
 
 <style>
   h1 {

@@ -1,34 +1,26 @@
 <script lang="ts">
-  import { enhance } from "$app/forms";
+  import { completeSetup } from "#lib/remote/setup.remote.js";
 
-  let { form } = $props();
-  let loading = $state(false);
+  const issues = $derived(completeSetup.fields.allIssues());
 </script>
 
 <h1>Setup</h1>
 
 <p>Welcome! Create your admin account to get started.</p>
 
-{#if form?.error}
-  <p class="error">{form.error}</p>
+{#if issues != null}
+  {#each issues as issue (issue.message)}
+    <p class="error">{issue.message}</p>
+  {/each}
 {/if}
 
-<form
-  method="POST"
-  use:enhance={() => {
-    loading = true;
-    return async ({ update }) => {
-      loading = false;
-      await update();
-    };
-  }}
->
+<form {...completeSetup}>
   <label>
     Admin email address
-    <input type="email" name="email" required disabled={loading} />
+    <input {...completeSetup.fields.email.as("email")} required disabled={completeSetup.pending > 0} />
   </label>
-  <button type="submit" class="button primary" disabled={loading}>
-    {loading ? "Setting up..." : "Create admin account"}
+  <button type="submit" class="button primary" disabled={completeSetup.pending > 0}>
+    {completeSetup.pending > 0 ? "Setting up..." : "Create admin account"}
   </button>
 </form>
 

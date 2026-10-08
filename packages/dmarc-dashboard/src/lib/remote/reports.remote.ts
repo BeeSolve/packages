@@ -1,12 +1,16 @@
-import { ReportNotFoundError } from "@beesolve/dmarc-consumer/report";
+import { getRequestEvent, query } from "$app/server";
 import { dmarcRecordSchema } from "@beesolve/dmarc-parser";
 import { error } from "@sveltejs/kit";
 import * as v from "valibot";
 
 import { decodeReportKey } from "#lib/reportKey.js";
 import { requireDomainAccess } from "#lib/server/access.js";
+import { toRemoteError } from "#lib/server/httpErrors.js";
 
-import type { PageServerLoad } from "./$types.js";
+const getReportSchema = v.object({
+  domain: v.string(),
+  reportId: v.string(),
+});
 
 const reportKeySchema = v.object({
   timestamp: v.number(),
@@ -14,10 +18,11 @@ const reportKeySchema = v.object({
   reportId: v.string(),
 });
 
-export const load: PageServerLoad = async ({ params, locals }) => {
-  requireDomainAccess({ locals, domain: params.domain });
+export const getReport = query(getReportSchema, async ({ domain, reportId }) => {
+  const { locals } = getRequestEvent();
+  requireDomainAccess({ locals, domain });
 
-  const decoded = v.safeParse(reportKeySchema, decodeReportKey(params.reportId));
+  const decoded = v.safeParse(reportKeySchema, decodeReportKey(reportId));
 
   if (!decoded.success) {
     error(400, "Invalid report identifier");
@@ -25,7 +30,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 
   try {
     const report = await locals.services.reports.getReport({
-      domain: params.domain,
+      domain,
       timestamp: decoded.output.timestamp,
       orgName: decoded.output.orgName,
       reportId: decoded.output.reportId,
@@ -55,7 +60,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
         },
       },
       policyPublished: {
-        domain: params.domain,
+        domain,
         adkim: report.adkim,
         aspf: report.aspf,
         p: report.policy,
@@ -65,7 +70,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     };
 
     return {
-      domain: params.domain,
+      domain,
       report: {
         orgName: report.orgName,
         reportId: report.reportId,
@@ -84,9 +89,6 @@ export const load: PageServerLoad = async ({ params, locals }) => {
       rawDmarcReport,
     };
   } catch (thrown) {
-    if (thrown instanceof ReportNotFoundError) {
-      error(404, "Report not found");
-    }
-    throw thrown;
+    toRemoteError(thrown);
   }
-};
+});

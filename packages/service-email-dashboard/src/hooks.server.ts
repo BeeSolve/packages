@@ -1,3 +1,8 @@
+import {
+  DASHBOARD_REQUESTS_BUCKET,
+  DASHBOARD_REVERSE_INDEX,
+  DASHBOARD_TABLE_NAME,
+} from "$app/env/private";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { S3Client } from "@aws-sdk/client-s3";
 import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
@@ -6,7 +11,6 @@ import { createSessionHandle, type SessionContext } from "@beesolve/auth-service
 import { Email } from "@beesolve/email-service/sdk";
 import { redirect } from "@sveltejs/kit";
 import { sequence, type Handle } from "@sveltejs/kit/hooks";
-import * as v from "valibot";
 
 import { Messages } from "#lib/server/messages.js";
 import { Recipients } from "#lib/server/recipients.js";
@@ -14,13 +18,6 @@ import { Requests } from "#lib/server/requests.js";
 import { Setup } from "#lib/server/setup.js";
 import { GlobalStats } from "#lib/server/stats.js";
 import { Users } from "#lib/server/users.js";
-
-const envSchema = v.object({
-  DASHBOARD_TABLE_NAME: v.string(),
-  DASHBOARD_REVERSE_INDEX: v.string(),
-  DASHBOARD_REQUESTS_BUCKET: v.string(),
-});
-const env = v.parse(envSchema, process.env);
 
 const dynamo = DynamoDBDocumentClient.from(new DynamoDBClient(), {
   marshallOptions: {
@@ -31,26 +28,26 @@ const dynamo = DynamoDBDocumentClient.from(new DynamoDBClient(), {
 
 const messages = new Messages({
   dynamo,
-  tableName: env.DASHBOARD_TABLE_NAME,
-  reverseIndexName: env.DASHBOARD_REVERSE_INDEX,
+  tableName: DASHBOARD_TABLE_NAME,
+  reverseIndexName: DASHBOARD_REVERSE_INDEX,
 });
-const globalStats = new GlobalStats({ dynamo, tableName: env.DASHBOARD_TABLE_NAME });
+const globalStats = new GlobalStats({ dynamo, tableName: DASHBOARD_TABLE_NAME });
 const recipients = new Recipients({
   dynamo,
-  tableName: env.DASHBOARD_TABLE_NAME,
-  reverseIndexName: env.DASHBOARD_REVERSE_INDEX,
+  tableName: DASHBOARD_TABLE_NAME,
+  reverseIndexName: DASHBOARD_REVERSE_INDEX,
 });
 const users = new Users({
   dynamo,
-  tableName: env.DASHBOARD_TABLE_NAME,
-  reverseIndexName: env.DASHBOARD_REVERSE_INDEX,
+  tableName: DASHBOARD_TABLE_NAME,
+  reverseIndexName: DASHBOARD_REVERSE_INDEX,
 });
-const setup = new Setup({ dynamo, tableName: env.DASHBOARD_TABLE_NAME });
+const setup = new Setup({ dynamo, tableName: DASHBOARD_TABLE_NAME });
 const authClient = new AuthClient();
 const email = new Email();
 const requests = new Requests({
   s3: new S3Client(),
-  bucketName: env.DASHBOARD_REQUESTS_BUCKET,
+  bucketName: DASHBOARD_REQUESTS_BUCKET,
 });
 
 const publicPaths = new Set(["/sign-in", "/sign-in/verify", "/setup"]);

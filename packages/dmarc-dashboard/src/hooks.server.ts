@@ -1,3 +1,4 @@
+import { DMARC_REVERSE_INDEX, DMARC_TABLE_NAME, IPINFO_API_KEY } from "$app/env/private";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { AuthClient } from "@beesolve/auth-service/sdk";
@@ -10,17 +11,9 @@ import { AdminSdk } from "@beesolve/dmarc-consumer/sdk";
 import { Email } from "@beesolve/email-service/sdk";
 import { redirect } from "@sveltejs/kit";
 import { sequence, type Handle } from "@sveltejs/kit/hooks";
-import * as v from "valibot";
 
 import { Setup } from "#lib/server/setup.js";
 import { Users } from "#lib/server/users.js";
-
-const envSchema = v.object({
-  DMARC_TABLE_NAME: v.string(),
-  DMARC_REVERSE_INDEX: v.string(),
-  IPINFO_API_KEY: v.optional(v.string()),
-});
-const env = v.parse(envSchema, process.env);
 
 const dynamo = DynamoDBDocumentClient.from(new DynamoDBClient(), {
   marshallOptions: {
@@ -31,21 +24,21 @@ const dynamo = DynamoDBDocumentClient.from(new DynamoDBClient(), {
 
 const users = new Users({
   dynamo,
-  tableName: env.DMARC_TABLE_NAME,
-  reverseIndexName: env.DMARC_REVERSE_INDEX,
+  tableName: DMARC_TABLE_NAME,
+  reverseIndexName: DMARC_REVERSE_INDEX,
 });
-const setup = new Setup({ dynamo, tableName: env.DMARC_TABLE_NAME });
+const setup = new Setup({ dynamo, tableName: DMARC_TABLE_NAME });
 const domains = new Domains({
   dynamo,
-  tableName: env.DMARC_TABLE_NAME,
-  reverseIndexName: env.DMARC_REVERSE_INDEX,
+  tableName: DMARC_TABLE_NAME,
+  reverseIndexName: DMARC_REVERSE_INDEX,
 });
-const reports = new Reports({ dynamo, tableName: env.DMARC_TABLE_NAME });
-const stats = new ProcessingStats({ dynamo, tableName: env.DMARC_TABLE_NAME });
+const reports = new Reports({ dynamo, tableName: DMARC_TABLE_NAME });
+const stats = new ProcessingStats({ dynamo, tableName: DMARC_TABLE_NAME });
 const ipInfoCache = new IpInfoCache({
   dynamo,
-  tableName: env.DMARC_TABLE_NAME,
-  apiKey: env.IPINFO_API_KEY,
+  tableName: DMARC_TABLE_NAME,
+  apiKey: IPINFO_API_KEY,
 });
 const adminSdk = new AdminSdk();
 const authClient = new AuthClient();

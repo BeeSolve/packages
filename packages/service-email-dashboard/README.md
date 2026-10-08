@@ -101,6 +101,37 @@ The `EmailServiceDashboard` construct provisions:
 > bound accordingly: the auth rule to `auth.eventBus`, the email-events rule to
 > `default`. The dashboard therefore has no `eventBusName` prop.
 
+## Data layer (remote functions)
+
+The dashboard reads and writes its data through SvelteKit remote functions, not
+`+page.server.ts` `load`/`actions`. Definitions live in `src/lib/remote/*.remote.ts`,
+organized by domain area (`overview`, `messages`, `recipients`, `users`, `setup`):
+
+- `query(...)` for reads (overview, message list, message detail, recipients list,
+  recipient detail). URL filters such as `year`/`month`/`cursor` are passed as
+  Valibot-validated arguments.
+- `form(...)` for user-submitted mutations (invite user, edit user, complete setup).
+- `command(...)` for programmatic mutations invoked from event handlers. The
+  on-demand message body (`loadMessageBody`) is a `command` so S3 is read only when
+  the user triggers it, never during the detail `query`.
+
+Each function reads request context via `getRequestEvent().locals` (`locals.user`,
+`locals.session`, `locals.services`), which `hooks.server.ts` populates. Admin guards
+live inside the remote functions. After a mutation, the relevant `query(...).refresh()`
+is called for a single-flight UI update.
+
+Error mapping is centralized in [`src/lib/server/httpErrors.ts`](./src/lib/server/httpErrors.ts):
+`toRemoteError(error, { redirectOnUnauthorized })` turns domain errors into SvelteKit
+`error()`/`redirect()`, and `requireUser(user)` guards a present session. Call
+`toRemoteError(...)` directly inside a `catch` - never `throw` its result.
+
+Remote functions are enabled by `experimental.remoteFunctions` and
+`compilerOptions.experimental.async` in `vite.config.ts`. The only retained server
+loads are `+layout.server.ts` (supplies `user` and the setup redirect), the
+`setup/+page.server.ts` redirect guard, and the sign-in universal/layout loads.
+Environment variables are declared in `src/env.ts` via `defineEnvVars` and imported,
+typed and validated, from `$app/env/private`.
+
 ## First Deployment
 
 The SvelteKit build requires a `FRONTEND_URI` environment variable (the CloudFront URL), which does not exist until after the first deploy:
@@ -118,7 +149,7 @@ aws sso login                      # (or export AWS_PROFILE) so SDK clients can 
 bun run dev
 ```
 
-`bun run dev` serves on http://localhost:5173. The `dev` script runs `bun --env-file=.env.local vite dev`, so `.env.local` is loaded into `process.env` before the server starts, where both `hooks.server.ts` and the workspace SDK clients read it at import time.
+`bun run dev` serves on http://localhost:5173. The `dev` script runs `bun --env-file=.env.local vite dev`, so `.env.local` is loaded into `process.env` before the server starts. The table vars are then declared in `src/env.ts` (`defineEnvVars`) and read, typed and validated, from `$app/env/private` in `hooks.server.ts`; the workspace SDK clients still read their own vars from `process.env` at import time.
 
 ### Faking the session
 
@@ -128,15 +159,19 @@ There is no Lambda authorizer locally, so `@beesolve/auth-service` injects a dev
 
 - `DASHBOARD_TABLE_NAME` — the projection table name (injected by the construct in deployment)
 - `DASHBOARD_REVERSE_INDEX` — the reverse GSI name (injected by the construct in deployment)
+- `DASHBOARD_REQUESTS_BUCKET` — the bucket holding on-demand message request bodies
 - `DEV_USER_EMAIL` — local development only; the user whose session is faked
 
-Both table vars are parsed eagerly at module load, so they must be present for the app to start — the `build` script sets `build-placeholder` values for exactly this reason (see below).
+The table/bucket vars are declared in `src/env.ts` and validated by `defineEnvVars`
+when first imported from `$app/env/private`, so they must be present for the app to
+start — the `build` script sets `build-placeholder` values for exactly this reason
+(see below).
 
 ## Deployment notes (kit-on-lambda + CloudFront)
 
 - **Externalize `@beesolve/lambda-fetch-api` for SSR.** The vite config must set `ssr.external: ["@beesolve/lambda-fetch-api"]`. Without it, Vite creates a duplicate `AsyncLocalStorage` instance and the SDK's handler context is lost at runtime.
 - **Use default form actions.** SvelteKit named form actions use `?/name` in the URL; the `/` in the query string is rejected/misrouted by CloudFront behind kit-on-lambda. Use the default (unnamed) form action.
-- **Placeholder build env.** `hooks.server.ts` parses required env vars at import time, and `vite build` imports it during SSR analysis, so the `build` script supplies `DASHBOARD_TABLE_NAME` / `DASHBOARD_REVERSE_INDEX` placeholders to let the build complete.
+- **Placeholder build env.** The env vars declared in `src/env.ts` are validated by `defineEnvVars` when `$app/env/private` is first imported during SSR analysis, so the `build` script supplies `DASHBOARD_TABLE_NAME` / `DASHBOARD_REVERSE_INDEX` / `DASHBOARD_REQUESTS_BUCKET` placeholders to let the build complete.
 
 ## License
 

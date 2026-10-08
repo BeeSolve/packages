@@ -28,6 +28,8 @@ export default defineConfig({
       // against the current route depth (e.g. /domains/_app/...) and 404,
       // stripping styling on nested routes.
       paths: { relative: false },
+      experimental: { remoteFunctions: true },
+      compilerOptions: { experimental: { async: true } },
     }),
   ],
   css: {

@@ -1,56 +1,67 @@
 <script lang="ts">
-  import { createLoadMore } from "#lib/loadMore.svelte.js";
+  import { page } from "$app/state";
 
-  let { data } = $props();
+  import { listRecipients } from "#lib/remote/recipients.remote.js";
 
-  const paginator = createLoadMore(
-    () => data.items,
-    () => data.cursor ?? undefined,
-  );
+  const cursorParam = $derived(page.url.searchParams.get("cursor") ?? undefined);
+
+  function loadMoreHref(cursor: string): string {
+    const params = new URLSearchParams(page.url.search);
+    params.set("cursor", cursor);
+    return `${page.url.pathname}?${params.toString()}`;
+  }
 </script>
 
 <h1>Recipients</h1>
 
-{#if paginator.items.length === 0}
-  <p>No recipients found.</p>
-{:else}
-  <div class="table">
-    <table>
-      <thead>
-        <tr>
-          <th>Recipient</th>
-          <th class="num">Received</th>
-          <th class="num">Sent</th>
-          <th class="num">Delivered</th>
-          <th class="num">Bounced</th>
-          <th class="num">Complained</th>
-          <th class="num">Rejected</th>
-          <th class="num">Failed</th>
-        </tr>
-      </thead>
-      <tbody>
-        {#each paginator.items as recipient}
-          <tr>
-            <td><a href="/recipients/{encodeURIComponent(recipient.email)}">{recipient.email}</a></td>
-            <td class="num">{recipient.received.toLocaleString()}</td>
-            <td class="num">{recipient.sent.toLocaleString()}</td>
-            <td class="num">{recipient.delivered.toLocaleString()}</td>
-            <td class="num">{recipient.bounced.toLocaleString()}</td>
-            <td class="num">{recipient.complained.toLocaleString()}</td>
-            <td class="num">{recipient.rejected.toLocaleString()}</td>
-            <td class="num">{recipient.failed.toLocaleString()}</td>
-          </tr>
-        {/each}
-      </tbody>
-    </table>
-  </div>
+<svelte:boundary>
+  {#snippet pending()}
+    <p>Loading recipients…</p>
+  {/snippet}
 
-  {#if paginator.loadMoreHref != null}
-    <div class="load-more">
-      <a href={paginator.loadMoreHref} class="button ghost" data-sveltekit-noscroll>Load more</a>
+  {@const data = await listRecipients({ cursor: cursorParam })}
+
+  {#if data.items.length === 0}
+    <p>No recipients found.</p>
+  {:else}
+    <div class="table">
+      <table>
+        <thead>
+          <tr>
+            <th>Recipient</th>
+            <th class="num">Received</th>
+            <th class="num">Sent</th>
+            <th class="num">Delivered</th>
+            <th class="num">Bounced</th>
+            <th class="num">Complained</th>
+            <th class="num">Rejected</th>
+            <th class="num">Failed</th>
+          </tr>
+        </thead>
+        <tbody>
+          {#each data.items as recipient}
+            <tr>
+              <td><a href="/recipients/{encodeURIComponent(recipient.email)}">{recipient.email}</a></td>
+              <td class="num">{recipient.received.toLocaleString()}</td>
+              <td class="num">{recipient.sent.toLocaleString()}</td>
+              <td class="num">{recipient.delivered.toLocaleString()}</td>
+              <td class="num">{recipient.bounced.toLocaleString()}</td>
+              <td class="num">{recipient.complained.toLocaleString()}</td>
+              <td class="num">{recipient.rejected.toLocaleString()}</td>
+              <td class="num">{recipient.failed.toLocaleString()}</td>
+            </tr>
+          {/each}
+        </tbody>
+      </table>
     </div>
+
+    {#if data.cursor != null}
+      <div class="load-more">
+        <a href={loadMoreHref(data.cursor)} class="button ghost" data-sveltekit-noscroll>Load more</a>
+      </div>
+    {/if}
   {/if}
-{/if}
+</svelte:boundary>
 
 <style>
   h1 {

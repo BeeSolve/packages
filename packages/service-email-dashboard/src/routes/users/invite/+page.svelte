@@ -1,33 +1,25 @@
 <script lang="ts">
-  import { enhance } from "$app/forms";
+  import { inviteUser } from "#lib/remote/users.remote.js";
 
-  let { form } = $props();
-  let loading = $state(false);
+  const issues = $derived(inviteUser.fields.allIssues());
 </script>
 
 <h1>Invite User</h1>
 
-{#if form?.error}
-  <p class="error">{form.error}</p>
+{#if issues != null}
+  {#each issues as issue (issue.message)}
+    <p class="error">{issue.message}</p>
+  {/each}
 {/if}
 
-<form
-  method="POST"
-  use:enhance={() => {
-    loading = true;
-    return async ({ update }) => {
-      loading = false;
-      await update();
-    };
-  }}
->
+<form {...inviteUser}>
   <label>
     Email address
-    <input type="email" name="email" required disabled={loading} />
+    <input {...inviteUser.fields.email.as("email")} required disabled={inviteUser.pending > 0} />
   </label>
 
-  <button type="submit" class="button primary" disabled={loading}>
-    {loading ? "Inviting..." : "Invite user"}
+  <button type="submit" class="button primary" disabled={inviteUser.pending > 0}>
+    {inviteUser.pending > 0 ? "Inviting..." : "Invite user"}
   </button>
 </form>
 

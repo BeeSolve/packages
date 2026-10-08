@@ -1,91 +1,93 @@
 <script lang="ts">
   import SummaryCard from "#lib/components/summaryCard.svelte";
-
-  let { data } = $props();
-
-  const maxDaily = $derived(
-    Math.max(
-      ...data.stats.map(
-        (day) => day.processed + day.manualUpload + day.totalRejected,
-      ),
-      1,
-    ),
-  );
+  import { listStats } from "#lib/remote/stats.remote.js";
 </script>
 
 <h1>Processing Stats</h1>
 
-<p class="subtitle">
-  Last 30 days ({data.dateRange.startDate} — {data.dateRange.endDate})
-</p>
+<svelte:boundary>
+  {#snippet pending()}
+    <p>Loading stats…</p>
+  {/snippet}
 
-<div class="layout-card summary-cards" style="--min-card-width: 11rem; --gap: var(--vs-base);">
-  <SummaryCard label="Processed" value={data.totals.processed.toLocaleString()} />
-  <SummaryCard label="Manual Uploads" value={data.totals.manualUpload.toLocaleString()} />
-  <SummaryCard label="Total Rejected" value={data.totals.totalRejected.toLocaleString()} />
-  <SummaryCard
-    label="Auth Rejected"
-    value={data.totals.authRejected.toLocaleString()}
-  />
-  <SummaryCard
-    label="Spam Rejected"
-    value={data.totals.spamRejected.toLocaleString()}
-  />
-  <SummaryCard
-    label="Virus Rejected"
-    value={data.totals.virusRejected.toLocaleString()}
-  />
-</div>
+  {@const data = await listStats()}
+  {@const maxDaily = Math.max(
+    ...data.stats.map((day) => day.processed + day.manualUpload + day.totalRejected),
+    1,
+  )}
 
-{#if data.stats.length === 0}
-  <p>No processing stats recorded yet.</p>
-{:else}
-  <section class="section">
-    <h2>Daily Breakdown</h2>
-    <div class="table">
-      <table>
-        <thead>
-          <tr>
-            <th>Date</th>
-            <th class="num">Processed</th>
-            <th class="num">Manual</th>
-            <th class="num">Auth Rejected</th>
-            <th class="num">Spam</th>
-            <th class="num">Virus</th>
-            <th>Volume</th>
-          </tr>
-        </thead>
-        <tbody>
-          {#each data.stats as day}
-            {@const total = day.processed + day.manualUpload + day.totalRejected}
-            {@const processedPct = total > 0 ? ((day.processed + day.manualUpload) / maxDaily) * 100 : 0}
-            {@const rejectedPct = total > 0 ? (day.totalRejected / maxDaily) * 100 : 0}
-            {@const highRejection = day.totalRejected > day.processed + day.manualUpload}
-            <tr class:row-warn={highRejection}>
-              <td class="date">{day.date}</td>
-              <td class="num">{day.processed.toLocaleString()}</td>
-              <td class="num">{day.manualUpload > 0 ? day.manualUpload.toLocaleString() : "—"}</td>
-              <td class="num reject">{day.authRejected > 0 ? day.authRejected.toLocaleString() : "—"}</td>
-              <td class="num reject">{day.spamRejected > 0 ? day.spamRejected.toLocaleString() : "—"}</td>
-              <td class="num reject">{day.virusRejected > 0 ? day.virusRejected.toLocaleString() : "—"}</td>
-              <td class="bar-cell">
-                <div class="bar-container">
-                  <div class="bar bar-pass" style="width: {processedPct}%"></div>
-                  <div class="bar bar-fail" style="width: {rejectedPct}%"></div>
-                </div>
-              </td>
+  <p class="subtitle">
+    Last 30 days ({data.dateRange.startDate} — {data.dateRange.endDate})
+  </p>
+
+  <div class="layout-card summary-cards" style="--min-card-width: 11rem; --gap: var(--vs-base);">
+    <SummaryCard label="Processed" value={data.totals.processed.toLocaleString()} />
+    <SummaryCard label="Manual Uploads" value={data.totals.manualUpload.toLocaleString()} />
+    <SummaryCard label="Total Rejected" value={data.totals.totalRejected.toLocaleString()} />
+    <SummaryCard
+      label="Auth Rejected"
+      value={data.totals.authRejected.toLocaleString()}
+    />
+    <SummaryCard
+      label="Spam Rejected"
+      value={data.totals.spamRejected.toLocaleString()}
+    />
+    <SummaryCard
+      label="Virus Rejected"
+      value={data.totals.virusRejected.toLocaleString()}
+    />
+  </div>
+
+  {#if data.stats.length === 0}
+    <p>No processing stats recorded yet.</p>
+  {:else}
+    <section class="section">
+      <h2>Daily Breakdown</h2>
+      <div class="table">
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th class="num">Processed</th>
+              <th class="num">Manual</th>
+              <th class="num">Auth Rejected</th>
+              <th class="num">Spam</th>
+              <th class="num">Virus</th>
+              <th>Volume</th>
             </tr>
-          {/each}
-        </tbody>
-      </table>
-    </div>
-  </section>
+          </thead>
+          <tbody>
+            {#each data.stats as day}
+              {@const total = day.processed + day.manualUpload + day.totalRejected}
+              {@const processedPct = total > 0 ? ((day.processed + day.manualUpload) / maxDaily) * 100 : 0}
+              {@const rejectedPct = total > 0 ? (day.totalRejected / maxDaily) * 100 : 0}
+              {@const highRejection = day.totalRejected > day.processed + day.manualUpload}
+              <tr class:row-warn={highRejection}>
+                <td class="date">{day.date}</td>
+                <td class="num">{day.processed.toLocaleString()}</td>
+                <td class="num">{day.manualUpload > 0 ? day.manualUpload.toLocaleString() : "—"}</td>
+                <td class="num reject">{day.authRejected > 0 ? day.authRejected.toLocaleString() : "—"}</td>
+                <td class="num reject">{day.spamRejected > 0 ? day.spamRejected.toLocaleString() : "—"}</td>
+                <td class="num reject">{day.virusRejected > 0 ? day.virusRejected.toLocaleString() : "—"}</td>
+                <td class="bar-cell">
+                  <div class="bar-container">
+                    <div class="bar bar-pass" style="width: {processedPct}%"></div>
+                    <div class="bar bar-fail" style="width: {rejectedPct}%"></div>
+                  </div>
+                </td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      </div>
+    </section>
 
-  <section class="legend">
-    <span class="legend-item"><span class="legend-swatch swatch-pass"></span> Processed</span>
-    <span class="legend-item"><span class="legend-swatch swatch-fail"></span> Rejected</span>
-  </section>
-{/if}
+    <section class="legend">
+      <span class="legend-item"><span class="legend-swatch swatch-pass"></span> Processed</span>
+      <span class="legend-item"><span class="legend-swatch swatch-fail"></span> Rejected</span>
+    </section>
+  {/if}
+</svelte:boundary>
 
 <style>
   h1 {
