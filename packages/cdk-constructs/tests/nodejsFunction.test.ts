@@ -5,8 +5,13 @@ import { join } from "node:path";
 
 import { App, Stack } from "aws-cdk-lib";
 import { Template } from "aws-cdk-lib/assertions";
+import { Queue } from "aws-cdk-lib/aws-sqs";
 
-import { Nodejs24Function, parseHandlerName } from "../src/nodejsFunction";
+import {
+  Nodejs24Function,
+  parseHandlerName,
+  tagFunctionsWithRevision,
+} from "../src/nodejsFunction";
 
 describe("parseHandlerName", () => {
   test("derives handler from a simple .ts entry", () => {
@@ -93,5 +98,48 @@ describe("Nodejs24Function", () => {
     Template.fromStack(stack).hasResourceProperties("AWS::Lambda::Function", {
       Handler: "custom.myFunction",
     });
+  });
+});
+
+describe("tagFunctionsWithRevision", () => {
+  let prebuiltDir: string;
+
+  beforeAll(() => {
+    prebuiltDir = mkdtempSync(join(tmpdir(), "cdk-fn-tag-test-"));
+    mkdirSync(prebuiltDir, { recursive: true });
+    writeFileSync(join(prebuiltDir, "index.mjs"), "export const handler = async () => {};");
+  });
+
+  test("tags the Lambda function with a revision tag", () => {
+    const app = new App();
+    const stack = new Stack(app, "TestStack");
+    new Nodejs24Function(stack, "Fn", {
+      entry: `${prebuiltDir}/`,
+      handler: "index.handler",
+    });
+    tagFunctionsWithRevision(stack, {});
+    const template = Template.fromStack(stack);
+    const functions = template.findResources("AWS::Lambda::Function");
+    const fn = Object.values(functions)[0];
+    const tags: Array<{ Key: string; Value: string }> = fn?.Properties?.Tags ?? [];
+    expect(tags.some((tag) => tag.Key === "revision")).toBe(true);
+  });
+
+  test("does not propagate the revision tag to child constructs (e.g. SQS queues)", () => {
+    const app = new App();
+    const stack = new Stack(app, "TestStack");
+    const fn = new Nodejs24Function(stack, "Fn", {
+      entry: `${prebuiltDir}/`,
+      handler: "index.handler",
+    });
+    // Queue nested under the function's construct scope — tag propagation
+    // would otherwise reach it and force a redeploy on every commit.
+    new Queue(fn, "InputQueue");
+    tagFunctionsWithRevision(stack, {});
+    const template = Template.fromStack(stack);
+    const queues = template.findResources("AWS::SQS::Queue");
+    const queue = Object.values(queues)[0];
+    const tags: Array<{ Key: string; Value: string }> = queue?.Properties?.Tags ?? [];
+    expect(tags.some((tag) => tag.Key === "revision")).toBe(false);
   });
 });

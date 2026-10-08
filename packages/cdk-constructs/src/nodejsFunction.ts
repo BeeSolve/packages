@@ -133,7 +133,14 @@ class TagFunctionsWithRevisionAspect implements IAspect {
 
   public visit(node: IConstruct): void {
     if (node instanceof Function) {
-      Tags.of(node).add("revision", this.props.revision);
+      // Restrict the tag to the Lambda function resource itself. Without
+      // `includeResourceTypes`, CDK propagates the tag to every taggable
+      // child construct (SQS queues, DLQs, SNS topics, alarms, IAM roles
+      // nested under the function), and because `revision` changes on every
+      // commit that forces a CloudFormation UPDATE on all of them each deploy.
+      Tags.of(node).add("revision", this.props.revision, {
+        includeResourceTypes: ["AWS::Lambda::Function"],
+      });
     }
   }
 }
