@@ -1,3 +1,5 @@
+import { timingSafeEqual } from "node:crypto";
+
 import {
   ConditionalCheckFailedException,
   TransactionCanceledException,
@@ -228,7 +230,7 @@ export class ActionTokens {
     if (token.remainingUses <= 0)
       throw new TokenAlreadyUsedUpError("Token cannot be used anymore.");
 
-    const isValueValid = token.value === props.value;
+    const isValueValid = valuesMatch(token.value, props.value);
     const shouldDrain = isValueValid && props.drainWhenValid;
 
     // The update runs before the value check intentionally: an incorrect value
@@ -371,6 +373,15 @@ export class ActionTokens {
 
     return result.output;
   };
+}
+
+function valuesMatch(expected: string, presented: string): boolean {
+  const expectedBuffer = Buffer.from(expected);
+  const presentedBuffer = Buffer.from(presented);
+
+  if (expectedBuffer.length !== presentedBuffer.length) return false;
+
+  return timingSafeEqual(expectedBuffer, presentedBuffer);
 }
 
 class BaseTokenError extends Error {

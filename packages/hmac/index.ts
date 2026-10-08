@@ -1,4 +1,4 @@
-import { createHmac } from "node:crypto";
+import { createHmac, timingSafeEqual } from "node:crypto";
 
 export interface HmacConfig {
   /**
@@ -37,6 +37,11 @@ export class HmacSigner {
     readonly value: string;
     readonly signature: string;
   }): boolean => {
-    return this.sign(props.value) === props.signature;
+    const expected = Buffer.from(this.sign(props.value), "hex");
+    const presented = Buffer.from(props.signature, "hex");
+
+    if (expected.length !== presented.length) return false;
+
+    return timingSafeEqual(expected, presented);
   };
 }
