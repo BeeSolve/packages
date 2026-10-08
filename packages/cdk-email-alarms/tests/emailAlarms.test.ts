@@ -46,6 +46,24 @@ describe("EmailAlarms.reportLambdaErrors", () => {
     });
   });
 
+  test("multiple alarms share a single topic and subscription", () => {
+    const stack = makeStack();
+    const alarms = new EmailAlarms(stack, "Alarms", { emailAddress: EMAIL });
+    alarms.reportLambdaErrors(makeLambda(stack));
+    const second = new Function(stack, "Fn2", {
+      runtime: Runtime.NODEJS_24_X,
+      code: Code.fromInline("exports.handler = async () => {}"),
+      handler: "index.handler",
+    });
+    alarms.reportLambdaErrors(second);
+    const { queue, dlq } = makeQueues(stack);
+    alarms.reportSqsErrors({ queue, dlq });
+    const template = Template.fromStack(stack);
+    template.resourceCountIs("AWS::SNS::Topic", 1);
+    template.resourceCountIs("AWS::SNS::Subscription", 1);
+    template.resourceCountIs("AWS::CloudWatch::Alarm", 3);
+  });
+
   test("creates an error alarm with threshold 1 and ignore missing data", () => {
     const stack = makeStack();
     const alarms = new EmailAlarms(stack, "Alarms", { emailAddress: EMAIL });
@@ -97,13 +115,13 @@ describe("EmailAlarms.reportSqsErrors", () => {
     });
   });
 
-  test("noMessagesPeriod adds a second topic and a NoMessages alarm", () => {
+  test("noMessagesPeriod reuses the shared topic and adds a NoMessages alarm", () => {
     const stack = makeStack();
     const alarms = new EmailAlarms(stack, "Alarms", { emailAddress: EMAIL });
     const { queue, dlq } = makeQueues(stack);
     alarms.reportSqsErrors({ queue, dlq, noMessagesPeriod: Duration.hours(1) });
     const template = Template.fromStack(stack);
-    template.resourceCountIs("AWS::SNS::Topic", 2);
+    template.resourceCountIs("AWS::SNS::Topic", 1);
     template.resourceCountIs("AWS::CloudWatch::Alarm", 2);
   });
 
@@ -119,13 +137,13 @@ describe("EmailAlarms.reportSqsErrors", () => {
     });
   });
 
-  test("noConsumersPeriod adds a second topic and a NoConsumers alarm", () => {
+  test("noConsumersPeriod reuses the shared topic and adds a NoConsumers alarm", () => {
     const stack = makeStack();
     const alarms = new EmailAlarms(stack, "Alarms", { emailAddress: EMAIL });
     const { queue, dlq } = makeQueues(stack);
     alarms.reportSqsErrors({ queue, dlq, noConsumersPeriod: Duration.hours(2) });
     const template = Template.fromStack(stack);
-    template.resourceCountIs("AWS::SNS::Topic", 2);
+    template.resourceCountIs("AWS::SNS::Topic", 1);
     template.resourceCountIs("AWS::CloudWatch::Alarm", 2);
   });
 
@@ -141,7 +159,7 @@ describe("EmailAlarms.reportSqsErrors", () => {
     });
   });
 
-  test("both optional periods share one queue topic and produce three alarms total", () => {
+  test("both optional periods share one topic and produce three alarms total", () => {
     const stack = makeStack();
     const alarms = new EmailAlarms(stack, "Alarms", { emailAddress: EMAIL });
     const { queue, dlq } = makeQueues(stack);
@@ -152,7 +170,7 @@ describe("EmailAlarms.reportSqsErrors", () => {
       noConsumersPeriod: Duration.hours(2),
     });
     const template = Template.fromStack(stack);
-    template.resourceCountIs("AWS::SNS::Topic", 2);
+    template.resourceCountIs("AWS::SNS::Topic", 1);
     template.resourceCountIs("AWS::CloudWatch::Alarm", 3);
   });
 

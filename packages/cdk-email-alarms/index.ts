@@ -8,7 +8,8 @@ import type { Queue } from "aws-cdk-lib/aws-sqs";
 import { Construct } from "constructs";
 
 export class EmailAlarms extends Construct {
-  private emailSubscription: EmailSubscription;
+  private readonly topic: Topic;
+  private readonly action: SnsAction;
 
   constructor(
     scope: Construct,
@@ -18,13 +19,17 @@ export class EmailAlarms extends Construct {
     },
   ) {
     super(scope, id);
-    this.emailSubscription = new EmailSubscription(props.emailAddress);
+    // A single topic + email subscription shared by every alarm. One topic
+    // means one subscription confirmation email, far fewer resources to
+    // create/update, and the firing alarm's name/description still identifies
+    // what broke. Topics and the subscription live under this construct's
+    // scope rather than under each handler/queue.
+    this.topic = new Topic(this, "AlarmTopic");
+    this.topic.addSubscription(new EmailSubscription(props.emailAddress));
+    this.action = new SnsAction(this.topic);
   }
 
   readonly reportLambdaErrors = (handler: Function): void => {
-    const topic = new Topic(handler, "ErrorAlarmTopic");
-    topic.addSubscription(this.emailSubscription);
-
     const alarm = new Alarm(handler, `ErrorAlarm`, {
       metric: handler.metricErrors(),
       threshold: 1,
@@ -33,8 +38,8 @@ export class EmailAlarms extends Construct {
       treatMissingData: TreatMissingData.IGNORE,
     });
 
-    alarm.addOkAction(new SnsAction(topic));
-    alarm.addAlarmAction(new SnsAction(topic));
+    alarm.addOkAction(this.action);
+    alarm.addAlarmAction(this.action);
   };
 
   readonly reportSqsErrors = (props: {
@@ -43,9 +48,6 @@ export class EmailAlarms extends Construct {
     readonly noMessagesPeriod?: Duration;
     readonly noConsumersPeriod?: Duration;
   }): void => {
-    const dlqTopic = new Topic(props.dlq, "DlqAlarmTopic");
-    dlqTopic.addSubscription(this.emailSubscription);
-
     const dlqAlarm = new Alarm(props.dlq, "DlqAlarm", {
       alarmDescription: `DLQ for ${props.queue.queueName} is not empty.`,
       metric: props.dlq.metricApproximateNumberOfMessagesVisible(),
@@ -55,43 +57,38 @@ export class EmailAlarms extends Construct {
       treatMissingData: TreatMissingData.IGNORE,
     });
 
-    dlqAlarm.addAlarmAction(new SnsAction(dlqTopic));
+    dlqAlarm.addAlarmAction(this.action);
 
-    if (props.noMessagesPeriod || props.noConsumersPeriod) {
-      const queueTopic = new Topic(props.queue, "QueueAlarmTopic");
-      queueTopic.addSubscription(this.emailSubscription);
+    if (props.noMessagesPeriod) {
+      const noMessages = new Alarm(props.queue, "NoMessagesAlarm", {
+        alarmDescription: `Queue received no messages for ${props.noMessagesPeriod.toHumanString()}.`,
+        metric: props.queue.metric("NumberOfMessagesSent", {
+          statistic: "Sum",
+          period: props.noMessagesPeriod,
+        }),
+        threshold: 0,
+        evaluationPeriods: 1,
+        comparisonOperator: ComparisonOperator.LESS_THAN_OR_EQUAL_TO_THRESHOLD,
+        treatMissingData: TreatMissingData.BREACHING,
+      });
 
-      if (props.noMessagesPeriod) {
-        const noMessages = new Alarm(props.queue, "NoMessagesAlarm", {
-          alarmDescription: `Queue received no messages for ${props.noMessagesPeriod.toHumanString()}.`,
-          metric: props.queue.metric("NumberOfMessagesSent", {
-            statistic: "Sum",
-            period: props.noMessagesPeriod,
-          }),
-          threshold: 0,
-          evaluationPeriods: 1,
-          comparisonOperator: ComparisonOperator.LESS_THAN_OR_EQUAL_TO_THRESHOLD,
-          treatMissingData: TreatMissingData.BREACHING,
-        });
+      noMessages.addAlarmAction(this.action);
+    }
 
-        noMessages.addAlarmAction(new SnsAction(queueTopic));
-      }
+    if (props.noConsumersPeriod) {
+      const noConsumers = new Alarm(props.queue, "NoConsumersAlarm", {
+        alarmDescription: `Queue had no consumers for ${props.noConsumersPeriod.toHumanString()}.`,
+        metric: props.queue.metric("NumberOfMessagesReceived", {
+          statistic: "Sum",
+          period: props.noConsumersPeriod,
+        }),
+        threshold: 0,
+        evaluationPeriods: 1,
+        comparisonOperator: ComparisonOperator.LESS_THAN_OR_EQUAL_TO_THRESHOLD,
+        treatMissingData: TreatMissingData.BREACHING,
+      });
 
-      if (props.noConsumersPeriod) {
-        const noConsumers = new Alarm(props.queue, "NoConsumersAlarm", {
-          alarmDescription: `Queue had no consumers for ${props.noConsumersPeriod.toHumanString()}.`,
-          metric: props.queue.metric("NumberOfMessagesReceived", {
-            statistic: "Sum",
-            period: props.noConsumersPeriod,
-          }),
-          threshold: 0,
-          evaluationPeriods: 1,
-          comparisonOperator: ComparisonOperator.LESS_THAN_OR_EQUAL_TO_THRESHOLD,
-          treatMissingData: TreatMissingData.BREACHING,
-        });
-
-        noConsumers.addAlarmAction(new SnsAction(queueTopic));
-      }
+      noConsumers.addAlarmAction(this.action);
     }
   };
 }
