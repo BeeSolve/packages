@@ -8,14 +8,15 @@
 
 ## How-To Guides
 
-| Guide                                                                                         | Description                                     |
-| --------------------------------------------------------------------------------------------- | ----------------------------------------------- |
-| [Getting Started](./docs/how-to/getting-started.md)                                           | Install, CDK setup, SvelteKit, first deployment |
-| [CloudFront](./docs/how-to/cloudfront.md)                                                     | Serving the auth service behind CloudFront      |
-| [Consuming Events](./docs/how-to/consuming-events.md)                                         | Reacting to auth events on EventBridge          |
-| [Data Token](./docs/how-to/data-token.md)                                                     | Anonymous-to-authenticated session data handoff |
-| [Local Development with kit-on-lambda](./docs/how-to/local-development-with-kit-on-lambda.md) | Running the SvelteKit integration locally       |
-| [WAF](./docs/how-to/waf.md)                                                                   | Rate limiting the auth endpoints with AWS WAF   |
+| Guide                                                                                         | Description                                      |
+| --------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| [Getting Started](./docs/how-to/getting-started.md)                                           | Install, CDK setup, SvelteKit, first deployment  |
+| [CloudFront](./docs/how-to/cloudfront.md)                                                     | Serving the auth service behind CloudFront       |
+| [Consuming Events](./docs/how-to/consuming-events.md)                                         | Reacting to auth events on EventBridge           |
+| [Data Token](./docs/how-to/data-token.md)                                                     | Anonymous-to-authenticated session data handoff  |
+| [DLQ Alarms Warning](./docs/how-to/dlq-alarms-warning.md)                                     | Resolve the "No alarms configured" synth warning |
+| [Local Development with kit-on-lambda](./docs/how-to/local-development-with-kit-on-lambda.md) | Running the SvelteKit integration locally        |
+| [WAF](./docs/how-to/waf.md)                                                                   | Rate limiting the auth endpoints with AWS WAF    |
 
 ## Working Examples
 
