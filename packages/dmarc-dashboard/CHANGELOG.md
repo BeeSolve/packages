@@ -1,5 +1,22 @@
 # @beesolve/dmarc-dashboard
 
+## 0.10.1
+
+### Patch Changes
+
+- dfc3824: Import `IpInfoCache` from the new shared `@beesolve/ip-info` package instead of the
+  `@beesolve/dmarc-consumer/ip-info` subpath (which has been removed). The dashboard still
+  depends on `@beesolve/dmarc-consumer` for its DMARC domain models. No behavior change.
+- Updated dependencies [029b8eb]
+- Updated dependencies [dfc3824]
+- Updated dependencies [dfc3824]
+  - @beesolve/cdk-constructs@0.4.0
+  - @beesolve/dmarc-consumer@0.4.0
+  - @beesolve/ip-info@0.2.0
+  - @beesolve/lambda-keep-active@2.1.7
+  - @beesolve/auth-service@0.18.1
+  - @beesolve/email-service@0.5.3
+
 ## 0.10.0
 
 ### Minor Changes

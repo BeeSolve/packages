@@ -1,5 +1,30 @@
 # @beesolve/dmarc-consumer
 
+## 0.4.0
+
+### Minor Changes
+
+- dfc3824: Move the IP enrichment cache to the new shared `@beesolve/ip-info` package.
+
+  The `IpInfoCache` implementation (plus `lookupIpInfo`, `IpInfo`, `IpInfoCacheItem`,
+  and `ipInfoCacheSchema`) is no longer defined or exported here — it now lives in
+  `@beesolve/ip-info`, which this package depends on. Internally the consumer imports
+  these from `@beesolve/ip-info`; behavior is unchanged.
+
+  BREAKING for subpath consumers: the `@beesolve/dmarc-consumer/ip-info` export has been
+  removed. Import `IpInfoCache` and friends from `@beesolve/ip-info` instead. All other
+  exports (`./report`, `./domain`, `./processing-stats`, `./dns`, `./dns-record`, `./sdk`,
+  `./cdk`) are unchanged.
+
+### Patch Changes
+
+- Updated dependencies [029b8eb]
+- Updated dependencies [dfc3824]
+  - @beesolve/cdk-constructs@0.4.0
+  - @beesolve/ip-info@0.2.0
+  - @beesolve/dmarc-reports@0.1.3
+  - @beesolve/sqs-handler@0.2.7
+
 ## 0.3.2
 
 ### Patch Changes

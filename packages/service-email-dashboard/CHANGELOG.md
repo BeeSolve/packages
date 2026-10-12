@@ -1,5 +1,15 @@
 # @beesolve/email-service-dashboard
 
+## 0.6.1
+
+### Patch Changes
+
+- Updated dependencies [029b8eb]
+  - @beesolve/cdk-constructs@0.4.0
+  - @beesolve/lambda-keep-active@2.1.7
+  - @beesolve/auth-service@0.18.1
+  - @beesolve/email-service@0.5.3
+
 ## 0.6.0
 
 ### Minor Changes
