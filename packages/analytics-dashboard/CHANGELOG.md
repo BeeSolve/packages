@@ -1,5 +1,12 @@
 # @beesolve/analytics-dashboard
 
+## 0.2.1
+
+### Patch Changes
+
+- Updated dependencies [3666a2a]
+  - @beesolve/auth-service@0.19.0
+
 ## 0.2.0
 
 ### Minor Changes
