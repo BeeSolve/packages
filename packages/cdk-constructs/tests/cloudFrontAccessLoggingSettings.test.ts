@@ -33,6 +33,22 @@ describe("CloudFrontAccessLoggingSettings", () => {
     Template.fromStack(stack).resourceCountIs("AWS::S3::Bucket", 1);
   });
 
+  test("pins the log bucket's physical name when logBucketName is provided", () => {
+    const stack = makeStack();
+    new CloudFrontAccessLoggingSettings(stack, "Logging", {
+      athena: { account: "123456789012", createSampleQuery: false },
+      logBucketName: "my-existing-bucket",
+    });
+    const template = Template.fromStack(stack);
+    const buckets = template.findResources("AWS::S3::Bucket");
+    const bucketNames = Object.values(buckets).map((bucket) => bucket?.Properties?.BucketName);
+    // The AccessLogs log bucket is pinned; the AthenaBucket keeps its generated name.
+    expect(bucketNames).toContain("my-existing-bucket");
+    template.hasResourceProperties("AWS::S3::Bucket", {
+      BucketName: "my-existing-bucket",
+    });
+  });
+
   test("exposes cloudFrontLoggingSettings with enableLogging false (v2-only collection)", () => {
     const stack = makeStack();
     const construct = new CloudFrontAccessLoggingSettings(stack, "Logging", {});
@@ -191,6 +207,38 @@ describe("CloudFrontAccessLoggingSettings standard logging v2", () => {
     template.resourceCountIs("AWS::Logs::DeliverySource", 1);
     template.resourceCountIs("AWS::Logs::DeliveryDestination", 1);
     template.resourceCountIs("AWS::Logs::Delivery", 1);
+  });
+
+  test("creates delivery resources in the provided us-east-1 deliveryScope, not the construct stack", () => {
+    const app = new App();
+    const homeStack = new Stack(app, "HomeStack", {
+      env: { account: "123456789012", region: "eu-central-1" },
+    });
+    const usEast1Stack = new Stack(app, "UsEast1Stack", {
+      env: { account: "123456789012", region: "us-east-1" },
+    });
+
+    const logging = new CloudFrontAccessLoggingSettings(homeStack, "Logging", {
+      athena: { account: "123456789012", createSampleQuery: false },
+    });
+    new Distribution(homeStack, "Distribution", {
+      defaultBehavior: { origin: new HttpOrigin("example.com") },
+      ...logging.cloudFrontLoggingSettings,
+    });
+    logging.enableV2Logging({
+      distributionArn: "arn:aws:cloudfront::123456789012:distribution/E123ABC",
+      deliveryScope: usEast1Stack,
+    });
+
+    const usEast1Template = Template.fromStack(usEast1Stack);
+    usEast1Template.resourceCountIs("AWS::Logs::DeliverySource", 1);
+    usEast1Template.resourceCountIs("AWS::Logs::DeliveryDestination", 1);
+    usEast1Template.resourceCountIs("AWS::Logs::Delivery", 1);
+
+    const homeTemplate = Template.fromStack(homeStack);
+    homeTemplate.resourceCountIs("AWS::Logs::DeliverySource", 0);
+    homeTemplate.resourceCountIs("AWS::Logs::DeliveryDestination", 0);
+    homeTemplate.resourceCountIs("AWS::Logs::Delivery", 0);
   });
 
   test("delivery destination uses parquet output format", () => {

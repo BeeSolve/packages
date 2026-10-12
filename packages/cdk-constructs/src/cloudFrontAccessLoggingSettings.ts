@@ -1,3 +1,4 @@
+import { PhysicalName } from "aws-cdk-lib";
 import { CfnNamedQuery, CfnWorkGroup } from "aws-cdk-lib/aws-athena";
 import type { DistributionProps } from "aws-cdk-lib/aws-cloudfront";
 import { CfnDatabase, CfnTable } from "aws-cdk-lib/aws-glue";
@@ -154,6 +155,26 @@ export interface CloudFrontAccessLoggingSettingsProps extends Pick<
    * @default undefined
    */
   readonly athena?: CloudFrontAccessLoggingAthenaProps;
+  /**
+   * Explicit physical name for the access-log S3 bucket.
+   *
+   * Set this to:
+   * - (a) **pin an existing bucket's name when upgrading a brownfield stack.** A log
+   *   bucket deployed by an earlier version without an explicit `BucketName` has a
+   *   CloudFormation auto-assigned name. Once the bucket is referenced cross-stack the
+   *   default ({@link PhysicalName.GENERATE_IF_NEEDED}) materializes a *different*
+   *   generated name, and because a bucket name is immutable this forces a replacement.
+   *   Pass the existing physical bucket name here so the upgrade is a no-op on the bucket.
+   * - (b) **control the name for cross-region v2 delivery**, where a stable, explicit
+   *   bucket name can be preferable to a generated one.
+   *
+   * When omitted, defaults to {@link PhysicalName.GENERATE_IF_NEEDED}, which only
+   * materializes a name when the bucket is referenced cross-environment. This preserves
+   * the current greenfield behavior (no explicit `BucketName` in same-stack synthesis).
+   *
+   * @default PhysicalName.GENERATE_IF_NEEDED
+   */
+  readonly logBucketName?: string;
 }
 
 export class CloudFrontAccessLoggingSettings extends Construct {
@@ -195,6 +216,13 @@ export class CloudFrontAccessLoggingSettings extends Construct {
 
     const logBucket = new Bucket(this, "AccessLogs", {
       objectOwnership: ObjectOwnership.OBJECT_WRITER,
+      // Allows the v2 delivery destination to reference this bucket's ARN from a
+      // different stack (e.g. a us-east-1 delivery scope) without a cross-environment
+      // token. GENERATE_IF_NEEDED only emits an explicit name when actually referenced
+      // cross-stack, so same-region (same-stack) synthesis is unchanged. Brownfield
+      // consumers whose deployed bucket has an auto-generated name must pin it via
+      // `logBucketName` to avoid a replacement when it first gets referenced cross-stack.
+      bucketName: props.logBucketName ?? PhysicalName.GENERATE_IF_NEEDED,
     });
     this.logBucket = logBucket;
     this.outputPrefix = props.athena?.outputPrefix ?? "v2";
@@ -303,21 +331,34 @@ export class CloudFrontAccessLoggingSettings extends Construct {
    * constructor avoids a cyclic dependency between the distribution (which needs
    * {@link cloudFrontLoggingSettings}) and the delivery source (which needs the
    * distribution ARN).
+   *
+   * @param deliveryScope CloudFront v2 log delivery resources must be created in
+   * us-east-1. When the construct itself is not in us-east-1, pass a scope (e.g. a
+   * us-east-1 stack) where the delivery source/destination/delivery are created. The
+   * destination references the (possibly cross-region) log bucket ARN. Defaults to `this`.
    */
-  readonly enableV2Logging = ({ distributionArn }: { distributionArn: string }): void => {
-    const deliverySource = new CfnDeliverySource(this, "V2DeliverySource", {
+  readonly enableV2Logging = ({
+    distributionArn,
+    deliveryScope,
+  }: {
+    distributionArn: string;
+    deliveryScope?: Construct;
+  }): void => {
+    const scope = deliveryScope ?? this;
+
+    const deliverySource = new CfnDeliverySource(scope, "V2DeliverySource", {
       name: `${this.node.id}-v2-source`,
       logType: "ACCESS_LOGS",
       resourceArn: distributionArn,
     });
 
-    const deliveryDestination = new CfnDeliveryDestination(this, "V2DeliveryDestination", {
+    const deliveryDestination = new CfnDeliveryDestination(scope, "V2DeliveryDestination", {
       name: `${this.node.id}-v2-destination`,
       destinationResourceArn: this.logBucket.bucketArn,
       outputFormat: "parquet",
     });
 
-    const delivery = new CfnDelivery(this, "V2Delivery", {
+    const delivery = new CfnDelivery(scope, "V2Delivery", {
       deliverySourceName: deliverySource.name,
       deliveryDestinationArn: deliveryDestination.attrArn,
       s3EnableHiveCompatiblePath: true,

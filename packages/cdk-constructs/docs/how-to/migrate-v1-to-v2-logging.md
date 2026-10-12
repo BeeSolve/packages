@@ -64,6 +64,25 @@ logging.enableV2Logging({
 });
 ```
 
+> **Non-us-east-1 stacks:** CloudFront v2 log delivery resources must live in `us-east-1`
+> (the CloudWatch Logs API rejects `PutDeliverySource` for this log type elsewhere). If your
+> construct is deployed in another region, pass a us-east-1 stack as `deliveryScope`; the log
+> bucket stays in your home region and is referenced cross-region:
+>
+> ```ts
+> logging.enableV2Logging({
+>   distributionArn: `arn:aws:cloudfront::${account}:distribution/${distribution.distributionId}`,
+>   deliveryScope: usEast1Stack,
+> });
+> ```
+>
+> **Brownfield log buckets:** referencing the log bucket cross-region makes CDK emit an
+> explicit, generated `BucketName`. If your existing log bucket was deployed without an
+> explicit name (a CloudFormation auto-assigned name), that would force a bucket replacement
+> — and replacing it loses the retained v1 data that is now orphaned from stack management.
+> Pass `logBucketName: '<existing physical bucket name>'` to pin the current name so the
+> upgrade is a no-op on the bucket.
+
 ### 4. Backfill from the retained v1 table (once)
 
 Run the analytics processor's one-time backfill against the **retained** v1 Glue table and
