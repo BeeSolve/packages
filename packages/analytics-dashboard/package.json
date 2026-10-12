@@ -1,0 +1,77 @@
+{
+  "name": "@beesolve/analytics-dashboard",
+  "version": "0.1.0",
+  "description": "CloudFront analytics dashboard — SvelteKit app for viewing traffic analytics",
+  "homepage": "https://github.com/BeeSolve/packages/tree/main/packages/analytics-dashboard#readme",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BeeSolve/packages.git"
+  },
+  "files": [
+    "dist",
+    "docs/how-to",
+    "DOCS.md"
+  ],
+  "type": "module",
+  "imports": {
+    "#lib/*": "./src/lib/*"
+  },
+  "exports": {
+    "./cdk": {
+      "import": {
+        "types": "./dist/cdk.d.ts",
+        "default": "./dist/cdk.js"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "prepare": "svelte-kit sync || true",
+    "dev": "bun --env-file=.env.local vite dev",
+    "build": "ANALYTICS_TABLE_NAME=build-placeholder ANALYTICS_REVERSE_INDEX=build-placeholder ANALYTICS_USERS_TABLE=build-placeholder ANALYTICS_USERS_REVERSE_INDEX=build-placeholder vite build",
+    "type-check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "test": "bun test",
+    "prepublishOnly": "bun build.ts && bun run build"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "catalog:",
+    "@aws-sdk/lib-dynamodb": "catalog:",
+    "@beesolve/analytics-processor": "workspace:^",
+    "@beesolve/auth-service": "workspace:^",
+    "@beesolve/cdk-constructs": "workspace:^",
+    "@beesolve/dynamo-helpers": "workspace:^",
+    "@beesolve/email-service": "workspace:^",
+    "@beesolve/helpers": "workspace:^",
+    "@beesolve/lambda-fetch-api": "workspace:^",
+    "@beesolve/lambda-keep-active": "workspace:^",
+    "@drop-in/graffiti": "^4.30.0",
+    "kit-on-lambda": "^1.0.0",
+    "valibot": "catalog:"
+  },
+  "devDependencies": {
+    "@sveltejs/kit": "^3.0.1",
+    "@sveltejs/vite-plugin-svelte": "^7.3.1",
+    "@types/aws-lambda": "catalog:",
+    "@types/bun": "catalog:",
+    "@types/node": "catalog:",
+    "aws-cdk-lib": "catalog:",
+    "constructs": "catalog:",
+    "svelte": "^5.57.2",
+    "svelte-check": "^4.2.1",
+    "typescript": "~6.0.3",
+    "vite": "^8.3.3"
+  },
+  "peerDependencies": {
+    "aws-cdk-lib": "catalog:",
+    "constructs": "catalog:"
+  },
+  "peerDependenciesMeta": {
+    "aws-cdk-lib": {
+      "optional": true
+    },
+    "constructs": {
+      "optional": true
+    }
+  }
+}

@@ -12,3 +12,6 @@ SAMPLES_AUTH_COOKIE_FUNCTION_FRONTEND_URI = "<cloudfront-distribution-url>"
 SAMPLES_AUTH_SPA_WITH_API_FRONTEND_URI = "<cloudfront-distribution-url>"
 SAMPLES_AUTH_IMPERSONATION_FRONTEND_URI = "<cloudfront-distribution-url>"
 SAMPLES_DMARC_RECIPIENT = "<email-address-for-dmarc-reports>"
+# CloudFront URL of the analytics dashboard. Chicken-and-egg on first deploy:
+# set a placeholder, deploy, then update this with the real CloudFront URL and redeploy.
+SAMPLES_ANALYTICS_DASHBOARD_FRONTEND_URI = "<cloudfront-distribution-url>"

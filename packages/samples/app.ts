@@ -1,5 +1,6 @@
 import { App } from "aws-cdk-lib";
 
+import { AnalyticsStack } from "./analytics/stack.ts";
 import { CookieFunctionStack } from "./authCookieFunction/stack.ts";
 import { EmailAuthorizerStack } from "./authEmailAuthorizer/stack.ts";
 import { EmailSimpleStack } from "./authEmailSimple/stack.ts";
@@ -52,5 +53,9 @@ new ImpersonationStack(app, "SamplesAuthImpersonation", {
 });
 
 new DmarcReportsStack(app, "SamplesDmarcReports", {
+  env: { account, region },
+});
+
+new AnalyticsStack(app, "SamplesAnalytics", {
   env: { account, region },
 });

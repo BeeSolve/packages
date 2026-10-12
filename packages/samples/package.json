@@ -13,12 +13,15 @@
     "deploy:authCookieFunction": "cd authCookieFunction/site && bun run vite build && cd - && bun run cdk deploy SamplesAuthCookieFunction --require-approval never",
     "deploy:authSpaWithApi": "cd authSpaWithApi/site && bun run vite build && cd - && bun run cdk deploy SamplesAuthSpaWithApi --require-approval never",
     "deploy:authImpersonation": "cd authImpersonation/site && bun run vite build && cd - && bun run cdk deploy SamplesAuthImpersonation --require-approval never",
-    "deploy:dmarcReports": "bun run cdk deploy SamplesDmarcReports --require-approval never"
+    "deploy:dmarcReports": "bun run cdk deploy SamplesDmarcReports --require-approval never",
+    "deploy:analytics": "bun run cdk deploy SamplesAnalytics --require-approval never"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "catalog:",
     "@aws-sdk/lib-dynamodb": "catalog:",
     "@beesolve/action-tokens": "workspace:^",
+    "@beesolve/analytics-dashboard": "workspace:^",
+    "@beesolve/analytics-processor": "workspace:^",
     "@beesolve/auth-service": "workspace:^",
     "@beesolve/cdk-constructs": "workspace:^",
     "@beesolve/cdk-email-alarms": "workspace:^",
