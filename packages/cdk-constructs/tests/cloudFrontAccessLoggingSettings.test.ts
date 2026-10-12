@@ -49,6 +49,20 @@ describe("CloudFrontAccessLoggingSettings", () => {
     });
   });
 
+  test("emits no BucketName on the log bucket when logBucketName is omitted", () => {
+    const stack = makeStack();
+    new CloudFrontAccessLoggingSettings(stack, "Logging", {});
+    const template = Template.fromStack(stack);
+    const buckets = template.findResources("AWS::S3::Bucket");
+    const logBuckets = Object.values(buckets);
+    expect(logBuckets.length).toBe(1);
+    // No explicit BucketName (and no GENERATE_IF_NEEDED-derived name) is emitted, so an
+    // existing brownfield bucket deployed without a name is never forced into a replacement.
+    for (const bucket of logBuckets) {
+      expect(bucket?.Properties?.BucketName).toBeUndefined();
+    }
+  });
+
   test("exposes cloudFrontLoggingSettings with enableLogging false (v2-only collection)", () => {
     const stack = makeStack();
     const construct = new CloudFrontAccessLoggingSettings(stack, "Logging", {});
@@ -228,6 +242,7 @@ describe("CloudFrontAccessLoggingSettings standard logging v2", () => {
     logging.enableV2Logging({
       distributionArn: "arn:aws:cloudfront::123456789012:distribution/E123ABC",
       deliveryScope: usEast1Stack,
+      logBucketArn: "arn:aws:s3:::my-existing-bucket",
     });
 
     const usEast1Template = Template.fromStack(usEast1Stack);
@@ -235,6 +250,40 @@ describe("CloudFrontAccessLoggingSettings standard logging v2", () => {
     usEast1Template.resourceCountIs("AWS::Logs::DeliveryDestination", 1);
     usEast1Template.resourceCountIs("AWS::Logs::Delivery", 1);
 
+    const homeTemplate = Template.fromStack(homeStack);
+    homeTemplate.resourceCountIs("AWS::Logs::DeliverySource", 0);
+    homeTemplate.resourceCountIs("AWS::Logs::DeliveryDestination", 0);
+    homeTemplate.resourceCountIs("AWS::Logs::Delivery", 0);
+  });
+
+  test("uses an explicit logBucketArn for the delivery destination across regions", () => {
+    const app = new App();
+    const homeStack = new Stack(app, "HomeStack", {
+      env: { account: "123456789012", region: "eu-central-1" },
+    });
+    const usEast1Stack = new Stack(app, "UsEast1Stack", {
+      env: { account: "123456789012", region: "us-east-1" },
+    });
+
+    const logging = new CloudFrontAccessLoggingSettings(homeStack, "Logging", {
+      athena: { account: "123456789012", createSampleQuery: false },
+    });
+    new Distribution(homeStack, "Distribution", {
+      defaultBehavior: { origin: new HttpOrigin("example.com") },
+      ...logging.cloudFrontLoggingSettings,
+    });
+    logging.enableV2Logging({
+      distributionArn: "arn:aws:cloudfront::123456789012:distribution/E123ABC",
+      deliveryScope: usEast1Stack,
+      logBucketArn: "arn:aws:s3:::my-existing-bucket",
+    });
+
+    const usEast1Template = Template.fromStack(usEast1Stack);
+    usEast1Template.hasResourceProperties("AWS::Logs::DeliveryDestination", {
+      DestinationResourceArn: "arn:aws:s3:::my-existing-bucket",
+    });
+
+    // No delivery resources leak into the home-region stack.
     const homeTemplate = Template.fromStack(homeStack);
     homeTemplate.resourceCountIs("AWS::Logs::DeliverySource", 0);
     homeTemplate.resourceCountIs("AWS::Logs::DeliveryDestination", 0);

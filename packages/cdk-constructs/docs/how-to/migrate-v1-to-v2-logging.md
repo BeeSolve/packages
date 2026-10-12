@@ -67,21 +67,24 @@ logging.enableV2Logging({
 > **Non-us-east-1 stacks:** CloudFront v2 log delivery resources must live in `us-east-1`
 > (the CloudWatch Logs API rejects `PutDeliverySource` for this log type elsewhere). If your
 > construct is deployed in another region, pass a us-east-1 stack as `deliveryScope`; the log
-> bucket stays in your home region and is referenced cross-region:
+> bucket stays in your home region and is referenced by an explicit ARN string:
 >
 > ```ts
 > logging.enableV2Logging({
 >   distributionArn: `arn:aws:cloudfront::${account}:distribution/${distribution.distributionId}`,
 >   deliveryScope: usEast1Stack,
+>   logBucketArn: `arn:aws:s3:::${existingLogBucketName}`,
 > });
 > ```
 >
-> **Brownfield log buckets:** referencing the log bucket cross-region makes CDK emit an
-> explicit, generated `BucketName`. If your existing log bucket was deployed without an
-> explicit name (a CloudFormation auto-assigned name), that would force a bucket replacement
-> — and replacing it loses the retained v1 data that is now orphaned from stack management.
-> Pass `logBucketName: '<existing physical bucket name>'` to pin the current name so the
-> upgrade is a no-op on the bucket.
+> **Brownfield log buckets:** if your existing log bucket was deployed without an explicit
+> `BucketName` (a CloudFormation auto-assigned name), do **not** set `logBucketName` to adopt
+> it — adding a `BucketName` to an unnamed bucket is a replacement regardless of the value, and
+> that fails on a retained bucket (losing the retained v1 data orphaned from stack management).
+> Instead, leave `logBucketName` unset (so no `BucketName` is emitted and the existing bucket is
+> reused in place) and pass `logBucketArn: 'arn:aws:s3:::<existing-bucket-name>'` to
+> `enableV2Logging`. The delivery destination then references the bucket by a plain ARN string,
+> so no cross-stack reference forces a bucket name.
 
 ### 4. Backfill from the retained v1 table (once)
 

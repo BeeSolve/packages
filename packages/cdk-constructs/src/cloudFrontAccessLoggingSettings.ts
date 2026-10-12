@@ -1,4 +1,3 @@
-import { PhysicalName } from "aws-cdk-lib";
 import { CfnNamedQuery, CfnWorkGroup } from "aws-cdk-lib/aws-athena";
 import type { DistributionProps } from "aws-cdk-lib/aws-cloudfront";
 import { CfnDatabase, CfnTable } from "aws-cdk-lib/aws-glue";
@@ -158,21 +157,20 @@ export interface CloudFrontAccessLoggingSettingsProps extends Pick<
   /**
    * Explicit physical name for the access-log S3 bucket.
    *
-   * Set this to:
-   * - (a) **pin an existing bucket's name when upgrading a brownfield stack.** A log
-   *   bucket deployed by an earlier version without an explicit `BucketName` has a
-   *   CloudFormation auto-assigned name. Once the bucket is referenced cross-stack the
-   *   default ({@link PhysicalName.GENERATE_IF_NEEDED}) materializes a *different*
-   *   generated name, and because a bucket name is immutable this forces a replacement.
-   *   Pass the existing physical bucket name here so the upgrade is a no-op on the bucket.
-   * - (b) **control the name for cross-region v2 delivery**, where a stable, explicit
-   *   bucket name can be preferable to a generated one.
+   * Use this for **greenfield** stacks where a stable, human-readable bucket name is
+   * preferable to a CloudFormation-generated one. Setting it emits an explicit
+   * `BucketName` in the synthesized template.
    *
-   * When omitted, defaults to {@link PhysicalName.GENERATE_IF_NEEDED}, which only
-   * materializes a name when the bucket is referenced cross-environment. This preserves
-   * the current greenfield behavior (no explicit `BucketName` in same-stack synthesis).
+   * **Do not** set this to adopt an existing (brownfield) log bucket that was deployed
+   * without an explicit `BucketName`: adding a `BucketName` to an already-unnamed bucket
+   * is a replacement regardless of the value, which fails on a retained bucket. To keep an
+   * existing unnamed bucket in place while still delivering v2 logs across stacks/regions,
+   * leave this unset and pass `logBucketArn` to {@link enableV2Logging} instead.
    *
-   * @default PhysicalName.GENERATE_IF_NEEDED
+   * When omitted, no `BucketName` is emitted and CloudFormation keeps assigning the name,
+   * so an existing unnamed bucket is never replaced.
+   *
+   * @default undefined (no explicit `BucketName`)
    */
   readonly logBucketName?: string;
 }
@@ -216,13 +214,13 @@ export class CloudFrontAccessLoggingSettings extends Construct {
 
     const logBucket = new Bucket(this, "AccessLogs", {
       objectOwnership: ObjectOwnership.OBJECT_WRITER,
-      // Allows the v2 delivery destination to reference this bucket's ARN from a
-      // different stack (e.g. a us-east-1 delivery scope) without a cross-environment
-      // token. GENERATE_IF_NEEDED only emits an explicit name when actually referenced
-      // cross-stack, so same-region (same-stack) synthesis is unchanged. Brownfield
-      // consumers whose deployed bucket has an auto-generated name must pin it via
-      // `logBucketName` to avoid a replacement when it first gets referenced cross-stack.
-      bucketName: props.logBucketName ?? PhysicalName.GENERATE_IF_NEEDED,
+      // Only emit an explicit BucketName when the consumer opts in via `logBucketName`.
+      // Omitting it entirely (rather than using GENERATE_IF_NEEDED) means an existing
+      // brownfield bucket deployed without a name is never forced into a replacement.
+      // Cross-stack/region v2 delivery references the bucket via an explicit ARN string
+      // (`enableV2Logging({ logBucketArn })`), so no cross-stack reference is created that
+      // would otherwise force a physical name.
+      ...(props.logBucketName != null ? { bucketName: props.logBucketName } : {}),
     });
     this.logBucket = logBucket;
     this.outputPrefix = props.athena?.outputPrefix ?? "v2";
@@ -336,13 +334,19 @@ export class CloudFrontAccessLoggingSettings extends Construct {
    * us-east-1. When the construct itself is not in us-east-1, pass a scope (e.g. a
    * us-east-1 stack) where the delivery source/destination/delivery are created. The
    * destination references the (possibly cross-region) log bucket ARN. Defaults to `this`.
+   * @param logBucketArn Explicit S3 bucket ARN for the delivery destination. Pass this
+   * (instead of relying on the construct's bucket object) when the log bucket lives in a
+   * different stack/region than `deliveryScope`, to avoid a cross-stack reference that would
+   * otherwise force an explicit bucket name. Defaults to the construct's own log bucket ARN.
    */
   readonly enableV2Logging = ({
     distributionArn,
     deliveryScope,
+    logBucketArn,
   }: {
     distributionArn: string;
     deliveryScope?: Construct;
+    logBucketArn?: string;
   }): void => {
     const scope = deliveryScope ?? this;
 
@@ -354,7 +358,7 @@ export class CloudFrontAccessLoggingSettings extends Construct {
 
     const deliveryDestination = new CfnDeliveryDestination(scope, "V2DeliveryDestination", {
       name: `${this.node.id}-v2-destination`,
-      destinationResourceArn: this.logBucket.bucketArn,
+      destinationResourceArn: logBucketArn ?? this.logBucket.bucketArn,
       outputFormat: "parquet",
     });
 
