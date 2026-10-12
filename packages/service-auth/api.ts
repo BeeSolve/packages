@@ -136,6 +136,7 @@ const fetch = async (request: Request): Promise<Response> => {
         requestOrigin,
         otpExpirySeconds: env.OTP_EXPIRY,
         resendCooldownSeconds: env.RESEND_COOLDOWN,
+        allowSignUp: env.ALLOW_SIGN_UP,
       });
     }
 

@@ -33,6 +33,7 @@ function createDeps(overrides = {}) {
     requestOrigin: "https://example.com",
     otpExpirySeconds: 600,
     resendCooldownSeconds: 60,
+    allowSignUp: true,
     ...overrides,
   };
 }
@@ -88,6 +89,37 @@ describe("signInRequest", () => {
 
     const eventCall = mockCalls(deps.events.putEvents)[0]?.[0];
     expect(eventCall.detail.accountId).toBeNull();
+  });
+
+  test("emits emailNotRegistered instead of a code when allowSignUp is false and account missing", async () => {
+    const deps = createDeps({
+      allowSignUp: false,
+      accounts: { getOne: mock(() => Promise.reject(new Error("not found"))) },
+    });
+    const res = await signInRequest(deps);
+    const body = await res.json();
+
+    const eventCall = mockCalls(deps.events.putEvents)[0]?.[0];
+    expect(eventCall.type).toBe("UnsuccessfulAuth");
+    expect(eventCall.detail.code).toBe("emailNotRegistered");
+    expect(eventCall.detail.emailAddress).toBe("user@example.com");
+
+    // Anti-enumeration: the response and token work must stay identical to the
+    // registered case — a token is still created and returned.
+    expect(mockCalls(deps.actionTokens.createNewWithThrottling).length).toBe(1);
+    expect(res.status).toBe(200);
+    expect(body).toHaveProperty("token");
+    expect(body).toHaveProperty("referenceCode");
+    expect(body).toHaveProperty("expiresAt");
+  });
+
+  test("still emits EmailCodeAuth when allowSignUp is false and account exists", async () => {
+    const deps = createDeps({ allowSignUp: false });
+    await signInRequest(deps);
+
+    const eventCall = mockCalls(deps.events.putEvents)[0]?.[0];
+    expect(eventCall.type).toBe("EmailCodeAuth");
+    expect(eventCall.detail.accountId).toBe("acc-123");
   });
 
   test("throws TokenThrottledError when throttled", async () => {

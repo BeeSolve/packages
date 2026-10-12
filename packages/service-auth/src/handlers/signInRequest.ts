@@ -22,6 +22,15 @@ interface Dependencies {
   readonly otpExpirySeconds: number;
   /** Cooldown window for resending codes after sign-in. */
   readonly resendCooldownSeconds: number;
+  /**
+   * Whether unknown emails are allowed to sign up. When false and the email is
+   * not registered, an `UnsuccessfulAuth`/`emailNotRegistered` event is emitted
+   * instead of `EmailCodeAuth` — so an unregistered user receives the
+   * "not registered" email rather than a code. All other work (token creation,
+   * throttling, HTTP response) stays identical to the registered case so the
+   * request is not distinguishable by response shape or timing (anti-enumeration).
+   */
+  readonly allowSignUp: boolean;
 }
 
 const schema = v.object({
@@ -39,6 +48,7 @@ export async function signInRequest({
   requestOrigin,
   otpExpirySeconds,
   resendCooldownSeconds,
+  allowSignUp,
 }: Dependencies): Promise<Response> {
   const { emailAddress } = parseBody({
     body: await requestBody(),
@@ -66,20 +76,37 @@ export async function signInRequest({
     throttle: { id: emailAddress, windowSeconds: resendCooldownSeconds },
   });
 
-  await events.putEvents({
-    type: "EmailCodeAuth",
-    detail: {
-      code,
-      referenceCode,
-      emailAddress,
-      expiresAt: expiresAt.toISOString(),
-      accountId: account?.id ?? null,
-      baseUri,
-      cookies,
-      acceptLanguage,
-      requestOrigin,
-    },
-  });
+  // Emit the "not registered" event instead of a code when sign-up is disabled and
+  // the account does not exist. All work above (token creation, throttling) and the
+  // response below stay identical to the registered case so the request is not
+  // distinguishable by response shape or timing — this prevents email enumeration.
+  // The returned token is harmless for an unknown email: signInComplete creates no
+  // session when the account is missing and allowSignUp is false.
+  if (!allowSignUp && account == null) {
+    await events.putEvents({
+      type: "UnsuccessfulAuth",
+      detail: {
+        code: "emailNotRegistered",
+        emailAddress,
+        reason: "Email not registered.",
+      },
+    });
+  } else {
+    await events.putEvents({
+      type: "EmailCodeAuth",
+      detail: {
+        code,
+        referenceCode,
+        emailAddress,
+        expiresAt: expiresAt.toISOString(),
+        accountId: account?.id ?? null,
+        baseUri,
+        cookies,
+        acceptLanguage,
+        requestOrigin,
+      },
+    });
+  }
 
   return new Response(
     JSON.stringify({
