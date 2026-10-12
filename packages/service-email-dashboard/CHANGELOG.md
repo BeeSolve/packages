@@ -1,5 +1,12 @@
 # @beesolve/email-service-dashboard
 
+## 0.6.2
+
+### Patch Changes
+
+- Updated dependencies [3666a2a]
+  - @beesolve/auth-service@0.19.0
+
 ## 0.6.1
 
 ### Patch Changes
