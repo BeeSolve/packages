@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": { "declaration": true, "isolatedDeclarations": false },
+  "include": [
+    "index.ts",
+    "cdk.ts",
+    "hourly.ts",
+    "dailyRollup.ts",
+    "monthlyRollup.ts",
+    "command/**/*",
+    "src/**/*",
+    "tests/**/*"
+  ]
+}
