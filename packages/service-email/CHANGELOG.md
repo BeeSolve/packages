@@ -1,5 +1,12 @@
 # @beesolve/email-service
 
+## 0.5.3
+
+### Patch Changes
+
+- Updated dependencies [029b8eb]
+  - @beesolve/cdk-constructs@0.4.0
+
 ## 0.5.2
 
 ### Patch Changes

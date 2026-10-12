@@ -1,5 +1,12 @@
 # @beesolve/lambda-keep-active
 
+## 2.1.7
+
+### Patch Changes
+
+- Updated dependencies [029b8eb]
+  - @beesolve/cdk-constructs@0.4.0
+
 ## 2.1.6
 
 ### Patch Changes
