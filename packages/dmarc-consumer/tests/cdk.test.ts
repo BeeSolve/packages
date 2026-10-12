@@ -1,18 +1,11 @@
-import { beforeAll, describe, it } from "bun:test";
-import { mkdirSync } from "node:fs";
+import { describe, it } from "bun:test";
 import { fileURLToPath } from "node:url";
 
 import { Nodejs24Function } from "@beesolve/cdk-constructs";
 import { App, Duration, Stack } from "aws-cdk-lib";
 import { Match, Template } from "aws-cdk-lib/assertions";
 
-import { DmarcConsumer } from "../cdk.ts";
-
-beforeAll(() => {
-  mkdirSync(new URL("../consumer", import.meta.url), { recursive: true });
-  mkdirSync(new URL("../tasks", import.meta.url), { recursive: true });
-  mkdirSync(new URL("../dnsCron", import.meta.url), { recursive: true });
-});
+import { DmarcConsumer } from "../dist/cdk.js";
 
 function makeStack() {
   const app = new App();
@@ -114,7 +107,7 @@ describe("DmarcConsumer construct", () => {
     const stack = makeStack();
     const consumer = new DmarcConsumer(stack, "Consumer");
 
-    const consumerEntry = fileURLToPath(new URL("../consumer/", import.meta.url));
+    const consumerEntry = fileURLToPath(new URL("../dist/consumer/", import.meta.url));
     const grantee = new Nodejs24Function(stack, "Grantee", {
       entry: `${consumerEntry}/`,
       handler: "consumer.handler",

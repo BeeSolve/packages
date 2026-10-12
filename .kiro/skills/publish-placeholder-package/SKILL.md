@@ -87,19 +87,25 @@ password. If prompted for an OTP, ask the user for the current code and continue
 npm publish --access public
 ```
 
-If the account enforces 2FA for writes, publish with an OTP (ask the user for the code):
+If the account enforces 2FA for writes, publish with an OTP (ask the user for the code). The
+npm CLI expects the equals form `--otp=<code>` — a space-separated `--otp <code>` is parsed as
+an unknown positional and fails:
 
 ```bash
-npm publish --access public --otp <code>
+npm publish --access public --otp=<code>
 ```
+
+OTP codes are single-use and short-lived (~30s). Each `npm publish` and each `npm trust`
+consumes one, so ask the user for a fresh code at each write step rather than reusing one.
 
 ### 6. Register the GitHub Actions Trusted Publisher
 
-New package names can take a short time to become visible after publish. Poll until `0.0.0`
-resolves before registering trust:
+New package names can take several minutes to become visible after publish (npm prints
+"being processed and may take a few minutes"). Poll until `0.0.0` resolves before registering
+trust — allow up to ~5 minutes:
 
 ```bash
-for attempt in $(seq 1 18); do
+for attempt in $(seq 1 40); do
   version=$(npm view <package-name>@0.0.0 version --silent 2>/dev/null || true)
   if [ "$version" = "0.0.0" ]; then
     break
@@ -117,11 +123,27 @@ fi
 As soon as it resolves, register the Trusted Publisher from the same machine where you
 published (while local npm auth is still valid).
 
-**Preferred — CLI:**
+**CLI (preferred):**
 
 ```bash
-npm trust github <package-name> --repo BeeSolve/packages --file publish.yml --yes
+npm trust github <package-name> --file publish.yml --repo BeeSolve/packages --allow-publish --yes --otp=<code>
 ```
+
+Notes on the current npm CLI (verified on npm 11.19.0):
+
+- `--allow-publish` is **required** — without a permission flag the command fails with
+  "At least one permission flag is required". This grants the CI `publish.yml` workflow publish
+  access. (`--allow-stage-publish` is a separate grant; npm reports the result as
+  `publish, stage publish`.)
+- The workflow file `publish.yml` runs on push to `main` with no GitHub environment, so no
+  `--env`/`--environment` flag is needed. Add `--env <name>` only if the workflow pins a GitHub
+  environment.
+- 2FA is required and uses the equals form `--otp=<code>` (a space-separated `--otp <code>` is
+  rejected as an unknown positional). Run a `--dry-run` first (it needs no OTP) to confirm the
+  config, then supply a fresh OTP for the real call.
+
+A successful registration prints `Trust configuration created successfully` plus a trust `id` —
+that message is the authoritative confirmation.
 
 **Fallback — npmjs.org web UI** (use if the `npm trust` subcommand is unavailable in the
 installed npm version):
@@ -139,12 +161,17 @@ installed npm version):
 npm view <package-name>@0.0.0 version
 ```
 
+Do **not** rely on `npm trust list <package-name>` to verify — on current npm it is itself
+2FA-gated and will fail with `EOTP` unless you spend another OTP. The
+`Trust configuration created successfully` message (with its trust `id`) printed by step 6 is
+the authoritative confirmation; capture that id.
+
 Report:
 
 - package name
 - published version (`0.0.0`)
 - confirmation that the Trusted Publisher was registered for `.github/workflows/publish.yml`
-  (via `npm trust github` or the web UI)
+  (the trust `id` from step 6), via `npm trust github` or the web UI
 
 ### 8. Clean up
 
