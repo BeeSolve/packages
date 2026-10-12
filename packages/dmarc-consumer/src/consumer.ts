@@ -3,11 +3,11 @@ import {
   dmarcProcessingStatsEventSchema,
   dmarcReportParsedEventSchema,
 } from "@beesolve/dmarc-reports";
+import { IpInfoCache } from "@beesolve/ip-info";
 import type { SQSBatchItemFailure, SQSEvent } from "aws-lambda";
 import * as v from "valibot";
 
 import { Domains } from "../domain.ts";
-import { IpInfoCache } from "../ipInfo.ts";
 import { ProcessingStats } from "../processingStats.ts";
 import { Reports } from "../report.ts";
 import { AdminSdk } from "../sdk.ts";

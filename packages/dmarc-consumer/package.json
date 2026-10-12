@@ -40,12 +40,6 @@
         "default": "./dist/domain.js"
       }
     },
-    "./ip-info": {
-      "import": {
-        "types": "./dist/ipInfo.d.ts",
-        "default": "./dist/ipInfo.js"
-      }
-    },
     "./processing-stats": {
       "import": {
         "types": "./dist/processingStats.d.ts",
@@ -79,6 +73,7 @@
     "@beesolve/dmarc-parser": "workspace:^",
     "@beesolve/dmarc-reports": "workspace:^",
     "@beesolve/helpers": "workspace:^",
+    "@beesolve/ip-info": "workspace:^",
     "@beesolve/sqs-handler": "workspace:^",
     "valibot": "catalog:"
   },

@@ -4,11 +4,11 @@ import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { AuthClient } from "@beesolve/auth-service/sdk";
 import { createSessionHandle, type SessionContext } from "@beesolve/auth-service/sveltekit";
 import { Domains } from "@beesolve/dmarc-consumer/domain";
-import { IpInfoCache } from "@beesolve/dmarc-consumer/ip-info";
 import { ProcessingStats } from "@beesolve/dmarc-consumer/processing-stats";
 import { Reports } from "@beesolve/dmarc-consumer/report";
 import { AdminSdk } from "@beesolve/dmarc-consumer/sdk";
 import { Email } from "@beesolve/email-service/sdk";
+import { IpInfoCache } from "@beesolve/ip-info";
 import { redirect } from "@sveltejs/kit";
 import { sequence, type Handle } from "@sveltejs/kit/hooks";
 

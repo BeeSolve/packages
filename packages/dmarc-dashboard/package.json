@@ -42,6 +42,7 @@
     "@beesolve/dmarc-consumer": "workspace:^",
     "@beesolve/dmarc-parser": "workspace:^",
     "@beesolve/email-service": "workspace:^",
+    "@beesolve/ip-info": "workspace:^",
     "@beesolve/lambda-fetch-api": "workspace:^",
     "@beesolve/lambda-keep-active": "workspace:^",
     "@drop-in/graffiti": "^4.30.0",

@@ -1,6 +1,7 @@
 import { describe, expect, it, mock } from "bun:test";
 
-import type { IpInfoCacheItem } from "../ipInfo.ts";
+import type { IpInfoCacheItem } from "@beesolve/ip-info";
+
 import type { Report } from "../report.ts";
 import { runBackfill } from "../src/runBackfill.ts";
 

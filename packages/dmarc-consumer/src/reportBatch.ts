@@ -1,9 +1,9 @@
 import { dmarcRecordSchema } from "@beesolve/dmarc-parser";
 import type { DmarcReport } from "@beesolve/dmarc-reports";
+import type { IpInfoCache } from "@beesolve/ip-info";
 import * as v from "valibot";
 
 import type { Domains } from "../domain.ts";
-import type { IpInfoCache } from "../ipInfo.ts";
 import type { Reports } from "../report.ts";
 import type { AdminSdk } from "../sdk.ts";
 

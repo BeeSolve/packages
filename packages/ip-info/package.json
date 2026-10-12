@@ -1,0 +1,48 @@
+{
+  "name": "@beesolve/ip-info",
+  "version": "0.1.0",
+  "description": "IP enrichment (country/ASN) with a DynamoDB-backed presence cache",
+  "homepage": "https://github.com/BeeSolve/packages/tree/main/packages/ip-info#readme",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BeeSolve/packages.git"
+  },
+  "files": [
+    "dist",
+    "DOCS.md"
+  ],
+  "type": "module",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "test": "bun test",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@aws-sdk/lib-dynamodb": "catalog:",
+    "@beesolve/helpers": "workspace:^",
+    "valibot": "catalog:"
+  },
+  "devDependencies": {
+    "@types/bun": "catalog:",
+    "@types/node": "catalog:"
+  },
+  "peerDependencies": {
+    "typescript": "catalog:"
+  },
+  "peerDependenciesMeta": {
+    "typescript": {
+      "optional": true
+    }
+  }
+}

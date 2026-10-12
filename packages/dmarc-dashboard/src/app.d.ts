@@ -1,11 +1,11 @@
 import type { AuthClient } from "@beesolve/auth-service/sdk";
 import type { SessionContext } from "@beesolve/auth-service/sveltekit";
 import type { Domains } from "@beesolve/dmarc-consumer/domain";
-import type { IpInfoCache } from "@beesolve/dmarc-consumer/ip-info";
 import type { ProcessingStats } from "@beesolve/dmarc-consumer/processing-stats";
 import type { Reports } from "@beesolve/dmarc-consumer/report";
 import type { AdminSdk } from "@beesolve/dmarc-consumer/sdk";
 import type { Email } from "@beesolve/email-service/sdk";
+import type { IpInfoCache } from "@beesolve/ip-info";
 
 import type { Setup } from "#lib/server/setup.js";
 import type { Users } from "#lib/server/users.js";

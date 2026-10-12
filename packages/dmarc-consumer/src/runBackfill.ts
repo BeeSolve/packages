@@ -1,7 +1,7 @@
 import { dmarcRecordSchema } from "@beesolve/dmarc-parser";
+import type { IpInfoCache } from "@beesolve/ip-info";
 import * as v from "valibot";
 
-import type { IpInfoCache } from "../ipInfo.ts";
 import type { JobRuns } from "../jobRuns.ts";
 import type { Reports } from "../report.ts";
 import { withJobFailure } from "./withJobFailure.ts";

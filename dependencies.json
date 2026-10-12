@@ -6,6 +6,8 @@
   "packages/cdk-constructs",
   "packages/helpers-dynamo",
   "packages/hmac",
+  "packages/ip-info",
+  "packages/analytics-processor",
   "packages/lambda-fetch-api",
   "packages/lambda-function-url-protection",
   "packages/lambda-keep-active",
@@ -15,6 +17,7 @@
   "packages/sqs-handler",
   "packages/dmarc-consumer",
   "packages/service-auth",
+  "packages/analytics-dashboard",
   "packages/dmarc-dashboard",
   "packages/samples",
   "packages/service-email-dashboard"

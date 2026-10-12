@@ -1,9 +1,9 @@
 import { SQSClient } from "@aws-sdk/client-sqs";
+import { IpInfoCache } from "@beesolve/ip-info";
 import { createSqsHandlers } from "@beesolve/sqs-handler";
 import * as v from "valibot";
 
 import { Domains } from "../domain.ts";
-import { IpInfoCache } from "../ipInfo.ts";
 import { JobRuns } from "../jobRuns.ts";
 import { Reports } from "../report.ts";
 import { toDynamoClient } from "./dynamo.ts";

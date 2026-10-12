@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, mock, spyOn } from "bun:test";
 
-import { IpInfoCache } from "../ipInfo.ts";
+import { IpInfoCache } from "../index.ts";
 
 function makeDynamo() {
   const send = mock(() => Promise.resolve({}));

@@ -5,7 +5,6 @@
     "domain.ts",
     "report.ts",
     "processingStats.ts",
-    "ipInfo.ts",
     "jobRuns.ts",
     "sdk.ts",
     "cdk.ts",

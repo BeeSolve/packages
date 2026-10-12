@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
 
 import type { DmarcReport } from "@beesolve/dmarc-reports";
+import type { IpInfoCacheItem } from "@beesolve/ip-info";
 
-import type { IpInfoCacheItem } from "../ipInfo.ts";
 import { processReportBatch } from "../src/reportBatch.ts";
 
 const persist = mock((_props: { readonly reports: Array<DmarcReport> }): Promise<void> =>

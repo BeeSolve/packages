@@ -46,7 +46,6 @@ const workspace: Array<DefineWorkspaceItem> = [
         "dns.ts",
         "dnsRecord.ts",
         "processingStats.ts",
-        "ipInfo.ts",
         "sdk.ts",
         "cdk.ts",
       ],
@@ -61,6 +60,17 @@ const workspace: Array<DefineWorkspaceItem> = [
     root: "packages/helpers",
     config: {
       entry: ["index.ts", "bun.ts"],
+    },
+  },
+  {
+    name: "@beesolve/ip-info",
+    root: "packages/ip-info",
+    config: {
+      entry: ["index.ts"],
+      dts: {
+        inferTypes: true,
+        tsgo: true,
+      },
     },
   },
   {
@@ -194,6 +204,29 @@ const workspace: Array<DefineWorkspaceItem> = [
     root: "packages/helpers-dynamo",
     config: {
       entry: ["index.ts"],
+    },
+  },
+  {
+    name: "@beesolve/analytics-processor",
+    root: "packages/analytics-processor",
+    config: {
+      entry: ["index.ts", "cdk.ts"],
+      dts: {
+        inferTypes: true,
+        tsgo: true,
+      },
+    },
+  },
+  {
+    name: "@beesolve/analytics-dashboard",
+    root: "packages/analytics-dashboard",
+    config: {
+      entry: ["cdk.ts"],
+      preferredTsconfig: "./tsconfig.cdk.json",
+      dts: {
+        inferTypes: true,
+        tsgo: true,
+      },
     },
   },
 ];
