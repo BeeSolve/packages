@@ -1,6 +1,6 @@
 {
   "name": "@beesolve/analytics-processor",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "CloudFront analytics processor — Athena-to-DynamoDB hourly totals, breakdowns, and rollups",
   "homepage": "https://github.com/BeeSolve/packages/tree/main/packages/analytics-processor#readme",
   "license": "MIT",

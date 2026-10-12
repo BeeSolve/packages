@@ -1,5 +1,16 @@
 # @beesolve/analytics-dashboard
 
+## 0.2.3
+
+### Patch Changes
+
+- Updated dependencies [09efb63]
+  - @beesolve/cdk-constructs@0.6.0
+  - @beesolve/analytics-processor@0.2.2
+  - @beesolve/lambda-keep-active@2.1.9
+  - @beesolve/auth-service@0.19.2
+  - @beesolve/email-service@0.5.5
+
 ## 0.2.2
 
 ### Patch Changes
