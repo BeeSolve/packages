@@ -143,7 +143,10 @@ export class AnalyticsProcessor extends Construct {
       hourly.addToRolePolicy(
         new PolicyStatement({
           effect: Effect.ALLOW,
-          actions: ["s3:PutObject", "s3:GetObject"],
+          // Athena verifies the results bucket (GetBucketLocation/ListBucket) before
+          // writing query output; PutObject/GetObject alone cause a startQueryExecution
+          // failure with "Unable to verify/create output bucket" / INSUFFICIENT_PERMISSIONS.
+          actions: ["s3:PutObject", "s3:GetObject", "s3:GetBucketLocation", "s3:ListBucket"],
           resources: [props.athenaResultsBucketArn, `${props.athenaResultsBucketArn}/*`],
         }),
       );
