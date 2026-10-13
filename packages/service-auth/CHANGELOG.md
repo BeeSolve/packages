@@ -1,5 +1,14 @@
 # @beesolve/auth-service
 
+## 0.19.3
+
+### Patch Changes
+
+- Updated dependencies [b34d2a6]
+  - @beesolve/cdk-constructs@0.7.0
+  - @beesolve/lambda-keep-active@2.1.10
+  - @beesolve/sqs-handler@0.2.10
+
 ## 0.19.2
 
 ### Patch Changes
