@@ -1,5 +1,16 @@
 # @beesolve/dmarc-dashboard
 
+## 0.10.7
+
+### Patch Changes
+
+- Updated dependencies [a185bd5]
+  - @beesolve/cdk-constructs@0.8.0
+  - @beesolve/dmarc-consumer@0.4.4
+  - @beesolve/lambda-keep-active@2.1.12
+  - @beesolve/auth-service@0.20.1
+  - @beesolve/email-service@0.5.7
+
 ## 0.10.6
 
 ### Patch Changes
