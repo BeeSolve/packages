@@ -92,7 +92,15 @@ interface CoreProps {
   readonly logGroupProps?: LogGroupProps;
   readonly waf?: { readonly rateLimit?: number };
   readonly encryptionKey?: IKey;
-  /** @default true when stage is "prod" */
+  /**
+   * Enable CloudWatch Contributor Insights on the DynamoDB tables (sessions,
+   * accounts, action tokens). Helps detect access pattern anomalies such as
+   * hot partition keys, but bills per DynamoDB event and can cost more than the
+   * rest of this service's infrastructure. Opt in explicitly when you need it,
+   * for prod and/or non-prod.
+   *
+   * @default false
+   */
   readonly contributorInsights?: boolean;
   readonly sdkHandlerReservedConcurrency?: number;
   /** Relying Party ID for passkeys (typically the domain without port, e.g. "example.com"). When set, passkey endpoints are enabled. */
@@ -209,7 +217,7 @@ export class AuthGateway extends Construct {
     const isProd = props.stage === "prod";
     const deletionProtection = isProd;
     const removalPolicy: RemovalPolicy = isProd ? RemovalPolicy.RETAIN : RemovalPolicy.DESTROY;
-    const contributorInsights = props.contributorInsights ?? isProd;
+    const contributorInsights = props.contributorInsights ?? false;
 
     const sessionMaxAge = String(
       Math.round((props.sessionDuration ?? Duration.days(30)).toSeconds()),
@@ -512,7 +520,7 @@ export class AuthService extends Construct {
     const isProd = props.stage === "prod";
     const deletionProtection = isProd;
     const removalPolicy: RemovalPolicy = isProd ? RemovalPolicy.RETAIN : RemovalPolicy.DESTROY;
-    const contributorInsights = props.contributorInsights ?? isProd;
+    const contributorInsights = props.contributorInsights ?? false;
 
     this.sessionMaxAge = String(
       Math.round((props.sessionDuration ?? Duration.days(30)).toSeconds()),
