@@ -26,6 +26,19 @@ function glueColumnNames(template: Template): Array<string> {
   return names;
 }
 
+function glueColumnTypes(template: Template): Array<string> {
+  const tables = template.findResources("AWS::Glue::Table");
+  const types: Array<string> = [];
+  for (const table of Object.values(tables)) {
+    const columns = table?.Properties?.TableInput?.StorageDescriptor?.Columns;
+    if (!Array.isArray(columns)) continue;
+    for (const column of columns) {
+      if (column != null && typeof column.Type === "string") types.push(column.Type);
+    }
+  }
+  return types;
+}
+
 describe("CloudFrontAccessLoggingSettings", () => {
   test("creates an S3 bucket for access logs", () => {
     const stack = makeStack();
@@ -153,6 +166,25 @@ describe("CloudFrontAccessLoggingSettings", () => {
     expect(columnNames).not.toContain("cs(User-Agent)");
   });
 
+  test("declares every Glue column as string (v2 Parquet stores all fields as BINARY/string)", () => {
+    const stack = makeStack();
+    new CloudFrontAccessLoggingSettings(stack, "Logging", {
+      athena: { account: "123456789012", createSampleQuery: false },
+    });
+    const template = Template.fromStack(stack);
+    const columnTypes = glueColumnTypes(template);
+    expect(columnTypes.length).toBe(allFieldCount);
+    // CloudFront standard-logging-v2 Parquet stores every field as BINARY/string, so a
+    // non-string Glue column type (e.g. int/bigint/double) fails at query time with
+    // HIVE_BAD_DATA. Every column must therefore be declared as string.
+    for (const columnType of columnTypes) {
+      expect(columnType).toBe("string");
+    }
+    expect(columnTypes).not.toContain("int");
+    expect(columnTypes).not.toContain("bigint");
+    expect(columnTypes).not.toContain("double");
+  });
+
   test("defaults to all fields when recordFields is omitted", () => {
     const stack = makeStack();
     new CloudFrontAccessLoggingSettings(stack, "Logging", {
@@ -183,7 +215,7 @@ describe("CloudFrontAccessLoggingSettings", () => {
       TableInput: {
         StorageDescriptor: {
           Columns: [
-            { Name: "sc_status", Type: "int" },
+            { Name: "sc_status", Type: "string" },
             { Name: "c_ip", Type: "string" },
             { Name: "timestamp", Type: "string" },
           ],

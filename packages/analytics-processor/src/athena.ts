@@ -45,8 +45,10 @@ export interface AthenaColumnMap {
  * logical field is addressed in each table.
  *
  * v2 is the Parquet Glue table: Athena normalizes Parquet column names to
- * lowercase with hyphens folded to underscores, and numeric columns are already
- * typed, so no casting is needed.
+ * lowercase with hyphens folded to underscores. CloudFront standard-logging-v2
+ * stores every Parquet field as BINARY/string, so the Glue schema types every
+ * column as string and numeric references must cast explicitly — just like v1,
+ * but on the normalized (unquoted) column names.
  *
  * v1 is the legacy tab-delimited LazySimpleSerDe table: its column names contain
  * hyphens and parentheses, so they must be double-quoted, and every numeric
@@ -55,10 +57,10 @@ export interface AthenaColumnMap {
  */
 export const columnMaps: Record<AppliedSource, AthenaColumnMap> = {
   v2: {
-    status: "sc_status",
-    bytesSent: "sc_bytes",
-    bytesReceived: "cs_bytes",
-    timeTaken: "time_taken",
+    status: "CAST(sc_status AS integer)",
+    bytesSent: "CAST(sc_bytes AS bigint)",
+    bytesReceived: "CAST(cs_bytes AS bigint)",
+    timeTaken: "CAST(time_taken AS double)",
     resultType: "x_edge_result_type",
     detailedResultType: "x_edge_detailed_result_type",
     uriStem: "cs_uri_stem",
@@ -161,33 +163,48 @@ export function buildHourlyQuery({
   const predicate = predicateFor({ source, hourKey, columns });
   const device = deviceCaseExpression(columns.userAgent);
 
-  const groupingSets = [
-    "()",
-    `(${columns.status})`,
-    "(device)",
-    `(${columns.uriStem})`,
-    `(${columns.clientIp})`,
-  ].join(", ");
+  // The inner subquery projects plain columns: the numeric casts and the device
+  // classification are resolved here into simple aliases (st/scb/csb/tt/rt/uri/ip/device).
+  // The outer query then aggregates over those plain column references. This is required
+  // because Athena/Trino rejects a GROUPING SETS element that is a select alias or a
+  // computed expression (COLUMN_NOT_FOUND / INVALID_COLUMN_REFERENCE) — the element must
+  // be a plain column reference, which only the inner projection can provide.
+  const inner = [
+    "  SELECT",
+    `    ${columns.status} AS st,`,
+    `    ${columns.bytesSent} AS scb,`,
+    `    ${columns.bytesReceived} AS csb,`,
+    `    ${columns.timeTaken} AS tt,`,
+    `    ${columns.resultType} AS rt,`,
+    `    ${columns.uriStem} AS uri,`,
+    `    ${columns.clientIp} AS ip,`,
+    `    ${device} AS device`,
+    `  FROM "${table}"`,
+    `  WHERE ${predicate}`,
+  ].join("\n");
+
+  const groupingSets = ["()", "(st)", "(device)", "(uri)", "(ip)"].join(", ");
 
   return [
     "SELECT",
-    `  ${columns.status} AS status_value,`,
-    `  ${device} AS device,`,
-    `  ${columns.uriStem} AS path_value,`,
-    `  ${columns.clientIp} AS ip_value,`,
+    "  st AS status_value,",
+    "  device,",
+    "  uri AS path_value,",
+    "  ip AS ip_value,",
     "  count(*) AS hits,",
-    `  sum(CASE WHEN ${columns.status} BETWEEN 200 AND 399 THEN 1 ELSE 0 END) AS success,`,
-    `  sum(CASE WHEN ${columns.status} BETWEEN 400 AND 599 THEN 1 ELSE 0 END) AS errors,`,
-    `  sum(CASE WHEN ${columns.status} BETWEEN 400 AND 499 THEN 1 ELSE 0 END) AS errors4xx,`,
-    `  sum(CASE WHEN ${columns.status} BETWEEN 500 AND 599 THEN 1 ELSE 0 END) AS errors5xx,`,
-    `  sum(${columns.bytesSent}) AS bytes_sent,`,
-    `  sum(${columns.bytesReceived}) AS bytes_received,`,
-    `  approx_percentile(${columns.timeTaken}, 0.5) AS p50_time_taken,`,
-    `  approx_percentile(${columns.timeTaken}, 0.95) AS p95_time_taken,`,
-    `  sum(CASE WHEN ${columns.resultType} = 'Hit' THEN 1 ELSE 0 END) AS cache_hits,`,
-    `  count(DISTINCT ${columns.clientIp}) AS unique_ip_count`,
-    `FROM "${table}"`,
-    `WHERE ${predicate}`,
+    "  sum(CASE WHEN st BETWEEN 200 AND 399 THEN 1 ELSE 0 END) AS success,",
+    "  sum(CASE WHEN st BETWEEN 400 AND 599 THEN 1 ELSE 0 END) AS errors,",
+    "  sum(CASE WHEN st BETWEEN 400 AND 499 THEN 1 ELSE 0 END) AS errors4xx,",
+    "  sum(CASE WHEN st BETWEEN 500 AND 599 THEN 1 ELSE 0 END) AS errors5xx,",
+    "  sum(scb) AS bytes_sent,",
+    "  sum(csb) AS bytes_received,",
+    "  approx_percentile(tt, 0.5) AS p50_time_taken,",
+    "  approx_percentile(tt, 0.95) AS p95_time_taken,",
+    "  sum(CASE WHEN rt = 'Hit' THEN 1 ELSE 0 END) AS cache_hits,",
+    "  count(DISTINCT ip) AS unique_ip_count",
+    "FROM (",
+    inner,
+    ")",
     `GROUP BY GROUPING SETS (${groupingSets})`,
   ].join("\n");
 }
