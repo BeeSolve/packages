@@ -313,7 +313,7 @@ describe("CloudFrontAccessLoggingSettings standard logging v2", () => {
     });
   });
 
-  test("creates exactly one Parquet Glue table with five partition keys", () => {
+  test("creates exactly one Parquet Glue table with four time partition keys", () => {
     const { stack } = makeV2Stack();
     const template = Template.fromStack(stack);
     template.resourceCountIs("AWS::Glue::Table", 1);
@@ -326,7 +326,6 @@ describe("CloudFrontAccessLoggingSettings standard logging v2", () => {
           },
         },
         PartitionKeys: [
-          { Name: "distributionid", Type: "string" },
           { Name: "year", Type: "string" },
           { Name: "month", Type: "string" },
           { Name: "day", Type: "string" },
@@ -336,7 +335,18 @@ describe("CloudFrontAccessLoggingSettings standard logging v2", () => {
     });
   });
 
-  test("Glue table location matches the real CloudFront v2 Hive-partitioned delivery layout", () => {
+  test("does not declare distributionid as a partition key", () => {
+    const { stack } = makeV2Stack();
+    const template = Template.fromStack(stack);
+    const tables = template.findResources("AWS::Glue::Table");
+    const [table] = Object.values(tables);
+    const partitionKeys = table?.Properties?.TableInput?.PartitionKeys ?? [];
+    const names = partitionKeys.map((partitionKey: { Name: string }) => partitionKey.Name);
+    expect(names).toEqual(["year", "month", "day", "hour"]);
+    expect(names).not.toContain("distributionid");
+  });
+
+  test("Glue table base location bakes in the distribution id as a literal path segment", () => {
     const { stack } = makeV2Stack();
     const template = Template.fromStack(stack);
     const tables = template.findResources("AWS::Glue::Table");
@@ -344,11 +354,12 @@ describe("CloudFrontAccessLoggingSettings standard logging v2", () => {
     const location = table?.Properties?.TableInput?.StorageDescriptor?.Location;
 
     // The bucket name is a CloudFormation token, so the location is an `Fn::Join`. Flatten its
-    // literal string parts and assert the fixed vended-delivery prefix is present. The base
-    // location sits above the DistributionId partition (resolved via storage.location.template).
+    // literal string parts and assert the vended-delivery prefix plus the literal
+    // `DistributionId=<dist>/` segment are present. The distribution id is baked into the base
+    // location rather than declared as a partition.
     const literal = JSON.stringify(location);
     expect(literal).toContain("/AWSLogs/aws-account-id=123456789012/CloudFront/v2/");
-    expect(literal).not.toContain("DistributionId=");
+    expect(literal).toContain("/CloudFront/v2/DistributionId=E123ABC/");
   });
 
   test("storage.location.template reproduces the DistributionId and time Hive segments", () => {
@@ -363,19 +374,6 @@ describe("CloudFrontAccessLoggingSettings standard logging v2", () => {
     expect(locationTemplate).toContain("AWSLogs/aws-account-id=123456789012/CloudFront/v2/");
     expect(locationTemplate).toContain("DistributionId=E123ABC");
     expect(locationTemplate).toContain("year=${year}/month=${month}/day=${day}/hour=${hour}");
-  });
-
-  test("projects the distributionid partition as a single-value enum needing no predicate", () => {
-    const { stack } = makeV2Stack();
-    Template.fromStack(stack).hasResourceProperties("AWS::Glue::Table", {
-      TableInput: {
-        Parameters: {
-          "projection.enabled": "true",
-          "projection.distributionid.type": "enum",
-          "projection.distributionid.values": "E123ABC",
-        },
-      },
-    });
   });
 
   test("enables partition projection on the Glue table", () => {

@@ -89,14 +89,15 @@ const fieldByGlueName: Record<string, StandardLogField> = Object.fromEntries(
 );
 
 /**
- * Partition keys in the real delivered layout, in path order. CloudFront v2 Hive-compatible
- * delivery writes a `DistributionId=<dist>` segment ahead of the time partitions, so the Glue
- * table must declare it as the first partition key. Athena lowercases partition column names,
- * hence `distributionid` (the S3 path keeps the real `DistributionId=` casing, which Athena
- * matches case-insensitively on the key name).
+ * Partition keys for the Glue table, in path order. CloudFront v2 Hive-compatible delivery
+ * writes a `DistributionId=<dist>` segment ahead of the time partitions, but because each log
+ * bucket/prefix holds a single distribution, that segment is baked into the table location as a
+ * literal path element rather than declared as a partition column. Declaring it as a partition
+ * without a matching `${distributionid}` placeholder in `storage.location.template` makes Athena
+ * reject queries with `INVALID_TABLE_PROPERTY: The 'storage.location.template' table property
+ * must contain templates for all partition columns!`. Only the time partitions remain.
  */
 const partitionKeys = [
-  { name: "distributionid", type: "string" },
   { name: "year", type: "string" },
   { name: "month", type: "string" },
   { name: "day", type: "string" },
@@ -314,9 +315,9 @@ export class CloudFrontAccessLoggingSettings extends Construct {
           description: "Glue table for CloudFront standard logging v2 (Parquet)",
           storageDescriptor: {
             columns: selectedFields.map((field) => ({ name: field.glueName, type: field.type })),
-            // The location and the distribution-id-dependent partitioning are finalized in
-            // `enableV2Logging`, once the distribution ARN is known. Until then the location
-            // points at the fixed vended-delivery prefix without the DistributionId segment.
+            // The distribution-dependent location is finalized in `enableV2Logging`, once the
+            // distribution ARN is known. Until then the location points at the fixed
+            // vended-delivery prefix without the `DistributionId=<dist>/` segment.
             location: v2LocationPrefix({
               bucketName: logBucket.bucketName,
               account: props.athena.account,
@@ -450,14 +451,16 @@ export class CloudFrontAccessLoggingSettings extends Construct {
   };
 
   /**
-   * Finalizes the distribution-id-dependent partitioning on the Parquet Glue table.
+   * Finalizes the distribution-dependent location on the Parquet Glue table.
    *
    * The table is created in the constructor, but the distribution id only becomes available
-   * when {@link enableV2Logging} is called. This method sets the `distributionid` enum
-   * projection (a single-value enum, so queries never need a `DistributionId` predicate — the
-   * analytics processor filters only by `year/month/day/hour`) and rewrites
-   * `storage.location.template` to reproduce the real Hive-partitioned key, including the
-   * `DistributionId=<dist>` segment with its exact casing.
+   * when {@link enableV2Logging} is called. Each log bucket/prefix holds exactly one
+   * distribution, so the id is baked into the table as a literal `DistributionId=<dist>/` path
+   * segment on both the base `StorageDescriptor.Location` and `storage.location.template`,
+   * rather than being declared as a partition column. The partitions therefore stay limited to
+   * `year/month/day/hour`, and every partition column has a matching `${...}` placeholder in the
+   * template — which is what Athena requires (otherwise it rejects queries with
+   * `INVALID_TABLE_PROPERTY: ... must contain templates for all partition columns!`).
    *
    * No-op when Athena is not configured (no table exists).
    */
@@ -471,16 +474,10 @@ export class CloudFrontAccessLoggingSettings extends Construct {
       account: this.athenaAccount,
       outputPrefix: this.outputPrefix,
     });
+    const baseLocation = `${locationPrefix}DistributionId=${distributionId}/`;
     const locationTemplate = `${locationPrefix}DistributionId=${distributionId}/year=\${year}/month=\${month}/day=\${day}/hour=\${hour}`;
 
-    this.glueTable.addPropertyOverride(
-      "TableInput.Parameters.projection\\.distributionid\\.type",
-      "enum",
-    );
-    this.glueTable.addPropertyOverride(
-      "TableInput.Parameters.projection\\.distributionid\\.values",
-      distributionId,
-    );
+    this.glueTable.addPropertyOverride("TableInput.StorageDescriptor.Location", baseLocation);
     this.glueTable.addPropertyOverride(
       "TableInput.Parameters.storage\\.location\\.template",
       locationTemplate,
