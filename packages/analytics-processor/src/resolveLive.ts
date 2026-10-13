@@ -7,6 +7,19 @@ import type { Totals, TotalsItem } from "./totals.ts";
 
 export type View = Grain | "year";
 
+/**
+ * How a bucket's value was obtained, so the UI can tell "no traffic" apart from
+ * "not calculated yet":
+ * - `sealed`: a finalized, rolled-up period read from its stored aggregate. A
+ *   zero-hit sealed bucket is genuine "no traffic".
+ * - `partial`: an in-progress period computed live from the finer grain; the
+ *   value is real but may still grow.
+ * - `pending`: a period past its expected processing time with no stored data
+ *   and nothing computable yet — awaiting processing.
+ */
+export const bucketStates = ["sealed", "partial", "pending"] as const;
+export type BucketState = (typeof bucketStates)[number];
+
 export interface ResolveModels {
   readonly totals: Pick<Totals, "queryWindow" | "getOne">;
   readonly breakdowns: Pick<Breakdowns, "getForPeriod">;
@@ -25,15 +38,21 @@ const emptyTotals: SummedTotals = {
 
 /**
  * Resolves one bucket's totals, computing an in-progress period on the fly from
- * the grain below it. A past period whose rollup marker is applied is read
- * directly from the stored aggregate ("sealed"); the current period, and any
- * past period still missing its marker, is summed from its children — the
- * current month folds down through the current day to the hours ingested so far.
+ * exactly one grain finer, following only the current edge deeper.
  *
- * Each level reads its children with a single ranged query (never a get per
- * child): a day sums its hours via one hourly `queryWindow`; a month sums its
- * days, and the one in-progress day among them is resolved from hours. `hour`
- * is terminal.
+ * A sealed period (strictly past, rollup marker applied) is read from its stored
+ * aggregate. Otherwise the period is the sum of its children at the next finer
+ * grain, where every already-complete child is taken from its stored aggregate
+ * and only the single in-progress child is resolved recursively:
+ *
+ * - partial day   = stored/queried hours `00..currentHour`
+ * - partial month = stored days `01..currentDay-1` + the partial current day
+ * - partial year  = stored months `01..currentMonth-1` + the partial current month
+ *
+ * So a partial month never fans out to hours for its finished days (it trusts
+ * their day aggregate) — only the one current day drills into hours. Each level
+ * is one ranged query, keeping the read count bounded (a year touches ~12
+ * months + ~31 days + ~24 hours) and the request sub-second.
  */
 export async function resolveTotalsLive({
   models,
@@ -66,24 +85,25 @@ export async function resolveTotalsLive({
     return sumTotals(hours);
   }
 
-  const dayKeys = dayKeysInProgress({ periodKey, now });
-  const sealedDays = await models.totals.queryWindow({
+  const storedDays = await models.totals.queryWindow({
     grain: "day",
     startKey: `${periodKey}-01`,
     endKey: `${periodKey}-31`,
   });
-  const sealedByKey = indexByTimeKey(sealedDays);
-
-  const resolvedDays = await Promise.all(
-    dayKeys.map(async (dayKey) => {
-      const stored = sealedByKey[dayKey];
-      if (stored != null && !isCurrentPeriod({ grain: "day", periodKey: dayKey, now })) {
-        return pickTotals(stored);
-      }
-      return resolveTotalsLive({ models, grain: "day", periodKey: dayKey, now });
-    }),
+  const base = sumTotals(
+    storedDays.filter((item) => !isCurrentPeriod({ grain: "day", periodKey: item.timeKey, now })),
   );
-  return sumTotals(resolvedDays);
+
+  const currentDayKey = currentChildKey({ parentGrain: "month", periodKey, now });
+  if (currentDayKey == null) return base;
+
+  const currentDay = await resolveTotalsLive({
+    models,
+    grain: "day",
+    periodKey: currentDayKey,
+    now,
+  });
+  return sumTotals([base, currentDay]);
 }
 
 export async function resolveBreakdownLive({
@@ -108,18 +128,62 @@ export async function resolveBreakdownLive({
     if (stored.length > 0) return toRows(stored);
   }
 
-  const finer = finerGrain(grain);
-  const childKeys =
-    grain === "day"
-      ? hourKeysInProgress({ periodKey, now })
-      : dayKeysInProgress({ periodKey, now });
+  if (grain === "day") {
+    const hourKeys = hourKeysInProgress({ periodKey, now });
+    const hourRows = await Promise.all(
+      hourKeys.map((hourKey) =>
+        models.breakdowns.getForPeriod({ dimension, grain: "hour", periodKey: hourKey }),
+      ),
+    );
+    return sumBreakdown(hourRows.flat().map(toRow));
+  }
 
-  const children = await Promise.all(
-    childKeys.map((childKey) =>
-      resolveBreakdownLive({ models, dimension, grain: finer, periodKey: childKey, now }),
+  const storedDayKeys = pastDayKeys({ periodKey, now });
+  const storedDayRows = await Promise.all(
+    storedDayKeys.map((dayKey) =>
+      models.breakdowns.getForPeriod({ dimension, grain: "day", periodKey: dayKey }),
     ),
   );
-  return sumBreakdown(children.flat());
+  const rows = storedDayRows.flat().map(toRow);
+
+  const currentDayKey = currentChildKey({ parentGrain: "month", periodKey, now });
+  if (currentDayKey != null) {
+    const currentDay = await resolveBreakdownLive({
+      models,
+      dimension,
+      grain: "day",
+      periodKey: currentDayKey,
+      now,
+    });
+    rows.push(...currentDay);
+  }
+
+  return sumBreakdown(rows);
+}
+
+/**
+ * Classifies a bucket as sealed / partial / pending without recomputing its
+ * value. A sealed bucket is a finalized rollup (its marker is applied), so a
+ * zero-hit sealed bucket is genuine "no traffic". A non-sealed bucket that
+ * yielded data is in-progress (`partial`); one with nothing to show is awaiting
+ * processing (`pending`).
+ */
+export async function classifyBucketState({
+  models,
+  grain,
+  periodKey,
+  now,
+  hasData,
+}: {
+  readonly models: ResolveModels;
+  readonly grain: Grain;
+  readonly periodKey: string;
+  readonly now: Date;
+  readonly hasData: boolean;
+}): Promise<BucketState> {
+  if (await isSealed({ models, grain, periodKey, now })) return "sealed";
+  if (hasData) return "partial";
+  return "pending";
 }
 
 async function isSealed({
@@ -133,7 +197,7 @@ async function isSealed({
   readonly periodKey: string;
   readonly now: Date;
 }): Promise<boolean> {
-  if (isCurrentPeriod({ grain, periodKey, now })) return false;
+  if (!isPastPeriod({ grain, periodKey, now })) return false;
   return models.markers.isApplied({ grain, periodKey });
 }
 
@@ -149,6 +213,18 @@ function isCurrentPeriod({
   return periodKey === currentKeyFor({ grain, now });
 }
 
+function isPastPeriod({
+  grain,
+  periodKey,
+  now,
+}: {
+  readonly grain: Grain;
+  readonly periodKey: string;
+  readonly now: Date;
+}): boolean {
+  return periodKey < currentKeyFor({ grain, now });
+}
+
 function currentKeyFor({ grain, now }: { readonly grain: Grain; readonly now: Date }): string {
   const year = pad4(now.getUTCFullYear());
   const month = pad2(now.getUTCMonth() + 1);
@@ -159,8 +235,22 @@ function currentKeyFor({ grain, now }: { readonly grain: Grain; readonly now: Da
   return `${year}-${month}-${day}-${hour}`;
 }
 
-function finerGrain(grain: "day" | "month"): Grain {
-  return grain === "month" ? "day" : "hour";
+/**
+ * The in-progress child key of a parent period, or `null` if the parent is a
+ * past period (all its children are complete). Only the current month exposes a
+ * current day; a past month has none.
+ */
+function currentChildKey({
+  parentGrain,
+  periodKey,
+  now,
+}: {
+  readonly parentGrain: "month";
+  readonly periodKey: string;
+  readonly now: Date;
+}): string | null {
+  if (!isCurrentPeriod({ grain: parentGrain, periodKey, now })) return null;
+  return currentKeyFor({ grain: "day", now });
 }
 
 function hourKeysInProgress({
@@ -178,16 +268,15 @@ function hourKeysInProgress({
   return keys;
 }
 
-function dayKeysInProgress({
+function pastDayKeys({
   periodKey,
   now,
 }: {
   readonly periodKey: string;
   readonly now: Date;
 }): Array<string> {
-  const lastDay = isCurrentPeriod({ grain: "month", periodKey, now })
-    ? now.getUTCDate()
-    : daysInMonth(periodKey);
+  const isCurrentMonth = isCurrentPeriod({ grain: "month", periodKey, now });
+  const lastDay = isCurrentMonth ? now.getUTCDate() - 1 : daysInMonth(periodKey);
   const keys: Array<string> = [];
   for (let day = 1; day <= lastDay; day += 1) {
     keys.push(`${periodKey}-${pad2(day)}`);
@@ -200,16 +289,12 @@ function daysInMonth(monthKey: string): number {
   return new Date(Date.UTC(year ?? 1970, month ?? 1, 0)).getUTCDate();
 }
 
-function indexByTimeKey(items: Array<TotalsItem>): Record<string, TotalsItem> {
-  const byKey: Record<string, TotalsItem> = {};
-  for (const item of items) {
-    byKey[item.timeKey] = item;
-  }
-  return byKey;
+function toRow(item: { value: string; hits: number; bytes: number }): BreakdownRow {
+  return { value: item.value, hits: item.hits, bytes: item.bytes };
 }
 
 function toRows(items: Array<{ value: string; hits: number; bytes: number }>): Array<BreakdownRow> {
-  return items.map((item) => ({ value: item.value, hits: item.hits, bytes: item.bytes }));
+  return items.map(toRow);
 }
 
 function pickTotals(item: TotalsItem): SummedTotals {

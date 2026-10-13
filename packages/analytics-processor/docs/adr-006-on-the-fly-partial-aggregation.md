@@ -23,29 +23,49 @@ exist and are correct.
 
 ## Decision
 
-Resolve a bucket's value on the fly from the grain below it when it is not
-"sealed", via `resolveTotalsLive` / `resolveBreakdownLive`:
+Resolve a bucket's value on the fly from exactly one grain finer, following
+only the current edge deeper, via `resolveTotalsLive` / `resolveBreakdownLive`:
 
 - A period is **sealed** when it is strictly in the past _and_ its rollup marker
   (`applied#<grain>#<periodKey>`) is present. Sealed periods are read directly
   from their stored aggregate — cheap, and identical to the persisted rollup.
-- Any other period (the current in-progress period, or a past period still
-  missing its marker) is **summed from its children**, which are themselves
-  resolved live. The recursion bottoms out at `hour`, the terminal grain, read
-  directly. So the current month folds through its sealed days plus the current
-  day, and the current day sums the hours ingested so far.
-- An in-progress period is capped at `now`: the current day enumerates hours
-  `00..currentHour`, the current month enumerates days `01..currentDay`. It
-  never looks into the future.
+- Otherwise the period is the sum of its children at the **next finer grain**,
+  where every already-complete child is taken from its **stored aggregate** and
+  only the single in-progress child is resolved recursively (one level deeper):
+  - partial day = stored/queried hours `00..currentHour`
+  - partial month = stored day aggregates `01..currentDay-1` + the partial
+    current day (which itself resolves from hours)
+  - partial year = stored month aggregates `01..currentMonth-1` + the partial
+    current month
+- A partial month therefore **never** fans out to hours for its finished days —
+  it trusts their day aggregate. Only the one current day drills into hours.
+  This both matches the mental model (a month is the sum of its days) and keeps
+  the read count small.
+- An in-progress period is capped at `now` and never looks into the future.
 
-Each level reads its children with a single ranged query (one hourly
-`queryWindow` for a day, one daily `queryWindow` for a month) rather than a get
-per child, keeping the fan-out bounded (a live current year reads ~12 months +
-~31 days + ~24 hours).
+Each level reads its children with a single ranged query, keeping the fan-out
+bounded along a single spine (a live current year touches ~12 months + ~31 days
+
+- ~24 hours — tens of reads, not the hundreds a deeper cascade would require),
+  so the request stays sub-second.
 
 The computation reuses the same `sumTotals` / `sumBreakdown` reducers the
 rollups use, so the live view and the eventual persisted rollup agree by
 construction.
+
+### Bucket state for the UI
+
+`classifyBucketState` labels each bucket so the dashboard can tell "no traffic"
+apart from "not calculated yet":
+
+- **sealed** — finalized rollup (marker applied); a zero-hit sealed bucket is
+  genuine no-traffic.
+- **partial** — in-progress, computed live, value present but may still grow.
+- **pending** — not sealed and nothing computable yet (awaiting processing).
+
+Classification is marker-driven rather than time/lag-driven: a bucket is sealed
+exactly when its rollup actually ran, which is more accurate than inferring
+from a processing-lag window.
 
 ## Rationale
 

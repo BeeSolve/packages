@@ -128,14 +128,18 @@
           tick: yearBucket.year,
           label: yearBucket.year,
           hits: yearBucket.hits,
+          state: yearBucket.state,
         }))
       : result.series.map((bucket) => ({
           key: bucket.timeKey,
           tick: formatPeriodTick({ view, periodKey: bucket.timeKey }),
           label: formatPeriodLabel({ view, periodKey: bucket.timeKey }),
           hits: bucket.hits,
+          state: bucket.state,
         }))}
   {@const maxHits = Math.max(...chartBuckets.map((bucket) => bucket.hits), 1)}
+  {@const hasPartial = chartBuckets.some((bucket) => bucket.state === "partial")}
+  {@const hasPending = chartBuckets.some((bucket) => bucket.state === "pending")}
 
   <div class="cluster window-nav">
     <button
@@ -174,12 +178,28 @@
         {#each chartBuckets as bucket (bucket.key)}
           {@const heightPct = (bucket.hits / maxHits) * 100}
           <div class="analytics-bars-col tooltip">
-            <span class="tip">{bucket.label}: {bucket.hits.toLocaleString()} hits</span>
-            <div class="analytics-bars-fill" style="height: {heightPct}%"></div>
+            <span class="tip">{bucket.label}: {bucket.hits.toLocaleString()} hits{bucket.state === "partial" ? " (in progress — not final)" : bucket.state === "pending" ? " (awaiting processing)" : ""}</span>
+            <div
+              class="analytics-bars-fill"
+              class:is-partial={bucket.state === "partial"}
+              class:is-pending={bucket.state === "pending"}
+              style="height: {bucket.state === 'pending' ? 100 : heightPct}%"
+            ></div>
             <span class="analytics-bars-label">{bucket.tick}</span>
           </div>
         {/each}
       </div>
+      {#if hasPartial || hasPending}
+        <ul class="chart-legend" aria-label="Bucket states">
+          <li><span class="legend-swatch is-sealed"></span> Final</li>
+          {#if hasPartial}
+            <li><span class="legend-swatch is-partial"></span> In progress (not final)</li>
+          {/if}
+          {#if hasPending}
+            <li><span class="legend-swatch is-pending"></span> Awaiting processing</li>
+          {/if}
+        </ul>
+      {/if}
     </section>
   {/if}
 </svelte:boundary>
@@ -256,6 +276,82 @@
     border-radius: var(--br-s) var(--br-s) 0 0;
     min-height: 2px;
     transition: height 0.2s;
+  }
+
+  /* Partial: real data that may still grow — solid but visibly provisional via
+     a striped overlay on the primary fill. */
+  .analytics-bars-fill.is-partial {
+    background-image: repeating-linear-gradient(
+      -45deg,
+      color-mix(in oklab, var(--primary) 100%, transparent) 0,
+      color-mix(in oklab, var(--primary) 100%, transparent) 4px,
+      color-mix(in oklab, var(--primary) 55%, var(--bg)) 4px,
+      color-mix(in oklab, var(--primary) 55%, var(--bg)) 8px
+    );
+  }
+
+  /* Pending: nothing computed yet — a faint full-height ghost so an unprocessed
+     bucket is clearly distinct from a sealed zero (flat baseline). */
+  .analytics-bars-fill.is-pending {
+    background: repeating-linear-gradient(
+      -45deg,
+      var(--fg-1) 0,
+      var(--fg-1) 4px,
+      transparent 4px,
+      transparent 8px
+    );
+    border: 1px dashed var(--fg-2);
+    border-bottom: none;
+    opacity: 0.7;
+  }
+
+  .chart-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--vs-base);
+    margin: var(--vs-s) 0 0;
+    padding: 0;
+    list-style: none;
+    font-size: 0.75rem;
+    color: var(--fg-7);
+  }
+
+  .chart-legend li {
+    display: flex;
+    align-items: center;
+    gap: var(--vs-xs, 0.25rem);
+  }
+
+  .legend-swatch {
+    display: inline-block;
+    width: 0.85rem;
+    height: 0.85rem;
+    border-radius: var(--br-s);
+  }
+
+  .legend-swatch.is-sealed {
+    background: var(--primary);
+  }
+
+  .legend-swatch.is-partial {
+    background-image: repeating-linear-gradient(
+      -45deg,
+      var(--primary) 0,
+      var(--primary) 3px,
+      color-mix(in oklab, var(--primary) 55%, var(--bg)) 3px,
+      color-mix(in oklab, var(--primary) 55%, var(--bg)) 6px
+    );
+  }
+
+  .legend-swatch.is-pending {
+    background: repeating-linear-gradient(
+      -45deg,
+      var(--fg-1) 0,
+      var(--fg-1) 3px,
+      transparent 3px,
+      transparent 6px
+    );
+    border: 1px dashed var(--fg-2);
   }
 
   .analytics-bars-label {

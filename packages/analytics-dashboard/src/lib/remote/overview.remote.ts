@@ -1,11 +1,19 @@
 import { getRequestEvent, query } from "$app/server";
-import type { Grain, SummedTotals, TotalsItem } from "@beesolve/analytics-processor";
-import { grains, resolveTotalsLive } from "@beesolve/analytics-processor";
+import type { BucketState, Grain, SummedTotals, TotalsItem } from "@beesolve/analytics-processor";
+import { classifyBucketState, grains, resolveTotalsLive } from "@beesolve/analytics-processor";
 import * as v from "valibot";
 
 import type { YearBucket } from "#lib/overviewWindow.js";
 import { groupMonthlyByYear, resolveWindow } from "#lib/overviewWindow.js";
 import { requireUser, toRemoteError } from "#lib/server/httpErrors.js";
+
+export interface OverviewBucket extends TotalsItem {
+  readonly state: BucketState;
+}
+
+export interface YearSeriesBucket extends YearBucket {
+  readonly state: BucketState;
+}
 
 const getOverviewSchema = v.object({
   grain: v.picklist(grains),
@@ -33,7 +41,7 @@ export const getOverview = query(getOverviewSchema, async ({ grain, anchor, size
       storedByKey[item.timeKey] = item;
     }
 
-    const series = await Promise.all(
+    const series: Array<OverviewBucket> = await Promise.all(
       resolved.bucketKeys.map((bucketKey) =>
         resolveSeriesBucket({
           services: locals.services,
@@ -45,7 +53,7 @@ export const getOverview = query(getOverviewSchema, async ({ grain, anchor, size
       ),
     );
 
-    const yearSeries: Array<YearBucket> | null = years === true ? groupMonthlyByYear(series) : null;
+    const yearSeries: Array<YearSeriesBucket> | null = years === true ? toYearSeries(series) : null;
 
     return {
       grain: resolved.grain,
@@ -75,20 +83,50 @@ async function resolveSeriesBucket({
   readonly bucketKey: string;
   readonly stored: TotalsItem | undefined;
   readonly now: Date;
-}): Promise<TotalsItem> {
-  if (stored != null) return stored;
+}): Promise<OverviewBucket> {
+  const models = {
+    totals: services.totals,
+    breakdowns: services.breakdowns,
+    markers: services.markers,
+  };
 
-  const live = await resolveTotalsLive({
-    models: {
-      totals: services.totals,
-      breakdowns: services.breakdowns,
-      markers: services.markers,
-    },
-    grain,
-    periodKey: bucketKey,
-    now,
-  });
-  return toTotalsItem({ grain, bucketKey, totals: live });
+  if (stored != null) {
+    const state = await classifyBucketState({
+      models,
+      grain,
+      periodKey: bucketKey,
+      now,
+      hasData: true,
+    });
+    return { ...stored, state };
+  }
+
+  const live = await resolveTotalsLive({ models, grain, periodKey: bucketKey, now });
+  const hasData = live.hits > 0;
+  const state = await classifyBucketState({ models, grain, periodKey: bucketKey, now, hasData });
+  return { ...toTotalsItem({ grain, bucketKey, totals: live }), state };
+}
+
+function toYearSeries(series: Array<OverviewBucket>): Array<YearSeriesBucket> {
+  const totalsByYear = groupMonthlyByYear(series);
+  const statesByYear: Record<string, Array<BucketState>> = {};
+  for (const bucket of series) {
+    const year = bucket.timeKey.slice(0, 4);
+    (statesByYear[year] ??= []).push(bucket.state);
+  }
+
+  return totalsByYear.map((yearBucket) => ({
+    ...yearBucket,
+    state: rollUpState(statesByYear[yearBucket.year] ?? []),
+  }));
+}
+
+// A grouped period is sealed only when every child is sealed; partial if any
+// child is partial (data present but not final); otherwise pending.
+function rollUpState(states: Array<BucketState>): BucketState {
+  if (states.length > 0 && states.every((state) => state === "sealed")) return "sealed";
+  if (states.includes("partial")) return "partial";
+  return "pending";
 }
 
 function toTotalsItem({
