@@ -313,7 +313,7 @@ describe("CloudFrontAccessLoggingSettings standard logging v2", () => {
     });
   });
 
-  test("creates exactly one Parquet Glue table with four partition keys", () => {
+  test("creates exactly one Parquet Glue table with five partition keys", () => {
     const { stack } = makeV2Stack();
     const template = Template.fromStack(stack);
     template.resourceCountIs("AWS::Glue::Table", 1);
@@ -326,11 +326,54 @@ describe("CloudFrontAccessLoggingSettings standard logging v2", () => {
           },
         },
         PartitionKeys: [
+          { Name: "distributionid", Type: "string" },
           { Name: "year", Type: "string" },
           { Name: "month", Type: "string" },
           { Name: "day", Type: "string" },
           { Name: "hour", Type: "string" },
         ],
+      },
+    });
+  });
+
+  test("Glue table location matches the real CloudFront v2 Hive-partitioned delivery layout", () => {
+    const { stack } = makeV2Stack();
+    const template = Template.fromStack(stack);
+    const tables = template.findResources("AWS::Glue::Table");
+    const [table] = Object.values(tables);
+    const location = table?.Properties?.TableInput?.StorageDescriptor?.Location;
+
+    // The bucket name is a CloudFormation token, so the location is an `Fn::Join`. Flatten its
+    // literal string parts and assert the fixed vended-delivery prefix is present. The base
+    // location sits above the DistributionId partition (resolved via storage.location.template).
+    const literal = JSON.stringify(location);
+    expect(literal).toContain("/AWSLogs/aws-account-id=123456789012/CloudFront/v2/");
+    expect(literal).not.toContain("DistributionId=");
+  });
+
+  test("storage.location.template reproduces the DistributionId and time Hive segments", () => {
+    const { stack } = makeV2Stack();
+    const template = Template.fromStack(stack);
+    const tables = template.findResources("AWS::Glue::Table");
+    const [table] = Object.values(tables);
+    const parameters = table?.Properties?.TableInput?.Parameters;
+    // The bucket name is a token, so the template is an `Fn::Join`; flatten to a string.
+    const locationTemplate = JSON.stringify(parameters?.["storage.location.template"]);
+
+    expect(locationTemplate).toContain("AWSLogs/aws-account-id=123456789012/CloudFront/v2/");
+    expect(locationTemplate).toContain("DistributionId=E123ABC");
+    expect(locationTemplate).toContain("year=${year}/month=${month}/day=${day}/hour=${hour}");
+  });
+
+  test("projects the distributionid partition as a single-value enum needing no predicate", () => {
+    const { stack } = makeV2Stack();
+    Template.fromStack(stack).hasResourceProperties("AWS::Glue::Table", {
+      TableInput: {
+        Parameters: {
+          "projection.enabled": "true",
+          "projection.distributionid.type": "enum",
+          "projection.distributionid.values": "E123ABC",
+        },
       },
     });
   });

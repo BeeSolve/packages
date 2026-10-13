@@ -88,12 +88,53 @@ const fieldByGlueName: Record<string, StandardLogField> = Object.fromEntries(
   standardLogFields.map((field) => [field.glueName, field]),
 );
 
+/**
+ * Partition keys in the real delivered layout, in path order. CloudFront v2 Hive-compatible
+ * delivery writes a `DistributionId=<dist>` segment ahead of the time partitions, so the Glue
+ * table must declare it as the first partition key. Athena lowercases partition column names,
+ * hence `distributionid` (the S3 path keeps the real `DistributionId=` casing, which Athena
+ * matches case-insensitively on the key name).
+ */
 const partitionKeys = [
+  { name: "distributionid", type: "string" },
   { name: "year", type: "string" },
   { name: "month", type: "string" },
   { name: "day", type: "string" },
   { name: "hour", type: "string" },
 ] as const;
+
+/**
+ * Parses the distribution id (e.g. `E123ABC`) from a CloudFront distribution ARN of the form
+ * `arn:aws:cloudfront::<account>:distribution/<DISTID>` by taking the substring after the last
+ * `/`.
+ */
+function parseDistributionId(distributionArn: string): string {
+  const distributionId = distributionArn.split("/").at(-1);
+  if (distributionId == null || distributionId === "") {
+    throw new Error(`Could not parse a distribution id from ARN: ${distributionArn}`);
+  }
+  return distributionId;
+}
+
+/**
+ * The fixed S3 prefix that CloudWatch Logs vended delivery writes CloudFront v2 Parquet objects
+ * under: `s3://<bucket>/AWSLogs/aws-account-id=<account>/CloudFront/<outputPrefix>/`.
+ *
+ * CloudWatch Logs automatically prepends `AWSLogs/aws-account-id=<account>/CloudFront/` to the
+ * configured `s3SuffixPath`, so the Glue table location must include it. This prefix sits above
+ * the `DistributionId=<dist>/year=/month=/day=/hour=/` Hive partition segments.
+ */
+function v2LocationPrefix({
+  bucketName,
+  account,
+  outputPrefix,
+}: {
+  bucketName: string;
+  account: string;
+  outputPrefix: string;
+}): string {
+  return `s3://${bucketName}/AWSLogs/aws-account-id=${account}/CloudFront/${outputPrefix}/`;
+}
 
 interface CloudFrontAccessLoggingAthenaProps {
   /**
@@ -208,6 +249,18 @@ export class CloudFrontAccessLoggingSettings extends Construct {
 
   private readonly outputPrefix: string;
   private readonly deliveryRecordFields: Array<string>;
+  /**
+   * The Parquet Glue table, retained so that {@link enableV2Logging} can finalize the
+   * distribution-id-dependent partitioning once the distribution ARN is known. `undefined`
+   * when Athena is not configured.
+   */
+  private readonly glueTable?: CfnTable;
+  /**
+   * The account id used to build the fixed `AWSLogs/aws-account-id=<account>/CloudFront/`
+   * prefix that CloudWatch Logs vended delivery prepends. `undefined` when Athena is not
+   * configured.
+   */
+  private readonly athenaAccount?: string;
 
   constructor(scope: Construct, id: string, props: CloudFrontAccessLoggingSettingsProps) {
     super(scope, id);
@@ -261,7 +314,14 @@ export class CloudFrontAccessLoggingSettings extends Construct {
           description: "Glue table for CloudFront standard logging v2 (Parquet)",
           storageDescriptor: {
             columns: selectedFields.map((field) => ({ name: field.glueName, type: field.type })),
-            location: `s3://${logBucket.bucketName}/${this.outputPrefix}/`,
+            // The location and the distribution-id-dependent partitioning are finalized in
+            // `enableV2Logging`, once the distribution ARN is known. Until then the location
+            // points at the fixed vended-delivery prefix without the DistributionId segment.
+            location: v2LocationPrefix({
+              bucketName: logBucket.bucketName,
+              account: props.athena.account,
+              outputPrefix: this.outputPrefix,
+            }),
             inputFormat: "org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat",
             outputFormat: "org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat",
             serdeInfo: {
@@ -287,12 +347,20 @@ export class CloudFrontAccessLoggingSettings extends Construct {
             "projection.hour.type": "integer",
             "projection.hour.range": "0,23",
             "projection.hour.digits": "2",
-            "storage.location.template": `s3://${logBucket.bucketName}/${this.outputPrefix}/\${year}/\${month}/\${day}/\${hour}`,
+            // `distributionid` projection and `storage.location.template` are set in
+            // `enableV2Logging`, where the distribution id becomes available.
+            "storage.location.template": v2LocationPrefix({
+              bucketName: logBucket.bucketName,
+              account: props.athena.account,
+              outputPrefix: this.outputPrefix,
+            }),
           },
           tableType: "EXTERNAL_TABLE",
         },
       });
       glueTable.addResourceDependency(glueDatabase);
+      this.glueTable = glueTable;
+      this.athenaAccount = props.athena.account;
 
       const athenaBucket = new Bucket(this, "AthenaBucket");
       this.athenaResultsBucket = athenaBucket;
@@ -350,6 +418,8 @@ export class CloudFrontAccessLoggingSettings extends Construct {
   }): void => {
     const scope = deliveryScope ?? this;
 
+    this.finalizeGlueTablePartitioning(distributionArn);
+
     const deliverySource = new CfnDeliverySource(scope, "V2DeliverySource", {
       name: `${this.node.id}-v2-source`,
       logType: "ACCESS_LOGS",
@@ -366,10 +436,54 @@ export class CloudFrontAccessLoggingSettings extends Construct {
       deliverySourceName: deliverySource.name,
       deliveryDestinationArn: deliveryDestination.attrArn,
       s3EnableHiveCompatiblePath: true,
+      // CloudWatch Logs vended delivery automatically prepends
+      // `AWSLogs/aws-account-id=<account>/CloudFront/` to this suffix, and Hive-compatible
+      // mode renders each `{Token}` as a `Token=value` segment. The resolved key is therefore
+      // `AWSLogs/aws-account-id=<account>/CloudFront/<outputPrefix>/DistributionId=<dist>/year=/month=/day=/hour=/<file>`,
+      // which is the confirmed real layout. The suffix is correct as-is; only the Glue table
+      // (finalized above) had to change to match it.
       s3SuffixPath: `${this.outputPrefix}/{DistributionId}/{yyyy}/{MM}/{dd}/{HH}`,
       recordFields: this.deliveryRecordFields,
     });
     delivery.addResourceDependency(deliverySource);
     delivery.addResourceDependency(deliveryDestination);
   };
+
+  /**
+   * Finalizes the distribution-id-dependent partitioning on the Parquet Glue table.
+   *
+   * The table is created in the constructor, but the distribution id only becomes available
+   * when {@link enableV2Logging} is called. This method sets the `distributionid` enum
+   * projection (a single-value enum, so queries never need a `DistributionId` predicate — the
+   * analytics processor filters only by `year/month/day/hour`) and rewrites
+   * `storage.location.template` to reproduce the real Hive-partitioned key, including the
+   * `DistributionId=<dist>` segment with its exact casing.
+   *
+   * No-op when Athena is not configured (no table exists).
+   */
+  private finalizeGlueTablePartitioning(distributionArn: string): void {
+    if (this.glueTable == null || this.athenaAccount == null) {
+      return;
+    }
+    const distributionId = parseDistributionId(distributionArn);
+    const locationPrefix = v2LocationPrefix({
+      bucketName: this.logBucket.bucketName,
+      account: this.athenaAccount,
+      outputPrefix: this.outputPrefix,
+    });
+    const locationTemplate = `${locationPrefix}DistributionId=${distributionId}/year=\${year}/month=\${month}/day=\${day}/hour=\${hour}`;
+
+    this.glueTable.addPropertyOverride(
+      "TableInput.Parameters.projection\\.distributionid\\.type",
+      "enum",
+    );
+    this.glueTable.addPropertyOverride(
+      "TableInput.Parameters.projection\\.distributionid\\.values",
+      distributionId,
+    );
+    this.glueTable.addPropertyOverride(
+      "TableInput.Parameters.storage\\.location\\.template",
+      locationTemplate,
+    );
+  }
 }

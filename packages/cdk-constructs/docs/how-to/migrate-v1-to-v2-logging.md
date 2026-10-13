@@ -47,9 +47,19 @@ const logging = new CloudFrontAccessLoggingSettings(this, "Logging", {
 });
 ```
 
-This creates a new Parquet Glue table (`cf_logs_table` by default) over the `/v2/` prefix
-in the **same** log bucket. v2 objects land under `/v2/`; the historic v1 objects under the
-old prefix are untouched.
+This creates a new Parquet Glue table (`cf_logs_table` by default) over the CloudFront v2
+delivery layout in the **same** log bucket. CloudWatch Logs vended delivery writes v2 Parquet
+objects under a fixed, Hive-partitioned prefix:
+
+```
+s3://<log-bucket>/AWSLogs/aws-account-id=<account>/CloudFront/<outputPrefix>/DistributionId=<dist>/year=YYYY/month=MM/day=DD/hour=HH/<file>.parquet
+```
+
+(`<outputPrefix>` defaults to `v2`.) The Glue table's `location` and partition projection are
+set to match this layout, so Athena queries filtering by `year/month/day/hour` resolve against
+the delivered objects. The historic v1 objects under the old prefix are untouched. The
+distribution-id-dependent part of the partitioning is finalized in `enableV2Logging` (next
+step), once the distribution ARN — and therefore its id — is known.
 
 ### 3. Enable v2 delivery after the distribution exists
 
