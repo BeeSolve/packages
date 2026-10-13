@@ -1,5 +1,12 @@
 # @beesolve/analytics-processor
 
+## 0.2.3
+
+### Patch Changes
+
+- Updated dependencies [b34d2a6]
+  - @beesolve/cdk-constructs@0.7.0
+
 ## 0.2.2
 
 ### Patch Changes

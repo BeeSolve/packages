@@ -1,5 +1,14 @@
 # @beesolve/dmarc-consumer
 
+## 0.4.3
+
+### Patch Changes
+
+- Updated dependencies [b34d2a6]
+  - @beesolve/cdk-constructs@0.7.0
+  - @beesolve/dmarc-reports@0.1.6
+  - @beesolve/sqs-handler@0.2.10
+
 ## 0.4.2
 
 ### Patch Changes
