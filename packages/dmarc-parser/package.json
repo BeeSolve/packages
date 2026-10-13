@@ -31,7 +31,7 @@
   },
   "dependencies": {
     "fast-xml-parser": "^5.11.2",
-    "mailparser": "^3.9.36",
+    "mailparser": "^3.9.38",
     "valibot": "catalog:"
   },
   "devDependencies": {
