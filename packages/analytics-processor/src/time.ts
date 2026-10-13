@@ -24,6 +24,35 @@ export function hourKey(date: Date): string {
   return `${dayKey(date)}-${pad2(date.getUTCHours())}`;
 }
 
+/**
+ * Parses a period key (any grain) back to the UTC Date at the start of that
+ * bucket. `YYYY` → Jan 1 00:00, `YYYY-MM` → 1st 00:00, `YYYY-MM-DD` → 00:00,
+ * `YYYY-MM-DD-HH` → that hour. Throws on a malformed key.
+ */
+export function parsePeriodKey(periodKey: string): Date {
+  const match = /^(\d{4})(?:-(\d{2}))?(?:-(\d{2}))?(?:-(\d{2}))?$/.exec(periodKey);
+  if (match == null) {
+    throw new Error(`Invalid period key: ${periodKey}`);
+  }
+  const [, year, month, day, hour] = match;
+  return new Date(
+    Date.UTC(
+      Number(year),
+      month == null ? 0 : Number(month) - 1,
+      day == null ? 1 : Number(day),
+      hour == null ? 0 : Number(hour),
+    ),
+  );
+}
+
+export function grainForPeriodKey(periodKey: string): Grain | "year" {
+  const segments = periodKey.split("-").length;
+  if (segments === 1) return "year";
+  if (segments === 2) return "month";
+  if (segments === 3) return "day";
+  return "hour";
+}
+
 export function maxWindowFor(grain: Grain): number {
   if (grain === "hour") return 24;
   if (grain === "day") return 30;

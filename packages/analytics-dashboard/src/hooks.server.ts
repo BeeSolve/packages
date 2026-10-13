@@ -6,7 +6,7 @@ import {
 } from "$app/env/private";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
-import { Breakdowns, Totals } from "@beesolve/analytics-processor";
+import { AppliedMarkers, Breakdowns, Config, Totals } from "@beesolve/analytics-processor";
 import { AuthClient } from "@beesolve/auth-service/sdk";
 import { createSessionHandle, type SessionContext } from "@beesolve/auth-service/sveltekit";
 import { Email } from "@beesolve/email-service/sdk";
@@ -33,6 +33,8 @@ const breakdowns = new Breakdowns({
   tableName: ANALYTICS_TABLE_NAME,
   reverseIndexName: ANALYTICS_REVERSE_INDEX,
 });
+const config = new Config({ dynamo, tableName: ANALYTICS_TABLE_NAME });
+const markers = new AppliedMarkers({ dynamo, tableName: ANALYTICS_TABLE_NAME });
 const users = new Users({
   dynamo,
   tableName: ANALYTICS_USERS_TABLE,
@@ -48,6 +50,8 @@ const authGuard: Handle = async ({ event, resolve }) => {
   event.locals.services = {
     totals,
     breakdowns,
+    config,
+    markers,
     users,
     setup,
     authClient,

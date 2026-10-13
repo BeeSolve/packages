@@ -4,6 +4,7 @@ import * as v from "valibot";
 
 import { AppliedMarkers } from "./src/appliedMarkers.ts";
 import { Breakdowns } from "./src/breakdowns.ts";
+import { Config } from "./src/config.ts";
 import { toDynamoClient } from "./src/dynamo.ts";
 import { processHour } from "./src/processHour.ts";
 import { hourKey } from "./src/time.ts";
@@ -28,6 +29,7 @@ const dynamo = toDynamoClient();
 const totals = new Totals({ dynamo, tableName: env.TABLE_NAME });
 const breakdowns = new Breakdowns({ dynamo, tableName: env.TABLE_NAME });
 const markers = new AppliedMarkers({ dynamo, tableName: env.TABLE_NAME });
+const config = new Config({ dynamo, tableName: env.TABLE_NAME });
 const ipCache = new IpInfoCache({
   dynamo,
   tableName: env.TABLE_NAME,
@@ -44,7 +46,7 @@ export async function handler(): Promise<void> {
   const result = await processHour({
     hourKey: targetHour,
     source: "v2",
-    models: { totals, breakdowns, markers, ipCache },
+    models: { totals, breakdowns, markers, ipCache, config },
     athena: {
       client: athenaClient,
       database: env.ATHENA_DATABASE,

@@ -1,35 +1,51 @@
 <script lang="ts">
+  import { goto } from "$app/navigation";
   import { page } from "$app/state";
   import type { Dimension, Grain } from "@beesolve/analytics-processor";
-  import { dimensions, grains } from "@beesolve/analytics-processor";
+  import { dimensions, grains, hourKey } from "@beesolve/analytics-processor";
 
+  import PeriodPicker from "#lib/components/periodPicker.svelte";
+  import { formatPeriodLabel } from "#lib/labels.js";
   import { getBreakdown } from "#lib/remote/breakdowns.remote.js";
+
+  let { data } = $props();
 
   function isDimension(value: string): value is Dimension {
     return (dimensions as ReadonlyArray<string>).includes(value);
   }
 
+  function isGrain(value: string | null): value is Grain {
+    return value != null && (grains as ReadonlyArray<string>).includes(value);
+  }
+
   function defaultPeriodKey(grain: Grain): string {
-    const now = new Date();
-    const year = now.getUTCFullYear().toString().padStart(4, "0");
-    const month = (now.getUTCMonth() + 1).toString().padStart(2, "0");
-    const day = now.getUTCDate().toString().padStart(2, "0");
-    const hour = now.getUTCHours().toString().padStart(2, "0");
-    if (grain === "hour") return `${year}-${month}-${day}-${hour}`;
-    if (grain === "day") return `${year}-${month}-${day}`;
-    return `${year}-${month}`;
+    const key = hourKey(new Date());
+    if (grain === "hour") return key;
+    if (grain === "day") return key.slice(0, 10);
+    return key.slice(0, 7);
   }
 
   const dimension = $derived<Dimension>(
     isDimension(page.params.dimension ?? "") ? (page.params.dimension as Dimension) : "path",
   );
 
-  let grain = $state<Grain>("day");
-  let periodKey = $state(defaultPeriodKey("day"));
+  const grain = $derived<Grain>(isGrain(page.url.searchParams.get("grain")) ? (page.url.searchParams.get("grain") as Grain) : "day");
 
-  function selectGrain(next: Grain): void {
-    grain = next;
-    periodKey = defaultPeriodKey(next);
+  const periodKey = $derived(page.url.searchParams.get("period") ?? defaultPeriodKey(grain));
+
+  function updateUrl(next: { grain: Grain; period: string }): void {
+    const params = new URLSearchParams(page.url.search);
+    params.set("grain", next.grain);
+    params.set("period", next.period);
+    void goto(`${page.url.pathname}?${params.toString()}`, { reset: false });
+  }
+
+  function selectGrain(nextGrain: Grain): void {
+    updateUrl({ grain: nextGrain, period: defaultPeriodKey(nextGrain) });
+  }
+
+  function selectPeriod(nextPeriod: string): void {
+    updateUrl({ grain, period: nextPeriod });
   }
 
   function formatBytes(bytes: number): string {
@@ -50,7 +66,7 @@
 <nav class="cluster dimension-nav" aria-label="Dimension">
   {#each dimensions as dimensionOption (dimensionOption)}
     <a
-      href="/breakdowns/{dimensionOption}"
+      href="/breakdowns/{dimensionOption}?grain={grain}&period={periodKey}"
       class="button mini"
       class:primary={dimension === dimensionOption}
       class:minimal={dimension !== dimensionOption}
@@ -75,21 +91,25 @@
       </button>
     {/each}
   </div>
-  <label class="period-label">
-    Period
-    <input type="text" bind:value={periodKey} />
-  </label>
+  <PeriodPicker
+    view={grain}
+    value={periodKey}
+    startKey={data.startKey}
+    onchange={selectPeriod}
+  />
 </div>
+
+<p class="period-caption">{formatPeriodLabel({ view: grain, periodKey })}</p>
 
 <svelte:boundary>
   {#snippet pending()}
     <p>Loading breakdown…</p>
   {/snippet}
 
-  {@const data = await getBreakdown({ dimension, grain, periodKey })}
+  {@const result = await getBreakdown({ dimension, grain, periodKey })}
 
-  {#if data.items.length === 0}
-    <p>No data for {dimension} in {periodKey}.</p>
+  {#if result.items.length === 0}
+    <p>No data for {dimension} in this period.</p>
   {:else}
     <div class="table">
       <table>
@@ -101,7 +121,7 @@
           </tr>
         </thead>
         <tbody>
-          {#each data.items as item (item.value)}
+          {#each result.items as item (item.value)}
             <tr>
               <td>{item.value}</td>
               <td class="num">{item.hits.toLocaleString()}</td>
@@ -125,16 +145,27 @@
   }
 
   .controls {
-    margin-bottom: var(--vs-l);
+    margin-bottom: var(--vs-base);
     gap: var(--vs-base);
-    align-items: flex-end;
+    align-items: center;
   }
 
-  .period-label {
-    display: flex;
-    flex-direction: column;
-    font-size: 0.8rem;
+  .period-caption {
+    margin: 0 0 var(--vs-l);
     color: var(--fg-7);
+    font-size: 0.875rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Graffiti's `.button.primary` sets white text, but an `<a class="button
+     primary">` is also matched by graffiti's anchor color rules (and the app's
+     visited-link rule), which repaint the label in `--primary` — the same hue
+     as the fill, making the selected label unreadable. Force the on-primary
+     foreground for the selected control in both button groups. */
+  .dimension-nav a.primary,
+  .dimension-nav a.primary:visited,
+  .grain-switcher button.primary {
+    color: var(--white);
   }
 
   .num {

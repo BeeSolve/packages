@@ -1,5 +1,5 @@
 import { getRequestEvent, query } from "$app/server";
-import { dimensions, grains } from "@beesolve/analytics-processor";
+import { dimensions, grains, resolveBreakdownLive } from "@beesolve/analytics-processor";
 import * as v from "valibot";
 
 import { requireUser, toRemoteError } from "#lib/server/httpErrors.js";
@@ -15,7 +15,17 @@ export const getBreakdown = query(getBreakdownSchema, async ({ dimension, grain,
   try {
     requireUser(locals.user);
 
-    const items = await locals.services.breakdowns.getForPeriod({ dimension, grain, periodKey });
+    const items = await resolveBreakdownLive({
+      models: {
+        totals: locals.services.totals,
+        breakdowns: locals.services.breakdowns,
+        markers: locals.services.markers,
+      },
+      dimension,
+      grain,
+      periodKey,
+      now: new Date(),
+    });
 
     return {
       dimension,

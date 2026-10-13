@@ -7,6 +7,7 @@ import type { IpInfoCache } from "@beesolve/ip-info";
 import type { AppliedMarkers } from "./appliedMarkers.ts";
 import { runHourlyAthenaQuery } from "./athena.ts";
 import type { BreakdownInput, BreakdownItem, Breakdowns } from "./breakdowns.ts";
+import type { Config } from "./config.ts";
 import type { AppliedSource, Dimension } from "./keys.ts";
 import type { BreakdownRow } from "./reduce.ts";
 import { sumBreakdown, sumTotals } from "./reduce.ts";
@@ -19,6 +20,7 @@ export interface ProcessHourModels {
   readonly breakdowns: Pick<Breakdowns, "buildUpdates">;
   readonly markers: Pick<AppliedMarkers, "isApplied" | "buildMarkerPut">;
   readonly ipCache: Pick<IpInfoCache, "enrichMany">;
+  readonly config?: Pick<Config, "ensureStart">;
 }
 
 export interface ProcessHourAthena {
@@ -115,11 +117,17 @@ export async function processHour({
     byCountry,
   });
 
-  return sendTransacted({
+  const result = await sendTransacted({
     dynamo,
     leading: [markerPut, totalsUpdate],
     rest: breakdownUpdates,
   });
+
+  if (result.status === "applied" && query.totals.hits > 0 && models.config != null) {
+    await models.config.ensureStart({ hourKey });
+  }
+
+  return result;
 }
 
 export async function applyDailyRollup({

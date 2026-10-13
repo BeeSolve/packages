@@ -3,6 +3,7 @@ import { IpInfoCache } from "@beesolve/ip-info";
 
 import { AppliedMarkers } from "../src/appliedMarkers.ts";
 import { Breakdowns } from "../src/breakdowns.ts";
+import { Config } from "../src/config.ts";
 import { toDynamoClient } from "../src/dynamo.ts";
 import type { ProcessHourResult } from "../src/processHour.ts";
 import { applyDailyRollup, applyMonthlyRollup, processHour } from "../src/processHour.ts";
@@ -145,6 +146,7 @@ export async function runBackfill({
   const totals = new Totals({ dynamo, tableName: config.tableName });
   const breakdowns = new Breakdowns({ dynamo, tableName: config.tableName });
   const markers = new AppliedMarkers({ dynamo, tableName: config.tableName });
+  const configModel = new Config({ dynamo, tableName: config.tableName });
   const ipCache = new IpInfoCache({
     dynamo,
     tableName: config.tableName,
@@ -166,7 +168,7 @@ export async function runBackfill({
         const result = await processHour({
           hourKey: targetHour,
           source: "v1",
-          models: { totals, breakdowns, markers, ipCache },
+          models: { totals, breakdowns, markers, ipCache, config: configModel },
           athena: {
             client: athenaClient,
             database: config.athenaDatabase,

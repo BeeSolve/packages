@@ -1,10 +1,10 @@
 import { getRequestEvent, query } from "$app/server";
-import type { TotalsItem } from "@beesolve/analytics-processor";
-import { grains } from "@beesolve/analytics-processor";
+import type { Grain, SummedTotals, TotalsItem } from "@beesolve/analytics-processor";
+import { grains, resolveTotalsLive } from "@beesolve/analytics-processor";
 import * as v from "valibot";
 
 import type { YearBucket } from "#lib/overviewWindow.js";
-import { groupMonthlyByYear, resolveWindow, zeroFillSeries } from "#lib/overviewWindow.js";
+import { groupMonthlyByYear, resolveWindow } from "#lib/overviewWindow.js";
 import { requireUser, toRemoteError } from "#lib/server/httpErrors.js";
 
 const getOverviewSchema = v.object({
@@ -19,20 +19,31 @@ export const getOverview = query(getOverviewSchema, async ({ grain, anchor, size
   try {
     requireUser(locals.user);
 
-    const anchorDate = anchor != null ? new Date(anchor) : new Date();
+    const now = new Date();
+    const anchorDate = anchor != null ? new Date(anchor) : now;
     const resolved = resolveWindow({ grain, anchor: anchorDate, size, years: years ?? false });
 
-    const items = await locals.services.totals.queryWindow({
+    const stored = await locals.services.totals.queryWindow({
       grain: resolved.grain,
       startKey: resolved.startKey,
       endKey: resolved.endKey,
     });
+    const storedByKey: Record<string, TotalsItem> = {};
+    for (const item of stored) {
+      storedByKey[item.timeKey] = item;
+    }
 
-    const series: Array<TotalsItem> = zeroFillSeries({
-      bucketKeys: resolved.bucketKeys,
-      grain: resolved.grain,
-      items,
-    });
+    const series = await Promise.all(
+      resolved.bucketKeys.map((bucketKey) =>
+        resolveSeriesBucket({
+          services: locals.services,
+          grain: resolved.grain,
+          bucketKey,
+          stored: storedByKey[bucketKey],
+          now,
+        }),
+      ),
+    );
 
     const yearSeries: Array<YearBucket> | null = years === true ? groupMonthlyByYear(series) : null;
 
@@ -51,3 +62,55 @@ export const getOverview = query(getOverviewSchema, async ({ grain, anchor, size
     toRemoteError(thrown, { redirectOnUnauthorized: true });
   }
 });
+
+async function resolveSeriesBucket({
+  services,
+  grain,
+  bucketKey,
+  stored,
+  now,
+}: {
+  readonly services: App.Locals["services"];
+  readonly grain: Grain;
+  readonly bucketKey: string;
+  readonly stored: TotalsItem | undefined;
+  readonly now: Date;
+}): Promise<TotalsItem> {
+  if (stored != null) return stored;
+
+  const live = await resolveTotalsLive({
+    models: {
+      totals: services.totals,
+      breakdowns: services.breakdowns,
+      markers: services.markers,
+    },
+    grain,
+    periodKey: bucketKey,
+    now,
+  });
+  return toTotalsItem({ grain, bucketKey, totals: live });
+}
+
+function toTotalsItem({
+  grain,
+  bucketKey,
+  totals,
+}: {
+  readonly grain: Grain;
+  readonly bucketKey: string;
+  readonly totals: SummedTotals;
+}): TotalsItem {
+  return {
+    pk: `totals#${grain}`,
+    sk: bucketKey,
+    grain,
+    timeKey: bucketKey,
+    hits: totals.hits,
+    success: totals.success,
+    errors: totals.errors,
+    errors4xx: totals.errors4xx,
+    errors5xx: totals.errors5xx,
+    bytesSent: totals.bytesSent,
+    bytesReceived: totals.bytesReceived,
+  };
+}

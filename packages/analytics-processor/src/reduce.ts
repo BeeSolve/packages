@@ -1,5 +1,3 @@
-import type { TotalsInput } from "./totals.ts";
-
 export interface BreakdownRow {
   readonly value: string;
   readonly hits: number;
@@ -16,7 +14,7 @@ export interface SummedTotals {
   readonly bytesReceived: number;
 }
 
-export function sumTotals(items: Array<TotalsInput>): SummedTotals {
+export function sumTotals(items: Array<SummedTotals>): SummedTotals {
   const summed: SummedTotals = {
     hits: 0,
     success: 0,

@@ -33,12 +33,16 @@ npm install @beesolve/analytics-processor
 ## Exports
 
 - `.` — schemas/types (`totalsSchema`/`TotalsItem`, `breakdownSchema`/`BreakdownItem`,
-  `appliedMarkerSchema`/`AppliedMarker`, `grains`/`Grain`, `dimensions`/`Dimension`),
+  `appliedMarkerSchema`/`AppliedMarker`, `configSchema`/`AnalyticsConfig`,
+  `grains`/`Grain`, `dimensions`/`Dimension`),
   time/window helpers (`hourKey`, `dayKey`, `monthKey`, `maxWindowFor`,
-  `windowKeys`, `shiftAnchor`, `hoursBetween`), model classes (`Totals`,
-  `Breakdowns`, `AppliedMarkers`, `IpInfoCache` + `lookupIpInfo` + `IpInfo`/`IpInfoCacheItem`),
+  `windowKeys`, `shiftAnchor`, `hoursBetween`, `parsePeriodKey`, `grainForPeriodKey`),
+  model classes (`Totals`,
+  `Breakdowns`, `AppliedMarkers`, `Config`, `IpInfoCache` + `lookupIpInfo` + `IpInfo`/`IpInfoCacheItem`),
   pure helpers (`buildHourlyQuery`, `classifyDevice`, `sumTotals`,
-  `sumBreakdown`, `topNWithOther`), and `processHour` (+ `applyDailyRollup`/`applyMonthlyRollup`).
+  `sumBreakdown`, `topNWithOther`), live-aggregation resolvers
+  (`resolveTotalsLive`/`resolveBreakdownLive`), and `processHour`
+  (+ `applyDailyRollup`/`applyMonthlyRollup`).
 - `./cdk` — the `AnalyticsProcessor` CDK construct.
 
 Lambda handlers and the backfill script are not part of the public API.

@@ -1,10 +1,16 @@
 <script lang="ts">
+  import { goto } from "$app/navigation";
+  import { page } from "$app/state";
   import type { Grain } from "@beesolve/analytics-processor";
+  import { hourKey, parsePeriodKey } from "@beesolve/analytics-processor";
 
+  import PeriodPicker from "#lib/components/periodPicker.svelte";
   import SummaryCard from "#lib/components/summaryCard.svelte";
+  import type { View } from "#lib/labels.js";
+  import { formatPeriodLabel, formatPeriodTick } from "#lib/labels.js";
   import { getOverview } from "#lib/remote/overview.remote.js";
 
-  type View = Grain | "year";
+  let { data } = $props();
 
   const views: Array<{ id: View; label: string }> = [
     { id: "hour", label: "Hourly" },
@@ -13,18 +19,61 @@
     { id: "year", label: "Yearly" },
   ];
 
-  let view = $state<View>("day");
-  let anchor = $state<string | undefined>(undefined);
+  function isView(value: string | null): value is View {
+    return value != null && ["hour", "day", "month", "year"].includes(value);
+  }
+
+  function anchorPeriodKey(view: View): string {
+    const key = hourKey(new Date());
+    if (view === "hour") return key;
+    if (view === "day") return key.slice(0, 10);
+    if (view === "month") return key.slice(0, 7);
+    return key.slice(0, 4);
+  }
+
+  const view = $derived<View>(isView(page.url.searchParams.get("view")) ? (page.url.searchParams.get("view") as View) : "day");
+
+  const anchorKey = $derived(page.url.searchParams.get("anchor") ?? anchorPeriodKey(view));
+
+  const anchorIso = $derived(resolveAnchorIso(view, anchorKey));
+
+  function resolveAnchorIso(currentView: View, key: string): string {
+    const start = parsePeriodKey(key);
+    if (currentView !== "year") return start.toISOString();
+    // A year selection anchors the 120-month window at December of that year
+    // (or the current month if it is the current year) so the whole year shows.
+    const now = new Date();
+    if (start.getUTCFullYear() >= now.getUTCFullYear()) return now.toISOString();
+    return new Date(Date.UTC(start.getUTCFullYear(), 11, 1)).toISOString();
+  }
 
   const queryArgs = $derived(
     view === "year"
-      ? { grain: "month" as Grain, anchor, years: true }
-      : { grain: view, anchor, years: false },
+      ? { grain: "month" as Grain, anchor: anchorIso, years: true }
+      : { grain: view, anchor: anchorIso, years: false },
   );
 
-  function selectView(next: View): void {
-    view = next;
-    anchor = undefined;
+  function updateUrl(next: { view: View; anchor: string }): void {
+    const params = new URLSearchParams(page.url.search);
+    params.set("view", next.view);
+    params.set("anchor", next.anchor);
+    void goto(`${page.url.pathname}?${params.toString()}`, { reset: false });
+  }
+
+  function selectView(nextView: View): void {
+    updateUrl({ view: nextView, anchor: anchorPeriodKey(nextView) });
+  }
+
+  function selectAnchor(nextAnchor: string): void {
+    updateUrl({ view, anchor: nextAnchor });
+  }
+
+  function anchorKeyFromIso(iso: string): string {
+    const key = hourKey(new Date(iso));
+    if (view === "hour") return key;
+    if (view === "day") return key.slice(0, 10);
+    if (view === "month") return key.slice(0, 7);
+    return key.slice(0, 4);
   }
 
   function formatBytes(bytes: number): string {
@@ -57,6 +106,7 @@
       </button>
     {/each}
   </div>
+  <PeriodPicker {view} value={anchorKey} startKey={data.startKey} onchange={selectAnchor} />
 </div>
 
 <svelte:boundary>
@@ -64,25 +114,46 @@
     <p>Loading analytics…</p>
   {/snippet}
 
-  {@const data = await getOverview(queryArgs)}
+  {@const result = await getOverview(queryArgs)}
   {@const totals = {
-    hits: data.series.reduce((sum, bucket) => sum + bucket.hits, 0),
-    success: data.series.reduce((sum, bucket) => sum + bucket.success, 0),
-    errors: data.series.reduce((sum, bucket) => sum + bucket.errors, 0),
-    bytesSent: data.series.reduce((sum, bucket) => sum + bucket.bytesSent, 0),
+    hits: result.series.reduce((sum, bucket) => sum + bucket.hits, 0),
+    success: result.series.reduce((sum, bucket) => sum + bucket.success, 0),
+    errors: result.series.reduce((sum, bucket) => sum + bucket.errors, 0),
+    bytesSent: result.series.reduce((sum, bucket) => sum + bucket.bytesSent, 0),
   }}
   {@const chartBuckets =
-    data.yearSeries != null
-      ? data.yearSeries.map((yearBucket) => ({ label: yearBucket.year, hits: yearBucket.hits }))
-      : data.series.map((bucket) => ({ label: bucket.timeKey, hits: bucket.hits }))}
+    result.yearSeries != null
+      ? result.yearSeries.map((yearBucket) => ({
+          key: yearBucket.year,
+          tick: yearBucket.year,
+          label: yearBucket.year,
+          hits: yearBucket.hits,
+        }))
+      : result.series.map((bucket) => ({
+          key: bucket.timeKey,
+          tick: formatPeriodTick({ view, periodKey: bucket.timeKey }),
+          label: formatPeriodLabel({ view, periodKey: bucket.timeKey }),
+          hits: bucket.hits,
+        }))}
   {@const maxHits = Math.max(...chartBuckets.map((bucket) => bucket.hits), 1)}
 
   <div class="cluster window-nav">
-    <button type="button" class="button minimal" onclick={() => (anchor = data.prevAnchor)}>
+    <button
+      type="button"
+      class="button minimal"
+      onclick={() => selectAnchor(anchorKeyFromIso(result.prevAnchor))}
+    >
       ← Previous
     </button>
-    <span class="window-range">{data.startKey} — {data.endKey}</span>
-    <button type="button" class="button minimal" onclick={() => (anchor = data.nextAnchor)}>
+    <span class="window-range">
+      {formatPeriodLabel({ view, periodKey: result.startKey })} —
+      {formatPeriodLabel({ view, periodKey: result.endKey })}
+    </span>
+    <button
+      type="button"
+      class="button minimal"
+      onclick={() => selectAnchor(anchorKeyFromIso(result.nextAnchor))}
+    >
       Next →
     </button>
   </div>
@@ -98,13 +169,14 @@
     <p>No data in this window.</p>
   {:else}
     <section class="chart-section">
-      <h2>Hits per {data.years ? "year" : data.grain}</h2>
+      <h2>Hits per {result.years ? "year" : view}</h2>
       <div class="analytics-bars" role="img" aria-label="Hits per bucket">
-        {#each chartBuckets as bucket (bucket.label)}
+        {#each chartBuckets as bucket (bucket.key)}
           {@const heightPct = (bucket.hits / maxHits) * 100}
-          <div class="analytics-bars-col" title="{bucket.label}: {bucket.hits.toLocaleString()} hits">
+          <div class="analytics-bars-col tooltip">
+            <span class="tip">{bucket.label}: {bucket.hits.toLocaleString()} hits</span>
             <div class="analytics-bars-fill" style="height: {heightPct}%"></div>
-            <span class="analytics-bars-label">{bucket.label}</span>
+            <span class="analytics-bars-label">{bucket.tick}</span>
           </div>
         {/each}
       </div>
@@ -125,6 +197,14 @@
 
   .controls {
     margin-bottom: var(--vs-base);
+    gap: var(--vs-base);
+    align-items: center;
+  }
+
+  /* See the breakdown page: force readable foreground on the selected grain
+     button, which graffiti/visited-link rules would otherwise repaint. */
+  .grain-switcher button.primary {
+    color: var(--white);
   }
 
   .window-nav {
