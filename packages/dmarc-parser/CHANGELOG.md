@@ -1,5 +1,11 @@
 # @beesolve/dmarc-parser
 
+## 0.1.4
+
+### Patch Changes
+
+- b80dac0: Update `mailparser` to `^3.9.38`.
+
 ## 0.1.3
 
 ### Patch Changes

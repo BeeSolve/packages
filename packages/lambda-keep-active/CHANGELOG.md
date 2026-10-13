@@ -1,5 +1,13 @@
 # @beesolve/lambda-keep-active
 
+## 2.1.11
+
+### Patch Changes
+
+- b80dac0: Update dependencies. Bump the AWS SDK clients (`@aws-sdk/client-lambda`,
+  `@aws-sdk/client-resource-groups-tagging-api`) to `^3.1150.0` and `aws-cdk-lib`
+  to `^2.273.0`.
+
 ## 2.1.10
 
 ### Patch Changes
