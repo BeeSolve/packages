@@ -1,5 +1,25 @@
 # @beesolve/auth-service
 
+## 0.20.0
+
+### Minor Changes
+
+- ef844f6: Make DynamoDB Contributor Insights opt-in. The `contributorInsights` prop on
+  `AuthGateway` and `AuthService` now defaults to `false` for every stage instead
+  of `true` in prod. Contributor Insights bills per DynamoDB event and can exceed
+  the cost of the rest of the service's infrastructure, so it is now an explicit
+  opt-in that applies to prod and/or non-prod.
+
+  Migration: deployments that relied on the implicit prod-on default will lose
+  Contributor Insights on their next deploy (the `contributorInsightsSpecification`
+  is removed from the sessions, accounts, and action-token tables). To keep it,
+  set `contributorInsights: true` explicitly.
+
+### Patch Changes
+
+- Updated dependencies [b80dac0]
+  - @beesolve/lambda-keep-active@2.1.11
+
 ## 0.19.3
 
 ### Patch Changes

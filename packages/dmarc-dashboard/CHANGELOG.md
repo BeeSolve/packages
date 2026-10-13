@@ -1,5 +1,20 @@
 # @beesolve/dmarc-dashboard
 
+## 0.10.6
+
+### Patch Changes
+
+- b80dac0: Update dependencies. Bump `kit-on-lambda` to `^1.1.2`, which generates a Lambda
+  handler that imports `@beesolve/lambda-function-url-protection/runtime`; that
+  package is now declared as a dependency so the adapter's bundle resolves it.
+  Also refreshes `vite` to `^8.3.4`.
+- Updated dependencies [ef844f6]
+- Updated dependencies [b80dac0]
+- Updated dependencies [b80dac0]
+  - @beesolve/auth-service@0.20.0
+  - @beesolve/dmarc-parser@0.1.4
+  - @beesolve/lambda-keep-active@2.1.11
+
 ## 0.10.5
 
 ### Patch Changes

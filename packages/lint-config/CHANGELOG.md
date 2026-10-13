@@ -1,5 +1,11 @@
 # @beesolve/lint-config
 
+## 0.3.4
+
+### Patch Changes
+
+- b80dac0: Update the `oxlint-tsgolint` peer dependency to `>=7.0.2004`.
+
 ## 0.3.3
 
 ### Patch Changes
