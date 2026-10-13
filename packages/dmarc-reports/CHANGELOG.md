@@ -1,5 +1,13 @@
 # @beesolve/dmarc-reports
 
+## 0.1.7
+
+### Patch Changes
+
+- Updated dependencies [a185bd5]
+  - @beesolve/cdk-constructs@0.8.0
+  - @beesolve/lambda-keep-active@2.1.12
+
 ## 0.1.6
 
 ### Patch Changes
