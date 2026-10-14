@@ -141,8 +141,11 @@ describe("SitemapUrlStats.getForMonth", () => {
     const command = recorded[0];
     if (command == null) throw new Error("no command");
     expect(command.input.IndexName).toBe("reverse-index");
-    expect(command.input.KeyConditionExpression).toBe("#sk = :month");
+    expect(command.input.KeyConditionExpression).toBe(
+      "#sk = :month AND begins_with(#pk, :pkPrefix)",
+    );
     expect(asRecord(command.input.ExpressionAttributeValues)[":month"]).toBe("2026-05");
+    expect(asRecord(command.input.ExpressionAttributeValues)[":pkPrefix"]).toBe("sitemapurl#");
   });
 
   it("throws without a reverseIndexName", async () => {

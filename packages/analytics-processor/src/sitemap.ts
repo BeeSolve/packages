@@ -571,9 +571,9 @@ export class SitemapUrlStats {
       input: {
         TableName: this.props.tableName,
         IndexName: this.props.reverseIndexName,
-        KeyConditionExpression: "#sk = :month",
-        ExpressionAttributeNames: { "#sk": "sk" },
-        ExpressionAttributeValues: { ":month": month },
+        KeyConditionExpression: "#sk = :month AND begins_with(#pk, :pkPrefix)",
+        ExpressionAttributeNames: { "#sk": "sk", "#pk": "pk" },
+        ExpressionAttributeValues: { ":month": month, ":pkPrefix": "sitemapurl#" },
       },
     });
 

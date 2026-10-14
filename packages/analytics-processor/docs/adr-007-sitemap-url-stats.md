@@ -125,7 +125,11 @@ updatedAt: <epoch ms>
 - **PK = `sitemapurl#<path>`, SK = `<YYYY-MM>`** - query one URL across many
   months on the main table (`#pk = :pk`, SK `BETWEEN` for a month range).
 - **Reverse GSI (`sk` -> `pk`, already on the table)** - query all URLs for one
-  `YYYY-MM` (`#sk = :month` on the reverse index).
+  `YYYY-MM`. The sort key must be constrained with
+  `#sk = :month AND begins_with(#pk, "sitemapurl#")`: the reverse GSI is keyed on
+  `sk` alone, and the totals rollup (`pk = totals#month`, `sk = <YYYY-MM>`, see
+  ADR-002) shares the same month sort key, so a bare `#sk = :month` also returns
+  that record and parsing rejects it.
 - Flat `d01..d31` attributes, no nested `days` map.
 - No TTL - these are long-lived historical comparison items.
 
@@ -196,7 +200,9 @@ write touches only the day the processed hour belongs to.
 
 The two access patterns are "one URL over time" and "all URLs in a month". The
 first is a bare-`pk` Query with a `BETWEEN` on the month `sk`; the second is a
-Query on the already-existing reverse index (`sk` -> `pk`) keyed by the month.
+Query on the already-existing reverse index (`sk` -> `pk`) keyed by the month and
+constrained to the `sitemapurl#` partition prefix (`begins_with` on the index
+sort key) so sibling families sharing the month `sk` are excluded.
 Both are served from the shared table and the existing reverse GSI, with no new
 index and no `Scan`.
 
