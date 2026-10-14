@@ -114,7 +114,7 @@ export const inviteUser = form(inviteUserSchema, async ({ email }) => {
     text: `Hi,\n\nYou've been invited to the Analytics Dashboard. You can sign in at any time using your email address — a one-time code will be sent to verify your identity.\n\n— Analytics Dashboard`,
   });
 
-  redirect(303, "/users");
+  redirect(303, "/settings");
 });
 
 const updateUserSchema = v.object({
@@ -136,5 +136,5 @@ export const updateUser = form(updateUserSchema, async ({ email, type }) => {
     toRemoteError(thrown);
   }
 
-  redirect(303, "/users");
+  redirect(303, "/settings");
 });

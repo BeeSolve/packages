@@ -1,4 +1,10 @@
-import type { AppliedMarkers, Breakdowns, Config, Totals } from "@beesolve/analytics-processor";
+import type {
+  AppliedMarkers,
+  Breakdowns,
+  Config,
+  SitemapUrlStats,
+  Totals,
+} from "@beesolve/analytics-processor";
 import type { AuthClient } from "@beesolve/auth-service/sdk";
 import type { SessionContext } from "@beesolve/auth-service/sveltekit";
 import type { Email } from "@beesolve/email-service/sdk";
@@ -19,6 +25,7 @@ declare global {
         totals: Totals;
         breakdowns: Breakdowns;
         config: Config;
+        sitemapUrlStats: SitemapUrlStats;
         markers: AppliedMarkers;
         users: Users;
         setup: Setup;

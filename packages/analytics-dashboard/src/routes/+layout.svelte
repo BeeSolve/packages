@@ -13,8 +13,9 @@
         {#if data.user != null}
           <a href="/" class="nav-link">Overview</a>
           <a href="/breakdowns/path" class="nav-link">Breakdowns</a>
+          <a href="/sitemap" class="nav-link">Sitemap</a>
           {#if data.user.type === "admin"}
-            <a href="/users" class="nav-link">Users</a>
+            <a href="/settings" class="nav-link">Settings</a>
           {/if}
         {/if}
       </div>

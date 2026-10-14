@@ -19,4 +19,4 @@
   </button>
 </form>
 
-<p><a href="/users">Back to users</a></p>
+<p><a href="/settings">Back to settings</a></p>
