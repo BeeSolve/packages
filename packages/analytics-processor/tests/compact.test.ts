@@ -6,6 +6,7 @@ import {
   buildSeedCtas,
   compactColumnMap,
   parseCompactArgs,
+  parseS3Location,
   planDateBatches,
 } from "../command/compact.ts";
 
@@ -94,9 +95,9 @@ describe("buildSeedCtas", () => {
     expect(ctas).toContain("partitioned_by = ARRAY['year', 'month', 'day', 'hour']");
   });
 
-  it("forces one file per partition via a single bucket", () => {
-    expect(ctas).toContain("bucketed_by = ARRAY['c_ip']");
-    expect(ctas).toContain("bucket_count = 1");
+  it("is not bucketed (Athena forbids INSERT into bucketed tables)", () => {
+    expect(ctas).not.toContain("bucketed_by");
+    expect(ctas).not.toContain("bucket_count");
   });
 
   it("normalizes the external location to a trailing slash", () => {
@@ -165,5 +166,25 @@ describe("parseCompactArgs", () => {
 
   it("throws listing every missing required flag", () => {
     expect(() => parseCompactArgs(["--database", "cf_logs_db"])).toThrow(/--source-table/);
+  });
+});
+
+describe("parseS3Location", () => {
+  it("splits an s3:// URL into bucket and slash-terminated prefix", () => {
+    expect(parseS3Location("s3://my-bucket/compact/v1/")).toEqual({
+      bucket: "my-bucket",
+      prefix: "compact/v1/",
+    });
+  });
+
+  it("adds a trailing slash to a prefix that lacks one", () => {
+    expect(parseS3Location("s3://my-bucket/compact/v1")).toEqual({
+      bucket: "my-bucket",
+      prefix: "compact/v1/",
+    });
+  });
+
+  it("throws on a non-s3 URL", () => {
+    expect(() => parseS3Location("https://example.com/x")).toThrow(/must be an s3:\/\/ URL/);
   });
 });

@@ -1,5 +1,6 @@
 import { AthenaClient } from "@aws-sdk/client-athena";
 import { GetQueryExecutionCommand, StartQueryExecutionCommand } from "@aws-sdk/client-athena";
+import { DeleteObjectsCommand, ListObjectsV2Command, type S3Client } from "@aws-sdk/client-s3";
 
 /**
  * One-time (and reusable) compaction of a v1 LazySimpleSerDe CloudFront access
@@ -14,8 +15,11 @@ import { GetQueryExecutionCommand, StartQueryExecutionCommand } from "@aws-sdk/c
  * which is what lets the processor drop its entire v1 code path.
  *
  * The compacted table is written as Parquet, partitioned by
- * `year/month/day/hour`, with `bucket_count = 1` so Trino emits exactly one file
- * per partition.
+ * `year/month/day/hour`. It is not bucketed: Athena forbids `INSERT` into a
+ * bucketed table, and compacting more than ~100 hour-partitions needs multiple
+ * statements, so forcing one file per partition is not possible at range scale.
+ * Partitioning alone delivers the cost win - a single-hour query reads one
+ * hour-partition instead of fanning out across the whole table.
  */
 
 /**
@@ -34,13 +38,6 @@ export const compactColumnMap: ReadonlyArray<{ readonly v1: string; readonly v2:
   { v1: '"c-ip"', v2: "c_ip" },
   { v1: '"cs(User-Agent)"', v2: "cs_user_agent" },
 ] as const;
-
-/**
- * Column used purely as the single bucketing key. Any column works; the point
- * is `bucket_count = 1`, which forces Trino to write one bucket file per
- * partition instead of one-per-writer-task.
- */
-const bucketColumn = "c_ip";
 
 const datePattern = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -101,9 +98,16 @@ export function buildCompactSelect({
 }
 
 /**
- * The seed `CREATE TABLE ... AS` statement. Declares the Parquet format, the
- * hour-partition keys, and `bucket_count = 1` (one file per partition), and
- * populates the first batch of days.
+ * The seed `CREATE TABLE ... AS` statement. Declares the Parquet format and the
+ * hour-partition keys, and populates the first batch of days.
+ *
+ * Not bucketed: Athena forbids `INSERT` into a bucketed table, and a range
+ * larger than ~100 hour-partitions must be written across multiple statements
+ * (seed CTAS + INSERTs) to stay under Trino's 100-open-writers cap. Those two
+ * facts are mutually exclusive, so compaction partitions (collapsing a
+ * full-table scan to one hour-partition) but does not force one file per
+ * partition. Each statement still writes only a handful of files per hour, which
+ * is what the per-hour query cost depends on.
  */
 export function buildSeedCtas({
   targetTable,
@@ -122,9 +126,7 @@ export function buildSeedCtas({
     `  external_location = '${normalizeLocation(externalLocation)}',`,
     "  format = 'PARQUET',",
     "  parquet_compression = 'SNAPPY',",
-    "  partitioned_by = ARRAY['year', 'month', 'day', 'hour'],",
-    `  bucketed_by = ARRAY['${bucketColumn}'],`,
-    "  bucket_count = 1",
+    "  partitioned_by = ARRAY['year', 'month', 'day', 'hour']",
     ") AS",
     buildCompactSelect({ sourceTable, batch }),
   ].join("\n");
@@ -182,6 +184,70 @@ function toDateString(epochMs: number): string {
 
 function normalizeLocation(location: string): string {
   return location.endsWith("/") ? location : `${location}/`;
+}
+
+export interface S3Location {
+  readonly bucket: string;
+  readonly prefix: string;
+}
+
+/**
+ * Parse an `s3://bucket/prefix` URL into its bucket and (slash-terminated)
+ * prefix. Throws on a non-`s3://` URL.
+ */
+export function parseS3Location(location: string): S3Location {
+  const match = /^s3:\/\/([^/]+)\/(.*)$/.exec(location);
+  if (match == null) {
+    throw new Error(`compact: --external-location must be an s3:// URL, got ${location}`);
+  }
+  const [, bucket, rawPrefix] = match;
+  if (bucket == null || rawPrefix == null) {
+    throw new Error(`compact: --external-location must be an s3:// URL, got ${location}`);
+  }
+  const prefix = rawPrefix === "" || rawPrefix.endsWith("/") ? rawPrefix : `${rawPrefix}/`;
+  return { bucket, prefix };
+}
+
+/**
+ * Delete every object under an `s3://bucket/prefix`, paging through the listing
+ * in 1000-key batches. Returns the number of objects deleted.
+ */
+async function purgeS3Location({
+  s3,
+  location,
+}: {
+  s3: Pick<S3Client, "send">;
+  location: string;
+}): Promise<number> {
+  const { bucket, prefix } = parseS3Location(location);
+  let deleted = 0;
+  let continuationToken: string | undefined;
+
+  do {
+    const listed = await s3.send(
+      new ListObjectsV2Command({
+        Bucket: bucket,
+        Prefix: prefix,
+        ContinuationToken: continuationToken,
+      }),
+    );
+
+    const objects = (listed.Contents ?? [])
+      .map((object) => object.Key)
+      .filter((key): key is string => key != null)
+      .map((key) => ({ Key: key }));
+
+    if (objects.length > 0) {
+      await s3.send(
+        new DeleteObjectsCommand({ Bucket: bucket, Delete: { Objects: objects, Quiet: true } }),
+      );
+      deleted += objects.length;
+    }
+
+    continuationToken = listed.IsTruncated === true ? listed.NextContinuationToken : undefined;
+  } while (continuationToken != null);
+
+  return deleted;
 }
 
 function requireFlag(flags: Record<string, string>, name: string): string {
@@ -289,9 +355,11 @@ async function runStatement({
 export async function runCompact({
   athena,
   args,
+  purgeLocation,
 }: {
   athena: Pick<AthenaClient, "send">;
   args: CompactArgs;
+  purgeLocation?: (location: string) => Promise<number>;
 }): Promise<{ statements: number; batches: number }> {
   const batches = planDateBatches({ from: args.from, to: args.to });
   if (batches.length === 0) {
@@ -305,8 +373,15 @@ export async function runCompact({
       database: args.database,
       workgroup: args.workgroup,
       outputLocation: args.outputLocation,
-      queryString: `DROP TABLE IF EXISTS "${args.targetTable}"`,
+      queryString: `DROP TABLE IF EXISTS \`${args.targetTable}\``,
     });
+    // Athena CTAS refuses to write into a non-empty external_location
+    // (HIVE_PATH_ALREADY_EXISTS). Dropping the Glue table leaves its data files
+    // behind, so a re-run must also clear the prefix to be idempotent.
+    if (purgeLocation != null) {
+      const deleted = await purgeLocation(args.externalLocation);
+      console.log(`compact: purged ${deleted} objects under ${args.externalLocation}`);
+    }
   }
 
   const [seedBatch, ...rest] = batches;
@@ -354,9 +429,15 @@ export async function runCompact({
 }
 
 export async function main(): Promise<void> {
+  const { S3Client } = await import("@aws-sdk/client-s3");
   const athena = new AthenaClient();
+  const s3 = new S3Client();
   const args = parseCompactArgs(process.argv.slice(2));
-  await runCompact({ athena, args });
+  await runCompact({
+    athena,
+    args,
+    purgeLocation: (location) => purgeS3Location({ s3, location }),
+  });
 }
 
 if (import.meta.main) {

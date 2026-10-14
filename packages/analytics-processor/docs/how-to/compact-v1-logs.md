@@ -8,12 +8,12 @@ out across the whole table. A one-off backfill over such a table has cost
 hundreds of dollars in GET requests alone.
 
 The `compact` command rewrites that v1 table into the **v2 Parquet shape**:
-Parquet, partitioned by `year/month/day/hour`, **one file per partition**, with
-the v1 column names renamed to the v2 schema. After compaction, a single-hour
-query touches ~one object instead of tens of thousands, and - because the
-compacted table is column-for-column identical to the live v2 Glue table - the
-processor's `backfill` and `sitemap-backfill` commands can read it directly with
-no v1-specific code.
+Parquet, partitioned by `year/month/day/hour`, with the v1 column names renamed
+to the v2 schema. After compaction, a single-hour query reads one hour-partition
+(a handful of files) instead of fanning out across tens of thousands of objects,
+and - because the compacted table is column-for-column identical to the live v2
+Glue table - the processor's `backfill` and `sitemap-backfill` commands can read
+it directly with no v1-specific code.
 
 ## Run it
 
@@ -43,8 +43,16 @@ bun run compact -- \
 Partitioning opens one writer per hour-partition, and Trino caps concurrent open
 writers at 100. The command therefore seeds the table with a `CREATE TABLE ... AS`
 for the first batch, then appends the rest in `INSERT INTO` statements of at most
-**4 days each** (<=96 hour-partitions per statement). One file per partition is
-achieved with `bucket_count = 1`.
+**4 days each** (<=96 hour-partitions per statement).
+
+The table is deliberately **not bucketed**. Bucketing with `bucket_count = 1`
+would force one file per partition, but Athena forbids `INSERT` into a bucketed
+table - and a range larger than ~100 hour-partitions must be written across
+multiple `INSERT` statements. Those two constraints are mutually exclusive, so
+compaction partitions the data (which is what collapses the per-hour query cost)
+but leaves a handful of files per hour-partition rather than exactly one. For the
+hourly query pattern that is all that matters: the query reads a single
+hour-partition either way.
 
 ## After compaction
 
