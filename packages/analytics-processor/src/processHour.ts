@@ -8,7 +8,7 @@ import type { AppliedMarkers } from "./appliedMarkers.ts";
 import { runHourlyAthenaQuery } from "./athena.ts";
 import type { BreakdownInput, BreakdownItem, Breakdowns } from "./breakdowns.ts";
 import type { Config } from "./config.ts";
-import type { AppliedSource, Dimension } from "./keys.ts";
+import type { Dimension } from "./keys.ts";
 import type { BreakdownRow } from "./reduce.ts";
 import { sumBreakdown, sumTotals } from "./reduce.ts";
 import type { Totals } from "./totals.ts";
@@ -46,14 +46,12 @@ const unresolvedCountry = "ZZ";
 
 export async function processHour({
   hourKey,
-  source,
   models,
   athena,
   options,
   dynamo,
 }: {
   hourKey: string;
-  source: AppliedSource;
   models: ProcessHourModels;
   athena: ProcessHourAthena;
   options: ProcessHourOptions;
@@ -68,7 +66,6 @@ export async function processHour({
     table: athena.table,
     workgroup: athena.workgroup,
     outputLocation: athena.outputLocation,
-    source,
     hourKey,
     topPaths: options.topPaths,
   });
@@ -84,7 +81,6 @@ export async function processHour({
   const markerPut = models.markers.buildMarkerPut({
     grain: "hour",
     periodKey: hourKey,
-    source,
     ttl,
   });
 
@@ -173,7 +169,6 @@ export async function applyDailyRollup({
   const markerPut = models.markers.buildMarkerPut({
     grain: "day",
     periodKey: dayKey,
-    source: "v2",
   });
 
   return sendTransacted({
@@ -226,7 +221,6 @@ export async function applyMonthlyRollup({
   const markerPut = models.markers.buildMarkerPut({
     grain: "month",
     periodKey: monthKey,
-    source: "v2",
   });
 
   return sendTransacted({

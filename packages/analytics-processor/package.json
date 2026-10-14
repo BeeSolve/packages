@@ -33,6 +33,7 @@
     "test": "bun test",
     "backfill": "bun run command/backfill.ts",
     "sitemap-backfill": "bun run command/sitemap-backfill.ts",
+    "compact": "bun run command/compact.ts",
     "prepublishOnly": "bun build.ts"
   },
   "dependencies": {

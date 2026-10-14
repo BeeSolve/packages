@@ -45,7 +45,6 @@ export async function handler(): Promise<void> {
 
   const result = await processHour({
     hourKey: targetHour,
-    source: "v2",
     models: { totals, breakdowns, markers, ipCache, config },
     athena: {
       client: athenaClient,

@@ -5,7 +5,6 @@ import {
   StartQueryExecutionCommand,
 } from "@aws-sdk/client-athena";
 
-import type { AppliedSource } from "./keys.ts";
 import type { BreakdownRow } from "./reduce.ts";
 import { topNWithOther } from "./reduce.ts";
 
@@ -41,45 +40,29 @@ export interface AthenaColumnMap {
 }
 
 /**
- * Per-source SQL column references — the single source of truth for how each
- * logical field is addressed in each table.
+ * SQL column references for the v2 Parquet Glue table — the single source of
+ * truth for how each logical field is addressed.
  *
- * v2 is the Parquet Glue table: Athena normalizes Parquet column names to
- * lowercase with hyphens folded to underscores. CloudFront standard-logging-v2
- * stores every Parquet field as BINARY/string, so the Glue schema types every
- * column as string and numeric references must cast explicitly — just like v1,
- * but on the normalized (unquoted) column names.
+ * Athena normalizes Parquet column names to lowercase with hyphens folded to
+ * underscores. CloudFront standard-logging-v2 stores every Parquet field as
+ * BINARY/string, so the Glue schema types every column as string and numeric
+ * references must cast explicitly.
  *
- * v1 is the legacy tab-delimited LazySimpleSerDe table: its column names contain
- * hyphens and parentheses, so they must be double-quoted, and every numeric
- * column is typed as string in the Glue schema, so arithmetic references must
- * cast explicitly.
+ * The v1 log format is no longer read directly: legacy v1 logs are compacted
+ * into this same v2 shape via {@link ../command/compact.ts} before processing,
+ * so there is exactly one column map.
  */
-export const columnMaps: Record<AppliedSource, AthenaColumnMap> = {
-  v2: {
-    status: "CAST(sc_status AS integer)",
-    bytesSent: "CAST(sc_bytes AS bigint)",
-    bytesReceived: "CAST(cs_bytes AS bigint)",
-    timeTaken: "CAST(time_taken AS double)",
-    resultType: "x_edge_result_type",
-    detailedResultType: "x_edge_detailed_result_type",
-    uriStem: "cs_uri_stem",
-    clientIp: "c_ip",
-    userAgent: "cs_user_agent",
-    timestamp: "timestamp",
-  },
-  v1: {
-    status: 'CAST("sc-status" AS integer)',
-    bytesSent: 'CAST("sc-bytes" AS bigint)',
-    bytesReceived: 'CAST("cs-bytes" AS bigint)',
-    timeTaken: 'CAST("time-taken" AS double)',
-    resultType: '"x-edge-result-type"',
-    detailedResultType: '"x-edge-detailed-result-type"',
-    uriStem: '"cs-uri-stem"',
-    clientIp: '"c-ip"',
-    userAgent: '"cs(User-Agent)"',
-    timestamp: '"time"',
-  },
+export const columnMap: AthenaColumnMap = {
+  status: "CAST(sc_status AS integer)",
+  bytesSent: "CAST(sc_bytes AS bigint)",
+  bytesReceived: "CAST(cs_bytes AS bigint)",
+  timeTaken: "CAST(time_taken AS double)",
+  resultType: "x_edge_result_type",
+  detailedResultType: "x_edge_detailed_result_type",
+  uriStem: "cs_uri_stem",
+  clientIp: "c_ip",
+  userAgent: "cs_user_agent",
+  timestamp: "timestamp",
 };
 
 interface HourParts {
@@ -112,27 +95,13 @@ function deviceCaseExpression(userAgentColumn: string): string {
   ].join(" ");
 }
 
-function predicateFor({
-  source,
-  hourKey,
-  columns,
-}: {
-  source: AppliedSource;
-  hourKey: string;
-  columns: AthenaColumnMap;
-}): string {
+function predicateFor(hourKey: string): string {
   const parts = hourKeyParts(hourKey);
-  if (source === "v2") {
-    return [
-      `year = '${parts.year}'`,
-      `month = '${parts.month}'`,
-      `day = '${parts.day}'`,
-      `hour = '${parts.hour}'`,
-    ].join(" AND ");
-  }
   return [
-    `"date" = DATE '${parts.year}-${parts.month}-${parts.day}'`,
-    `substr(${columns.timestamp}, 1, 2) = '${parts.hour}'`,
+    `year = '${parts.year}'`,
+    `month = '${parts.month}'`,
+    `day = '${parts.day}'`,
+    `hour = '${parts.hour}'`,
   ].join(" AND ");
 }
 
@@ -150,17 +119,15 @@ function predicateFor({
  */
 export function buildHourlyQuery({
   table,
-  source,
   hourKey,
   topPaths: _topPaths,
 }: {
   table: string;
-  source: AppliedSource;
   hourKey: string;
   topPaths: number;
 }): string {
-  const columns = columnMaps[source];
-  const predicate = predicateFor({ source, hourKey, columns });
+  const columns = columnMap;
+  const predicate = predicateFor(hourKey);
   const device = deviceCaseExpression(columns.userAgent);
 
   // The inner subquery projects plain columns: the numeric casts and the device
@@ -442,7 +409,6 @@ export async function runHourlyAthenaQuery({
   table,
   workgroup,
   outputLocation,
-  source,
   hourKey,
   topPaths,
 }: {
@@ -451,11 +417,10 @@ export async function runHourlyAthenaQuery({
   table: string;
   workgroup: string;
   outputLocation?: string;
-  source: AppliedSource;
   hourKey: string;
   topPaths: number;
 }): Promise<HourlyAthenaResult> {
-  const queryString = buildHourlyQuery({ table, source, hourKey, topPaths });
+  const queryString = buildHourlyQuery({ table, hourKey, topPaths });
 
   const rawRows = await startAndFetchRows({
     athena,

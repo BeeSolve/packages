@@ -2,8 +2,7 @@ import type { DynamoDBDocumentClient, TransactWriteCommandInput } from "@aws-sdk
 import { GetCommand } from "@aws-sdk/lib-dynamodb";
 import * as v from "valibot";
 
-import type { AppliedSource, Grain } from "./keys.ts";
-import { appliedSources } from "./keys.ts";
+import type { Grain } from "./keys.ts";
 
 export type MarkerGrain = Grain | "sitemap";
 
@@ -13,10 +12,15 @@ interface TransactPutItem {
   readonly Put: PutMembers;
 }
 
-export const appliedMarkerSchema = v.object({
+/**
+ * An applied-marker is a presence check: its existence means a period has been
+ * processed. `looseObject` tolerates the legacy `source` attribute that older
+ * markers still carry (it is never read) without requiring new markers to write
+ * it.
+ */
+export const appliedMarkerSchema = v.looseObject({
   pk: v.string(),
   sk: v.string(),
-  source: v.picklist(appliedSources),
   appliedAt: v.number(),
   ttl: v.optional(v.number()),
 });
@@ -48,13 +52,11 @@ export class AppliedMarkers {
   readonly buildMarkerPut = (props: {
     readonly grain: MarkerGrain;
     readonly periodKey: string;
-    readonly source: AppliedSource;
     readonly ttl?: number;
   }): TransactPutItem => {
     const item: NonNullable<PutMembers["Item"]> = {
       pk: partitionKey(props),
       sk: "applied",
-      source: props.source,
       appliedAt: Date.now(),
     };
 

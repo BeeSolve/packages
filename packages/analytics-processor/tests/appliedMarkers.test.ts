@@ -26,7 +26,6 @@ describe("AppliedMarkers", () => {
       const put = markers.buildMarkerPut({
         grain: "hour",
         periodKey: "2026-02-14-09",
-        source: "v2",
         ttl: 1_700_000_000,
       });
 
@@ -39,7 +38,6 @@ describe("AppliedMarkers", () => {
       if (item == null) throw new Error("missing item");
       expect(item.pk).toBe("applied#hour#2026-02-14-09");
       expect(item.sk).toBe("applied");
-      expect(item.source).toBe("v2");
       expect(item.ttl).toBe(1_700_000_000);
       expect(typeof item.appliedAt).toBe("number");
     });
@@ -51,14 +49,12 @@ describe("AppliedMarkers", () => {
       const put = markers.buildMarkerPut({
         grain: "day",
         periodKey: "2026-02-14",
-        source: "v1",
       });
 
       const item = put.Put.Item;
       if (item == null) throw new Error("missing item");
       expect(item.pk).toBe("applied#day#2026-02-14");
       expect(item.ttl).toBeUndefined();
-      expect(item.source).toBe("v1");
     });
   });
 

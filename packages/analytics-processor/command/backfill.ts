@@ -21,7 +21,7 @@ export interface BackfillConfig {
   readonly tableName: string;
   readonly reverseIndexName?: string;
   readonly athenaDatabase: string;
-  readonly athenaV1Table: string;
+  readonly athenaTable: string;
   readonly athenaWorkgroup: string;
   readonly athenaOutputLocation?: string;
   readonly ipInfoApiKey?: string;
@@ -112,19 +112,19 @@ export async function runPool<Input, Output>({
 export function configFromEnv(env: Record<string, string | undefined>): BackfillConfig {
   const tableName = env.TABLE_NAME;
   const athenaDatabase = env.ATHENA_DATABASE;
-  const athenaV1Table = env.ATHENA_V1_TABLE;
+  const athenaTable = env.ATHENA_TABLE;
   const athenaWorkgroup = env.ATHENA_WORKGROUP;
 
   if (tableName == null) throw new Error("backfill requires TABLE_NAME");
   if (athenaDatabase == null) throw new Error("backfill requires ATHENA_DATABASE");
-  if (athenaV1Table == null) throw new Error("backfill requires ATHENA_V1_TABLE");
+  if (athenaTable == null) throw new Error("backfill requires ATHENA_TABLE");
   if (athenaWorkgroup == null) throw new Error("backfill requires ATHENA_WORKGROUP");
 
   return {
     tableName,
     reverseIndexName: env.REVERSE_INDEX_NAME,
     athenaDatabase,
-    athenaV1Table,
+    athenaTable,
     athenaWorkgroup,
     athenaOutputLocation: env.ATHENA_OUTPUT_LOCATION,
     ipInfoApiKey: env.IPINFO_API_KEY,
@@ -167,12 +167,11 @@ export async function runBackfill({
       try {
         const result = await processHour({
           hourKey: targetHour,
-          source: "v1",
           models: { totals, breakdowns, markers, ipCache, config: configModel },
           athena: {
             client: athenaClient,
             database: config.athenaDatabase,
-            table: config.athenaV1Table,
+            table: config.athenaTable,
             workgroup: config.athenaWorkgroup,
             outputLocation: config.athenaOutputLocation,
           },

@@ -50,7 +50,6 @@ export async function handler(): Promise<void> {
 
   const result = await processSitemapHour({
     hourKey: targetHour,
-    source: "v2",
     paths,
     models: { sitemapUrlStats, markers },
     athena: {

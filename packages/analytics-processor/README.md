@@ -22,7 +22,9 @@ hour of v2 Parquet data and writes totals + per-dimension breakdowns with
 atomic `ADD` updates, guarded by a per-hour `applied#...` marker written
 conditionally in the same `TransactWriteCommand`. Daily and monthly rollup
 Lambdas sum finer-grain DynamoDB items (never re-querying Athena). A one-time
-standalone backfill script walks historic v1 data through the same write path.
+standalone backfill script walks historic data through the same write path, and
+a `compact` command rewrites legacy v1 logs into the v2 Parquet shape so they
+can be read through that same path.
 
 ## Installation
 
@@ -75,13 +77,23 @@ The construct provisions:
 
 ## Backfill
 
-The one-time backfill script walks historic v1 log data through the same write
+> **Cost warning:** if your source is legacy v1 logs (many small gzip files),
+> run [`compact`](./docs/how-to/compact-v1-logs.md) first and point `ATHENA_TABLE`
+> at the compacted table. Backfilling a raw v1 table directly makes every hourly
+> query fan out across tens of thousands of S3 objects — Athena issues at least
+> one GET per file, which has cost **hundreds of dollars in S3 GET requests** for
+> a single full backfill. Compacting first reduces that to cents.
+
+The one-time backfill script walks historic log data through the same write
 path as the hourly Lambda. It is resumable and exactly-once via the idempotency
-markers — already-applied hours skip instantly.
+markers — already-applied hours skip instantly. It reads the v2 Parquet table;
+to backfill legacy v1 logs, first run [`compact`](./docs/how-to/compact-v1-logs.md)
+to rewrite them into the v2 shape, then point `ATHENA_TABLE` at the compacted
+table.
 
 ```bash
 TABLE_NAME=... \
-ATHENA_DATABASE=... ATHENA_V1_TABLE=... ATHENA_WORKGROUP=... \
+ATHENA_DATABASE=... ATHENA_TABLE=... ATHENA_WORKGROUP=... \
 bun run backfill -- --from 2026-01-01T00:00:00Z --to 2026-01-31T23:00:00Z --concurrency 2 --rollups
 ```
 
@@ -90,3 +102,19 @@ bun run backfill -- --from 2026-01-01T00:00:00Z --to 2026-01-31T23:00:00Z --conc
 - `--rollups` — after the per-hour fill, run daily and monthly rollups over the range.
 
 Credentials are resolved by the default AWS SDK chain (honors `AWS_PROFILE`).
+
+## Compact
+
+The `compact` command converts a legacy v1 `LazySimpleSerDe` log table into a
+v2-shaped Parquet table (one file per hour-partition, v1 columns renamed to the
+v2 schema), so queries stop fanning out across tens of thousands of tiny S3
+objects. See the [how-to guide](./docs/how-to/compact-v1-logs.md).
+
+```bash
+bun run compact -- \
+  --database cf_logs_db --source-table cf_logs_v1_backfill \
+  --target-table cf_logs_v1_compact \
+  --external-location s3://log-bucket/compact/v1/ \
+  --workgroup primary --output-location s3://athena-results/ctas/ \
+  --from 2025-10-16 --to 2026-10-13
+```

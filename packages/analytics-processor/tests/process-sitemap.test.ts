@@ -106,7 +106,6 @@ describe("processSitemapHour", () => {
 
     const result = await processSitemapHour({
       hourKey: "2026-05-14-09",
-      source: "v2",
       paths: ["/blog", "/about"],
       models: { sitemapUrlStats, markers: makeMarkers() },
       athena: { client, database: "db", table: "t", workgroup: "wg" },
@@ -141,7 +140,6 @@ describe("processSitemapHour", () => {
 
     const result = await processSitemapHour({
       hourKey: "2026-05-14-09",
-      source: "v2",
       paths: ["/blog"],
       models: { sitemapUrlStats, markers: makeMarkers({ alreadyApplied: true }) },
       athena: { client, database: "db", table: "t", workgroup: "wg" },
@@ -159,7 +157,6 @@ describe("processSitemapHour", () => {
 
     const result = await processSitemapHour({
       hourKey: "2026-05-14-09",
-      source: "v2",
       paths: ["/blog"],
       models: { sitemapUrlStats, markers: makeMarkers() },
       athena: { client, database: "db", table: "t", workgroup: "wg" },
@@ -216,7 +213,6 @@ describe("processSitemapMonth", () => {
 
     const result = await processSitemapMonth({
       monthKey: "2026-05",
-      source: "v2",
       paths: ["/blog", "/about"],
       models: { sitemapUrlStats: sitemapUrlStatsMonthly },
       athena: { client, database: "db", table: "t", workgroup: "wg" },
@@ -243,7 +239,6 @@ describe("processSitemapMonth", () => {
 
     const result = await processSitemapMonth({
       monthKey: "2026-05",
-      source: "v2",
       paths: [],
       models: { sitemapUrlStats: sitemapUrlStatsMonthly },
       athena: { client, database: "db", table: "t", workgroup: "wg" },

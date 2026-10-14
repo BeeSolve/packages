@@ -190,7 +190,6 @@ describe("processHour", () => {
 
     const result = await processHour({
       hourKey: "2026-02-14-09",
-      source: "v2",
       models,
       athena: { client, ...athenaConfig },
       options: { topPaths: 100, hourlyTtlDays: 90 },
@@ -215,7 +214,6 @@ describe("processHour", () => {
 
     const result = await processHour({
       hourKey: "2026-02-14-09",
-      source: "v2",
       models,
       athena: { client, ...athenaConfig },
       options: { topPaths: 100, hourlyTtlDays: 90 },
@@ -278,7 +276,6 @@ describe("processHour", () => {
 
     const result = await processHour({
       hourKey: "2026-02-14-09",
-      source: "v2",
       models,
       athena: { client, ...athenaConfig },
       options: { topPaths: 100, hourlyTtlDays: 90, ipInfoApiKey: "key" },
@@ -312,7 +309,6 @@ describe("processHour", () => {
 
     const result = await processHour({
       hourKey: "2026-02-14-09",
-      source: "v2",
       models,
       athena: { client, ...athenaConfig },
       options: { topPaths: 200, hourlyTtlDays: 90 },

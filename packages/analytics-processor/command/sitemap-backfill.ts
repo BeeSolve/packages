@@ -2,15 +2,12 @@ import { AthenaClient } from "@aws-sdk/client-athena";
 
 import { Config } from "../src/config.ts";
 import { toDynamoClient } from "../src/dynamo.ts";
-import type { AppliedSource } from "../src/keys.ts";
-import { appliedSources } from "../src/keys.ts";
 import { fetchSitemapPaths, processSitemapMonth, SitemapUrlStats } from "../src/sitemap.ts";
 import { runPool } from "./backfill.ts";
 
 export interface SitemapBackfillArgs {
   readonly from: string;
   readonly to: string;
-  readonly source: AppliedSource;
   readonly concurrency: number;
   readonly sitemapUrl?: string;
 }
@@ -27,14 +24,9 @@ export interface SitemapBackfillConfig {
 const defaultConcurrency = 2;
 const monthPattern = /^\d{4}-\d{2}$/;
 
-function isAppliedSource(value: string): value is AppliedSource {
-  return (appliedSources as ReadonlyArray<string>).includes(value);
-}
-
 export function parseSitemapBackfillArgs(argv: Array<string>): SitemapBackfillArgs {
   let from: string | undefined;
   let to: string | undefined;
-  let source = "v2";
   let concurrency = defaultConcurrency;
   let sitemapUrl: string | undefined;
 
@@ -45,9 +37,6 @@ export function parseSitemapBackfillArgs(argv: Array<string>): SitemapBackfillAr
       index += 1;
     } else if (token === "--to") {
       to = argv[index + 1];
-      index += 1;
-    } else if (token === "--source") {
-      source = argv[index + 1] ?? "";
       index += 1;
     } else if (token === "--concurrency") {
       concurrency = Number(argv[index + 1]);
@@ -72,17 +61,13 @@ export function parseSitemapBackfillArgs(argv: Array<string>): SitemapBackfillAr
     throw new Error("sitemap-backfill --from must not be after --to");
   }
 
-  if (!isAppliedSource(source)) {
-    throw new Error(`sitemap-backfill --source must be v1 or v2, got ${source}`);
-  }
-
   if (!Number.isFinite(concurrency) || concurrency < 1) {
     throw new Error(
       `sitemap-backfill --concurrency must be a positive number, got ${String(concurrency)}`,
     );
   }
 
-  return { from, to, source, concurrency: Math.floor(concurrency), sitemapUrl };
+  return { from, to, concurrency: Math.floor(concurrency), sitemapUrl };
 }
 
 export function monthsBetween({ from, to }: { from: string; to: string }): Array<string> {
@@ -106,27 +91,17 @@ export function monthsBetween({ from, to }: { from: string; to: string }): Array
   return months;
 }
 
-export function configFromEnv({
-  env,
-  source,
-}: {
-  env: Record<string, string | undefined>;
-  source: AppliedSource;
-}): SitemapBackfillConfig {
+export function configFromEnv(env: Record<string, string | undefined>): SitemapBackfillConfig {
   const tableName = env.TABLE_NAME;
   const athenaDatabase = env.ATHENA_DATABASE;
   const athenaWorkgroup = env.ATHENA_WORKGROUP;
-  const athenaTable = source === "v2" ? env.ATHENA_V2_TABLE : env.ATHENA_V1_TABLE;
+  const athenaTable = env.ATHENA_TABLE;
 
   if (tableName == null) throw new Error("sitemap-backfill requires TABLE_NAME");
   if (athenaDatabase == null) throw new Error("sitemap-backfill requires ATHENA_DATABASE");
   if (athenaWorkgroup == null) throw new Error("sitemap-backfill requires ATHENA_WORKGROUP");
   if (athenaTable == null) {
-    throw new Error(
-      source === "v2"
-        ? "sitemap-backfill requires ATHENA_V2_TABLE"
-        : "sitemap-backfill requires ATHENA_V1_TABLE",
-    );
+    throw new Error("sitemap-backfill requires ATHENA_TABLE");
   }
 
   return {
@@ -166,9 +141,7 @@ export async function runSitemapBackfill({
   const paths = await fetchSitemapPaths(sitemapUrl);
 
   const months = monthsBetween({ from: args.from, to: args.to });
-  console.log(
-    `sitemap-backfill: ${months.length} months, source ${args.source}, concurrency ${args.concurrency}`,
-  );
+  console.log(`sitemap-backfill: ${months.length} months, concurrency ${args.concurrency}`);
 
   await runPool({
     items: months,
@@ -176,7 +149,6 @@ export async function runSitemapBackfill({
     worker: async (month) => {
       const result = await processSitemapMonth({
         monthKey: month,
-        source: args.source,
         paths,
         models: { sitemapUrlStats },
         athena: {
@@ -194,7 +166,7 @@ export async function runSitemapBackfill({
 
 export async function main(): Promise<void> {
   const args = parseSitemapBackfillArgs(process.argv.slice(2));
-  const config = configFromEnv({ env: process.env, source: args.source });
+  const config = configFromEnv(process.env);
   await runSitemapBackfill({ args, config });
 }
 

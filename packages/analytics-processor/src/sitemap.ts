@@ -5,8 +5,7 @@ import { queryAll } from "@beesolve/dynamo-helpers";
 import * as v from "valibot";
 
 import type { AppliedMarkers } from "./appliedMarkers.ts";
-import { columnMaps, startAndFetchRows } from "./athena.ts";
-import type { AppliedSource } from "./keys.ts";
+import { columnMap, startAndFetchRows } from "./athena.ts";
 import type { TransactItem } from "./processHour.ts";
 import { sendTransacted } from "./processHour.ts";
 
@@ -123,22 +122,16 @@ function hourKeyParts(hourKey: string): HourParts {
  */
 export function buildSitemapHourlyQuery({
   table,
-  source,
   hourKey,
   paths,
 }: {
   table: string;
-  source: AppliedSource;
   hourKey: string;
   paths: Array<string>;
 }): string {
   const parts = hourKeyParts(hourKey);
-  const columns = columnMaps[source];
-  const canonicalUri = canonicalUriExpr(columns.uriStem);
-  const hourPredicate =
-    source === "v2"
-      ? `year = '${parts.year}' AND month = '${parts.month}' AND day = '${parts.day}' AND hour = '${parts.hour}'`
-      : `"date" = DATE '${parts.year}-${parts.month}-${parts.day}' AND substr(${columns.timestamp}, 1, 2) = '${parts.hour}'`;
+  const canonicalUri = canonicalUriExpr(columnMap.uriStem);
+  const hourPredicate = `year = '${parts.year}' AND month = '${parts.month}' AND day = '${parts.day}' AND hour = '${parts.hour}'`;
 
   const whereClause =
     paths.length === 0
@@ -166,7 +159,6 @@ export async function runSitemapHourlyQuery({
   table,
   workgroup,
   outputLocation,
-  source,
   hourKey,
   paths,
 }: {
@@ -175,7 +167,6 @@ export async function runSitemapHourlyQuery({
   table: string;
   workgroup: string;
   outputLocation?: string;
-  source: AppliedSource;
   hourKey: string;
   paths: Array<string>;
 }): Promise<Array<SitemapHourCounts>> {
@@ -183,7 +174,7 @@ export async function runSitemapHourlyQuery({
     return [];
   }
 
-  const queryString = buildSitemapHourlyQuery({ table, source, hourKey, paths });
+  const queryString = buildSitemapHourlyQuery({ table, hourKey, paths });
   const rawRows = await startAndFetchRows({
     athena,
     database,
@@ -220,12 +211,10 @@ export interface SitemapMonthCounts {
  */
 export function buildSitemapMonthlyQuery({
   table,
-  source,
   monthKey,
   paths,
 }: {
   table: string;
-  source: AppliedSource;
   monthKey: string;
   paths: Array<string>;
 }): string {
@@ -238,13 +227,9 @@ export function buildSitemapMonthlyQuery({
     throw new Error(`Invalid monthKey: ${monthKey}`);
   }
 
-  const columns = columnMaps[source];
-  const canonicalUri = canonicalUriExpr(columns.uriStem);
-  const dayExpr = source === "v2" ? "day" : `day_of_month(CAST("date" AS date))`;
-  const monthPredicate =
-    source === "v2"
-      ? `year = '${year}' AND month = '${month}'`
-      : `"date" BETWEEN DATE '${year}-${month}-01' AND DATE '${year}-${month}-31'`;
+  const canonicalUri = canonicalUriExpr(columnMap.uriStem);
+  const dayExpr = "day";
+  const monthPredicate = `year = '${year}' AND month = '${month}'`;
 
   const whereClause =
     paths.length === 0
@@ -273,7 +258,6 @@ export async function runSitemapMonthlyQuery({
   table,
   workgroup,
   outputLocation,
-  source,
   monthKey,
   paths,
 }: {
@@ -282,7 +266,6 @@ export async function runSitemapMonthlyQuery({
   table: string;
   workgroup: string;
   outputLocation?: string;
-  source: AppliedSource;
   monthKey: string;
   paths: Array<string>;
 }): Promise<Array<SitemapMonthCounts>> {
@@ -290,7 +273,7 @@ export async function runSitemapMonthlyQuery({
     return [];
   }
 
-  const queryString = buildSitemapMonthlyQuery({ table, source, monthKey, paths });
+  const queryString = buildSitemapMonthlyQuery({ table, monthKey, paths });
   const rawRows = await startAndFetchRows({
     athena,
     database,
@@ -346,7 +329,6 @@ export interface ProcessSitemapOptions {
  */
 export async function processSitemapHour({
   hourKey,
-  source,
   paths,
   models,
   athena,
@@ -354,7 +336,6 @@ export async function processSitemapHour({
   dynamo,
 }: {
   hourKey: string;
-  source: AppliedSource;
   paths: Array<string>;
   models: ProcessSitemapModels;
   athena: ProcessSitemapAthena;
@@ -374,7 +355,6 @@ export async function processSitemapHour({
           table: athena.table,
           workgroup: athena.workgroup,
           outputLocation: athena.outputLocation,
-          source,
           hourKey,
           paths,
         });
@@ -383,7 +363,6 @@ export async function processSitemapHour({
   const markerPut = models.markers.buildMarkerPut({
     grain: "sitemap",
     periodKey: hourKey,
-    source,
     ttl,
   });
 
@@ -415,13 +394,11 @@ export interface ProcessSitemapMonthModels {
  */
 export async function processSitemapMonth({
   monthKey,
-  source,
   paths,
   models,
   athena,
 }: {
   monthKey: string;
-  source: AppliedSource;
   paths: Array<string>;
   models: ProcessSitemapMonthModels;
   athena: ProcessSitemapAthena;
@@ -436,7 +413,6 @@ export async function processSitemapMonth({
     table: athena.table,
     workgroup: athena.workgroup,
     outputLocation: athena.outputLocation,
-    source,
     monthKey,
     paths,
   });

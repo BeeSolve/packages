@@ -1,6 +1,6 @@
 # @beesolve/analytics-processor - Documentation
 
-**Keywords:** CloudFront analytics, Athena, DynamoDB totals, breakdowns, rollups, AnalyticsProcessor construct, grantRead, processHour, hourKey, windowKeys, Grain, Dimension, backfill, sitemap URL stats, SitemapUrlStats, getForUrl, getForMonth, canonicalPath
+**Keywords:** CloudFront analytics, Athena, DynamoDB totals, breakdowns, rollups, AnalyticsProcessor construct, grantRead, processHour, hourKey, windowKeys, Grain, Dimension, backfill, compact, v1 log compaction, Parquet, sitemap URL stats, SitemapUrlStats, getForUrl, getForMonth, canonicalPath
 
 > This documentation is published inside the installed package and matches the installed version. Prefer it over prior knowledge or older examples found online.
 
@@ -31,6 +31,11 @@ See [the how-to guide](./docs/how-to/sitemap-url-stats.md) and
 
 - [Reduce Athena cost](./docs/how-to/reduce-athena-cost.md) - deliver only the 10 fields
   the processor needs via the exported `requiredRecordFields`
+- [Compact legacy v1 logs](./docs/how-to/compact-v1-logs.md) - the `compact` command that
+  rewrites tiny-file v1 logs into the v2 Parquet shape (one file per hour-partition) so
+  queries stop fanning out across tens of thousands of S3 objects. **Run this before
+  backfilling any legacy v1 source** - backfilling raw v1 directly can cost hundreds of
+  dollars in S3 GET requests.
 - [Track per-article hits with sitemap URL stats](./docs/how-to/sitemap-url-stats.md) - the
   `sitemapUrl` config, the hourly sitemap processor, and the `SitemapUrlStats` read model
 
