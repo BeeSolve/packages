@@ -152,6 +152,65 @@ export class AnalyticsProcessor extends Construct {
       );
     }
 
+    const sitemap = new Nodejs24Function(this, "Sitemap", {
+      description:
+        "CloudFront analytics sitemap processor — fetches sitemap, recomputes per-URL monthly hits",
+      entry: `${builtDir}sitemap/`,
+      handler: "sitemap.handler",
+      memorySize,
+      timeout,
+      environment: {
+        ...sharedEnvironment,
+        ATHENA_DATABASE: props.athenaDatabase,
+        ATHENA_V2_TABLE: props.athenaV2Table,
+        ATHENA_WORKGROUP: props.athenaWorkgroup,
+        ...(props.athenaOutputLocation != null
+          ? { ATHENA_OUTPUT_LOCATION: props.athenaOutputLocation }
+          : {}),
+      },
+    });
+
+    this.table.grantReadWriteData(sitemap);
+
+    sitemap.addToRolePolicy(
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        actions: [
+          "athena:StartQueryExecution",
+          "athena:GetQueryExecution",
+          "athena:GetQueryResults",
+          "athena:StopQueryExecution",
+        ],
+        resources: ["*"],
+      }),
+    );
+
+    sitemap.addToRolePolicy(
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        actions: ["glue:GetTable", "glue:GetDatabase", "glue:GetPartitions"],
+        resources: ["*"],
+      }),
+    );
+
+    sitemap.addToRolePolicy(
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        actions: ["s3:GetObject", "s3:ListBucket", "s3:GetBucketLocation"],
+        resources: [props.logBucketArn, `${props.logBucketArn}/*`],
+      }),
+    );
+
+    if (props.athenaResultsBucketArn != null) {
+      sitemap.addToRolePolicy(
+        new PolicyStatement({
+          effect: Effect.ALLOW,
+          actions: ["s3:PutObject", "s3:GetObject", "s3:GetBucketLocation", "s3:ListBucket"],
+          resources: [props.athenaResultsBucketArn, `${props.athenaResultsBucketArn}/*`],
+        }),
+      );
+    }
+
     const dailyRollup = new Nodejs24Function(this, "DailyRollup", {
       description: "CloudFront analytics daily rollup — sums hourly DynamoDB items",
       entry: `${builtDir}dailyRollup/`,
@@ -177,6 +236,11 @@ export class AnalyticsProcessor extends Construct {
     new Rule(this, "HourlySchedule", {
       schedule: Schedule.rate(Duration.hours(1)),
       targets: [new LambdaFunctionTarget(hourly)],
+    });
+
+    new Rule(this, "SitemapSchedule", {
+      schedule: Schedule.rate(Duration.hours(1)),
+      targets: [new LambdaFunctionTarget(sitemap)],
     });
 
     new Rule(this, "DailyRollupSchedule", {

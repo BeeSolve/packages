@@ -264,7 +264,7 @@ interface DimensionBreakdowns {
   readonly country: Array<BreakdownRow>;
 }
 
-async function sendTransacted({
+export async function sendTransacted({
   dynamo,
   leading,
   rest,
@@ -288,7 +288,7 @@ async function sendTransacted({
   return { status: "applied" };
 }
 
-function isMarkerRaceError(error: unknown): boolean {
+export function isMarkerRaceError(error: unknown): boolean {
   if (error == null || typeof error !== "object") return false;
   const name = "name" in error ? error.name : undefined;
   return name === "TransactionCanceledException" || name === "ConditionalCheckFailedException";

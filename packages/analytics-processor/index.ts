@@ -9,5 +9,6 @@ export * from "./src/keys.ts";
 export * from "./src/processHour.ts";
 export * from "./src/reduce.ts";
 export * from "./src/resolveLive.ts";
+export * from "./src/sitemap.ts";
 export * from "./src/time.ts";
 export * from "./src/totals.ts";

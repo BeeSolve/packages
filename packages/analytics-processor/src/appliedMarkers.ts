@@ -5,6 +5,8 @@ import * as v from "valibot";
 import type { AppliedSource, Grain } from "./keys.ts";
 import { appliedSources } from "./keys.ts";
 
+export type MarkerGrain = Grain | "sitemap";
+
 type TransactWriteItem = NonNullable<TransactWriteCommandInput["TransactItems"]>[number];
 type PutMembers = NonNullable<TransactWriteItem["Put"]>;
 interface TransactPutItem {
@@ -30,7 +32,7 @@ export class AppliedMarkers {
   ) {}
 
   readonly isApplied = async (props: {
-    readonly grain: Grain;
+    readonly grain: MarkerGrain;
     readonly periodKey: string;
   }): Promise<boolean> => {
     const { Item: item } = await this.props.dynamo.send(
@@ -44,7 +46,7 @@ export class AppliedMarkers {
   };
 
   readonly buildMarkerPut = (props: {
-    readonly grain: Grain;
+    readonly grain: MarkerGrain;
     readonly periodKey: string;
     readonly source: AppliedSource;
     readonly ttl?: number;
@@ -70,6 +72,6 @@ export class AppliedMarkers {
   };
 }
 
-function partitionKey(props: { readonly grain: Grain; readonly periodKey: string }): string {
+function partitionKey(props: { readonly grain: MarkerGrain; readonly periodKey: string }): string {
   return `applied#${props.grain}#${props.periodKey}`;
 }

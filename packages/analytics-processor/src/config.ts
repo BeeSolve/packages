@@ -7,8 +7,14 @@ export const configSchema = v.object({
   sk: v.literal("analytics"),
   startKey: v.string(),
   startedAt: v.string(),
+  sitemapUrl: v.optional(v.string()),
 });
 export type AnalyticsConfig = v.InferOutput<typeof configSchema>;
+
+const sitemapConfigSchema = v.looseObject({
+  sitemapUrl: v.optional(v.string()),
+});
+export type SitemapConfig = v.InferOutput<typeof sitemapConfigSchema>;
 
 const configKey = { pk: "system#config", sk: "analytics" } as const;
 
@@ -32,6 +38,30 @@ export class Config {
     );
     if (item == null) return null;
     return v.parse(configSchema, item);
+  };
+
+  readonly getSitemapConfig = async (): Promise<SitemapConfig> => {
+    const { Item: item } = await this.props.dynamo.send(
+      new GetCommand({ TableName: this.props.tableName, Key: configKey }),
+    );
+    if (item == null) return {};
+    return v.parse(sitemapConfigSchema, item);
+  };
+
+  readonly setSitemapUrl = async ({
+    sitemapUrl,
+  }: {
+    readonly sitemapUrl: string;
+  }): Promise<void> => {
+    await this.props.dynamo.send(
+      new UpdateCommand({
+        TableName: this.props.tableName,
+        Key: configKey,
+        UpdateExpression: "SET #sitemapUrl = :url",
+        ExpressionAttributeNames: { "#sitemapUrl": "sitemapUrl" },
+        ExpressionAttributeValues: { ":url": sitemapUrl },
+      }),
+    );
   };
 
   /**

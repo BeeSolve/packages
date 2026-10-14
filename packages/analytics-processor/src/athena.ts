@@ -370,14 +370,14 @@ async function waitForQuery({
   }
 }
 
-async function fetchRows({
+async function fetchRawRows({
   athena,
   queryExecutionId,
 }: {
   athena: Pick<AthenaClient, "send">;
   queryExecutionId: string;
-}): Promise<Array<ResultRow>> {
-  const rows: Array<ResultRow> = [];
+}): Promise<Array<Array<string | undefined>>> {
+  const rows: Array<Array<string | undefined>> = [];
   let nextToken: string | undefined;
   let isFirstPage = true;
 
@@ -390,8 +390,7 @@ async function fetchRows({
     const dataRows = isFirstPage ? resultRows.slice(1) : resultRows;
 
     for (const dataRow of dataRows) {
-      const cells = (dataRow.Data ?? []).map((datum) => datum.VarCharValue);
-      rows.push(parseRow(cells));
+      rows.push((dataRow.Data ?? []).map((datum) => datum.VarCharValue));
     }
 
     nextToken = results.NextToken;
@@ -399,6 +398,42 @@ async function fetchRows({
   } while (nextToken != null);
 
   return rows;
+}
+
+/**
+ * Start an Athena statement, poll until it succeeds, and return every result
+ * row as raw string cells (header row dropped). Shared by the hourly query and
+ * the sitemap monthly query so both use one polling/paging implementation.
+ */
+export async function startAndFetchRows({
+  athena,
+  database,
+  workgroup,
+  outputLocation,
+  queryString,
+}: {
+  athena: Pick<AthenaClient, "send">;
+  database: string;
+  workgroup: string;
+  outputLocation?: string;
+  queryString: string;
+}): Promise<Array<Array<string | undefined>>> {
+  const started = await athena.send(
+    new StartQueryExecutionCommand({
+      QueryString: queryString,
+      QueryExecutionContext: { Database: database },
+      WorkGroup: workgroup,
+      ResultConfiguration: outputLocation == null ? undefined : { OutputLocation: outputLocation },
+    }),
+  );
+
+  const queryExecutionId = started.QueryExecutionId;
+  if (queryExecutionId == null) {
+    throw new Error("Athena StartQueryExecution returned no QueryExecutionId");
+  }
+
+  await waitForQuery({ athena, queryExecutionId });
+  return fetchRawRows({ athena, queryExecutionId });
 }
 
 export async function runHourlyAthenaQuery({
@@ -422,22 +457,14 @@ export async function runHourlyAthenaQuery({
 }): Promise<HourlyAthenaResult> {
   const queryString = buildHourlyQuery({ table, source, hourKey, topPaths });
 
-  const started = await athena.send(
-    new StartQueryExecutionCommand({
-      QueryString: queryString,
-      QueryExecutionContext: { Database: database },
-      WorkGroup: workgroup,
-      ResultConfiguration: outputLocation == null ? undefined : { OutputLocation: outputLocation },
-    }),
-  );
-
-  const queryExecutionId = started.QueryExecutionId;
-  if (queryExecutionId == null) {
-    throw new Error("Athena StartQueryExecution returned no QueryExecutionId");
-  }
-
-  await waitForQuery({ athena, queryExecutionId });
-  const rows = await fetchRows({ athena, queryExecutionId });
+  const rawRows = await startAndFetchRows({
+    athena,
+    database,
+    workgroup,
+    outputLocation,
+    queryString,
+  });
+  const rows = rawRows.map((cells) => parseRow(cells));
 
   return assembleResult({ rows, topPaths });
 }

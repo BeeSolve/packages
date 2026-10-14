@@ -32,6 +32,7 @@
     "type-check": "tsc --noEmit",
     "test": "bun test",
     "backfill": "bun run command/backfill.ts",
+    "sitemap-backfill": "bun run command/sitemap-backfill.ts",
     "prepublishOnly": "bun build.ts"
   },
   "dependencies": {
