@@ -10,7 +10,7 @@ import type {
 } from "aws-lambda";
 
 import { runWithAwsContext } from "./src/store";
-import { awsRequest, awsResponseBody, awsResponseHeaders } from "./src/util";
+import { MalformedRequestError, awsRequest, awsResponseBody, awsResponseHeaders } from "./src/util";
 
 export * from "./src/authorizer";
 export * from "./src/runtime";
@@ -20,19 +20,53 @@ export * from "./src/util";
 type Fetch = (request: Request) => Promise<Response>;
 type Context = Omit<LambdaContext, "done" | "succeed" | "fail">;
 
+function tryAwsRequest(event: APIGatewayProxyEvent | APIGatewayProxyEventV2): Request | undefined {
+  try {
+    return awsRequest(event);
+  } catch (error) {
+    if (error instanceof MalformedRequestError) {
+      return undefined;
+    }
+    throw error;
+  }
+}
+
+function badRequestResult(version: "v1" | "v2"): APIGatewayProxyResult {
+  return {
+    statusCode: 400,
+    headers: { "content-type": "text/plain" },
+    body: "Bad Request",
+    ...(version === "v1" ? { multiValueHeaders: {} } : {}),
+  };
+}
+
+async function toProxyResult(props: {
+  request: Request;
+  event: APIGatewayProxyEvent | APIGatewayProxyEventV2;
+  context: Context;
+  fetch: Fetch;
+  version: "v1" | "v2";
+}): Promise<APIGatewayProxyResult> {
+  const { request, event, context, fetch, version } = props;
+  const response = await runWithAwsContext(event, context, () => fetch(request));
+
+  return {
+    statusCode: response.status,
+    ...awsResponseHeaders(response, version),
+    ...(await awsResponseBody(response)),
+  };
+}
+
 export function asHttpV1Handler(fetch: Fetch) {
   return async function handler(
     event: APIGatewayProxyEvent,
     context: Context,
   ): Promise<APIGatewayProxyResult> {
-    const request = awsRequest(event);
-    const response = await runWithAwsContext(event, context, () => fetch(request));
-
-    return {
-      statusCode: response.status,
-      ...awsResponseHeaders(response, "v1"),
-      ...(await awsResponseBody(response)),
-    };
+    const request = tryAwsRequest(event);
+    if (request == null) {
+      return badRequestResult("v1");
+    }
+    return toProxyResult({ request, event, context, fetch, version: "v1" });
   };
 }
 
@@ -41,14 +75,11 @@ export function asHttpV2Handler(fetch: Fetch) {
     event: APIGatewayProxyEventV2,
     context: Context,
   ): Promise<APIGatewayProxyStructuredResultV2> {
-    const request = awsRequest(event);
-    const response = await runWithAwsContext(event, context, () => fetch(request));
-
-    return {
-      statusCode: response.status,
-      ...awsResponseHeaders(response, "v2"),
-      ...(await awsResponseBody(response)),
-    };
+    const request = tryAwsRequest(event);
+    if (request == null) {
+      return badRequestResult("v2");
+    }
+    return toProxyResult({ request, event, context, fetch, version: "v2" });
   };
 }
 
@@ -57,14 +88,11 @@ export function asLambdaAuthorizedHttpV2Handler<TAuth = unknown>(fetch: Fetch) {
     event: APIGatewayProxyEventV2WithLambdaAuthorizer<TAuth>,
     context: Context,
   ): Promise<APIGatewayProxyStructuredResultV2> {
-    const request = awsRequest(event);
-    const response = await runWithAwsContext(event, context, () => fetch(request));
-
-    return {
-      statusCode: response.status,
-      ...awsResponseHeaders(response, "v2"),
-      ...(await awsResponseBody(response)),
-    };
+    const request = tryAwsRequest(event);
+    if (request == null) {
+      return badRequestResult("v2");
+    }
+    return toProxyResult({ request, event, context, fetch, version: "v2" });
   };
 }
 
@@ -73,14 +101,11 @@ export function asCustomAuthorizedHttpV1Handler<TAuth = unknown>(fetch: Fetch) {
     event: APIGatewayProxyWithLambdaAuthorizerEvent<TAuth>,
     context: Context,
   ): Promise<APIGatewayProxyResult> {
-    const request = awsRequest(event);
-    const response = await runWithAwsContext(event, context, () => fetch(request));
-
-    return {
-      statusCode: response.status,
-      ...awsResponseHeaders(response, "v1"),
-      ...(await awsResponseBody(response)),
-    };
+    const request = tryAwsRequest(event);
+    if (request == null) {
+      return badRequestResult("v1");
+    }
+    return toProxyResult({ request, event, context, fetch, version: "v1" });
   };
 }
 

@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import type { APIGatewayProxyEvent, APIGatewayProxyEventV2, Context } from "aws-lambda";
 
 import {
+  MalformedRequestError,
   NotInHandlerContextError,
   awsRequest,
   awsResponseBody,
@@ -159,6 +160,20 @@ describe("awsRequest", () => {
   test("does not set aws-context header", () => {
     const request = awsRequest(makeV2Event());
     expect(request.headers.has("aws-context")).toBe(false);
+  });
+
+  test("throws MalformedRequestError for a protocol-relative path (v2)", () => {
+    expect(() => awsRequest(makeV2Event({ rawPath: "//" }))).toThrow(MalformedRequestError);
+  });
+
+  test("throws MalformedRequestError for a scanner probe path (v2)", () => {
+    expect(() => awsRequest(makeV2Event({ rawPath: "//:2375/containers/json" }))).toThrow(
+      MalformedRequestError,
+    );
+  });
+
+  test("throws MalformedRequestError for a protocol-relative path (v1)", () => {
+    expect(() => awsRequest(makeV1Event({ path: "//" }))).toThrow(MalformedRequestError);
   });
 });
 

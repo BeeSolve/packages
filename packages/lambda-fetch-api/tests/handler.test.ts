@@ -146,6 +146,17 @@ describe("asHttpV1Handler", () => {
     expect(capturedRequest?.method).toBe("POST");
     expect(new URL(capturedRequest?.url ?? "").pathname).toBe("/submit");
   });
+
+  test("returns 400 without invoking fetch for a malformed path", async () => {
+    let fetchCalled = false;
+    const handler = asHttpV1Handler(async () => {
+      fetchCalled = true;
+      return new Response("");
+    });
+    const result = await handler(makeV1Event({ path: "//" }), makeContext());
+    expect(result.statusCode).toBe(400);
+    expect(fetchCalled).toBe(false);
+  });
 });
 
 describe("asHttpV2Handler", () => {
@@ -214,5 +225,16 @@ describe("asHttpV2Handler", () => {
     );
     expect(capturedRequest?.method).toBe("DELETE");
     expect(new URL(capturedRequest?.url ?? "").pathname).toBe("/api/items");
+  });
+
+  test("returns 400 without invoking fetch for a malformed path", async () => {
+    let fetchCalled = false;
+    const handler = asHttpV2Handler(async () => {
+      fetchCalled = true;
+      return new Response("");
+    });
+    const result = await handler(makeV2Event({ rawPath: "//" }), makeContext());
+    expect(result.statusCode).toBe(400);
+    expect(fetchCalled).toBe(false);
   });
 });

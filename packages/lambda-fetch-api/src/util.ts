@@ -8,6 +8,14 @@ import { isAPIGatewayProxyEvent } from "./runtime.js";
 
 // Incoming (AWS => Web)
 
+export class MalformedRequestError extends Error {}
+
+function isInvalidUrlError(error: unknown): boolean {
+  if (!(error instanceof TypeError)) return false;
+  if (!("code" in error)) return false;
+  return error.code === "ERR_INVALID_URL";
+}
+
 export function awsRequest(event: APIGatewayProxyEvent | APIGatewayProxyEventV2): Request {
   const method = awsEventMethod(event);
   const url = awsEventURL(event);
@@ -25,21 +33,26 @@ function awsEventMethod(event: APIGatewayProxyEvent | APIGatewayProxyEventV2): s
 
 function awsEventURL(event: APIGatewayProxyEvent | APIGatewayProxyEventV2): URL {
   const origin = event.headers.origin || event.headers.Origin;
-  const hostname =
-    origin != null
-      ? new URL(origin).host
-      : event.headers.host || event.headers.Host || event.requestContext?.domainName || ".";
-
   const path = "path" in event ? event.path : event.rawPath;
-
   const query = awsEventQuery(event);
-
   const protocol =
     (event.headers["X-Forwarded-Proto"] || event.headers["x-forwarded-proto"]) === "http"
       ? "http"
       : "https";
 
-  return new URL(`${path}${query ? `?${query}` : ""}`, `${protocol}://${hostname}`);
+  try {
+    const hostname =
+      origin != null
+        ? new URL(origin).host
+        : event.headers.host || event.headers.Host || event.requestContext?.domainName || ".";
+
+    return new URL(`${path}${query ? `?${query}` : ""}`, `${protocol}://${hostname}`);
+  } catch (error) {
+    if (isInvalidUrlError(error)) {
+      throw new MalformedRequestError(`Malformed request URL: ${path}`);
+    }
+    throw error;
+  }
 }
 
 function awsEventQuery(event: APIGatewayProxyEvent | APIGatewayProxyEventV2) {
