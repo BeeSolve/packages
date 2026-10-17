@@ -1,5 +1,32 @@
 # @beesolve/analytics-dashboard
 
+## 0.7.1
+
+### Patch Changes
+
+- 3bf4809: Reconcile sitemap watch entries immediately on save, and explain breakdown
+  values in the UI.
+
+  - Saving the sitemap URL now also triggers `syncSitemapNow`, so `source="sitemap"`
+    watch entries are created right away instead of waiting for the next daily
+    rollup. The watch list is refreshed so the new entries appear immediately.
+  - The status-code breakdown now shows a tooltip explaining each HTTP status,
+    including the CloudFront pseudo-status `0` (no response recorded — typically a
+    viewer disconnect).
+  - The country breakdown now shows the full country name (via `Intl.DisplayNames`)
+    alongside the ISO code, falling back to the raw value for unknown codes.
+
+- 170eacc: Make the watch pattern suffix slash-optional and show it in the list.
+
+  - `addWatch` now accepts `/blog*` (split) and `/assets+` (group) in addition to
+    `/blog/*` and `/assets/+` — the slash before the `*`/`+` suffix is optional.
+  - The watchlist table in settings now renders each entry's full pattern
+    (e.g. `/blog*`, `/assets+`) instead of only the bare matcher, so the
+    split/group suffix is visible alongside the mode column.
+
+- Updated dependencies [3bf4809]
+  - @beesolve/analytics-processor@0.7.1
+
 ## 0.7.0
 
 ### Minor Changes
