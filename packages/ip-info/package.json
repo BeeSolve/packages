@@ -1,6 +1,6 @@
 {
   "name": "@beesolve/ip-info",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "IP enrichment (country/ASN) with a DynamoDB-backed presence cache",
   "homepage": "https://github.com/BeeSolve/packages/tree/main/packages/ip-info#readme",
   "license": "MIT",

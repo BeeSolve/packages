@@ -1,5 +1,18 @@
 # @beesolve/dmarc-dashboard
 
+## 0.10.8
+
+### Patch Changes
+
+- 25b3bcf: Highlight the active section in the top navigation. Each nav link now reflects
+  the current route with a solid-primary pill, medium weight, and
+  `aria-current="page"`, matching sub-routes to their parent section (e.g. a
+  drill-down page keeps its section highlighted). The active state is readable in
+  both light and dark themes.
+- Updated dependencies [25b3bcf]
+  - @beesolve/ip-info@0.3.0
+  - @beesolve/dmarc-consumer@0.4.5
+
 ## 0.10.7
 
 ### Patch Changes
