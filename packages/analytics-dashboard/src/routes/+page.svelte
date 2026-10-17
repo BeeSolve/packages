@@ -87,6 +87,12 @@
     }
     return `${value.toFixed(1)} ${units[unitIndex]}`;
   }
+
+  function isOlderThanRetention(endKey: string): boolean {
+    const end = parsePeriodKey(endKey);
+    const cutoff = Date.now() - data.hourlyRetentionDays * 24 * 60 * 60 * 1000;
+    return end.getTime() < cutoff;
+  }
 </script>
 
 <h1>Overview</h1>
@@ -120,7 +126,14 @@
     success: result.series.reduce((sum, bucket) => sum + bucket.success, 0),
     errors: result.series.reduce((sum, bucket) => sum + bucket.errors, 0),
     bytesSent: result.series.reduce((sum, bucket) => sum + bucket.bytesSent, 0),
+    cacheHits: result.series.reduce((sum, bucket) => sum + bucket.cacheHits, 0),
+    cacheMisses: result.series.reduce((sum, bucket) => sum + bucket.cacheMisses, 0),
+    cacheErrors: result.series.reduce((sum, bucket) => sum + bucket.cacheErrors, 0),
   }}
+  {@const cacheTotal = totals.cacheHits + totals.cacheMisses + totals.cacheErrors}
+  {@const cacheHitRatio =
+    cacheTotal === 0 ? "—" : `${((totals.cacheHits / cacheTotal) * 100).toFixed(1)}%`}
+  {@const showUniques = view === "day" || view === "month"}
   {@const chartBuckets =
     result.yearSeries != null
       ? result.yearSeries.map((yearBucket) => ({
@@ -129,6 +142,7 @@
           label: yearBucket.year,
           hits: yearBucket.hits,
           state: yearBucket.state,
+          uniqueVisitors: undefined as number | undefined,
         }))
       : result.series.map((bucket) => ({
           key: bucket.timeKey,
@@ -136,6 +150,7 @@
           label: formatPeriodLabel({ view, periodKey: bucket.timeKey }),
           hits: bucket.hits,
           state: bucket.state,
+          uniqueVisitors: bucket.uniqueVisitors,
         }))}
   {@const maxHits = Math.max(...chartBuckets.map((bucket) => bucket.hits), 1)}
   {@const hasPartial = chartBuckets.some((bucket) => bucket.state === "partial")}
@@ -162,12 +177,30 @@
     </button>
   </div>
 
+  <p class="data-lag">Data is ~{data.processingLagHours}h delayed</p>
+  {#if view === "hour" && isOlderThanRetention(result.endKey)}
+    <p class="retention-hint">
+      Hourly data is only retained for the last {data.hourlyRetentionDays} days - older periods are
+      best viewed at daily or monthly grain.
+    </p>
+  {/if}
+
   <div class="layout-card summary-cards" style="--min-card-width: 11rem; --gap: var(--vs-base);">
     <SummaryCard label="Hits" value={totals.hits.toLocaleString()} />
     <SummaryCard label="Success (2xx/3xx)" value={totals.success.toLocaleString()} />
     <SummaryCard label="Errors" value={totals.errors.toLocaleString()} />
     <SummaryCard label="Bytes Sent" value={formatBytes(totals.bytesSent)} />
   </div>
+
+  <section class="cache-section">
+    <h2>Cache</h2>
+    <div class="layout-card summary-cards" style="--min-card-width: 10rem; --gap: var(--vs-base);">
+      <SummaryCard label="Hit ratio" value={cacheHitRatio} />
+      <SummaryCard label="Hits" value={totals.cacheHits.toLocaleString()} />
+      <SummaryCard label="Misses" value={totals.cacheMisses.toLocaleString()} />
+      <SummaryCard label="Errors" value={totals.cacheErrors.toLocaleString()} />
+    </div>
+  </section>
 
   {#if chartBuckets.length === 0}
     <p>No data in this window.</p>
@@ -178,7 +211,7 @@
         {#each chartBuckets as bucket (bucket.key)}
           {@const heightPct = (bucket.hits / maxHits) * 100}
           <div class="analytics-bars-col tooltip">
-            <span class="tip">{bucket.label}: {bucket.hits.toLocaleString()} hits{bucket.state === "partial" ? " (in progress — not final)" : bucket.state === "pending" ? " (awaiting processing)" : ""}</span>
+            <span class="tip">{bucket.label}: {bucket.hits.toLocaleString()} hits{showUniques && bucket.uniqueVisitors != null ? ` · ~${bucket.uniqueVisitors.toLocaleString()} unique visitors` : ""}{bucket.state === "partial" ? " (in progress — not final)" : bucket.state === "pending" ? " (awaiting processing)" : ""}</span>
             <div
               class="analytics-bars-fill"
               class:is-partial={bucket.state === "partial"}
@@ -189,6 +222,9 @@
           </div>
         {/each}
       </div>
+      {#if showUniques}
+        <p class="uniques-caption">Unique visitors are approximate (per-period, not summable).</p>
+      {/if}
       {#if hasPartial || hasPending}
         <ul class="chart-legend" aria-label="Bucket states">
           <li><span class="legend-swatch is-sealed"></span> Final</li>
@@ -238,8 +274,30 @@
     font-size: 0.875rem;
   }
 
+  .data-lag {
+    margin: 0 0 var(--vs-base);
+    color: var(--fg-5);
+    font-size: 0.75rem;
+  }
+
+  .retention-hint {
+    margin: 0 0 var(--vs-base);
+    color: var(--fg-5);
+    font-size: 0.75rem;
+  }
+
   .summary-cards {
     margin-bottom: var(--vs-l);
+  }
+
+  .cache-section {
+    margin-bottom: var(--vs-l);
+  }
+
+  .uniques-caption {
+    margin: var(--vs-s) 0 0;
+    color: var(--fg-5);
+    font-size: 0.75rem;
   }
 
   .chart-section {

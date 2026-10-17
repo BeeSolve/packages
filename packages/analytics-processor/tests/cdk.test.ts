@@ -76,7 +76,7 @@ describe("AnalyticsProcessor construct", () => {
 
   it("creates an hourly rate schedule and two cron rollup schedules", () => {
     const template = makeTemplate();
-    template.resourceCountIs("AWS::Events::Rule", 4);
+    template.resourceCountIs("AWS::Events::Rule", 3);
     template.hasResourceProperties("AWS::Events::Rule", {
       ScheduleExpression: "rate(1 hour)",
     });
@@ -101,10 +101,36 @@ describe("AnalyticsProcessor construct", () => {
     });
   });
 
-  it("creates the sitemap Lambda with Athena and table environment", () => {
+  it("does not create a sitemap Lambda or a second rate schedule", () => {
+    const template = makeTemplate();
+    const sitemapFunctions = template.findResources("AWS::Lambda::Function", {
+      Properties: { Handler: "sitemap.handler" },
+    });
+    expect(Object.keys(sitemapFunctions).length).toBe(0);
+
+    const rateRules = template.findResources("AWS::Events::Rule", {
+      Properties: { ScheduleExpression: "rate(1 hour)" },
+    });
+    expect(Object.keys(rateRules).length).toBe(1);
+  });
+
+  it("gives the SDK Lambda the table and reverse index environment", () => {
     const template = makeTemplate();
     template.hasResourceProperties("AWS::Lambda::Function", {
-      Handler: "sitemap.handler",
+      Handler: "sdkHandler.handler",
+      Environment: {
+        Variables: Match.objectLike({
+          TABLE_NAME: Match.anyValue(),
+          REVERSE_INDEX_NAME: "reverse",
+        }),
+      },
+    });
+  });
+
+  it("gives the daily rollup Lambda the Athena environment", () => {
+    const template = makeTemplate();
+    template.hasResourceProperties("AWS::Lambda::Function", {
+      Handler: "dailyRollup.handler",
       Environment: {
         Variables: Match.objectLike({
           TABLE_NAME: Match.anyValue(),
@@ -117,27 +143,19 @@ describe("AnalyticsProcessor construct", () => {
     });
   });
 
-  it("schedules the sitemap Lambda hourly alongside the hourly processor", () => {
+  it("gives the monthly rollup Lambda the Athena environment", () => {
     const template = makeTemplate();
-    const rateRules = template.findResources("AWS::Events::Rule", {
-      Properties: { ScheduleExpression: "rate(1 hour)" },
+    template.hasResourceProperties("AWS::Lambda::Function", {
+      Handler: "monthlyRollup.handler",
+      Environment: {
+        Variables: Match.objectLike({
+          TABLE_NAME: Match.anyValue(),
+          REVERSE_INDEX_NAME: "reverse",
+          ATHENA_DATABASE: "cf_logs",
+          ATHENA_V2_TABLE: "cf_logs_v2_table",
+          ATHENA_WORKGROUP: "cf_analytics",
+        }),
+      },
     });
-    expect(Object.keys(rateRules).length).toBe(2);
-
-    const sitemapFunctions = Object.keys(
-      template.findResources("AWS::Lambda::Function", {
-        Properties: { Handler: "sitemap.handler" },
-      }),
-    );
-    expect(sitemapFunctions.length).toBe(1);
-    const sitemapLogicalId = sitemapFunctions[0];
-
-    const targetsSitemap = Object.values(rateRules).some((rule) =>
-      (rule.Properties?.Targets ?? []).some(
-        (target: { Arn?: { "Fn::GetAtt"?: Array<string> } }) =>
-          target.Arn?.["Fn::GetAtt"]?.[0] === sitemapLogicalId,
-      ),
-    );
-    expect(targetsSitemap).toBe(true);
   });
 });

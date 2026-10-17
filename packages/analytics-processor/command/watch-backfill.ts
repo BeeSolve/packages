@@ -2,17 +2,16 @@ import { AthenaClient } from "@aws-sdk/client-athena";
 
 import { Config } from "../src/config.ts";
 import { toDynamoClient } from "../src/dynamo.ts";
-import { fetchSitemapPaths, processSitemapMonth, SitemapUrlStats } from "../src/sitemap.ts";
+import { processWatchMonth, WatchStats } from "../src/watch.ts";
 import { runPool } from "./backfill.ts";
 
-export interface SitemapBackfillArgs {
+export interface WatchBackfillArgs {
   readonly from: string;
   readonly to: string;
   readonly concurrency: number;
-  readonly sitemapUrl?: string;
 }
 
-export interface SitemapBackfillConfig {
+export interface WatchBackfillConfig {
   readonly tableName: string;
   readonly reverseIndexName?: string;
   readonly athenaDatabase: string;
@@ -24,11 +23,10 @@ export interface SitemapBackfillConfig {
 const defaultConcurrency = 2;
 const monthPattern = /^\d{4}-\d{2}$/;
 
-export function parseSitemapBackfillArgs(argv: Array<string>): SitemapBackfillArgs {
+export function parseWatchBackfillArgs(argv: Array<string>): WatchBackfillArgs {
   let from: string | undefined;
   let to: string | undefined;
   let concurrency = defaultConcurrency;
-  let sitemapUrl: string | undefined;
 
   for (let index = 0; index < argv.length; index += 1) {
     const token = argv[index];
@@ -41,33 +39,30 @@ export function parseSitemapBackfillArgs(argv: Array<string>): SitemapBackfillAr
     } else if (token === "--concurrency") {
       concurrency = Number(argv[index + 1]);
       index += 1;
-    } else if (token === "--sitemap-url") {
-      sitemapUrl = argv[index + 1];
-      index += 1;
     }
   }
 
   if (from == null || to == null) {
     throw new Error(
-      "sitemap-backfill requires --from <YYYY-MM> and --to <YYYY-MM>, e.g. bun run sitemap-backfill -- --from 2025-06 --to 2026-05",
+      "watch-backfill requires --from <YYYY-MM> and --to <YYYY-MM>, e.g. bun run watch-backfill -- --from 2025-06 --to 2026-05",
     );
   }
 
   if (!monthPattern.test(from) || !monthPattern.test(to)) {
-    throw new Error(`sitemap-backfill --from/--to must be YYYY-MM, got from=${from} to=${to}`);
+    throw new Error(`watch-backfill --from/--to must be YYYY-MM, got from=${from} to=${to}`);
   }
 
   if (from > to) {
-    throw new Error("sitemap-backfill --from must not be after --to");
+    throw new Error("watch-backfill --from must not be after --to");
   }
 
   if (!Number.isFinite(concurrency) || concurrency < 1) {
     throw new Error(
-      `sitemap-backfill --concurrency must be a positive number, got ${String(concurrency)}`,
+      `watch-backfill --concurrency must be a positive number, got ${String(concurrency)}`,
     );
   }
 
-  return { from, to, concurrency: Math.floor(concurrency), sitemapUrl };
+  return { from, to, concurrency: Math.floor(concurrency) };
 }
 
 export function monthsBetween({ from, to }: { from: string; to: string }): Array<string> {
@@ -91,22 +86,22 @@ export function monthsBetween({ from, to }: { from: string; to: string }): Array
   return months;
 }
 
-export function configFromEnv(env: Record<string, string | undefined>): SitemapBackfillConfig {
+export function configFromEnv(env: Record<string, string | undefined>): WatchBackfillConfig {
   const tableName = env.TABLE_NAME;
   const athenaDatabase = env.ATHENA_DATABASE;
   const athenaWorkgroup = env.ATHENA_WORKGROUP;
   const athenaTable = env.ATHENA_TABLE;
+  const reverseIndexName = env.REVERSE_INDEX_NAME;
 
-  if (tableName == null) throw new Error("sitemap-backfill requires TABLE_NAME");
-  if (athenaDatabase == null) throw new Error("sitemap-backfill requires ATHENA_DATABASE");
-  if (athenaWorkgroup == null) throw new Error("sitemap-backfill requires ATHENA_WORKGROUP");
-  if (athenaTable == null) {
-    throw new Error("sitemap-backfill requires ATHENA_TABLE");
-  }
+  if (tableName == null) throw new Error("watch-backfill requires TABLE_NAME");
+  if (athenaDatabase == null) throw new Error("watch-backfill requires ATHENA_DATABASE");
+  if (athenaWorkgroup == null) throw new Error("watch-backfill requires ATHENA_WORKGROUP");
+  if (athenaTable == null) throw new Error("watch-backfill requires ATHENA_TABLE");
+  if (reverseIndexName == null) throw new Error("watch-backfill requires REVERSE_INDEX_NAME");
 
   return {
     tableName,
-    reverseIndexName: env.REVERSE_INDEX_NAME,
+    reverseIndexName,
     athenaDatabase,
     athenaTable,
     athenaWorkgroup,
@@ -114,43 +109,47 @@ export function configFromEnv(env: Record<string, string | undefined>): SitemapB
   };
 }
 
-export async function runSitemapBackfill({
+export async function runWatchBackfill({
   args,
   config,
 }: {
-  args: SitemapBackfillArgs;
-  config: SitemapBackfillConfig;
+  args: WatchBackfillArgs;
+  config: WatchBackfillConfig;
 }): Promise<void> {
   const dynamo = toDynamoClient();
   const athenaClient = new AthenaClient();
 
-  const configModel = new Config({ dynamo, tableName: config.tableName });
-  const sitemapUrlStats = new SitemapUrlStats({
+  const configModel = new Config({
+    dynamo,
+    tableName: config.tableName,
+    reverseIndexName: config.reverseIndexName,
+  });
+  const watchStats = new WatchStats({
     dynamo,
     tableName: config.tableName,
     reverseIndexName: config.reverseIndexName,
   });
 
-  const sitemapUrl = args.sitemapUrl ?? (await configModel.getSitemapConfig()).sitemapUrl;
-  if (sitemapUrl == null) {
-    throw new Error(
-      "sitemap-backfill requires a sitemap URL: pass --sitemap-url or set config.sitemapUrl",
-    );
+  const entries = (await configModel.listWatch()).filter((entry) => entry.status === "active");
+  if (entries.length === 0) {
+    console.log("watch-backfill: no active watch entries, nothing to do");
+    return;
   }
 
-  const paths = await fetchSitemapPaths(sitemapUrl);
-
   const months = monthsBetween({ from: args.from, to: args.to });
-  console.log(`sitemap-backfill: ${months.length} months, concurrency ${args.concurrency}`);
+  const jobs = entries.flatMap((entry) => months.map((month) => ({ entry, month })));
+  console.log(
+    `watch-backfill: ${entries.length} entries x ${months.length} months, concurrency ${args.concurrency}`,
+  );
 
   await runPool({
-    items: months,
+    items: jobs,
     concurrency: args.concurrency,
-    worker: async (month) => {
-      const result = await processSitemapMonth({
-        monthKey: month,
-        paths,
-        models: { sitemapUrlStats },
+    worker: async (job) => {
+      const result = await processWatchMonth({
+        monthKey: job.month,
+        entry: { matcher: job.entry.matcher, mode: job.entry.mode },
+        models: { watchStats },
         athena: {
           client: athenaClient,
           database: config.athenaDatabase,
@@ -159,15 +158,15 @@ export async function runSitemapBackfill({
           outputLocation: config.athenaOutputLocation,
         },
       });
-      console.log(`sitemap-backfill ${month} urls=${result.urls}`);
+      console.log(`watch-backfill ${job.entry.matcher} ${job.month} buckets=${result.buckets}`);
     },
   });
 }
 
 export async function main(): Promise<void> {
-  const args = parseSitemapBackfillArgs(process.argv.slice(2));
+  const args = parseWatchBackfillArgs(process.argv.slice(2));
   const config = configFromEnv(process.env);
-  await runSitemapBackfill({ args, config });
+  await runWatchBackfill({ args, config });
 }
 
 if (import.meta.main) {

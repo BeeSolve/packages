@@ -34,6 +34,9 @@ const emptyTotals: SummedTotals = {
   errors5xx: 0,
   bytesSent: 0,
   bytesReceived: 0,
+  cacheHits: 0,
+  cacheMisses: 0,
+  cacheErrors: 0,
 };
 
 /**
@@ -306,6 +309,9 @@ function pickTotals(item: TotalsItem): SummedTotals {
     errors5xx: item.errors5xx,
     bytesSent: item.bytesSent,
     bytesReceived: item.bytesReceived,
+    cacheHits: item.cacheHits,
+    cacheMisses: item.cacheMisses,
+    cacheErrors: item.cacheErrors,
   };
 }
 

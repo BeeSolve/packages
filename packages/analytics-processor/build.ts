@@ -6,7 +6,6 @@ const handlers = [
   { entry: "./hourly.ts", outDir: "./dist/hourly" },
   { entry: "./dailyRollup.ts", outDir: "./dist/dailyRollup" },
   { entry: "./monthlyRollup.ts", outDir: "./dist/monthlyRollup" },
-  { entry: "./sitemap.ts", outDir: "./dist/sitemap" },
   { entry: "./sdkHandler.ts", outDir: "./dist/sdkHandler" },
 ];
 

@@ -1,6 +1,13 @@
 <script lang="ts">
-  import { getSitemapConfig, setSitemapUrl } from "#lib/remote/sitemapConfig.remote.js";
   import { deleteUser, listUsers } from "#lib/remote/users.remote.js";
+  import {
+    addWatch,
+    deleteWatch,
+    getSitemapConfig,
+    listWatchConfig,
+    setSitemapUrl,
+    setWatchStatus,
+  } from "#lib/remote/watchConfig.remote.js";
 </script>
 
 <h1>Settings</h1>
@@ -95,6 +102,95 @@
       </form>
     </svelte:boundary>
   </section>
+
+  <section class="card">
+    <header>
+      <h2>Watchlist</h2>
+    </header>
+
+    {#each addWatch.fields.allIssues() ?? [] as issue (issue.message)}
+      <p class="error">{issue.message}</p>
+    {/each}
+
+    <form {...addWatch}>
+      <label>
+        Add pattern
+        <input
+          {...addWatch.fields.pattern.as("text")}
+          placeholder="/blog/* or /docs/+ or /about"
+          disabled={addWatch.pending > 0}
+        />
+      </label>
+      <p class="hint">
+        <code>/path</code> watches one exact URL. <code>/prefix/*</code> (split) tracks each path
+        under the prefix as its own bucket. <code>/prefix/+</code> (group) collapses everything
+        under the prefix into one bucket. Patterns must start with <code>/</code>.
+      </p>
+      <button type="submit" class="button primary" disabled={addWatch.pending > 0}>
+        {addWatch.pending > 0 ? "Adding..." : "Add pattern"}
+      </button>
+    </form>
+
+    <svelte:boundary>
+      {#snippet pending()}
+        <p>Loading watchlist…</p>
+      {/snippet}
+
+      {@const watch = await listWatchConfig()}
+
+      {#if watch.items.length === 0}
+        <p>No watch entries configured.</p>
+      {:else}
+        <div class="table">
+          <table>
+            <thead>
+              <tr>
+                <th>Matcher</th>
+                <th>Mode</th>
+                <th>Source</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {#each watch.items as entry (entry.matcher)}
+                {@const statusForm = setWatchStatus.for(entry.matcher)}
+                {@const deleteForm = deleteWatch.for(entry.matcher)}
+                {@const nextStatus = entry.status === "active" ? "stopped" : "active"}
+                <tr>
+                  <td>{entry.matcher}</td>
+                  <td>{entry.mode}</td>
+                  <td>{entry.source}</td>
+                  <td>
+                    <span class="tag" class:stopped={entry.status === "stopped"}>
+                      {entry.status}
+                    </span>
+                  </td>
+                  <td>
+                    <span class="actions">
+                      <form {...statusForm}>
+                        <input {...statusForm.fields.matcher.as("hidden", entry.matcher)} />
+                        <input {...statusForm.fields.status.as("hidden", nextStatus)} />
+                        <button type="submit" class="button mini">
+                          {entry.status === "active" ? "Stop" : "Resume"}
+                        </button>
+                      </form>
+                      {#if entry.source === "manual"}
+                        <form {...deleteForm}>
+                          <input {...deleteForm.fields.matcher.as("hidden", entry.matcher)} />
+                          <button type="submit" class="button mini error">Delete</button>
+                        </form>
+                      {/if}
+                    </span>
+                  </td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
+      {/if}
+    </svelte:boundary>
+  </section>
 </div>
 
 <style>
@@ -111,5 +207,15 @@
 
   .actions button[type="submit"] {
     margin-block-start: 0;
+  }
+
+  .hint {
+    margin: var(--vs-s) 0 0;
+    color: var(--fg-5);
+    font-size: 0.8rem;
+  }
+
+  .tag.stopped {
+    --tag-color: var(--fg-5);
   }
 </style>

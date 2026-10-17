@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import type { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { BatchGetCommand, GetCommand, PutCommand } from "@aws-sdk/lib-dynamodb";
 import { splitArrayToChunks } from "@beesolve/helpers";
@@ -12,10 +14,14 @@ export interface IpInfo {
   country?: string;
 }
 
+/**
+ * A cached enrichment record. The IP address itself is never stored: the item
+ * is keyed by `pk = ipinfo#<sha256(ip)>` and carries only the derived
+ * enrichment, so a raw IP cannot be read back out of the table.
+ */
 export const ipInfoCacheSchema = v.object({
   pk: v.string(),
   sk: v.literal("ipinfo"),
-  ip: v.string(),
   asn: v.optional(v.string()),
   asName: v.optional(v.string()),
   asDomain: v.optional(v.string()),
@@ -84,6 +90,11 @@ export class IpInfoCache {
     readonly ips: Array<string>;
   }): Promise<Record<string, IpInfoCacheItem>> => {
     const uniqueIps = Array.from(new Set(props.ips));
+    const ipByKey: Record<string, string> = {};
+    for (const ip of uniqueIps) {
+      ipByKey[keyFor(ip)] = ip;
+    }
+
     const result: Record<string, IpInfoCacheItem> = {};
 
     for (const batch of splitArrayToChunks(uniqueIps, 100)) {
@@ -99,9 +110,10 @@ export class IpInfoCache {
 
       for (const item of responses?.[this.props.tableName] ?? []) {
         const parsed = v.safeParse(ipInfoCacheSchema, item);
-        if (parsed.success) {
-          result[parsed.output.ip] = parsed.output;
-        }
+        if (!parsed.success) continue;
+        const ip = ipByKey[parsed.output.pk];
+        if (ip == null) continue;
+        result[ip] = parsed.output;
       }
     }
 
@@ -112,7 +124,6 @@ export class IpInfoCache {
     const item: IpInfoCacheItem = {
       pk: keyFor(props.info.ip),
       sk: "ipinfo",
-      ip: props.info.ip,
       asn: props.info.asn,
       asName: props.info.asName,
       asDomain: props.info.asDomain,
@@ -179,5 +190,5 @@ export class IpInfoCache {
 }
 
 function keyFor(ip: string): string {
-  return `ipinfo#${ip}`;
+  return `ipinfo#${createHash("sha256").update(ip).digest("hex")}`;
 }

@@ -1,5 +1,5 @@
 import { form, getRequestEvent, query } from "$app/server";
-import { error, redirect } from "@sveltejs/kit";
+import { error } from "@sveltejs/kit";
 import * as v from "valibot";
 
 import { requireUser, toRemoteError } from "#lib/server/httpErrors.js";
@@ -13,35 +13,37 @@ function requireAdmin(): NonNullable<App.Locals["user"]> {
   return currentUser;
 }
 
-export const getSitemapConfig = query(async () => {
+export const listUrls = query(async () => {
   const { locals } = getRequestEvent();
   try {
-    requireAdmin();
-    const sitemapConfig = await locals.services.config.getSitemapConfig();
-    return {
-      sitemapUrl: sitemapConfig.sitemapUrl,
-    };
+    requireUser(locals.user);
+    const entries = await locals.services.urls.listUrls();
+    const items = [...entries].sort((left, right) => left.url.localeCompare(right.url));
+    return { items };
   } catch (thrown) {
     toRemoteError(thrown, { redirectOnUnauthorized: true });
   }
 });
 
-const setSitemapUrlSchema = v.object({
-  sitemapUrl: v.pipe(v.string(), v.url("Please enter a valid sitemap URL.")),
+const addToWatchlistSchema = v.object({
+  url: v.pipe(v.string(), v.nonEmpty("Please provide a URL.")),
 });
 
-export const setSitemapUrl = form(setSitemapUrlSchema, async ({ sitemapUrl }) => {
+export const addToWatchlist = form(addToWatchlistSchema, async ({ url }) => {
   const { locals } = getRequestEvent();
 
   requireAdmin();
 
   try {
-    await locals.services.analyticsClient.updateSitemapUrl({ sitemapUrl });
+    await locals.services.analyticsClient.upsertWatch({
+      matcher: url,
+      mode: "exact",
+      source: "manual",
+      status: "active",
+    });
   } catch (thrown) {
     toRemoteError(thrown);
   }
 
-  await getSitemapConfig().refresh();
-
-  redirect(303, "/settings");
+  return { ok: true };
 });

@@ -23,6 +23,9 @@ function totalsItem({ timeKey, hits }: { timeKey: string; hits: number }): Total
     errors5xx: 0,
     bytesSent: hits * 10,
     bytesReceived: hits * 2,
+    cacheHits: hits,
+    cacheMisses: 0,
+    cacheErrors: 0,
   };
 }
 

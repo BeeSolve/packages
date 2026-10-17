@@ -1,6 +1,10 @@
 import type { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
-import { GetCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
+import { DeleteCommand, GetCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
+import { queryAll } from "@beesolve/dynamo-helpers";
 import * as v from "valibot";
+
+import type { WatchEntryRecord, WatchMode, WatchSource, WatchStatus } from "./watch.ts";
+import { watchConfigKey, watchConfigSk, watchEntrySchema, watchPkPrefix } from "./watch.ts";
 
 export const configSchema = v.object({
   pk: v.literal("system#config"),
@@ -29,6 +33,7 @@ export class Config {
     private readonly props: {
       readonly dynamo: Pick<DynamoDBDocumentClient, "send">;
       readonly tableName: string;
+      readonly reverseIndexName?: string;
     },
   ) {}
 
@@ -93,5 +98,124 @@ export class Config {
       if (isConditionalCheckFailure(error)) return;
       throw error;
     }
+  };
+
+  readonly listWatch = async (): Promise<Array<WatchEntryRecord>> => {
+    if (this.props.reverseIndexName == null) {
+      throw new Error("listWatch requires a reverseIndexName");
+    }
+
+    const items = await queryAll({
+      dynamo: this.props.dynamo,
+      input: {
+        TableName: this.props.tableName,
+        IndexName: this.props.reverseIndexName,
+        KeyConditionExpression: "#sk = :sk AND begins_with(#pk, :pkPrefix)",
+        ExpressionAttributeNames: { "#sk": "sk", "#pk": "pk" },
+        ExpressionAttributeValues: { ":sk": watchConfigSk, ":pkPrefix": watchPkPrefix },
+      },
+    });
+
+    return items.map((item) => this.parseWatchEntry(item));
+  };
+
+  readonly upsertWatch = async ({
+    matcher,
+    mode,
+    source,
+    status,
+    label,
+  }: {
+    readonly matcher: string;
+    readonly mode: WatchMode;
+    readonly source: WatchSource;
+    readonly status?: WatchStatus;
+    readonly label?: string;
+  }): Promise<void> => {
+    const names: Record<string, string> = {
+      "#matcher": "matcher",
+      "#mode": "mode",
+      "#source": "source",
+      "#status": "status",
+      "#firstSeen": "firstSeen",
+    };
+    const values: Record<string, unknown> = {
+      ":matcher": matcher,
+      ":mode": mode,
+      ":source": source,
+      ":status": status ?? "active",
+      ":now": new Date().toISOString(),
+    };
+    const setParts = [
+      "#matcher = :matcher",
+      "#mode = :mode",
+      "#source = :source",
+      "#status = :status",
+      "#firstSeen = if_not_exists(#firstSeen, :now)",
+    ];
+
+    if (label != null) {
+      names["#label"] = "label";
+      values[":label"] = label;
+      setParts.push("#label = :label");
+    }
+
+    await this.props.dynamo.send(
+      new UpdateCommand({
+        TableName: this.props.tableName,
+        Key: watchConfigKey({ matcher }),
+        UpdateExpression: `SET ${setParts.join(", ")}`,
+        ExpressionAttributeNames: names,
+        ExpressionAttributeValues: values,
+      }),
+    );
+  };
+
+  /**
+   * Flips an existing watch row's status. Guarded on both composite-key
+   * attributes so it never creates a row for a matcher that was never watched;
+   * a missing row is swallowed, mirroring {@link ensureStart}'s gentle handling
+   * of a conditional miss rather than surfacing it to the caller.
+   */
+  readonly setWatchStatus = async ({
+    matcher,
+    status,
+  }: {
+    readonly matcher: string;
+    readonly status: WatchStatus;
+  }): Promise<void> => {
+    try {
+      await this.props.dynamo.send(
+        new UpdateCommand({
+          TableName: this.props.tableName,
+          Key: watchConfigKey({ matcher }),
+          UpdateExpression: "SET #status = :status",
+          ConditionExpression: "attribute_exists(pk) AND attribute_exists(sk)",
+          ExpressionAttributeNames: { "#status": "status" },
+          ExpressionAttributeValues: { ":status": status },
+        }),
+      );
+    } catch (error) {
+      if (isConditionalCheckFailure(error)) return;
+      throw error;
+    }
+  };
+
+  readonly deleteWatch = async ({ matcher }: { readonly matcher: string }): Promise<void> => {
+    await this.props.dynamo.send(
+      new DeleteCommand({
+        TableName: this.props.tableName,
+        Key: watchConfigKey({ matcher }),
+      }),
+    );
+  };
+
+  private readonly parseWatchEntry = (item: unknown): WatchEntryRecord => {
+    const result = v.safeParse(watchEntrySchema, item);
+    if (!result.success) {
+      console.error(v.flatten(result.issues));
+      throw new Error("Malformed stored watch entry record");
+    }
+    return result.output;
   };
 }

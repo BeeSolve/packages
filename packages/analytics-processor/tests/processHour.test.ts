@@ -15,7 +15,7 @@ type Cell = { readonly VarCharValue?: string };
 type AthenaRow = { readonly Data: Array<Cell> };
 
 const headerRow: AthenaRow = {
-  Data: Array.from({ length: 15 }, (_unused, index) => ({ VarCharValue: `col${index}` })),
+  Data: Array.from({ length: 16 }, (_unused, index) => ({ VarCharValue: `col${index}` })),
 };
 
 function dataRow(values: Array<string | undefined>): AthenaRow {
@@ -24,7 +24,6 @@ function dataRow(values: Array<string | undefined>): AthenaRow {
 
 function totalsRow({ hits, cacheHits }: { hits: number; cacheHits: number }): AthenaRow {
   return dataRow([
-    undefined,
     undefined,
     undefined,
     undefined,
@@ -38,6 +37,8 @@ function totalsRow({ hits, cacheHits }: { hits: number; cacheHits: number }): At
     "0.1",
     "0.4",
     String(cacheHits),
+    "0",
+    "0",
     "3",
   ]);
 }
@@ -47,7 +48,6 @@ function statusRow({ status, hits }: { status: string; hits: number }): AthenaRo
     status,
     undefined,
     undefined,
-    undefined,
     String(hits),
     String(hits),
     "0",
@@ -57,24 +57,6 @@ function statusRow({ status, hits }: { status: string; hits: number }): AthenaRo
     "50",
     "0",
     "0",
-    "0",
-    "0",
-  ]);
-}
-
-function pathRow({ path, hits }: { path: string; hits: number }): AthenaRow {
-  return dataRow([
-    undefined,
-    undefined,
-    path,
-    undefined,
-    String(hits),
-    String(hits),
-    "0",
-    "0",
-    "0",
-    "100",
-    "50",
     "0",
     "0",
     "0",
@@ -86,7 +68,6 @@ function ipRow({ ip, hits }: { ip: string; hits: number }): AthenaRow {
   return dataRow([
     undefined,
     undefined,
-    undefined,
     ip,
     String(hits),
     String(hits),
@@ -95,6 +76,8 @@ function ipRow({ ip, hits }: { ip: string; hits: number }): AthenaRow {
     "0",
     "100",
     "50",
+    "0",
+    "0",
     "0",
     "0",
     "0",
@@ -205,7 +188,6 @@ describe("processHour", () => {
     const rows = [
       totalsRow({ hits: 10, cacheHits: 5 }),
       statusRow({ status: "200", hits: 8 }),
-      pathRow({ path: "/pricing", hits: 6 }),
       ipRow({ ip: "1.2.3.4", hits: 10 }),
     ];
     const { client } = makeAthena(rows);
@@ -299,10 +281,10 @@ describe("processHour", () => {
   });
 
   it("chunks past 100 items: first transaction has marker + totals, follow-ups cover the rest", async () => {
-    const pathRows = Array.from({ length: 150 }, (_unused, index) =>
-      pathRow({ path: `/path-${index}`, hits: 150 - index }),
+    const statusRows = Array.from({ length: 150 }, (_unused, index) =>
+      statusRow({ status: `s-${index}`, hits: 150 - index }),
     );
-    const rows = [totalsRow({ hits: 1000, cacheHits: 500 }), ...pathRows];
+    const rows = [totalsRow({ hits: 1000, cacheHits: 500 }), ...statusRows];
     const { client } = makeAthena(rows);
     const { dynamo, sends: dynamoSends } = makeDynamo();
     const models = baseModels({ isApplied: false });

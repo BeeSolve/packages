@@ -5,13 +5,16 @@ import { splitArrayToChunks } from "@beesolve/helpers";
 import type { IpInfoCache } from "@beesolve/ip-info";
 
 import type { AppliedMarkers } from "./appliedMarkers.ts";
-import { runHourlyAthenaQuery } from "./athena.ts";
+import { runDayUniques, runDayUrls, runHourlyAthenaQuery, runMonthUniques } from "./athena.ts";
 import type { BreakdownInput, BreakdownItem, Breakdowns } from "./breakdowns.ts";
 import type { Config } from "./config.ts";
 import type { Dimension } from "./keys.ts";
 import type { BreakdownRow } from "./reduce.ts";
 import { sumBreakdown, sumTotals } from "./reduce.ts";
+import { fetchSitemapPaths } from "./sitemap.ts";
 import type { Totals } from "./totals.ts";
+import type { UrlDirectory } from "./urls.ts";
+import type { WatchStats } from "./watch.ts";
 
 export type TransactItem = NonNullable<TransactWriteCommandInput["TransactItems"]>[number];
 
@@ -94,9 +97,11 @@ export async function processHour({
       errors5xx: query.totals.errors5xx,
       bytesSent: query.totals.bytesSent,
       bytesReceived: query.totals.bytesReceived,
+      cacheHits: query.totals.cacheHits,
+      cacheMisses: query.totals.cacheMisses,
+      cacheErrors: query.totals.cacheErrors,
       p50TimeTaken: query.totals.p50TimeTaken,
       p95TimeTaken: query.totals.p95TimeTaken,
-      cacheHitRatio: query.totals.cacheHitRatio,
       uniqueIpCount: query.totals.uniqueIpCount,
     },
     ttl,
@@ -109,7 +114,6 @@ export async function processHour({
     ttl,
     byStatus: query.byStatus,
     byDevice: query.byDevice,
-    byPath: query.byPath,
     byCountry,
   });
 
@@ -129,10 +133,14 @@ export async function processHour({
 export async function applyDailyRollup({
   dayKey,
   models,
+  athena,
+  sitemapFetcher = fetchSitemapPaths,
   dynamo,
 }: {
   dayKey: string;
   models: RollupModels;
+  athena?: RollupAthena;
+  sitemapFetcher?: SitemapFetcher;
   dynamo: Pick<DynamoDBDocumentClient, "send">;
 }): Promise<ProcessHourResult> {
   const alreadyApplied = await models.markers.isApplied({ grain: "day", periodKey: dayKey });
@@ -151,9 +159,21 @@ export async function applyDailyRollup({
     periodKeys: hourWindowKeys(dayKey),
   });
 
+  const uniqueVisitors =
+    athena == null
+      ? undefined
+      : await runDayUniques({
+          athena: athena.client,
+          database: athena.database,
+          table: athena.table,
+          workgroup: athena.workgroup,
+          outputLocation: athena.outputLocation,
+          dayKey,
+        });
+
   const totalsUpdate = models.totals.buildAggregateUpdate({
     grain: "day",
-    item: { timeKey: dayKey, ...summed },
+    item: { timeKey: dayKey, ...summed, uniqueVisitors },
   });
 
   const breakdownUpdates = buildBreakdownUpdates({
@@ -162,7 +182,6 @@ export async function applyDailyRollup({
     periodKey: dayKey,
     byStatus: byDimension.status,
     byDevice: byDimension.device,
-    byPath: byDimension.path,
     byCountry: byDimension.country,
   });
 
@@ -171,20 +190,88 @@ export async function applyDailyRollup({
     periodKey: dayKey,
   });
 
-  return sendTransacted({
+  const result = await sendTransacted({
     dynamo,
     leading: [markerPut, totalsUpdate],
     rest: breakdownUpdates,
   });
+
+  if (result.status !== "applied") return result;
+
+  if (athena != null && models.urls != null) {
+    const urls = await runDayUrls({
+      athena: athena.client,
+      database: athena.database,
+      table: athena.table,
+      workgroup: athena.workgroup,
+      outputLocation: athena.outputLocation,
+      dayKey,
+    });
+    if (urls.length > 0) {
+      await models.urls.upsertManyFirstSeen({ urls, day: dayKey });
+    }
+  }
+
+  if (models.config != null) {
+    await syncSitemapWatch({ config: models.config, sitemapFetcher });
+  }
+
+  return result;
+}
+
+/**
+ * Fetch the configured sitemap and reconcile it against the existing
+ * `source="sitemap"` watch entries: new paths are upserted `active`, returning
+ * paths flip back to `active`, and paths dropped from the sitemap are set
+ * `stopped` (never deleted). A missing or empty sitemap URL is a no-op. Shared
+ * by the daily rollup and the SDK `syncSitemapNow` command so both reconcile
+ * identically.
+ */
+export async function syncSitemapWatch({
+  config,
+  sitemapFetcher = fetchSitemapPaths,
+}: {
+  config: NonNullable<RollupModels["config"]>;
+  sitemapFetcher?: SitemapFetcher;
+}): Promise<void> {
+  const { sitemapUrl } = await config.getSitemapConfig();
+  if (sitemapUrl == null || sitemapUrl === "") return;
+
+  const sitemapPaths = await sitemapFetcher(sitemapUrl);
+  const sitemapPathSet = new Set(sitemapPaths);
+
+  const existing = await config.listWatch();
+  const existingSitemap = existing.filter((entry) => entry.source === "sitemap");
+  const existingByMatcher: Record<string, (typeof existingSitemap)[number]> = {};
+  for (const entry of existingSitemap) {
+    existingByMatcher[entry.matcher] = entry;
+  }
+
+  for (const path of sitemapPaths) {
+    await config.upsertWatch({
+      matcher: path,
+      mode: "exact",
+      source: "sitemap",
+      status: "active",
+    });
+  }
+
+  for (const entry of existingSitemap) {
+    if (entry.status === "active" && !sitemapPathSet.has(entry.matcher)) {
+      await config.setWatchStatus({ matcher: entry.matcher, status: "stopped" });
+    }
+  }
 }
 
 export async function applyMonthlyRollup({
   monthKey,
   models,
+  athena,
   dynamo,
 }: {
   monthKey: string;
   models: RollupModels;
+  athena?: RollupAthena;
   dynamo: Pick<DynamoDBDocumentClient, "send">;
 }): Promise<ProcessHourResult> {
   const alreadyApplied = await models.markers.isApplied({ grain: "month", periodKey: monthKey });
@@ -203,9 +290,21 @@ export async function applyMonthlyRollup({
     periodKeys: dayTotals.map((item) => item.timeKey),
   });
 
+  const uniqueVisitors =
+    athena == null
+      ? undefined
+      : await runMonthUniques({
+          athena: athena.client,
+          database: athena.database,
+          table: athena.table,
+          workgroup: athena.workgroup,
+          outputLocation: athena.outputLocation,
+          monthKey,
+        });
+
   const totalsUpdate = models.totals.buildAggregateUpdate({
     grain: "month",
-    item: { timeKey: monthKey, ...summed },
+    item: { timeKey: monthKey, ...summed, uniqueVisitors },
   });
 
   const breakdownUpdates = buildBreakdownUpdates({
@@ -214,7 +313,6 @@ export async function applyMonthlyRollup({
     periodKey: monthKey,
     byStatus: byDimension.status,
     byDevice: byDimension.device,
-    byPath: byDimension.path,
     byCountry: byDimension.country,
   });
 
@@ -249,12 +347,27 @@ interface RollupModels {
   readonly totals: Pick<Totals, "buildAggregateUpdate" | "queryWindow">;
   readonly breakdowns: Pick<Breakdowns, "buildUpdates" | "getForPeriod">;
   readonly markers: Pick<AppliedMarkers, "isApplied" | "buildMarkerPut">;
+  readonly urls?: Pick<UrlDirectory, "upsertManyFirstSeen">;
+  readonly watchStats?: WatchStats;
+  readonly config?: Pick<
+    Config,
+    "getSitemapConfig" | "listWatch" | "upsertWatch" | "setWatchStatus"
+  >;
 }
+
+export interface RollupAthena {
+  readonly client: Pick<AthenaClient, "send">;
+  readonly database: string;
+  readonly table: string;
+  readonly workgroup: string;
+  readonly outputLocation?: string;
+}
+
+type SitemapFetcher = (url: string) => Promise<Array<string>>;
 
 interface DimensionBreakdowns {
   readonly status: Array<BreakdownRow>;
   readonly device: Array<BreakdownRow>;
-  readonly path: Array<BreakdownRow>;
   readonly country: Array<BreakdownRow>;
 }
 
@@ -295,7 +408,6 @@ function buildBreakdownUpdates({
   ttl,
   byStatus,
   byDevice,
-  byPath,
   byCountry,
 }: {
   breakdowns: Pick<Breakdowns, "buildUpdates">;
@@ -304,14 +416,12 @@ function buildBreakdownUpdates({
   ttl?: number;
   byStatus: Array<BreakdownRow>;
   byDevice: Array<BreakdownRow>;
-  byPath: Array<BreakdownRow>;
   byCountry: Array<BreakdownRow>;
 }): Array<TransactItem> {
   const dimensionRows: Array<{ dimension: Dimension; items: Array<BreakdownInput> }> = [
     { dimension: "status", items: byStatus },
     { dimension: "device", items: byDevice },
     { dimension: "country", items: byCountry },
-    { dimension: "path", items: byPath },
   ];
 
   const updates: Array<TransactItem> = [];
@@ -371,27 +481,23 @@ async function aggregateFinerBreakdowns({
 }): Promise<DimensionBreakdowns> {
   const status: Array<BreakdownRow> = [];
   const device: Array<BreakdownRow> = [];
-  const path: Array<BreakdownRow> = [];
   const country: Array<BreakdownRow> = [];
 
   for (const periodKey of periodKeys) {
-    const [statusItems, deviceItems, pathItems, countryItems] = await Promise.all([
+    const [statusItems, deviceItems, countryItems] = await Promise.all([
       breakdowns.getForPeriod({ dimension: "status", grain, periodKey }),
       breakdowns.getForPeriod({ dimension: "device", grain, periodKey }),
-      breakdowns.getForPeriod({ dimension: "path", grain, periodKey }),
       breakdowns.getForPeriod({ dimension: "country", grain, periodKey }),
     ]);
 
     status.push(...statusItems.map(toBreakdownRow));
     device.push(...deviceItems.map(toBreakdownRow));
-    path.push(...pathItems.map(toBreakdownRow));
     country.push(...countryItems.map(toBreakdownRow));
   }
 
   return {
     status: sumBreakdown(status),
     device: sumBreakdown(device),
-    path: sumBreakdown(path),
     country: sumBreakdown(country),
   };
 }

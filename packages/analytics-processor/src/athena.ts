@@ -6,7 +6,7 @@ import {
 } from "@aws-sdk/client-athena";
 
 import type { BreakdownRow } from "./reduce.ts";
-import { topNWithOther } from "./reduce.ts";
+import { canonicalUriExpr, toCount } from "./sql.ts";
 
 /**
  * Normalized Glue/Parquet column names the processor's hourly query reads. Pass
@@ -84,6 +84,60 @@ export function hourKeyParts(hourKey: string): HourParts {
   return { year, month, day, hour };
 }
 
+interface DayParts {
+  readonly year: string;
+  readonly month: string;
+  readonly day: string;
+}
+
+export function dayKeyParts(dayKey: string): DayParts {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dayKey);
+  if (match == null) {
+    throw new Error(`Invalid dayKey: ${dayKey}`);
+  }
+  const [, year, month, day] = match;
+  if (year == null || month == null || day == null) {
+    throw new Error(`Invalid dayKey: ${dayKey}`);
+  }
+  return { year, month, day };
+}
+
+interface MonthParts {
+  readonly year: string;
+  readonly month: string;
+}
+
+export function monthKeyParts(monthKey: string): MonthParts {
+  const match = /^(\d{4})-(\d{2})$/.exec(monthKey);
+  if (match == null) {
+    throw new Error(`Invalid monthKey: ${monthKey}`);
+  }
+  const [, year, month] = match;
+  if (year == null || month == null) {
+    throw new Error(`Invalid monthKey: ${monthKey}`);
+  }
+  return { year, month };
+}
+
+export interface CacheCountExpressions {
+  readonly hits: string;
+  readonly misses: string;
+  readonly errors: string;
+}
+
+/**
+ * The three additive cache-count CASE SUM expressions over a result-type column.
+ * Shared so the hourly query and the watch query address CloudFront's
+ * `x_edge_result_type` values identically.
+ */
+export function cacheCountExpressions(resultTypeColumn: string): CacheCountExpressions {
+  return {
+    hits: `sum(CASE WHEN ${resultTypeColumn} IN ('Hit','RefreshHit') THEN 1 ELSE 0 END)`,
+    misses: `sum(CASE WHEN ${resultTypeColumn} = 'Miss' THEN 1 ELSE 0 END)`,
+    errors: `sum(CASE WHEN ${resultTypeColumn} IN ('Error','LimitExceeded','CapacityExceeded') THEN 1 ELSE 0 END)`,
+  };
+}
+
 function deviceCaseExpression(userAgentColumn: string): string {
   return [
     "CASE",
@@ -107,15 +161,11 @@ function predicateFor(hourKey: string): string {
 
 /**
  * Builds ONE Athena statement that scans a single UTC hour and returns, in a
- * single pass, the grand-total aggregate row plus per-status, per-device,
- * per-path, and per-ip grouped rows via GROUPING SETS.
+ * single pass, the grand-total aggregate row plus per-status, per-device, and
+ * per-ip grouped rows via GROUPING SETS.
  *
- * Why no per-set LIMIT: GROUPING SETS cannot apply an independent LIMIT to each
- * set within one statement. Rather than fragment the scan, the full grouped
- * rows are returned and {@link runHourlyAthenaQuery} applies the `topPaths`
- * top-N (folding the remainder into `__other__`) downstream via
- * {@link topNWithOther}. `topPaths` is still threaded through this builder so
- * callers have a single source of truth for the value.
+ * The per-ip rows feed the country breakdown downstream; `topPaths` bounds how
+ * many of them {@link assembleResult} keeps.
  */
 export function buildHourlyQuery({
   table,
@@ -129,9 +179,10 @@ export function buildHourlyQuery({
   const columns = columnMap;
   const predicate = predicateFor(hourKey);
   const device = deviceCaseExpression(columns.userAgent);
+  const cacheCounts = cacheCountExpressions("rt");
 
   // The inner subquery projects plain columns: the numeric casts and the device
-  // classification are resolved here into simple aliases (st/scb/csb/tt/rt/uri/ip/device).
+  // classification are resolved here into simple aliases (st/scb/csb/tt/rt/ip/device).
   // The outer query then aggregates over those plain column references. This is required
   // because Athena/Trino rejects a GROUPING SETS element that is a select alias or a
   // computed expression (COLUMN_NOT_FOUND / INVALID_COLUMN_REFERENCE) — the element must
@@ -143,20 +194,18 @@ export function buildHourlyQuery({
     `    ${columns.bytesReceived} AS csb,`,
     `    ${columns.timeTaken} AS tt,`,
     `    ${columns.resultType} AS rt,`,
-    `    ${columns.uriStem} AS uri,`,
     `    ${columns.clientIp} AS ip,`,
     `    ${device} AS device`,
     `  FROM "${table}"`,
     `  WHERE ${predicate}`,
   ].join("\n");
 
-  const groupingSets = ["()", "(st)", "(device)", "(uri)", "(ip)"].join(", ");
+  const groupingSets = ["()", "(st)", "(device)", "(ip)"].join(", ");
 
   return [
     "SELECT",
     "  st AS status_value,",
     "  device,",
-    "  uri AS path_value,",
     "  ip AS ip_value,",
     "  count(*) AS hits,",
     "  sum(CASE WHEN st BETWEEN 200 AND 399 THEN 1 ELSE 0 END) AS success,",
@@ -167,7 +216,9 @@ export function buildHourlyQuery({
     "  sum(csb) AS bytes_received,",
     "  approx_percentile(tt, 0.5) AS p50_time_taken,",
     "  approx_percentile(tt, 0.95) AS p95_time_taken,",
-    "  sum(CASE WHEN rt = 'Hit' THEN 1 ELSE 0 END) AS cache_hits,",
+    `  ${cacheCounts.hits} AS cache_hits,`,
+    `  ${cacheCounts.misses} AS cache_misses,`,
+    `  ${cacheCounts.errors} AS cache_errors,`,
     "  count(DISTINCT ip) AS unique_ip_count",
     "FROM (",
     inner,
@@ -186,7 +237,9 @@ export interface HourlyAthenaTotals {
   readonly bytesReceived: number;
   readonly p50TimeTaken: number;
   readonly p95TimeTaken: number;
-  readonly cacheHitRatio: number;
+  readonly cacheHits: number;
+  readonly cacheMisses: number;
+  readonly cacheErrors: number;
   readonly uniqueIpCount: number;
 }
 
@@ -194,14 +247,12 @@ export interface HourlyAthenaResult {
   readonly totals: HourlyAthenaTotals;
   readonly byStatus: Array<BreakdownRow>;
   readonly byDevice: Array<BreakdownRow>;
-  readonly byPath: Array<BreakdownRow>;
   readonly topIps: Array<{ ip: string; hits: number }>;
 }
 
 interface ResultRow {
   readonly status: string | undefined;
   readonly device: string | undefined;
-  readonly path: string | undefined;
   readonly ip: string | undefined;
   readonly hits: number;
   readonly success: number;
@@ -213,6 +264,8 @@ interface ResultRow {
   readonly p50TimeTaken: number;
   readonly p95TimeTaken: number;
   readonly cacheHits: number;
+  readonly cacheMisses: number;
+  readonly cacheErrors: number;
   readonly uniqueIpCount: number;
 }
 
@@ -231,19 +284,20 @@ function parseRow(columns: Array<string | undefined>): ResultRow {
   return {
     status: cellValue(columns[0]),
     device: cellValue(columns[1]),
-    path: cellValue(columns[2]),
-    ip: cellValue(columns[3]),
-    hits: toNumber(columns[4]),
-    success: toNumber(columns[5]),
-    errors: toNumber(columns[6]),
-    errors4xx: toNumber(columns[7]),
-    errors5xx: toNumber(columns[8]),
-    bytesSent: toNumber(columns[9]),
-    bytesReceived: toNumber(columns[10]),
-    p50TimeTaken: toNumber(columns[11]),
-    p95TimeTaken: toNumber(columns[12]),
-    cacheHits: toNumber(columns[13]),
-    uniqueIpCount: toNumber(columns[14]),
+    ip: cellValue(columns[2]),
+    hits: toNumber(columns[3]),
+    success: toNumber(columns[4]),
+    errors: toNumber(columns[5]),
+    errors4xx: toNumber(columns[6]),
+    errors5xx: toNumber(columns[7]),
+    bytesSent: toNumber(columns[8]),
+    bytesReceived: toNumber(columns[9]),
+    p50TimeTaken: toNumber(columns[10]),
+    p95TimeTaken: toNumber(columns[11]),
+    cacheHits: toNumber(columns[12]),
+    cacheMisses: toNumber(columns[13]),
+    cacheErrors: toNumber(columns[14]),
+    uniqueIpCount: toNumber(columns[15]),
   };
 }
 
@@ -254,9 +308,7 @@ function assembleResult({
   rows: Array<ResultRow>;
   topPaths: number;
 }): HourlyAthenaResult {
-  const totalsRow = rows.find(
-    (row) => row.status == null && row.device == null && row.path == null && row.ip == null,
-  );
+  const totalsRow = rows.find((row) => row.status == null && row.device == null && row.ip == null);
 
   const totals: HourlyAthenaTotals =
     totalsRow == null
@@ -270,7 +322,9 @@ function assembleResult({
           bytesReceived: 0,
           p50TimeTaken: 0,
           p95TimeTaken: 0,
-          cacheHitRatio: 0,
+          cacheHits: 0,
+          cacheMisses: 0,
+          cacheErrors: 0,
           uniqueIpCount: 0,
         }
       : {
@@ -283,31 +337,27 @@ function assembleResult({
           bytesReceived: totalsRow.bytesReceived,
           p50TimeTaken: totalsRow.p50TimeTaken,
           p95TimeTaken: totalsRow.p95TimeTaken,
-          cacheHitRatio: totalsRow.hits === 0 ? 0 : totalsRow.cacheHits / totalsRow.hits,
+          cacheHits: totalsRow.cacheHits,
+          cacheMisses: totalsRow.cacheMisses,
+          cacheErrors: totalsRow.cacheErrors,
           uniqueIpCount: totalsRow.uniqueIpCount,
         };
 
   const byStatus: Array<BreakdownRow> = rows
-    .filter((row) => row.status != null && row.device == null && row.path == null && row.ip == null)
+    .filter((row) => row.status != null && row.device == null && row.ip == null)
     .map((row) => ({ value: row.status ?? "", hits: row.hits, bytes: row.bytesSent }));
 
   const byDevice: Array<BreakdownRow> = rows
-    .filter((row) => row.device != null && row.status == null && row.path == null && row.ip == null)
+    .filter((row) => row.device != null && row.status == null && row.ip == null)
     .map((row) => ({ value: row.device ?? "", hits: row.hits, bytes: row.bytesSent }));
 
-  const byPathAll: Array<BreakdownRow> = rows
-    .filter((row) => row.path != null && row.status == null && row.device == null && row.ip == null)
-    .map((row) => ({ value: row.path ?? "", hits: row.hits, bytes: row.bytesSent }));
-
-  const byPath = topNWithOther({ items: byPathAll, n: topPaths, otherValue: "__other__" });
-
   const topIps = rows
-    .filter((row) => row.ip != null && row.status == null && row.device == null && row.path == null)
+    .filter((row) => row.ip != null && row.status == null && row.device == null)
     .map((row) => ({ ip: row.ip ?? "", hits: row.hits }))
     .sort((left, right) => right.hits - left.hits)
     .slice(0, topPaths);
 
-  return { totals, byStatus, byDevice, byPath, topIps };
+  return { totals, byStatus, byDevice, topIps };
 }
 
 async function waitForQuery({
@@ -432,4 +482,144 @@ export async function runHourlyAthenaQuery({
   const rows = rawRows.map((cells) => parseRow(cells));
 
   return assembleResult({ rows, topPaths });
+}
+
+/**
+ * Build an Athena statement returning a single scalar `uniques` column: the
+ * approximate distinct client-IP count over one UTC day's partitions.
+ */
+export function buildDayUniquesQuery({ table, dayKey }: { table: string; dayKey: string }): string {
+  const parts = dayKeyParts(dayKey);
+  const predicate = `year = '${parts.year}' AND month = '${parts.month}' AND day = '${parts.day}'`;
+  return [
+    "SELECT",
+    `  approx_distinct(${columnMap.clientIp}) AS uniques`,
+    `FROM "${table}"`,
+    `WHERE ${predicate}`,
+  ].join("\n");
+}
+
+/**
+ * Build an Athena statement returning a single scalar `uniques` column: the
+ * approximate distinct client-IP count over a whole `YYYY-MM`'s partitions.
+ * Uniques are non-additive, so a month is rescanned fresh rather than summed
+ * from its days.
+ */
+export function buildMonthUniquesQuery({
+  table,
+  monthKey,
+}: {
+  table: string;
+  monthKey: string;
+}): string {
+  const parts = monthKeyParts(monthKey);
+  const predicate = `year = '${parts.year}' AND month = '${parts.month}'`;
+  return [
+    "SELECT",
+    `  approx_distinct(${columnMap.clientIp}) AS uniques`,
+    `FROM "${table}"`,
+    `WHERE ${predicate}`,
+  ].join("\n");
+}
+
+/**
+ * Build an Athena statement returning every distinct slash-collapsed URI served
+ * in one UTC day. Feeds the URL directory's daily `firstSeen` upsert. The result
+ * set is one row per distinct URL and can be large on a high-cardinality site.
+ */
+export function buildDayUrlsQuery({ table, dayKey }: { table: string; dayKey: string }): string {
+  const parts = dayKeyParts(dayKey);
+  const canonicalUri = canonicalUriExpr(columnMap.uriStem);
+  const predicate = `year = '${parts.year}' AND month = '${parts.month}' AND day = '${parts.day}'`;
+  return [
+    "SELECT DISTINCT",
+    `  ${canonicalUri} AS url`,
+    `FROM "${table}"`,
+    `WHERE ${predicate}`,
+  ].join("\n");
+}
+
+export async function runDayUniques({
+  athena,
+  database,
+  table,
+  workgroup,
+  outputLocation,
+  dayKey,
+}: {
+  athena: Pick<AthenaClient, "send">;
+  database: string;
+  table: string;
+  workgroup: string;
+  outputLocation?: string;
+  dayKey: string;
+}): Promise<number> {
+  const queryString = buildDayUniquesQuery({ table, dayKey });
+  const rawRows = await startAndFetchRows({
+    athena,
+    database,
+    workgroup,
+    outputLocation,
+    queryString,
+  });
+  return toCount(rawRows[0]?.[0]);
+}
+
+export async function runMonthUniques({
+  athena,
+  database,
+  table,
+  workgroup,
+  outputLocation,
+  monthKey,
+}: {
+  athena: Pick<AthenaClient, "send">;
+  database: string;
+  table: string;
+  workgroup: string;
+  outputLocation?: string;
+  monthKey: string;
+}): Promise<number> {
+  const queryString = buildMonthUniquesQuery({ table, monthKey });
+  const rawRows = await startAndFetchRows({
+    athena,
+    database,
+    workgroup,
+    outputLocation,
+    queryString,
+  });
+  return toCount(rawRows[0]?.[0]);
+}
+
+export async function runDayUrls({
+  athena,
+  database,
+  table,
+  workgroup,
+  outputLocation,
+  dayKey,
+}: {
+  athena: Pick<AthenaClient, "send">;
+  database: string;
+  table: string;
+  workgroup: string;
+  outputLocation?: string;
+  dayKey: string;
+}): Promise<Array<string>> {
+  const queryString = buildDayUrlsQuery({ table, dayKey });
+  const rawRows = await startAndFetchRows({
+    athena,
+    database,
+    workgroup,
+    outputLocation,
+    queryString,
+  });
+
+  const urls: Array<string> = [];
+  for (const cells of rawRows) {
+    const url = cells[0];
+    if (url == null || url === "") continue;
+    urls.push(url);
+  }
+  return urls;
 }

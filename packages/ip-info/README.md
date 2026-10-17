@@ -36,7 +36,11 @@ const one = await cache.get({ ip: "8.8.8.8" });
 const many = await cache.getMany({ ips: ["8.8.8.8", "1.1.1.1"] });
 ```
 
-The cache stores one item per IP under `pk = ipinfo#<ip>`, `sk = ipinfo`.
+The cache stores one item per IP under `pk = ipinfo#<sha256(ip)>`, `sk = ipinfo`.
+The raw IP address is never persisted - the item is keyed by a SHA-256 hash of
+the IP and carries only the derived enrichment (country/ASN), so an IP cannot be
+read back out of the table. `get`/`getMany`/`enrich`/`enrichMany` take the IP as
+input and return results keyed by that input IP.
 `enrich`/`enrichMany` only call the API for IPs not already cached, and return
 `null`/`{}` respectively when no `apiKey` is configured.
 

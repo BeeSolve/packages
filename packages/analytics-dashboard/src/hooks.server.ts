@@ -10,8 +10,9 @@ import {
   AppliedMarkers,
   Breakdowns,
   Config,
-  SitemapUrlStats,
   Totals,
+  UrlDirectory,
+  WatchStats,
 } from "@beesolve/analytics-processor";
 import { AnalyticsClient } from "@beesolve/analytics-processor/sdk";
 import { AuthClient } from "@beesolve/auth-service/sdk";
@@ -40,8 +41,17 @@ const breakdowns = new Breakdowns({
   tableName: ANALYTICS_TABLE_NAME,
   reverseIndexName: ANALYTICS_REVERSE_INDEX,
 });
-const config = new Config({ dynamo, tableName: ANALYTICS_TABLE_NAME });
-const sitemapUrlStats = new SitemapUrlStats({
+const config = new Config({
+  dynamo,
+  tableName: ANALYTICS_TABLE_NAME,
+  reverseIndexName: ANALYTICS_REVERSE_INDEX,
+});
+const watchStats = new WatchStats({
+  dynamo,
+  tableName: ANALYTICS_TABLE_NAME,
+  reverseIndexName: ANALYTICS_REVERSE_INDEX,
+});
+const urls = new UrlDirectory({
   dynamo,
   tableName: ANALYTICS_TABLE_NAME,
   reverseIndexName: ANALYTICS_REVERSE_INDEX,
@@ -64,7 +74,8 @@ const authGuard: Handle = async ({ event, resolve }) => {
     totals,
     breakdowns,
     config,
-    sitemapUrlStats,
+    watchStats,
+    urls,
     markers,
     users,
     setup,

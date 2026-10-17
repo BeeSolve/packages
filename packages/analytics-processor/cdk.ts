@@ -19,8 +19,8 @@ export interface AnalyticsProcessorProps {
   readonly athenaResultsBucketArn?: string;
   readonly ipInfoApiKey?: string;
   /**
-   * Number of top paths retained per period before the rest collapse into a
-   * single `__other__` bucket.
+   * Maximum number of top IP rows retained per hour to resolve into the country
+   * breakdown.
    * @default 100
    */
   readonly topPaths?: number;
@@ -55,6 +55,8 @@ const defaultProcessingLagHours = 2;
 export class AnalyticsProcessor extends Construct {
   readonly table: TableV2;
   readonly reverseIndexName = "reverse";
+  readonly processingLagHours: number;
+  readonly hourlyTtlDays: number;
 
   private readonly sdkHandler: LambdaFunction;
 
@@ -64,6 +66,8 @@ export class AnalyticsProcessor extends Construct {
     const topPaths = props.topPaths ?? defaultTopPaths;
     const hourlyTtlDays = props.hourlyTtlDays ?? defaultHourlyTtlDays;
     const processingLagHours = props.processingLagHours ?? defaultProcessingLagHours;
+    this.hourlyTtlDays = hourlyTtlDays;
+    this.processingLagHours = processingLagHours;
     const memorySize = props.processorProps?.memorySize ?? 256;
     const timeout = props.processorProps?.timeout ?? Duration.minutes(5);
 
@@ -90,6 +94,59 @@ export class AnalyticsProcessor extends Construct {
       PROCESSING_LAG_HOURS: processingLagHours.toString(),
     };
 
+    const athenaEnvironment: Record<string, string> = {
+      ATHENA_DATABASE: props.athenaDatabase,
+      ATHENA_V2_TABLE: props.athenaV2Table,
+      ATHENA_WORKGROUP: props.athenaWorkgroup,
+      ...(props.athenaOutputLocation != null
+        ? { ATHENA_OUTPUT_LOCATION: props.athenaOutputLocation }
+        : {}),
+    };
+
+    const grantAthena = (fn: LambdaFunction): void => {
+      fn.addToRolePolicy(
+        new PolicyStatement({
+          effect: Effect.ALLOW,
+          actions: [
+            "athena:StartQueryExecution",
+            "athena:GetQueryExecution",
+            "athena:GetQueryResults",
+            "athena:StopQueryExecution",
+          ],
+          resources: ["*"],
+        }),
+      );
+
+      fn.addToRolePolicy(
+        new PolicyStatement({
+          effect: Effect.ALLOW,
+          actions: ["glue:GetTable", "glue:GetDatabase", "glue:GetPartitions"],
+          resources: ["*"],
+        }),
+      );
+
+      fn.addToRolePolicy(
+        new PolicyStatement({
+          effect: Effect.ALLOW,
+          actions: ["s3:GetObject", "s3:ListBucket", "s3:GetBucketLocation"],
+          resources: [props.logBucketArn, `${props.logBucketArn}/*`],
+        }),
+      );
+
+      if (props.athenaResultsBucketArn != null) {
+        fn.addToRolePolicy(
+          new PolicyStatement({
+            effect: Effect.ALLOW,
+            // Athena verifies the results bucket (GetBucketLocation/ListBucket) before
+            // writing query output; PutObject/GetObject alone cause a startQueryExecution
+            // failure with "Unable to verify/create output bucket" / INSUFFICIENT_PERMISSIONS.
+            actions: ["s3:PutObject", "s3:GetObject", "s3:GetBucketLocation", "s3:ListBucket"],
+            resources: [props.athenaResultsBucketArn, `${props.athenaResultsBucketArn}/*`],
+          }),
+        );
+      }
+    };
+
     const builtDir = fileURLToPath(new URL(".", import.meta.url));
 
     const hourly = new Nodejs24Function(this, "Hourly", {
@@ -100,140 +157,43 @@ export class AnalyticsProcessor extends Construct {
       timeout,
       environment: {
         ...sharedEnvironment,
-        ATHENA_DATABASE: props.athenaDatabase,
-        ATHENA_V2_TABLE: props.athenaV2Table,
-        ATHENA_WORKGROUP: props.athenaWorkgroup,
-        ...(props.athenaOutputLocation != null
-          ? { ATHENA_OUTPUT_LOCATION: props.athenaOutputLocation }
-          : {}),
+        ...athenaEnvironment,
         ...(props.ipInfoApiKey != null ? { IPINFO_API_KEY: props.ipInfoApiKey } : {}),
       },
     });
 
     this.table.grantReadWriteData(hourly);
-
-    hourly.addToRolePolicy(
-      new PolicyStatement({
-        effect: Effect.ALLOW,
-        actions: [
-          "athena:StartQueryExecution",
-          "athena:GetQueryExecution",
-          "athena:GetQueryResults",
-          "athena:StopQueryExecution",
-        ],
-        resources: ["*"],
-      }),
-    );
-
-    hourly.addToRolePolicy(
-      new PolicyStatement({
-        effect: Effect.ALLOW,
-        actions: ["glue:GetTable", "glue:GetDatabase", "glue:GetPartitions"],
-        resources: ["*"],
-      }),
-    );
-
-    hourly.addToRolePolicy(
-      new PolicyStatement({
-        effect: Effect.ALLOW,
-        actions: ["s3:GetObject", "s3:ListBucket", "s3:GetBucketLocation"],
-        resources: [props.logBucketArn, `${props.logBucketArn}/*`],
-      }),
-    );
-
-    if (props.athenaResultsBucketArn != null) {
-      hourly.addToRolePolicy(
-        new PolicyStatement({
-          effect: Effect.ALLOW,
-          // Athena verifies the results bucket (GetBucketLocation/ListBucket) before
-          // writing query output; PutObject/GetObject alone cause a startQueryExecution
-          // failure with "Unable to verify/create output bucket" / INSUFFICIENT_PERMISSIONS.
-          actions: ["s3:PutObject", "s3:GetObject", "s3:GetBucketLocation", "s3:ListBucket"],
-          resources: [props.athenaResultsBucketArn, `${props.athenaResultsBucketArn}/*`],
-        }),
-      );
-    }
-
-    const sitemap = new Nodejs24Function(this, "Sitemap", {
-      description:
-        "CloudFront analytics sitemap processor — fetches sitemap, recomputes per-URL monthly hits",
-      entry: `${builtDir}sitemap/`,
-      handler: "sitemap.handler",
-      memorySize,
-      timeout,
-      environment: {
-        ...sharedEnvironment,
-        ATHENA_DATABASE: props.athenaDatabase,
-        ATHENA_V2_TABLE: props.athenaV2Table,
-        ATHENA_WORKGROUP: props.athenaWorkgroup,
-        ...(props.athenaOutputLocation != null
-          ? { ATHENA_OUTPUT_LOCATION: props.athenaOutputLocation }
-          : {}),
-      },
-    });
-
-    this.table.grantReadWriteData(sitemap);
-
-    sitemap.addToRolePolicy(
-      new PolicyStatement({
-        effect: Effect.ALLOW,
-        actions: [
-          "athena:StartQueryExecution",
-          "athena:GetQueryExecution",
-          "athena:GetQueryResults",
-          "athena:StopQueryExecution",
-        ],
-        resources: ["*"],
-      }),
-    );
-
-    sitemap.addToRolePolicy(
-      new PolicyStatement({
-        effect: Effect.ALLOW,
-        actions: ["glue:GetTable", "glue:GetDatabase", "glue:GetPartitions"],
-        resources: ["*"],
-      }),
-    );
-
-    sitemap.addToRolePolicy(
-      new PolicyStatement({
-        effect: Effect.ALLOW,
-        actions: ["s3:GetObject", "s3:ListBucket", "s3:GetBucketLocation"],
-        resources: [props.logBucketArn, `${props.logBucketArn}/*`],
-      }),
-    );
-
-    if (props.athenaResultsBucketArn != null) {
-      sitemap.addToRolePolicy(
-        new PolicyStatement({
-          effect: Effect.ALLOW,
-          actions: ["s3:PutObject", "s3:GetObject", "s3:GetBucketLocation", "s3:ListBucket"],
-          resources: [props.athenaResultsBucketArn, `${props.athenaResultsBucketArn}/*`],
-        }),
-      );
-    }
+    grantAthena(hourly);
 
     const dailyRollup = new Nodejs24Function(this, "DailyRollup", {
-      description: "CloudFront analytics daily rollup — sums hourly DynamoDB items",
+      description: "CloudFront analytics daily rollup — sums hourly items, URL directory, uniques",
       entry: `${builtDir}dailyRollup/`,
       handler: "dailyRollup.handler",
       memorySize,
       timeout,
-      environment: sharedEnvironment,
+      environment: {
+        ...sharedEnvironment,
+        ...athenaEnvironment,
+      },
     });
 
     this.table.grantReadWriteData(dailyRollup);
+    grantAthena(dailyRollup);
 
     const monthlyRollup = new Nodejs24Function(this, "MonthlyRollup", {
-      description: "CloudFront analytics monthly rollup — sums daily DynamoDB items",
+      description: "CloudFront analytics monthly rollup — sums daily items, month uniques",
       entry: `${builtDir}monthlyRollup/`,
       handler: "monthlyRollup.handler",
       memorySize,
       timeout,
-      environment: sharedEnvironment,
+      environment: {
+        ...sharedEnvironment,
+        ...athenaEnvironment,
+      },
     });
 
     this.table.grantReadWriteData(monthlyRollup);
+    grantAthena(monthlyRollup);
 
     const sdk = new Nodejs24Function(this, "Sdk", {
       description: "CloudFront analytics SDK handler — privileged writes to the analytics table",
@@ -243,6 +203,7 @@ export class AnalyticsProcessor extends Construct {
       timeout,
       environment: {
         TABLE_NAME: this.table.tableName,
+        REVERSE_INDEX_NAME: this.reverseIndexName,
       },
     });
 
@@ -252,11 +213,6 @@ export class AnalyticsProcessor extends Construct {
     new Rule(this, "HourlySchedule", {
       schedule: Schedule.rate(Duration.hours(1)),
       targets: [new LambdaFunctionTarget(hourly)],
-    });
-
-    new Rule(this, "SitemapSchedule", {
-      schedule: Schedule.rate(Duration.hours(1)),
-      targets: [new LambdaFunctionTarget(sitemap)],
     });
 
     new Rule(this, "DailyRollupSchedule", {
@@ -276,5 +232,7 @@ export class AnalyticsProcessor extends Construct {
     handler.addEnvironment("ANALYTICS_REVERSE_INDEX", this.reverseIndexName);
     this.sdkHandler.grantInvoke(handler);
     handler.addEnvironment("BEESOLVE_ANALYTICS_SDK_HANDLER_ARN", this.sdkHandler.functionArn);
+    handler.addEnvironment("ANALYTICS_PROCESSING_LAG_HOURS", this.processingLagHours.toString());
+    handler.addEnvironment("ANALYTICS_HOURLY_TTL_DAYS", this.hourlyTtlDays.toString());
   }
 }

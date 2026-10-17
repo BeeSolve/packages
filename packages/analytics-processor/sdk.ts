@@ -3,6 +3,7 @@ import { encodeToStringifiable } from "@beesolve/helpers";
 import * as v from "valibot";
 
 import type { Commands, RequestByType, ResponseByType, Types } from "./sdkHandler.ts";
+import type { WatchMode, WatchSource, WatchStatus } from "./src/watch.ts";
 
 const envSchema = v.object({
   BEESOLVE_ANALYTICS_SDK_HANDLER_ARN: v.string(),
@@ -29,6 +30,43 @@ export class AnalyticsClient {
     readonly sitemapUrl: string;
   }): Promise<void> => {
     await this.invoke({ type: "updateSitemapUrl", request: { sitemapUrl } });
+  };
+
+  readonly upsertWatch = async ({
+    matcher,
+    mode,
+    source,
+    status,
+    label,
+  }: {
+    readonly matcher: string;
+    readonly mode: WatchMode;
+    readonly source: WatchSource;
+    readonly status?: WatchStatus;
+    readonly label?: string;
+  }): Promise<void> => {
+    await this.invoke({
+      type: "upsertWatch",
+      request: { matcher, mode, source, status, label },
+    });
+  };
+
+  readonly setWatchStatus = async ({
+    matcher,
+    status,
+  }: {
+    readonly matcher: string;
+    readonly status: WatchStatus;
+  }): Promise<void> => {
+    await this.invoke({ type: "setWatchStatus", request: { matcher, status } });
+  };
+
+  readonly deleteWatch = async ({ matcher }: { readonly matcher: string }): Promise<void> => {
+    await this.invoke({ type: "deleteWatch", request: { matcher } });
+  };
+
+  readonly syncSitemapNow = async (): Promise<void> => {
+    await this.invoke({ type: "syncSitemapNow", request: {} });
   };
 
   private readonly invoke = async <const T extends Types<Commands>>(request: {

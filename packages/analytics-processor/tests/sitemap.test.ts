@@ -1,8 +1,14 @@
-import { describe, expect, it } from "bun:test";
+import { afterEach, describe, expect, it } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { canonicalPath, normalizeSitemapLoc, parseSitemap } from "../src/sitemap.ts";
+import {
+  canonicalPath,
+  fetchSitemapPaths,
+  normalizeSitemapLoc,
+  parseSitemap,
+  sitemapUserAgent,
+} from "../src/sitemap.ts";
 
 const fixture = readFileSync(join(import.meta.dir, "fixtures", "example-sitemap.xml"), "utf8");
 
@@ -85,5 +91,41 @@ describe("parseSitemap", () => {
   <sitemap><loc>https://example.com/sitemap-blog.xml</loc></sitemap>
 </sitemapindex>`;
     expect(() => parseSitemap(index)).toThrow();
+  });
+});
+
+describe("fetchSitemapPaths", () => {
+  const originalFetch = globalThis.fetch;
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  it("fetches, parses, and returns the normalized paths", async () => {
+    const xml = [
+      `<?xml version="1.0" encoding="UTF-8"?>`,
+      `<urlset>`,
+      `<url><loc>https://example.com/</loc></url>`,
+      `<url><loc>https://example.com/blog</loc></url>`,
+      `<url><loc>https://example.com/blog/</loc></url>`,
+      `</urlset>`,
+    ].join("");
+
+    const requests: Array<RequestInit | undefined> = [];
+    const fetchStub: typeof globalThis.fetch = Object.assign(
+      async (_input: string | URL | Request, init?: RequestInit) => {
+        requests.push(init);
+        return new Response(xml, { status: 200 });
+      },
+      { preconnect: originalFetch.preconnect },
+    );
+    globalThis.fetch = fetchStub;
+
+    const paths = await fetchSitemapPaths("https://example.com/sitemap.xml");
+
+    expect(paths).toEqual(["/", "/blog"]);
+
+    const headers = new Headers(requests[0]?.headers);
+    expect(headers.get("user-agent")).toBe(sitemapUserAgent);
   });
 });

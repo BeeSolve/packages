@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import { sumBreakdown, sumTotals, topNWithOther } from "../src/reduce.ts";
+import { sumBreakdown, sumTotals } from "../src/reduce.ts";
 import type { TotalsInput } from "../src/totals.ts";
 
 function totalsItem(overrides: Partial<TotalsInput>): TotalsInput {
@@ -13,6 +13,9 @@ function totalsItem(overrides: Partial<TotalsInput>): TotalsInput {
     errors5xx: 0,
     bytesSent: 0,
     bytesReceived: 0,
+    cacheHits: 0,
+    cacheMisses: 0,
+    cacheErrors: 0,
     ...overrides,
   };
 }
@@ -28,6 +31,9 @@ describe("sumTotals", () => {
         errors5xx: 3,
         bytesSent: 500,
         bytesReceived: 200,
+        cacheHits: 70,
+        cacheMisses: 20,
+        cacheErrors: 10,
       }),
       totalsItem({
         hits: 50,
@@ -37,6 +43,9 @@ describe("sumTotals", () => {
         errors5xx: 4,
         bytesSent: 250,
         bytesReceived: 100,
+        cacheHits: 30,
+        cacheMisses: 15,
+        cacheErrors: 5,
       }),
     ]);
 
@@ -48,6 +57,9 @@ describe("sumTotals", () => {
       errors5xx: 7,
       bytesSent: 750,
       bytesReceived: 300,
+      cacheHits: 100,
+      cacheMisses: 35,
+      cacheErrors: 15,
     });
   });
 
@@ -60,6 +72,9 @@ describe("sumTotals", () => {
       errors5xx: 0,
       bytesSent: 0,
       bytesReceived: 0,
+      cacheHits: 0,
+      cacheMisses: 0,
+      cacheErrors: 0,
     });
   });
 });
@@ -76,39 +91,5 @@ describe("sumBreakdown", () => {
     expect(byValue["/a"]).toEqual({ value: "/a", hits: 13, bytes: 130 });
     expect(byValue["/b"]).toEqual({ value: "/b", hits: 5, bytes: 50 });
     expect(result.length).toBe(2);
-  });
-});
-
-describe("topNWithOther", () => {
-  it("keeps the top n and folds the remainder into __other__", () => {
-    const result = topNWithOther({
-      items: [
-        { value: "/a", hits: 100, bytes: 1000 },
-        { value: "/b", hits: 50, bytes: 500 },
-        { value: "/c", hits: 20, bytes: 200 },
-        { value: "/d", hits: 10, bytes: 100 },
-      ],
-      n: 2,
-      otherValue: "__other__",
-    });
-
-    expect(result.length).toBe(3);
-    expect(result[0]).toEqual({ value: "/a", hits: 100, bytes: 1000 });
-    expect(result[1]).toEqual({ value: "/b", hits: 50, bytes: 500 });
-    expect(result[2]).toEqual({ value: "__other__", hits: 30, bytes: 300 });
-  });
-
-  it("returns the items unchanged when they fit within n", () => {
-    const result = topNWithOther({
-      items: [
-        { value: "/a", hits: 100, bytes: 1000 },
-        { value: "/b", hits: 50, bytes: 500 },
-      ],
-      n: 5,
-      otherValue: "__other__",
-    });
-
-    expect(result.length).toBe(2);
-    expect(result.some((row) => row.value === "__other__")).toBe(false);
   });
 });

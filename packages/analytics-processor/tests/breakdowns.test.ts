@@ -35,12 +35,12 @@ describe("Breakdowns", () => {
       const breakdowns = new Breakdowns({ dynamo, tableName: "test-table" });
 
       await breakdowns.addMany({
-        dimension: "path",
+        dimension: "country",
         grain: "hour",
         periodKey: "2026-02-14-09",
         items: [
-          { value: "/pricing", hits: 10, bytes: 2000 },
-          { value: "/about", hits: 4, bytes: 800 },
+          { value: "US", hits: 10, bytes: 2000 },
+          { value: "GB", hits: 4, bytes: 800 },
         ],
         ttl: 1_700_000_000,
       });
@@ -51,8 +51,8 @@ describe("Breakdowns", () => {
       if (first == null) throw new Error("no command");
 
       expect(first.input.Key).toEqual({
-        pk: "breakdown#path#hour#2026-02-14-09",
-        sk: "/pricing",
+        pk: "breakdown#country#hour#2026-02-14-09",
+        sk: "US",
       });
 
       const expression = first.input.UpdateExpression;

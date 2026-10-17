@@ -2,7 +2,9 @@
 
 ## Status
 
-Accepted
+Superseded by ADR-009 (unified watch model). The `SitemapUrlStats` model and its
+hourly/monthly processors described below are retired; the sitemap parsing/fetch
+helpers are kept and reused by the watch model.
 
 ## Context
 

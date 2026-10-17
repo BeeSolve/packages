@@ -12,6 +12,9 @@ export interface SummedTotals {
   readonly errors5xx: number;
   readonly bytesSent: number;
   readonly bytesReceived: number;
+  readonly cacheHits: number;
+  readonly cacheMisses: number;
+  readonly cacheErrors: number;
 }
 
 export function sumTotals(items: Array<SummedTotals>): SummedTotals {
@@ -23,6 +26,9 @@ export function sumTotals(items: Array<SummedTotals>): SummedTotals {
     errors5xx: 0,
     bytesSent: 0,
     bytesReceived: 0,
+    cacheHits: 0,
+    cacheMisses: 0,
+    cacheErrors: 0,
   };
 
   return items.reduce<SummedTotals>(
@@ -34,6 +40,9 @@ export function sumTotals(items: Array<SummedTotals>): SummedTotals {
       errors5xx: accumulator.errors5xx + item.errors5xx,
       bytesSent: accumulator.bytesSent + item.bytesSent,
       bytesReceived: accumulator.bytesReceived + item.bytesReceived,
+      cacheHits: accumulator.cacheHits + item.cacheHits,
+      cacheMisses: accumulator.cacheMisses + item.cacheMisses,
+      cacheErrors: accumulator.cacheErrors + item.cacheErrors,
     }),
     summed,
   );
@@ -56,31 +65,4 @@ export function sumBreakdown(items: Array<BreakdownRow>): Array<BreakdownRow> {
   }
 
   return Object.values(byValue);
-}
-
-export function topNWithOther({
-  items,
-  n,
-  otherValue,
-}: {
-  items: Array<BreakdownRow>;
-  n: number;
-  otherValue: string;
-}): Array<BreakdownRow> {
-  const sorted = [...items].sort((left, right) => right.hits - left.hits);
-  const top = sorted.slice(0, n);
-  const remainder = sorted.slice(n);
-
-  if (remainder.length === 0) return top;
-
-  const other = remainder.reduce<BreakdownRow>(
-    (accumulator, item) => ({
-      value: otherValue,
-      hits: accumulator.hits + item.hits,
-      bytes: accumulator.bytes + item.bytes,
-    }),
-    { value: otherValue, hits: 0, bytes: 0 },
-  );
-
-  return [...top, other];
 }

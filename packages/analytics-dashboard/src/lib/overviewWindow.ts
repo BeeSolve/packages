@@ -116,6 +116,9 @@ export interface YearBucket {
   readonly errors5xx: number;
   readonly bytesSent: number;
   readonly bytesReceived: number;
+  readonly cacheHits: number;
+  readonly cacheMisses: number;
+  readonly cacheErrors: number;
 }
 
 export function groupMonthlyByYear(items: Array<TotalsItem>): Array<YearBucket> {
@@ -134,6 +137,9 @@ export function groupMonthlyByYear(items: Array<TotalsItem>): Array<YearBucket> 
         errors5xx: item.errors5xx,
         bytesSent: item.bytesSent,
         bytesReceived: item.bytesReceived,
+        cacheHits: item.cacheHits,
+        cacheMisses: item.cacheMisses,
+        cacheErrors: item.cacheErrors,
       };
       continue;
     }
@@ -147,6 +153,9 @@ export function groupMonthlyByYear(items: Array<TotalsItem>): Array<YearBucket> 
       errors5xx: existing.errors5xx + item.errors5xx,
       bytesSent: existing.bytesSent + item.bytesSent,
       bytesReceived: existing.bytesReceived + item.bytesReceived,
+      cacheHits: existing.cacheHits + item.cacheHits,
+      cacheMisses: existing.cacheMisses + item.cacheMisses,
+      cacheErrors: existing.cacheErrors + item.cacheErrors,
     };
   }
 
@@ -178,5 +187,8 @@ function emptyTotalsItem({
     errors5xx: 0,
     bytesSent: 0,
     bytesReceived: 0,
+    cacheHits: 0,
+    cacheMisses: 0,
+    cacheErrors: 0,
   };
 }

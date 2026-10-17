@@ -1,58 +1,58 @@
 import { describe, expect, it } from "bun:test";
 
-import { monthsBetween, parseSitemapBackfillArgs } from "../command/sitemap-backfill.ts";
+import { monthsBetween, parseWatchBackfillArgs } from "../command/watch-backfill.ts";
 
-describe("parseSitemapBackfillArgs", () => {
+describe("parseWatchBackfillArgs", () => {
   it("parses a valid month range", () => {
-    const args = parseSitemapBackfillArgs(["--from", "2025-06", "--to", "2026-05"]);
+    const args = parseWatchBackfillArgs(["--from", "2025-06", "--to", "2026-05"]);
     expect(args).toEqual({ from: "2025-06", to: "2026-05", concurrency: 2 });
   });
 
-  it("carries an optional sitemap url", () => {
-    const args = parseSitemapBackfillArgs([
+  it("parses an explicit concurrency", () => {
+    const args = parseWatchBackfillArgs([
       "--from",
       "2025-06",
       "--to",
       "2026-05",
-      "--sitemap-url",
-      "https://example.com/sitemap.xml",
+      "--concurrency",
+      "4",
     ]);
-    expect(args.sitemapUrl).toBe("https://example.com/sitemap.xml");
+    expect(args.concurrency).toBe(4);
   });
 
   it("throws when --from is missing", () => {
-    expect(() => parseSitemapBackfillArgs(["--to", "2026-05"])).toThrow(
+    expect(() => parseWatchBackfillArgs(["--to", "2026-05"])).toThrow(
       /requires --from <YYYY-MM> and --to <YYYY-MM>/,
     );
   });
 
   it("throws when --to is missing", () => {
-    expect(() => parseSitemapBackfillArgs(["--from", "2025-06"])).toThrow(
+    expect(() => parseWatchBackfillArgs(["--from", "2025-06"])).toThrow(
       /requires --from <YYYY-MM> and --to <YYYY-MM>/,
     );
   });
 
   it("throws on a malformed month missing the zero pad", () => {
-    expect(() => parseSitemapBackfillArgs(["--from", "2025-6", "--to", "2026-05"])).toThrow(
+    expect(() => parseWatchBackfillArgs(["--from", "2025-6", "--to", "2026-05"])).toThrow(
       /must be YYYY-MM/,
     );
   });
 
   it("throws on a month that includes a day", () => {
-    expect(() => parseSitemapBackfillArgs(["--from", "2025-06-01", "--to", "2026-05"])).toThrow(
+    expect(() => parseWatchBackfillArgs(["--from", "2025-06-01", "--to", "2026-05"])).toThrow(
       /must be YYYY-MM/,
     );
   });
 
   it("throws when from is after to", () => {
-    expect(() => parseSitemapBackfillArgs(["--from", "2026-05", "--to", "2025-06"])).toThrow(
+    expect(() => parseWatchBackfillArgs(["--from", "2026-05", "--to", "2025-06"])).toThrow(
       /--from must not be after --to/,
     );
   });
 
   it("throws on a non-positive concurrency", () => {
     expect(() =>
-      parseSitemapBackfillArgs(["--from", "2025-06", "--to", "2026-05", "--concurrency", "0"]),
+      parseWatchBackfillArgs(["--from", "2025-06", "--to", "2026-05", "--concurrency", "0"]),
     ).toThrow(/--concurrency must be a positive number/);
   });
 });

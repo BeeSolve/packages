@@ -21,10 +21,13 @@ export interface TotalsInput {
   readonly errors5xx: number;
   readonly bytesSent: number;
   readonly bytesReceived: number;
+  readonly cacheHits: number;
+  readonly cacheMisses: number;
+  readonly cacheErrors: number;
   readonly p50TimeTaken?: number;
   readonly p95TimeTaken?: number;
-  readonly cacheHitRatio?: number;
   readonly uniqueIpCount?: number;
+  readonly uniqueVisitors?: number;
 }
 
 const additiveFields = [
@@ -35,14 +38,12 @@ const additiveFields = [
   "errors5xx",
   "bytesSent",
   "bytesReceived",
+  "cacheHits",
+  "cacheMisses",
+  "cacheErrors",
 ] as const;
 
-const hourlyDetailFields = [
-  "p50TimeTaken",
-  "p95TimeTaken",
-  "cacheHitRatio",
-  "uniqueIpCount",
-] as const;
+const hourlyDetailFields = ["p50TimeTaken", "p95TimeTaken", "uniqueIpCount"] as const;
 
 export const totalsSchema = v.object({
   pk: v.string(),
@@ -56,10 +57,13 @@ export const totalsSchema = v.object({
   errors5xx: v.number(),
   bytesSent: v.number(),
   bytesReceived: v.number(),
+  cacheHits: v.optional(v.number(), 0),
+  cacheMisses: v.optional(v.number(), 0),
+  cacheErrors: v.optional(v.number(), 0),
   p50TimeTaken: v.optional(v.number()),
   p95TimeTaken: v.optional(v.number()),
-  cacheHitRatio: v.optional(v.number()),
   uniqueIpCount: v.optional(v.number()),
+  uniqueVisitors: v.optional(v.number()),
   ttl: v.optional(v.number()),
 });
 export type TotalsItem = v.InferOutput<typeof totalsSchema>;
@@ -178,6 +182,12 @@ export class Totals {
         values[`:${field}`] = value;
         setParts.push(`#${field} = :${field}`);
       }
+    }
+
+    if (props.item.uniqueVisitors != null) {
+      names["#uniqueVisitors"] = "uniqueVisitors";
+      values[":uniqueVisitors"] = props.item.uniqueVisitors;
+      setParts.push("#uniqueVisitors = :uniqueVisitors");
     }
 
     if (props.ttl != null) {

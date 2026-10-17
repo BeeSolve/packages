@@ -7,5 +7,7 @@ export const variables = defineEnvVars({
   ANALYTICS_USERS_TABLE: { schema: v.string() },
   ANALYTICS_USERS_REVERSE_INDEX: { schema: v.string() },
   BEESOLVE_ANALYTICS_SDK_HANDLER_ARN: { schema: v.string() },
+  ANALYTICS_PROCESSING_LAG_HOURS: { schema: v.string() },
+  ANALYTICS_HOURLY_TTL_DAYS: { schema: v.string() },
   IPINFO_API_KEY: { schema: v.optional(v.string()) },
 });

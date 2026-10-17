@@ -48,9 +48,11 @@ const sampleItem: TotalsInput = {
   errors5xx: 3,
   bytesSent: 5000,
   bytesReceived: 2000,
+  cacheHits: 80,
+  cacheMisses: 15,
+  cacheErrors: 5,
   p50TimeTaken: 0.12,
   p95TimeTaken: 0.45,
-  cacheHitRatio: 0.8,
   uniqueIpCount: 42,
 };
 
@@ -81,6 +83,9 @@ describe("Totals", () => {
         "errors5xx",
         "bytesSent",
         "bytesReceived",
+        "cacheHits",
+        "cacheMisses",
+        "cacheErrors",
       ]) {
         expect(expression).toContain(`#${field} :${field}`);
       }
@@ -116,9 +121,11 @@ describe("Totals", () => {
       expect(expression).not.toContain("#ttl");
       expect(expression).not.toContain("p95TimeTaken");
       expect(expression).not.toContain("p50TimeTaken");
-      expect(expression).not.toContain("cacheHitRatio");
       expect(expression).not.toContain("uniqueIpCount");
       expect(expression).toContain("#hits :hits");
+      expect(expression).toContain("#cacheHits :cacheHits");
+      expect(expression).toContain("#cacheMisses :cacheMisses");
+      expect(expression).toContain("#cacheErrors :cacheErrors");
 
       expect(values(command)[":ttl"]).toBeUndefined();
     });
@@ -171,6 +178,9 @@ describe("Totals", () => {
         errors5xx: 3,
         bytesSent: 5000,
         bytesReceived: 2000,
+        cacheHits: 80,
+        cacheMisses: 15,
+        cacheErrors: 5,
       };
       const { dynamo } = makeDynamo({ Items: [stored] });
       const totals = new Totals({ dynamo, tableName: "test-table" });
@@ -193,6 +203,30 @@ describe("Totals", () => {
 
       const result = await totals.getOne({ grain: "day", timeKey: "2026-02-14" });
       expect(result).toBeUndefined();
+    });
+
+    it("parses a legacy record without cache counts, defaulting them to 0", async () => {
+      const legacyItem = {
+        pk: "totals#day",
+        sk: "2026-02-14",
+        grain: "day",
+        timeKey: "2026-02-14",
+        hits: 10,
+        success: 9,
+        errors: 1,
+        errors4xx: 1,
+        errors5xx: 0,
+        bytesSent: 1234,
+        bytesReceived: 56,
+      };
+      const { dynamo } = makeDynamo({ Item: legacyItem });
+      const totals = new Totals({ dynamo, tableName: "test-table" });
+
+      const result = await totals.getOne({ grain: "day", timeKey: "2026-02-14" });
+      expect(result?.hits).toBe(10);
+      expect(result?.cacheHits).toBe(0);
+      expect(result?.cacheMisses).toBe(0);
+      expect(result?.cacheErrors).toBe(0);
     });
   });
 });

@@ -1,15 +1,15 @@
-import type { SitemapUrlStatRecord } from "@beesolve/analytics-processor";
+import type { WatchStatsRecord } from "@beesolve/analytics-processor";
 
-export const sitemapGrains = ["day", "month", "year"] as const;
-export type SitemapGrain = (typeof sitemapGrains)[number];
+export const watchGrains = ["day", "month", "year"] as const;
+export type WatchGrain = (typeof watchGrains)[number];
 
-export interface SitemapBucket {
+export interface WatchBucket {
   readonly key: string;
   readonly hits: number;
 }
 
-export function isSitemapGrain(value: string | null): value is SitemapGrain {
-  return value != null && (sitemapGrains as ReadonlyArray<string>).includes(value);
+export function isWatchGrain(value: string | null): value is WatchGrain {
+  return value != null && (watchGrains as ReadonlyArray<string>).includes(value);
 }
 
 function pad2(input: number): string {
@@ -24,7 +24,7 @@ export function periodKeyFor({
   grain,
   date,
 }: {
-  readonly grain: SitemapGrain;
+  readonly grain: WatchGrain;
   readonly date: Date;
 }): string {
   const year = pad4(date.getUTCFullYear());
@@ -35,27 +35,27 @@ export function periodKeyFor({
   return `${year}-${month}-${day}`;
 }
 
-export function defaultSitemapPeriodKey({
+export function defaultWatchPeriodKey({
   grain,
   now,
 }: {
-  readonly grain: SitemapGrain;
+  readonly grain: WatchGrain;
   readonly now: Date;
 }): string {
   return periodKeyFor({ grain, date: now });
 }
 
 /**
- * The `[startMonth, endMonth]` span of monthly sitemap items that fully covers
- * a single period at the chosen grain. The store only persists monthly items
- * (with per-day `dNN` attributes), so a day sits inside its own month, a month
- * is itself, and a year spans its twelve months.
+ * The `[startMonth, endMonth]` span of monthly watch records that fully covers
+ * a single period at the chosen grain. Watch metrics persist as monthly records
+ * (with per-day `dNN` attributes for `hits`), so a day sits inside its own
+ * month, a month is itself, and a year spans its twelve months.
  */
 export function monthSpanForPeriod({
   grain,
   periodKey,
 }: {
-  readonly grain: SitemapGrain;
+  readonly grain: WatchGrain;
   readonly periodKey: string;
 }): { startMonth: string; endMonth: string } {
   if (grain === "year") {
@@ -67,7 +67,7 @@ export function monthSpanForPeriod({
 }
 
 /**
- * Hits for a single path within one period, read from its monthly records.
+ * Hits for a single bucket within one period, read from its monthly records.
  * - day: the matching `dNN` entry inside that month's `days` map
  * - month: the month record's `hits`
  * - year: the sum of every month record's `hits` in the year
@@ -77,9 +77,9 @@ export function hitsForPeriod({
   periodKey,
   records,
 }: {
-  readonly grain: SitemapGrain;
+  readonly grain: WatchGrain;
   readonly periodKey: string;
-  readonly records: Array<SitemapUrlStatRecord>;
+  readonly records: Array<WatchStatsRecord>;
 }): number {
   if (grain === "day") {
     const month = periodKey.slice(0, 7);
@@ -100,6 +100,68 @@ export function hitsForPeriod({
     .reduce((sum, record) => sum + record.hits, 0);
 }
 
+export interface WatchScalarTotals {
+  readonly bytesSent: number;
+  readonly cacheHits: number;
+  readonly cacheMisses: number;
+  readonly cacheErrors: number;
+  readonly bytesSaved: number;
+  readonly errors: number;
+  readonly redirects: number;
+}
+
+const emptyScalars: WatchScalarTotals = {
+  bytesSent: 0,
+  cacheHits: 0,
+  cacheMisses: 0,
+  cacheErrors: 0,
+  bytesSaved: 0,
+  errors: 0,
+  redirects: 0,
+};
+
+/**
+ * Month-level scalar metrics (bytes, cache counts, saved bytes) projected to a
+ * period. These metrics are only stored at month granularity, so they cannot be
+ * broken down per day. A `day` period therefore reports the containing month's
+ * scalars; a `month` period reports that month; a `year` period sums its months.
+ * Hits are the one metric with day granularity and come from
+ * {@link hitsForPeriod}, not this projection.
+ */
+export function scalarsForPeriod({
+  grain,
+  periodKey,
+  records,
+}: {
+  readonly grain: WatchGrain;
+  readonly periodKey: string;
+  readonly records: Array<WatchStatsRecord>;
+}): WatchScalarTotals {
+  if (grain === "year") {
+    const year = periodKey.slice(0, 4);
+    return records
+      .filter((candidate) => candidate.month.slice(0, 4) === year)
+      .reduce((sum, record) => addScalars(sum, record), emptyScalars);
+  }
+
+  const month = periodKey.slice(0, 7);
+  const record = records.find((candidate) => candidate.month === month);
+  if (record == null) return emptyScalars;
+  return addScalars(emptyScalars, record);
+}
+
+function addScalars(sum: WatchScalarTotals, record: WatchStatsRecord): WatchScalarTotals {
+  return {
+    bytesSent: sum.bytesSent + record.bytesSent,
+    cacheHits: sum.cacheHits + record.cacheHits,
+    cacheMisses: sum.cacheMisses + record.cacheMisses,
+    cacheErrors: sum.cacheErrors + record.cacheErrors,
+    bytesSaved: sum.bytesSaved + record.bytesSaved,
+    errors: sum.errors + record.errors,
+    redirects: sum.redirects + record.redirects,
+  };
+}
+
 /**
  * The ordered bucket keys for a trend window of `size` periods ending at
  * `anchorKey` (inclusive), oldest first. Daily windows walk calendar days,
@@ -110,7 +172,7 @@ export function trendBucketKeys({
   anchorKey,
   size,
 }: {
-  readonly grain: SitemapGrain;
+  readonly grain: WatchGrain;
   readonly anchorKey: string;
   readonly size: number;
 }): Array<string> {
@@ -127,7 +189,7 @@ export function monthSpanForWindow({
   grain,
   bucketKeys,
 }: {
-  readonly grain: SitemapGrain;
+  readonly grain: WatchGrain;
   readonly bucketKeys: Array<string>;
 }): { startMonth: string; endMonth: string } {
   const first = bucketKeys[0] ?? "";
@@ -137,13 +199,13 @@ export function monthSpanForWindow({
   return { startMonth: start, endMonth: end };
 }
 
-export function defaultWindowSize(grain: SitemapGrain): number {
+export function defaultWindowSize(grain: WatchGrain): number {
   if (grain === "day") return 30;
   if (grain === "month") return 12;
   return 5;
 }
 
-function parseKey({ grain, key }: { readonly grain: SitemapGrain; readonly key: string }): Date {
+function parseKey({ grain, key }: { readonly grain: WatchGrain; readonly key: string }): Date {
   const year = Number(key.slice(0, 4));
   const month = grain === "year" ? 1 : Number(key.slice(5, 7));
   const day = grain === "day" ? Number(key.slice(8, 10)) : 1;
@@ -155,7 +217,7 @@ function shift({
   date,
   delta,
 }: {
-  readonly grain: SitemapGrain;
+  readonly grain: WatchGrain;
   readonly date: Date;
   readonly delta: number;
 }): Date {

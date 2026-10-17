@@ -150,5 +150,8 @@ function toTotalsItem({
     errors5xx: totals.errors5xx,
     bytesSent: totals.bytesSent,
     bytesReceived: totals.bytesReceived,
+    cacheHits: totals.cacheHits,
+    cacheMisses: totals.cacheMisses,
+    cacheErrors: totals.cacheErrors,
   };
 }

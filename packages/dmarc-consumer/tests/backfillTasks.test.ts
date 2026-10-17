@@ -192,7 +192,6 @@ function buildCacheItem(ip: string): IpInfoCacheItem {
   return {
     pk: `ipinfo#${ip}`,
     sk: "ipinfo",
-    ip,
     fetchedAt: "2024-01-01T00:00:00.000Z",
   };
 }

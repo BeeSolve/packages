@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, mock, spyOn } from "bun:test";
+import { createHash } from "node:crypto";
 
 import { IpInfoCache } from "../index.ts";
 
@@ -11,11 +12,18 @@ function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status });
 }
 
+function pkFor(ip: string): string {
+  return `ipinfo#${createHash("sha256").update(ip).digest("hex")}`;
+}
+
+interface RecordedCommand {
+  readonly input: Record<string, unknown>;
+}
+
 function freshItem(ip: string) {
   return {
-    pk: `ipinfo#${ip}`,
+    pk: pkFor(ip),
     sk: "ipinfo" as const,
-    ip,
     asn: "AS15169",
     asName: "Google LLC",
     asDomain: "google.com",
@@ -85,6 +93,32 @@ describe("IpInfoCache", () => {
       expect(result?.asName).toBe("PLDT");
       expect(result?.country).toBe("Philippines");
       expect(dynamo.send).toHaveBeenCalledTimes(2);
+    });
+
+    it("stores the item under a hashed pk and never persists the raw IP", async () => {
+      const recorded: Array<RecordedCommand> = [];
+      const dynamo = {
+        send: async (command: RecordedCommand): Promise<Record<string, unknown>> => {
+          recorded.push(command);
+          return {};
+        },
+      };
+
+      spyOn(globalThis, "fetch").mockResolvedValue(
+        jsonResponse({ ip: "203.0.113.7", country_code: "AU", country: "Australia" }),
+      );
+
+      const cache = new IpInfoCache({ dynamo, tableName: "t", apiKey: "key" });
+      await cache.enrich({ ip: "203.0.113.7" });
+
+      const putCommand = recorded.find((command) => "Item" in command.input);
+      const storedItem: Record<string, unknown> =
+        putCommand?.input.Item != null && typeof putCommand.input.Item === "object"
+          ? { ...putCommand.input.Item }
+          : {};
+      expect(storedItem).toMatchObject({ pk: pkFor("203.0.113.7") });
+      expect(JSON.stringify(storedItem)).not.toContain("203.0.113.7");
+      expect("ip" in storedItem).toBe(false);
     });
   });
 

@@ -22,14 +22,17 @@ function totalsItem(timeKey: string, grain: "hour" | "day" | "month", hits: numb
     errors5xx: 0,
     bytesSent: hits * 10,
     bytesReceived: hits * 5,
+    cacheHits: hits,
+    cacheMisses: 0,
+    cacheErrors: 0,
   };
 }
 
 function breakdownItem(value: string, hits: number): BreakdownItem {
   return {
-    pk: "breakdown#path#hour#x",
+    pk: "breakdown#country#hour#x",
     sk: value,
-    dimension: "path",
+    dimension: "country",
     grain: "hour",
     periodKey: "x",
     value,
@@ -152,15 +155,15 @@ describe("resolveBreakdownLive", () => {
       totalsByGrain: {},
       markers: new Set(),
       breakdownsByKey: {
-        "path#hour#2026-10-13-00": [breakdownItem("/a", 5), breakdownItem("/b", 1)],
-        "path#hour#2026-10-13-01": [breakdownItem("/a", 3)],
-        "path#hour#2026-10-13-02": [breakdownItem("/b", 4)],
+        "country#hour#2026-10-13-00": [breakdownItem("/a", 5), breakdownItem("/b", 1)],
+        "country#hour#2026-10-13-01": [breakdownItem("/a", 3)],
+        "country#hour#2026-10-13-02": [breakdownItem("/b", 4)],
       },
     });
 
     const result = await resolveBreakdownLive({
       models,
-      dimension: "path",
+      dimension: "country",
       grain: "day",
       periodKey: "2026-10-13",
       now,
@@ -177,17 +180,17 @@ describe("resolveBreakdownLive", () => {
       totalsByGrain: {},
       markers: new Set(["day#2026-10-01"]),
       breakdownsByKey: {
-        "path#day#2026-10-01": [breakdownItem("/a", 50)],
-        "path#hour#2026-10-02-00": [breakdownItem("/a", 1)],
-        "path#hour#2026-10-02-01": [breakdownItem("/b", 2)],
-        "path#hour#2026-10-02-02": [breakdownItem("/a", 1)],
-        "path#hour#2026-10-02-03": [breakdownItem("/a", 1)],
+        "country#day#2026-10-01": [breakdownItem("/a", 50)],
+        "country#hour#2026-10-02-00": [breakdownItem("/a", 1)],
+        "country#hour#2026-10-02-01": [breakdownItem("/b", 2)],
+        "country#hour#2026-10-02-02": [breakdownItem("/a", 1)],
+        "country#hour#2026-10-02-03": [breakdownItem("/a", 1)],
       },
     });
 
     const result = await resolveBreakdownLive({
       models,
-      dimension: "path",
+      dimension: "country",
       grain: "month",
       periodKey: "2026-10",
       now,

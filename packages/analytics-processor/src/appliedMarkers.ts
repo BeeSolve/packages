@@ -4,7 +4,7 @@ import * as v from "valibot";
 
 import type { Grain } from "./keys.ts";
 
-export type MarkerGrain = Grain | "sitemap";
+export type MarkerGrain = Grain | "sitemap" | "watch";
 
 type TransactWriteItem = NonNullable<TransactWriteCommandInput["TransactItems"]>[number];
 type PutMembers = NonNullable<TransactWriteItem["Put"]>;

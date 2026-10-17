@@ -2,8 +2,9 @@ import type {
   AppliedMarkers,
   Breakdowns,
   Config,
-  SitemapUrlStats,
   Totals,
+  UrlDirectory,
+  WatchStats,
 } from "@beesolve/analytics-processor";
 import type { AnalyticsClient } from "@beesolve/analytics-processor/sdk";
 import type { AuthClient } from "@beesolve/auth-service/sdk";
@@ -26,7 +27,8 @@ declare global {
         totals: Totals;
         breakdowns: Breakdowns;
         config: Config;
-        sitemapUrlStats: SitemapUrlStats;
+        watchStats: WatchStats;
+        urls: UrlDirectory;
         markers: AppliedMarkers;
         users: Users;
         setup: Setup;

@@ -7,6 +7,7 @@
   import PeriodPicker from "#lib/components/periodPicker.svelte";
   import { formatPeriodLabel } from "#lib/labels.js";
   import { getBreakdown } from "#lib/remote/breakdowns.remote.js";
+  import { getStatusUrls } from "#lib/remote/statusUrls.remote.js";
 
   let { data } = $props();
 
@@ -26,7 +27,7 @@
   }
 
   const dimension = $derived<Dimension>(
-    isDimension(page.params.dimension ?? "") ? (page.params.dimension as Dimension) : "path",
+    isDimension(page.params.dimension ?? "") ? (page.params.dimension as Dimension) : "status",
   );
 
   const grain = $derived<Grain>(isGrain(page.url.searchParams.get("grain")) ? (page.url.searchParams.get("grain") as Grain) : "day");
@@ -101,6 +102,10 @@
 
 <p class="period-caption">{formatPeriodLabel({ view: grain, periodKey })}</p>
 
+{#if dimension === "country"}
+  <p class="dimension-note">Unique visitors are tracked site-wide only, not per country.</p>
+{/if}
+
 <svelte:boundary>
   {#snippet pending()}
     <p>Loading breakdown…</p>
@@ -132,12 +137,70 @@
       </table>
     </div>
   {/if}
+
+  {#if dimension === "status"}
+    <section class="status-urls-section">
+      <h2>URLs that errored / were redirected</h2>
+      <p class="dimension-note">
+        Derived from watched URLs. Status class only (redirect / client+server error) - no exact
+        per-URL codes.
+      </p>
+
+      <svelte:boundary>
+        {#snippet pending()}
+          <p>Loading watched URL status…</p>
+        {/snippet}
+
+        {@const statusUrls = await getStatusUrls({ grain, periodKey })}
+
+        {#if statusUrls.items.length === 0}
+          <p>No watched URLs errored or were redirected in this period.</p>
+        {:else}
+          <div class="table">
+            <table>
+              <thead>
+                <tr>
+                  <th>Bucket</th>
+                  <th class="num">Redirects (3xx)</th>
+                  <th class="num">Client+Server errors</th>
+                </tr>
+              </thead>
+              <tbody>
+                {#each statusUrls.items as item (item.pk)}
+                  <tr>
+                    <td>{item.label}</td>
+                    <td class="num">{item.redirects.toLocaleString()}</td>
+                    <td class="num">{item.errors.toLocaleString()}</td>
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
+          </div>
+        {/if}
+      </svelte:boundary>
+    </section>
+  {/if}
 </svelte:boundary>
 
 <style>
   h1 {
     font-size: 1.5rem;
     margin: 0 0 1rem;
+  }
+
+  h2 {
+    font-size: 1.15rem;
+    margin: 0 0 0.5rem;
+  }
+
+  .dimension-note {
+    margin: 0 0 var(--vs-base);
+    color: var(--fg-5);
+    font-size: 0.8rem;
+  }
+
+  .status-urls-section {
+    margin-top: var(--vs-l);
   }
 
   .dimension-nav {
