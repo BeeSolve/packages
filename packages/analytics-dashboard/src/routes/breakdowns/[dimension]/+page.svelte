@@ -5,6 +5,7 @@
   import { dimensions, grains, hourKey } from "@beesolve/analytics-processor";
 
   import PeriodPicker from "#lib/components/periodPicker.svelte";
+  import Tooltip from "#lib/components/tooltip.svelte";
   import { formatCountry, formatPeriodLabel, statusCodeExplanation } from "#lib/labels.js";
   import { getBreakdown } from "#lib/remote/breakdowns.remote.js";
   import { getStatusUrls } from "#lib/remote/statusUrls.remote.js";
@@ -132,7 +133,9 @@
                 {#if dimension === "status"}
                   {@const explanation = statusCodeExplanation(item.value)}
                   {#if explanation != null}
-                    <span class="status-value" title={explanation}>{item.value}</span>
+                    <Tooltip text={explanation}>
+                      <span class="status-value">{item.value}</span>
+                    </Tooltip>
                   {:else}
                     {item.value}
                   {/if}
