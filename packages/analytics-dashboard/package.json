@@ -29,7 +29,7 @@
   "scripts": {
     "prepare": "svelte-kit sync || true",
     "dev": "bun --env-file=.env.local vite dev",
-    "build": "ANALYTICS_TABLE_NAME=build-placeholder ANALYTICS_REVERSE_INDEX=build-placeholder ANALYTICS_USERS_TABLE=build-placeholder ANALYTICS_USERS_REVERSE_INDEX=build-placeholder vite build",
+    "build": "ANALYTICS_TABLE_NAME=build-placeholder ANALYTICS_REVERSE_INDEX=build-placeholder ANALYTICS_USERS_TABLE=build-placeholder ANALYTICS_USERS_REVERSE_INDEX=build-placeholder BEESOLVE_ANALYTICS_SDK_HANDLER_ARN=build-placeholder ANALYTICS_PROCESSING_LAG_HOURS=0 ANALYTICS_HOURLY_TTL_DAYS=0 vite build",
     "type-check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "test": "bun test",
     "prepublishOnly": "bun build.ts && bun run build"
