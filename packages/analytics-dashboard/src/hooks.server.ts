@@ -13,6 +13,7 @@ import {
   SitemapUrlStats,
   Totals,
 } from "@beesolve/analytics-processor";
+import { AnalyticsClient } from "@beesolve/analytics-processor/sdk";
 import { AuthClient } from "@beesolve/auth-service/sdk";
 import { createSessionHandle, type SessionContext } from "@beesolve/auth-service/sveltekit";
 import { Email } from "@beesolve/email-service/sdk";
@@ -53,6 +54,7 @@ const users = new Users({
 });
 const setup = new Setup({ dynamo, tableName: ANALYTICS_USERS_TABLE });
 const authClient = new AuthClient();
+const analyticsClient = new AnalyticsClient();
 const email = new Email();
 
 const publicPaths = new Set(["/sign-in", "/sign-in/verify", "/setup"]);
@@ -67,6 +69,7 @@ const authGuard: Handle = async ({ event, resolve }) => {
     users,
     setup,
     authClient,
+    analyticsClient,
     email,
   };
 

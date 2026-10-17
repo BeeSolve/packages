@@ -4,6 +4,8 @@
   "include": [
     "index.ts",
     "cdk.ts",
+    "sdk.ts",
+    "sdkHandler.ts",
     "hourly.ts",
     "dailyRollup.ts",
     "monthlyRollup.ts",

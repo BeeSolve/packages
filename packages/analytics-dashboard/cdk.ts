@@ -54,7 +54,7 @@ export class AnalyticsDashboard extends Construct {
       toDefaultOrigin: ({ handler }) => {
         props.auth.addAuthorizedEndpoint({ lambda: handler, path: "/{proxy+}" });
         props.auth.grantSdkAccess(handler);
-        props.processor.grantRead(handler);
+        props.processor.grantAccess(handler);
 
         usersTable.grantReadWriteData(handler);
         handler.addEnvironment("ANALYTICS_USERS_TABLE", usersTable.tableName);

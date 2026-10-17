@@ -5,6 +5,7 @@ import type {
   SitemapUrlStats,
   Totals,
 } from "@beesolve/analytics-processor";
+import type { AnalyticsClient } from "@beesolve/analytics-processor/sdk";
 import type { AuthClient } from "@beesolve/auth-service/sdk";
 import type { SessionContext } from "@beesolve/auth-service/sveltekit";
 import type { Email } from "@beesolve/email-service/sdk";
@@ -30,6 +31,7 @@ declare global {
         users: Users;
         setup: Setup;
         authClient: AuthClient;
+        analyticsClient: AnalyticsClient;
         email: Email;
       };
     }

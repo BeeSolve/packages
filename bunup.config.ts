@@ -210,7 +210,7 @@ const workspace: Array<DefineWorkspaceItem> = [
     name: "@beesolve/analytics-processor",
     root: "packages/analytics-processor",
     config: {
-      entry: ["index.ts", "cdk.ts"],
+      entry: ["index.ts", "cdk.ts", "sdk.ts"],
       dts: {
         inferTypes: true,
         tsgo: true,

@@ -36,7 +36,7 @@ export const setSitemapUrl = form(setSitemapUrlSchema, async ({ sitemapUrl }) =>
   requireAdmin();
 
   try {
-    await locals.services.config.setSitemapUrl({ sitemapUrl });
+    await locals.services.analyticsClient.updateSitemapUrl({ sitemapUrl });
   } catch (thrown) {
     toRemoteError(thrown);
   }

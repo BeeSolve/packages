@@ -7,6 +7,7 @@ const handlers = [
   { entry: "./dailyRollup.ts", outDir: "./dist/dailyRollup" },
   { entry: "./monthlyRollup.ts", outDir: "./dist/monthlyRollup" },
   { entry: "./sitemap.ts", outDir: "./dist/sitemap" },
+  { entry: "./sdkHandler.ts", outDir: "./dist/sdkHandler" },
 ];
 
 for (const handler of handlers) {

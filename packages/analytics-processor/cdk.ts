@@ -56,6 +56,8 @@ export class AnalyticsProcessor extends Construct {
   readonly table: TableV2;
   readonly reverseIndexName = "reverse";
 
+  private readonly sdkHandler: LambdaFunction;
+
   constructor(scope: Construct, id: string, props: AnalyticsProcessorProps) {
     super(scope, id);
 
@@ -233,6 +235,20 @@ export class AnalyticsProcessor extends Construct {
 
     this.table.grantReadWriteData(monthlyRollup);
 
+    const sdk = new Nodejs24Function(this, "Sdk", {
+      description: "CloudFront analytics SDK handler — privileged writes to the analytics table",
+      entry: `${builtDir}sdkHandler/`,
+      handler: "sdkHandler.handler",
+      memorySize,
+      timeout,
+      environment: {
+        TABLE_NAME: this.table.tableName,
+      },
+    });
+
+    this.table.grantReadWriteData(sdk);
+    this.sdkHandler = sdk;
+
     new Rule(this, "HourlySchedule", {
       schedule: Schedule.rate(Duration.hours(1)),
       targets: [new LambdaFunctionTarget(hourly)],
@@ -254,9 +270,11 @@ export class AnalyticsProcessor extends Construct {
     });
   }
 
-  grantRead(handler: LambdaFunction): void {
+  grantAccess(handler: LambdaFunction): void {
     this.table.grantReadData(handler);
     handler.addEnvironment("ANALYTICS_TABLE_NAME", this.table.tableName);
     handler.addEnvironment("ANALYTICS_REVERSE_INDEX", this.reverseIndexName);
+    this.sdkHandler.grantInvoke(handler);
+    handler.addEnvironment("BEESOLVE_ANALYTICS_SDK_HANDLER_ARN", this.sdkHandler.functionArn);
   }
 }

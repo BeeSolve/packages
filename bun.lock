@@ -44,7 +44,7 @@
     },
     "packages/analytics-dashboard": {
       "name": "@beesolve/analytics-dashboard",
-      "version": "0.5.1",
+      "version": "0.6.0",
       "dependencies": {
         "@aws-sdk/client-dynamodb": "catalog:",
         "@aws-sdk/lib-dynamodb": "catalog:",
@@ -85,16 +85,18 @@
     },
     "packages/analytics-processor": {
       "name": "@beesolve/analytics-processor",
-      "version": "0.6.0",
+      "version": "0.6.2",
       "dependencies": {
         "@aws-sdk/client-athena": "catalog:",
         "@aws-sdk/client-dynamodb": "catalog:",
+        "@aws-sdk/client-lambda": "catalog:",
         "@aws-sdk/client-s3": "catalog:",
         "@aws-sdk/lib-dynamodb": "catalog:",
         "@beesolve/cdk-constructs": "workspace:^",
         "@beesolve/dynamo-helpers": "workspace:^",
         "@beesolve/helpers": "workspace:^",
         "@beesolve/ip-info": "workspace:^",
+        "@beesolve/lambda-keep-active": "workspace:^",
         "valibot": "catalog:",
       },
       "devDependencies": {
