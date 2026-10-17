@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { formatPattern } from "#lib/labels.js";
   import { deleteUser, listUsers } from "#lib/remote/users.remote.js";
   import {
     addWatch,
@@ -117,14 +118,16 @@
         Add pattern
         <input
           {...addWatch.fields.pattern.as("text")}
-          placeholder="/blog/* or /docs/+ or /about"
+          placeholder="/blog* or /docs+ or /about"
           disabled={addWatch.pending > 0}
         />
       </label>
       <p class="hint">
-        <code>/path</code> watches one exact URL. <code>/prefix/*</code> (split) tracks each path
-        under the prefix as its own bucket. <code>/prefix/+</code> (group) collapses everything
-        under the prefix into one bucket. Patterns must start with <code>/</code>.
+        <code>/path</code> watches one exact URL. <code>/prefix*</code> (split) tracks each path
+        under the prefix as its own bucket. <code>/prefix+</code> (group) collapses everything
+        under the prefix into one bucket. The slash before <code>*</code>/<code>+</code> is
+        optional (<code>/blog*</code> and <code>/blog/*</code> both work). Patterns must start with
+        <code>/</code>.
       </p>
       <button type="submit" class="button primary" disabled={addWatch.pending > 0}>
         {addWatch.pending > 0 ? "Adding..." : "Add pattern"}
@@ -158,7 +161,7 @@
                 {@const deleteForm = deleteWatch.for(entry.matcher)}
                 {@const nextStatus = entry.status === "active" ? "stopped" : "active"}
                 <tr>
-                  <td>{entry.matcher}</td>
+                  <td><code>{formatPattern(entry)}</code></td>
                   <td>{entry.mode}</td>
                   <td>{entry.source}</td>
                   <td>

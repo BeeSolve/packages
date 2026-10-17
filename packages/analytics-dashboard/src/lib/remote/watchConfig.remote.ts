@@ -63,16 +63,19 @@ export const listWatchConfig = query(async () => {
 
 /**
  * Parse the `*`/`+` matcher sugar into a structured `{ matcher, mode }`. A
- * trailing `/*` means split (each path under the prefix is its own bucket), a
- * trailing `/+` means group (one collapsed bucket), anything else is an exact
- * single URL. The matcher or prefix must start with `/`.
+ * trailing `*` means split (each path under the prefix is its own bucket), a
+ * trailing `+` means group (one collapsed bucket), anything else is an exact
+ * single URL. The slash before the suffix is optional, so `/blog*` and
+ * `/blog/*` are both accepted (and stored as the prefix with the suffix
+ * stripped, `/blog` and `/blog/` respectively). The matcher or prefix must
+ * start with `/`.
  */
 function parsePattern(pattern: string): { matcher: string; mode: WatchMode } {
   const trimmed = pattern.trim();
-  if (trimmed.endsWith("/*")) {
+  if (trimmed.endsWith("*")) {
     return { matcher: trimmed.slice(0, -1), mode: "split" };
   }
-  if (trimmed.endsWith("/+")) {
+  if (trimmed.endsWith("+")) {
     return { matcher: trimmed.slice(0, -1), mode: "group" };
   }
   return { matcher: trimmed, mode: "exact" };

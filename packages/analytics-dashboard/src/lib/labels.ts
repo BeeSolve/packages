@@ -1,4 +1,4 @@
-import type { Grain } from "@beesolve/analytics-processor";
+import type { Grain, WatchMode } from "@beesolve/analytics-processor";
 import { parsePeriodKey } from "@beesolve/analytics-processor";
 
 export type View = Grain | "year";
@@ -128,4 +128,21 @@ export function formatCountry(value: string): string {
   } catch {
     return value;
   }
+}
+
+/**
+ * Reconstruct the display pattern for a stored watch entry by re-appending the
+ * mode's suffix (`*` for split, `+` for group, nothing for exact), the inverse
+ * of the `parsePattern` sugar used when adding a watch entry.
+ */
+export function formatPattern({
+  matcher,
+  mode,
+}: {
+  readonly matcher: string;
+  readonly mode: WatchMode;
+}): string {
+  if (mode === "split") return `${matcher}*`;
+  if (mode === "group") return `${matcher}+`;
+  return matcher;
 }
