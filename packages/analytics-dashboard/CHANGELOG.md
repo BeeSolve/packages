@@ -1,5 +1,62 @@
 # @beesolve/analytics-dashboard
 
+## 0.7.0
+
+### Minor Changes
+
+- 25b3bcf: Add URLs and Watchlist routes, cache and unique-visitor surfaces, watch
+  management in Settings, and data-transparency UX; remove the sitemap route.
+
+  - New `/urls` route: the URL directory (every URL served, with first-seen) and an
+    admin "Add to watchlist" action per row.
+  - New `/watch` route (replaces `/sitemap`): a ranked table per watch bucket
+    (hits, bytes transferred, cache hit/miss/error ratio, bytes saved) with a
+    status badge (`active`/`stopped`), `source` (sitemap/manual), per-bucket trend
+    chart, grain switcher, and period picker.
+  - Settings gains watchlist management: add manual patterns with `*` (split) / `+`
+    (group) sugar, stop/resume, and delete (manual only). All writes go through the
+    processor SDK handler and are admin-gated.
+  - Overview gains a cache hit/miss/error ratio panel (correct at every grain) and
+    a site-wide approximate unique-visitor figure (day/month only, shown per
+    period and never summed; omitted at hour/year).
+  - The Status breakdown gains a "URLs that errored / were redirected" view driven
+    by watch metrics (class only: redirect / client+server error).
+  - New "About this data" disclosure and inline cues stating processing lag,
+    hourly retention window, daily sitemap sync, watch-forward semantics, and
+    approximate/non-summable uniques. Lag and retention render from the deployed
+    config via two new env vars (`ANALYTICS_PROCESSING_LAG_HOURS`,
+    `ANALYTICS_HOURLY_TTL_DAYS`).
+  - The top navigation highlights the active section (solid-primary pill,
+    `aria-current="page"`, readable in light and dark), matching sub-routes to
+    their parent section.
+  - BREAKING: the `/sitemap` route and the legacy top-paths breakdown view are
+    removed; the breakdown dimensions are now status, country, and device.
+
+- def7f18: Add a decoupled SDK write path to `@beesolve/analytics-processor` and route the
+  dashboard's sitemap-URL write through it.
+
+  `@beesolve/analytics-processor` now ships a processor-owned SDK handler Lambda
+  with read/write access to the analytics table, invoked through a typed
+  `AnalyticsClient` from the new `@beesolve/analytics-processor/sdk` export. The
+  client exposes `updateSitemapUrl({ sitemapUrl })`, which dispatches to the
+  handler via synchronous Lambda invocation (mirroring the `@beesolve/auth-service`
+  SDK pattern). The CDK construct's `grantRead(handler)` method is renamed to
+  `grantAccess(handler)`: it still grants read-only access to the table and sets
+  the `ANALYTICS_TABLE_NAME`/`ANALYTICS_REVERSE_INDEX` env vars, and additionally
+  grants invoke on the SDK handler and sets `BEESOLVE_ANALYTICS_SDK_HANDLER_ARN`.
+
+  `@beesolve/analytics-dashboard` keeps read-only table access and now routes the
+  `setSitemapUrl` form action through `AnalyticsClient.updateSitemapUrl` instead of
+  writing to DynamoDB directly (the dashboard handler has no write permission). The
+  dashboard now requires the `BEESOLVE_ANALYTICS_SDK_HANDLER_ARN` environment
+  variable, wired automatically by `AnalyticsProcessor.grantAccess`.
+
+### Patch Changes
+
+- Updated dependencies [def7f18]
+- Updated dependencies [25b3bcf]
+  - @beesolve/analytics-processor@0.7.0
+
 ## 0.6.0
 
 ### Minor Changes

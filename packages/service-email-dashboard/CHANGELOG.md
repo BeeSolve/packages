@@ -1,5 +1,15 @@
 # @beesolve/email-service-dashboard
 
+## 0.6.8
+
+### Patch Changes
+
+- 25b3bcf: Highlight the active section in the top navigation. Each nav link now reflects
+  the current route with a solid-primary pill, medium weight, and
+  `aria-current="page"`, matching sub-routes to their parent section (e.g. a
+  drill-down page keeps its section highlighted). The active state is readable in
+  both light and dark themes.
+
 ## 0.6.7
 
 ### Patch Changes

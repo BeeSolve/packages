@@ -1,5 +1,12 @@
 # @beesolve/dmarc-consumer
 
+## 0.4.5
+
+### Patch Changes
+
+- Updated dependencies [25b3bcf]
+  - @beesolve/ip-info@0.3.0
+
 ## 0.4.4
 
 ### Patch Changes
