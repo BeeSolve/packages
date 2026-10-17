@@ -132,7 +132,7 @@
                 {#if dimension === "status"}
                   {@const explanation = statusCodeExplanation(item.value)}
                   {#if explanation != null}
-                    <span class="tip status-value" aria-label={explanation}>{item.value}</span>
+                    <span class="status-value" title={explanation}>{item.value}</span>
                   {:else}
                     {item.value}
                   {/if}
