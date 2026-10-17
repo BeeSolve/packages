@@ -1,5 +1,21 @@
 # @beesolve/analytics-dashboard
 
+## 0.7.2
+
+### Patch Changes
+
+- 76e1086: Fix the status-code explanation being clipped inside the breakdown table. The
+  graffiti `.tip` tooltip is absolutely positioned and was cut off by the table
+  wrapper's `overflow-x: auto`. Use a native `title` tooltip instead, which the
+  browser renders outside any scroll container.
+- a86aac1: Add a reusable graffiti-styled `Tooltip` component that renders in the browser
+  top layer via the Popover API, so it is never clipped by an ancestor's
+  `overflow` (the problem that cut off the status-code explanation inside the
+  scrollable breakdown table). It is anchored to its trigger with CSS anchor
+  positioning, keyboard-focusable and described via `aria-describedby`, uses an
+  SSR-safe id, and falls back to a native `title` tooltip when the Popover API is
+  unavailable. The status-code breakdown now uses this component.
+
 ## 0.7.1
 
 ### Patch Changes
