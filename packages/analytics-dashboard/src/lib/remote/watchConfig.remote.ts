@@ -38,11 +38,13 @@ export const setSitemapUrl = form(setSitemapUrlSchema, async ({ sitemapUrl }) =>
 
   try {
     await locals.services.analyticsClient.updateSitemapUrl({ sitemapUrl });
+    await locals.services.analyticsClient.syncSitemapNow();
   } catch (thrown) {
     toRemoteError(thrown);
   }
 
   await getSitemapConfig().refresh();
+  await listWatchConfig().refresh();
 
   redirect(303, "/settings");
 });

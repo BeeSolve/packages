@@ -5,7 +5,7 @@
   import { dimensions, grains, hourKey } from "@beesolve/analytics-processor";
 
   import PeriodPicker from "#lib/components/periodPicker.svelte";
-  import { formatPeriodLabel } from "#lib/labels.js";
+  import { formatCountry, formatPeriodLabel, statusCodeExplanation } from "#lib/labels.js";
   import { getBreakdown } from "#lib/remote/breakdowns.remote.js";
   import { getStatusUrls } from "#lib/remote/statusUrls.remote.js";
 
@@ -128,7 +128,21 @@
         <tbody>
           {#each result.items as item (item.value)}
             <tr>
-              <td>{item.value}</td>
+              <td>
+                {#if dimension === "status"}
+                  {@const explanation = statusCodeExplanation(item.value)}
+                  {#if explanation != null}
+                    <span class="tip status-value" aria-label={explanation}>{item.value}</span>
+                  {:else}
+                    {item.value}
+                  {/if}
+                {:else if dimension === "country"}
+                  {formatCountry(item.value)}
+                  <span class="value-code">{item.value}</span>
+                {:else}
+                  {item.value}
+                {/if}
+              </td>
               <td class="num">{item.hits.toLocaleString()}</td>
               <td class="num">{formatBytes(item.bytes)}</td>
             </tr>
@@ -233,6 +247,19 @@
 
   .num {
     text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .status-value {
+    cursor: help;
+    text-decoration: underline dotted;
+    text-underline-offset: 3px;
+  }
+
+  .value-code {
+    margin-left: var(--vs-xs, 0.25rem);
+    color: var(--fg-5);
+    font-size: 0.75rem;
     font-variant-numeric: tabular-nums;
   }
 </style>

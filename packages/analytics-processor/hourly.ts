@@ -9,6 +9,7 @@ import { toDynamoClient } from "./src/dynamo.ts";
 import { processHour } from "./src/processHour.ts";
 import { hourKey } from "./src/time.ts";
 import { Totals } from "./src/totals.ts";
+import { processWatchHour, WatchStats } from "./src/watch.ts";
 
 const envSchema = v.object({
   TABLE_NAME: v.string(),
@@ -29,7 +30,16 @@ const dynamo = toDynamoClient();
 const totals = new Totals({ dynamo, tableName: env.TABLE_NAME });
 const breakdowns = new Breakdowns({ dynamo, tableName: env.TABLE_NAME });
 const markers = new AppliedMarkers({ dynamo, tableName: env.TABLE_NAME });
-const config = new Config({ dynamo, tableName: env.TABLE_NAME });
+const config = new Config({
+  dynamo,
+  tableName: env.TABLE_NAME,
+  reverseIndexName: env.REVERSE_INDEX_NAME,
+});
+const watchStats = new WatchStats({
+  dynamo,
+  tableName: env.TABLE_NAME,
+  reverseIndexName: env.REVERSE_INDEX_NAME,
+});
 const ipCache = new IpInfoCache({
   dynamo,
   tableName: env.TABLE_NAME,
@@ -43,16 +53,18 @@ export async function handler(): Promise<void> {
   target.setUTCHours(target.getUTCHours() - lagHours);
   const targetHour = hourKey(target);
 
+  const athena = {
+    client: athenaClient,
+    database: env.ATHENA_DATABASE,
+    table: env.ATHENA_V2_TABLE,
+    workgroup: env.ATHENA_WORKGROUP,
+    outputLocation: env.ATHENA_OUTPUT_LOCATION,
+  };
+
   const result = await processHour({
     hourKey: targetHour,
     models: { totals, breakdowns, markers, ipCache, config },
-    athena: {
-      client: athenaClient,
-      database: env.ATHENA_DATABASE,
-      table: env.ATHENA_V2_TABLE,
-      workgroup: env.ATHENA_WORKGROUP,
-      outputLocation: env.ATHENA_OUTPUT_LOCATION,
-    },
+    athena,
     options: {
       topPaths: Number(env.TOP_PATHS),
       hourlyTtlDays: Number(env.HOURLY_TTL_DAYS),
@@ -62,4 +74,38 @@ export async function handler(): Promise<void> {
   });
 
   console.log(`hourly ${targetHour} ${result.status}`);
+
+  await processWatchEntries({ targetHour, athena });
+}
+
+async function processWatchEntries({
+  targetHour,
+  athena,
+}: {
+  readonly targetHour: string;
+  readonly athena: {
+    readonly client: AthenaClient;
+    readonly database: string;
+    readonly table: string;
+    readonly workgroup: string;
+    readonly outputLocation?: string;
+  };
+}): Promise<void> {
+  const entries = await config.listWatch();
+  const active = entries.filter((entry) => entry.status === "active");
+
+  for (const entry of active) {
+    try {
+      const { status, buckets } = await processWatchHour({
+        hourKey: targetHour,
+        entry: { matcher: entry.matcher, mode: entry.mode },
+        models: { watchStats, markers },
+        athena,
+        dynamo,
+      });
+      console.log(`watch ${entry.matcher} ${targetHour} ${status} buckets=${buckets}`);
+    } catch (error) {
+      console.error(`watch ${entry.matcher} ${targetHour} failed`, error);
+    }
+  }
 }
