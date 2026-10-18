@@ -1,7 +1,7 @@
 import { fileURLToPath } from "node:url";
 
 import { Nodejs24Function } from "@beesolve/cdk-constructs";
-import { Duration, RemovalPolicy } from "aws-cdk-lib";
+import { CfnOutput, Duration, RemovalPolicy, Stack } from "aws-cdk-lib";
 import { AttributeType, Billing, ProjectionType, TableV2 } from "aws-cdk-lib/aws-dynamodb";
 import { Rule, Schedule } from "aws-cdk-lib/aws-events";
 import { LambdaFunction as LambdaFunctionTarget } from "aws-cdk-lib/aws-events-targets";
@@ -57,6 +57,7 @@ export class AnalyticsProcessor extends Construct {
   readonly reverseIndexName = "reverse";
   readonly processingLagHours: number;
   readonly hourlyTtlDays: number;
+  readonly topPaths: number;
 
   private readonly sdkHandler: LambdaFunction;
 
@@ -68,6 +69,7 @@ export class AnalyticsProcessor extends Construct {
     const processingLagHours = props.processingLagHours ?? defaultProcessingLagHours;
     this.hourlyTtlDays = hourlyTtlDays;
     this.processingLagHours = processingLagHours;
+    this.topPaths = topPaths;
     const memorySize = props.processorProps?.memorySize ?? 256;
     const timeout = props.processorProps?.timeout ?? Duration.minutes(5);
 
@@ -224,6 +226,36 @@ export class AnalyticsProcessor extends Construct {
       schedule: Schedule.cron({ minute: "30", hour: "1", day: "1" }),
       targets: [new LambdaFunctionTarget(monthlyRollup)],
     });
+
+    this.publishConfigOutputs(props);
+  }
+
+  /**
+   * Publish the resolved processor configuration as CloudFormation outputs with
+   * stable keys, so the shipped operational CLIs (`analytics-backfill`,
+   * `analytics-watch-backfill`, `analytics-compact`) can resolve everything they
+   * need from `--stack <name>` via DescribeStacks instead of requiring the
+   * caller to pass each value as an environment variable.
+   */
+  private publishConfigOutputs(props: AnalyticsProcessorProps): void {
+    const stack = Stack.of(this);
+
+    const outputs: Record<string, string | undefined> = {
+      AnalyticsTableName: this.table.tableName,
+      AnalyticsReverseIndexName: this.reverseIndexName,
+      AnalyticsAthenaDatabase: props.athenaDatabase,
+      AnalyticsAthenaTable: props.athenaV2Table,
+      AnalyticsAthenaV1Table: props.athenaV1Table,
+      AnalyticsAthenaWorkgroup: props.athenaWorkgroup,
+      AnalyticsAthenaOutputLocation: props.athenaOutputLocation,
+      AnalyticsTopPaths: this.topPaths.toString(),
+      AnalyticsHourlyTtlDays: this.hourlyTtlDays.toString(),
+    };
+
+    for (const [key, value] of Object.entries(outputs)) {
+      if (value == null) continue;
+      new CfnOutput(stack, `${this.node.id}${key}`, { key, value });
+    }
   }
 
   grantAccess(handler: LambdaFunction): void {

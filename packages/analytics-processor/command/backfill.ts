@@ -9,6 +9,7 @@ import type { ProcessHourResult } from "../src/processHour.ts";
 import { applyDailyRollup, applyMonthlyRollup, processHour } from "../src/processHour.ts";
 import { dayKey, hoursBetween, monthKey } from "../src/time.ts";
 import { Totals } from "../src/totals.ts";
+import { extractStackFlag, resolveEnv } from "./resolveStack.ts";
 
 export interface BackfillArgs {
   readonly from: Date;
@@ -266,8 +267,10 @@ function distinctKeys({
 }
 
 export async function main(): Promise<void> {
-  const args = parseBackfillArgs(process.argv.slice(2));
-  const config = configFromEnv(process.env);
+  const { stackName, rest } = extractStackFlag(process.argv.slice(2));
+  const args = parseBackfillArgs(rest);
+  const env = await resolveEnv({ stackName });
+  const config = configFromEnv(env);
   await runBackfill({ args, config });
 }
 

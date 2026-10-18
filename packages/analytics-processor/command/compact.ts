@@ -2,6 +2,8 @@ import { AthenaClient } from "@aws-sdk/client-athena";
 import { GetQueryExecutionCommand, StartQueryExecutionCommand } from "@aws-sdk/client-athena";
 import { DeleteObjectsCommand, ListObjectsV2Command, type S3Client } from "@aws-sdk/client-s3";
 
+import { analyticsOutputKeys, extractStackFlag, resolveStackOutputs } from "./resolveStack.ts";
+
 /**
  * One-time (and reusable) compaction of a v1 LazySimpleSerDe CloudFront access
  * log table into a v2-shaped Parquet table.
@@ -260,8 +262,11 @@ function requireFlag(flags: Record<string, string>, name: string): string {
   return value;
 }
 
-export function parseCompactArgs(argv: Array<string>): CompactArgs {
-  const flags: Record<string, string> = {};
+export function parseCompactArgs(
+  argv: Array<string>,
+  defaults: Partial<Record<string, string>> = {},
+): CompactArgs {
+  const flags: Record<string, string> = { ...stripUndefinedFlags(defaults) };
   let dropExisting = false;
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -287,6 +292,14 @@ export function parseCompactArgs(argv: Array<string>): CompactArgs {
     to: requireFlag(flags, "to"),
     dropExisting,
   };
+}
+
+function stripUndefinedFlags(flags: Partial<Record<string, string>>): Record<string, string> {
+  const result: Record<string, string> = {};
+  for (const [key, value] of Object.entries(flags)) {
+    if (value != null && value !== "") result[key] = value;
+  }
+  return result;
 }
 
 async function waitForQuery({
@@ -432,12 +445,34 @@ export async function main(): Promise<void> {
   const { S3Client } = await import("@aws-sdk/client-s3");
   const athena = new AthenaClient();
   const s3 = new S3Client();
-  const args = parseCompactArgs(process.argv.slice(2));
+
+  const { stackName, rest } = extractStackFlag(process.argv.slice(2));
+  const defaults = stackName == null ? {} : await compactDefaultsFromStack(stackName);
+  const args = parseCompactArgs(rest, defaults);
+
   await runCompact({
     athena,
     args,
     purgeLocation: (location) => purgeS3Location({ s3, location }),
   });
+}
+
+/**
+ * Stack-derived defaults for `compact`: database, workgroup, output location,
+ * and the v1 source table (when the stack was given one). The target table and
+ * external location are always caller-specified, since compaction creates a new
+ * table the construct does not own.
+ */
+async function compactDefaultsFromStack(
+  stackName: string,
+): Promise<Partial<Record<string, string>>> {
+  const outputs = await resolveStackOutputs({ stackName });
+  return {
+    database: outputs[analyticsOutputKeys.athenaDatabase],
+    workgroup: outputs[analyticsOutputKeys.athenaWorkgroup],
+    "output-location": outputs[analyticsOutputKeys.athenaOutputLocation],
+    "source-table": outputs[analyticsOutputKeys.athenaV1Table],
+  };
 }
 
 if (import.meta.main) {

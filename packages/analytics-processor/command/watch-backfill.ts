@@ -4,6 +4,7 @@ import { Config } from "../src/config.ts";
 import { toDynamoClient } from "../src/dynamo.ts";
 import { processWatchMonth, WatchStats } from "../src/watch.ts";
 import { runPool } from "./backfill.ts";
+import { extractStackFlag, resolveEnv } from "./resolveStack.ts";
 
 export interface WatchBackfillArgs {
   readonly from: string;
@@ -164,8 +165,10 @@ export async function runWatchBackfill({
 }
 
 export async function main(): Promise<void> {
-  const args = parseWatchBackfillArgs(process.argv.slice(2));
-  const config = configFromEnv(process.env);
+  const { stackName, rest } = extractStackFlag(process.argv.slice(2));
+  const args = parseWatchBackfillArgs(rest);
+  const env = await resolveEnv({ stackName });
+  const config = configFromEnv(env);
   await runWatchBackfill({ args, config });
 }
 

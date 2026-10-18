@@ -16,8 +16,32 @@ with `npx` (or your package manager's equivalent) once the package is installed.
 
 The commands talk to DynamoDB, Athena, Glue and S3 using the ambient AWS
 credentials (`AWS_PROFILE` / `AWS_REGION` or the standard credential chain), the
-same as any AWS SDK process. They read their configuration from environment
-variables rather than flags:
+same as any AWS SDK process.
+
+There are two ways to supply the processor configuration (table name, Athena
+database/table/workgroup, etc.):
+
+### 1. `--stack <name>` (recommended)
+
+Pass the name of the CloudFormation stack the `AnalyticsProcessor` construct was
+deployed into. The command calls `cloudformation:DescribeStacks` and reads the
+config from the stack's outputs, so you do not have to look up any resource
+names by hand:
+
+```sh
+AWS_PROFILE=my-profile AWS_REGION=eu-central-1 \
+npx analytics-watch-backfill --stack MyAnalyticsStack --from 2026-05 --to 2026-10
+```
+
+This requires the stack to have been deployed with a construct version that
+publishes the config outputs (`AnalyticsTableName`, `AnalyticsAthenaDatabase`,
+`AnalyticsAthenaTable`, `AnalyticsAthenaWorkgroup`, etc.). Any explicit
+environment variable still overrides the stack-derived value.
+
+### 2. Environment variables
+
+Without `--stack`, the commands read their configuration from environment
+variables:
 
 | Env var                  | `backfill` | `watch-backfill` | Notes                                                                         |
 | ------------------------ | :--------: | :--------------: | ----------------------------------------------------------------------------- |
@@ -27,6 +51,18 @@ variables rather than flags:
 | `ATHENA_TABLE`           |     ✓      |        ✓         | Glue table. Note: this is `ATHENA_TABLE`, not the lambdas' `ATHENA_V2_TABLE`. |
 | `ATHENA_WORKGROUP`       |     ✓      |        ✓         | Athena workgroup.                                                             |
 | `ATHENA_OUTPUT_LOCATION` |  optional  |     optional     | Only when the workgroup has no default output.                                |
+
+With `--stack`, a `watch-backfill` run collapses to:
+
+```sh
+AWS_PROFILE=my-profile AWS_REGION=eu-central-1 \
+npx analytics-watch-backfill --stack MyAnalyticsStack --from 2026-05 --to 2026-10
+```
+
+`compact` also accepts `--stack` to fill in `--database`, `--workgroup`,
+`--output-location`, and (when the stack defines a v1 table) `--source-table`;
+`--target-table` and `--external-location` remain explicit since compaction
+creates a new table the construct does not own.
 
 ## watch-backfill
 

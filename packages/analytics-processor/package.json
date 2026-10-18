@@ -49,6 +49,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-athena": "catalog:",
+    "@aws-sdk/client-cloudformation": "catalog:",
     "@aws-sdk/client-dynamodb": "catalog:",
     "@aws-sdk/client-lambda": "catalog:",
     "@aws-sdk/client-s3": "catalog:",

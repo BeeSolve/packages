@@ -158,4 +158,13 @@ describe("AnalyticsProcessor construct", () => {
       },
     });
   });
+
+  it("publishes config outputs for CLI --stack resolution", () => {
+    const template = makeTemplate();
+    template.hasOutput("AnalyticsTableName", { Value: Match.anyValue() });
+    template.hasOutput("AnalyticsReverseIndexName", { Value: "reverse" });
+    template.hasOutput("AnalyticsAthenaDatabase", { Value: "cf_logs" });
+    template.hasOutput("AnalyticsAthenaTable", { Value: "cf_logs_v2_table" });
+    template.hasOutput("AnalyticsAthenaWorkgroup", { Value: "cf_analytics" });
+  });
 });
