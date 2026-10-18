@@ -47,7 +47,10 @@ npm install @beesolve/analytics-processor
   (+ `applyDailyRollup`/`applyMonthlyRollup`).
 - `./cdk` — the `AnalyticsProcessor` CDK construct.
 
-Lambda handlers and the backfill script are not part of the public API.
+The Lambda handlers are not part of the importable API. The operational
+commands ship as executable bins — `analytics-backfill`, `analytics-watch-backfill`,
+and `analytics-compact` — runnable via `npx` (see
+[the how-to guide](./docs/how-to/run-operational-commands.md)).
 
 ## CDK Usage
 

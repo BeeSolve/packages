@@ -29,6 +29,9 @@ See [the how-to guide](./docs/how-to/sitemap-url-stats.md) and
 
 ## How-To Guides
 
+- [Run the operational commands](./docs/how-to/run-operational-commands.md) - the
+  `analytics-backfill`, `analytics-watch-backfill`, and `analytics-compact` bins that
+  ship with the package, runnable via `npx` from a consumer project (no repo clone)
 - [Reduce Athena cost](./docs/how-to/reduce-athena-cost.md) - deliver only the 10 fields
   the processor needs via the exported `requiredRecordFields`
 - [Compact legacy v1 logs](./docs/how-to/compact-v1-logs.md) - the `compact` command that

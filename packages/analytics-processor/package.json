@@ -8,6 +8,11 @@
     "type": "git",
     "url": "git+https://github.com/BeeSolve/packages.git"
   },
+  "bin": {
+    "analytics-backfill": "./dist/command/backfill/backfill.mjs",
+    "analytics-compact": "./dist/command/compact/compact.mjs",
+    "analytics-watch-backfill": "./dist/command/watch-backfill/watch-backfill.mjs"
+  },
   "files": [
     "dist",
     "DOCS.md"
@@ -59,7 +64,8 @@
     "@types/aws-lambda": "catalog:",
     "@types/node": "catalog:",
     "aws-cdk-lib": "catalog:",
-    "constructs": "catalog:"
+    "constructs": "catalog:",
+    "esbuild": "catalog:"
   },
   "peerDependencies": {
     "aws-cdk-lib": "catalog:",
