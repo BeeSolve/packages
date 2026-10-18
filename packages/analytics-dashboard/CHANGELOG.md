@@ -1,5 +1,12 @@
 # @beesolve/analytics-dashboard
 
+## 0.7.4
+
+### Patch Changes
+
+- Updated dependencies [3f6a481]
+  - @beesolve/analytics-processor@0.9.0
+
 ## 0.7.3
 
 ### Patch Changes
