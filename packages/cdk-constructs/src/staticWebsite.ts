@@ -6,6 +6,7 @@ import {
   CachePolicy,
   Distribution,
   type DistributionProps,
+  type ErrorResponse,
   Function,
   type FunctionAssociation,
   FunctionCode,
@@ -57,10 +58,26 @@ interface StaticWebsiteProps {
     readonly frameOptions?: HeadersFrameOption;
     readonly referrerPolicy?: HeadersReferrerPolicy;
   };
-  readonly mode: "singlePageApplication" | "multiPageApplication";
+  readonly mode:
+    | { readonly type: "singlePageApplication" }
+    | {
+        readonly type: "multiPageApplication";
+        /**
+         * Path to the custom error page served for 404s, returned with a real
+         * 404 status so downstream analytics can filter missing-page traffic.
+         *
+         * @default "/404.html"
+         */
+        readonly notFoundPath?: string;
+        /**
+         * Set to `false` to pass S3's native 404 response through unchanged
+         * instead of serving a custom error page.
+         *
+         * @default true
+         */
+        readonly customErrorPage?: false;
+      };
   readonly refererId: string;
-  // todo: add errors if multipage application
-  // readonly errors: string []
   /**
    * @default 10_240
    */
@@ -241,15 +258,7 @@ export class StaticWebsite extends Construct {
         }),
         functionAssociations,
       },
-      errorResponses: [
-        {
-          httpStatus: 404,
-          // CloudFront will automatically return 304 if the content was not modified.
-          responseHttpStatus: 200,
-          responsePagePath: "/index.html",
-          ttl: Duration.days(365),
-        },
-      ],
+      errorResponses: toErrorResponses(),
       priceClass: PriceClass.PRICE_CLASS_100,
       certificate: toCertificate(this),
       domainNames: toDomainNames(),
@@ -285,6 +294,35 @@ export class StaticWebsite extends Construct {
         zone: hostedZone,
         recordName: `www.${props.domain.name}`,
       });
+    }
+
+    function toErrorResponses(): Array<ErrorResponse> {
+      if (props.mode.type === "singlePageApplication") {
+        return [
+          {
+            httpStatus: 404,
+            // CloudFront will automatically return 304 if the content was not modified.
+            responseHttpStatus: 200,
+            responsePagePath: "/index.html",
+            ttl: Duration.days(365),
+          },
+        ];
+      }
+
+      if (props.mode.type === "multiPageApplication") {
+        if (props.mode.customErrorPage === false) return [];
+
+        return [
+          {
+            httpStatus: 404,
+            responseHttpStatus: 404,
+            responsePagePath: props.mode.notFoundPath ?? "/404.html",
+            ttl: Duration.minutes(5),
+          },
+        ];
+      }
+
+      assertUnreachable(props.mode);
     }
 
     function toRedirectCode() {

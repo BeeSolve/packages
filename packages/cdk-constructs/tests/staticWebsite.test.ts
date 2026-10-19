@@ -10,7 +10,7 @@ const baseProps = {
   domain: undefined,
   source: Source.data("index.html", "<html></html>"),
   contentSecurityPolicy: {},
-  mode: "singlePageApplication" as const,
+  mode: { type: "singlePageApplication" } as const,
 } satisfies Omit<ConstructorParameters<typeof StaticWebsite>[2], "refererId">;
 
 describe("StaticWebsite refererId validation", () => {
@@ -71,5 +71,79 @@ describe("StaticWebsite synthesis", () => {
         },
       },
     });
+  });
+
+  test("SPA mode rewrites 404 to /index.html with status 200", () => {
+    makeWebsite().hasResourceProperties("AWS::CloudFront::Distribution", {
+      DistributionConfig: {
+        CustomErrorResponses: [
+          {
+            ErrorCode: 404,
+            ResponseCode: 200,
+            ResponsePagePath: "/index.html",
+          },
+        ],
+      },
+    });
+  });
+});
+
+type SiteMode = ConstructorParameters<typeof StaticWebsite>[2]["mode"];
+
+describe("StaticWebsite MPA error pages", () => {
+  function makeMpaWebsite(mpa: Extract<SiteMode, { type: "multiPageApplication" }>) {
+    const app = new App();
+    const stack = new Stack(app, "TestStack");
+    new StaticWebsite(stack, "Website", {
+      ...baseProps,
+      mode: mpa,
+      refererId: "my-secret-referer-id",
+    });
+    return Template.fromStack(stack);
+  }
+
+  test("returns a real 404 with the default /404.html page", () => {
+    makeMpaWebsite({ type: "multiPageApplication" }).hasResourceProperties(
+      "AWS::CloudFront::Distribution",
+      {
+        DistributionConfig: {
+          CustomErrorResponses: [
+            {
+              ErrorCode: 404,
+              ResponseCode: 404,
+              ResponsePagePath: "/404.html",
+            },
+          ],
+        },
+      },
+    );
+  });
+
+  test("honours a custom notFoundPath", () => {
+    makeMpaWebsite({
+      type: "multiPageApplication",
+      notFoundPath: "/not-found.html",
+    }).hasResourceProperties("AWS::CloudFront::Distribution", {
+      DistributionConfig: {
+        CustomErrorResponses: [
+          {
+            ErrorCode: 404,
+            ResponseCode: 404,
+            ResponsePagePath: "/not-found.html",
+          },
+        ],
+      },
+    });
+  });
+
+  test("passes S3's native 404 through when customErrorPage is false", () => {
+    const template = makeMpaWebsite({
+      type: "multiPageApplication",
+      customErrorPage: false,
+    });
+    const distributions = template.findResources("AWS::CloudFront::Distribution");
+    for (const distribution of Object.values(distributions)) {
+      expect(distribution.Properties.DistributionConfig.CustomErrorResponses).toBeUndefined();
+    }
   });
 });

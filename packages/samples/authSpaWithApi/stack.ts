@@ -51,7 +51,7 @@ export class SpaWithApiStack extends Stack {
 
     const site = new StaticWebsite(this, "Site", {
       source: Source.asset(resolve(__dirname, "./site/dist")),
-      mode: "singlePageApplication",
+      mode: { type: "singlePageApplication" },
       domain: undefined,
       refererId: "samples-auth-spa-with-api",
       contentSecurityPolicy: {
