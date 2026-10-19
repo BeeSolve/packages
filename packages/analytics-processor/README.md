@@ -5,6 +5,13 @@ maintains a single-table DynamoDB design of hourly totals, per-dimension
 breakdowns, and daily/monthly rollups using atomic counter updates with
 per-period idempotency markers.
 
+> [!WARNING]
+> **Pre-1.0 — unstable API.** This package is `0.x` and under active
+> development. Breaking changes can land in any `0.x` release without a major
+> version bump. Pin an exact version and review the changelog before upgrading.
+> Once the API stabilizes and the package reaches `1.0.0`, it follows semantic
+> versioning and this notice is removed.
+
 ## Architecture
 
 ```

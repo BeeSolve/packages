@@ -2,6 +2,13 @@
 
 CDK construct and runtime SDK for sending transactional email via AWS SES.
 
+> [!WARNING]
+> **Pre-1.0 — unstable API.** This package is `0.x` and under active
+> development. Breaking changes can land in any `0.x` release without a major
+> version bump. Pin an exact version and review the changelog before upgrading.
+> Once the API stabilizes and the package reaches `1.0.0`, it follows semantic
+> versioning and this notice is removed.
+
 - SQS-backed queue for reliable delivery with automatic retries and DLQ
 - S3 attachment storage (supports both uploaded buffers and public URLs)
 - EventBridge notifications on send success/failure and SES delivery events

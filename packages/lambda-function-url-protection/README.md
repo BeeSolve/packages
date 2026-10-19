@@ -2,6 +2,13 @@
 
 Fail-closed origin-token protection for a Lambda Function URL behind CloudFront. A secret is generated and sent as the `x-origin-token` header from CloudFront, injected into the handler as `ORIGIN_TOKEN`, and verified at runtime so the Function URL cannot be invoked directly, bypassing the distribution.
 
+> [!WARNING]
+> **Pre-1.0 — unstable API.** This package is `0.x` and under active
+> development. Breaking changes can land in any `0.x` release without a major
+> version bump. Pin an exact version and review the changelog before upgrading.
+> Once the API stabilizes and the package reaches `1.0.0`, it follows semantic
+> versioning and this notice is removed.
+
 ## Installation
 
 ```bash

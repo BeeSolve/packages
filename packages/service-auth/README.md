@@ -2,6 +2,13 @@
 
 Passwordless email-code authentication for AWS. Cookie-based, same-domain, serverless.
 
+> [!WARNING]
+> **Pre-1.0 — unstable API.** This package is `0.x` and under active
+> development. Breaking changes can land in any `0.x` release without a major
+> version bump. Pin an exact version and review the changelog before upgrading.
+> Once the API stabilizes and the package reaches `1.0.0`, it follows semantic
+> versioning and this notice is removed.
+
 - **Cookie-based** — session lives in a `__Host-SID` cookie, no tokens in frontend code
 - **Same-domain** — frontend, auth endpoints, and API all behind one CloudFront distribution
 - **AWS-native & serverless** — DynamoDB, Lambda, CloudFront, EventBridge, API Gateway

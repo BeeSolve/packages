@@ -2,6 +2,13 @@
 
 Type-safe SQS task queue with automatic partial batch failure handling and a CDK construct for deployment.
 
+> [!WARNING]
+> **Pre-1.0 — unstable API.** This package is `0.x` and under active
+> development. Breaking changes can land in any `0.x` release without a major
+> version bump. Pin an exact version and review the changelog before upgrading.
+> Once the API stabilizes and the package reaches `1.0.0`, it follows semantic
+> versioning and this notice is removed.
+
 - Define async task functions in TypeScript — get a type-safe client to enqueue them
 - Partial batch failure reporting out of the box (only failed messages retry)
 - Supports both standard and FIFO queues

@@ -2,6 +2,13 @@
 
 SvelteKit dashboard for viewing `@beesolve/email-service` delivery status — deployed on AWS Lambda behind CloudFront with email-code authentication. It runs its own event-ingest Lambda that projects the email delivery lifecycle (from EventBridge) into its own DynamoDB table, so the UI has durable, queryable message + status + aggregate-stats data.
 
+> [!WARNING]
+> **Pre-1.0 — unstable API.** This package is `0.x` and under active
+> development. Breaking changes can land in any `0.x` release without a major
+> version bump. Pin an exact version and review the changelog before upgrading.
+> Once the API stabilizes and the package reaches `1.0.0`, it follows semantic
+> versioning and this notice is removed.
+
 ## Architecture
 
 ```

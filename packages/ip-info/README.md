@@ -4,6 +4,13 @@ IP enrichment (country/ASN) backed by a DynamoDB presence cache. Looks up IP
 metadata via [ipinfo.io](https://ipinfo.io) and caches results so each IP is
 fetched at most once.
 
+> [!WARNING]
+> **Pre-1.0 — unstable API.** This package is `0.x` and under active
+> development. Breaking changes can land in any `0.x` release without a major
+> version bump. Pin an exact version and review the changelog before upgrading.
+> Once the API stabilizes and the package reaches `1.0.0`, it follows semantic
+> versioning and this notice is removed.
+
 ## Installation
 
 ```bash
