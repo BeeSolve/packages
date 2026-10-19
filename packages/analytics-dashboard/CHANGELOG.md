@@ -1,5 +1,13 @@
 # @beesolve/analytics-dashboard
 
+## 0.7.5
+
+### Patch Changes
+
+- 0354e08: Fix low-contrast tooltip text. The Tooltip surface used `--fg-1` (10% opacity
+  foreground), making the explanation text nearly invisible in both light and dark
+  mode. Use the full-strength `--fg` so the text meets the surface contrast.
+
 ## 0.7.4
 
 ### Patch Changes
