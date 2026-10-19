@@ -1,5 +1,21 @@
 # @beesolve/email-service-dashboard
 
+## 0.6.9
+
+### Patch Changes
+
+- 010a478: Add a pre-1.0 stability banner to the README. The package is `0.x` and under
+  active development, so breaking changes can land in any `0.x` release without a
+  major version bump. The banner is removed when the package reaches `1.0.0`.
+- Updated dependencies [010a478]
+- Updated dependencies [0937ad2]
+  - @beesolve/helpers@0.2.2
+  - @beesolve/lambda-function-url-protection@0.2.1
+  - @beesolve/auth-service@0.20.2
+  - @beesolve/email-service@0.5.8
+  - @beesolve/cdk-constructs@0.9.0
+  - @beesolve/lambda-keep-active@2.1.13
+
 ## 0.6.8
 
 ### Patch Changes

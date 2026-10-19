@@ -1,5 +1,15 @@
 # @beesolve/ip-info
 
+## 0.3.1
+
+### Patch Changes
+
+- 010a478: Add a pre-1.0 stability banner to the README. The package is `0.x` and under
+  active development, so breaking changes can land in any `0.x` release without a
+  major version bump. The banner is removed when the package reaches `1.0.0`.
+- Updated dependencies [010a478]
+  - @beesolve/helpers@0.2.2
+
 ## 0.3.0
 
 ### Minor Changes

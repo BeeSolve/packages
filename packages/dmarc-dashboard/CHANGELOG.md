@@ -1,5 +1,23 @@
 # @beesolve/dmarc-dashboard
 
+## 0.10.9
+
+### Patch Changes
+
+- 010a478: Add a pre-1.0 stability banner to the README. The package is `0.x` and under
+  active development, so breaking changes can land in any `0.x` release without a
+  major version bump. The banner is removed when the package reaches `1.0.0`.
+- Updated dependencies [010a478]
+- Updated dependencies [0937ad2]
+  - @beesolve/dmarc-consumer@0.4.6
+  - @beesolve/dmarc-parser@0.1.5
+  - @beesolve/ip-info@0.3.1
+  - @beesolve/lambda-function-url-protection@0.2.1
+  - @beesolve/auth-service@0.20.2
+  - @beesolve/email-service@0.5.8
+  - @beesolve/cdk-constructs@0.9.0
+  - @beesolve/lambda-keep-active@2.1.13
+
 ## 0.10.8
 
 ### Patch Changes
