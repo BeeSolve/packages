@@ -23,7 +23,7 @@ const logging = new CloudFrontAccessLoggingSettings(this, "Logging", {
 });
 ```
 
-With `recordFields` set, the Parquet Glue table has exactly those 10 columns and the v2
+With `recordFields` set, the Parquet Glue table has exactly those 11 columns and the v2
 delivery writes only those fields. Omit `recordFields` to capture all fields (useful if you
 want ad-hoc Athena queries beyond what the processor computes).
 

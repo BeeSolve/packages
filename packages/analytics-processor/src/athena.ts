@@ -24,6 +24,7 @@ export const requiredRecordFields = [
   "cs_uri_stem",
   "c_ip",
   "cs_user_agent",
+  "sc_content_type",
 ] as const;
 
 export interface AthenaColumnMap {
@@ -37,6 +38,7 @@ export interface AthenaColumnMap {
   readonly clientIp: string;
   readonly userAgent: string;
   readonly timestamp: string;
+  readonly contentType: string;
 }
 
 /**
@@ -63,6 +65,7 @@ export const columnMap: AthenaColumnMap = {
   clientIp: "c_ip",
   userAgent: "cs_user_agent",
   timestamp: "timestamp",
+  contentType: "sc_content_type",
 };
 
 interface HourParts {
@@ -171,15 +174,22 @@ export function buildHourlyQuery({
   table,
   hourKey,
   topPaths: _topPaths,
+  extraPredicate,
 }: {
   table: string;
   hourKey: string;
   topPaths: number;
+  extraPredicate?: string;
 }): string {
   const columns = columnMap;
   const predicate = predicateFor(hourKey);
   const device = deviceCaseExpression(columns.userAgent);
   const cacheCounts = cacheCountExpressions("rt");
+
+  const whereClause =
+    extraPredicate == null || extraPredicate === ""
+      ? predicate
+      : `${predicate} AND ${extraPredicate}`;
 
   // The inner subquery projects plain columns: the numeric casts and the device
   // classification are resolved here into simple aliases (st/scb/csb/tt/rt/ip/device).
@@ -197,7 +207,7 @@ export function buildHourlyQuery({
     `    ${columns.clientIp} AS ip,`,
     `    ${device} AS device`,
     `  FROM "${table}"`,
-    `  WHERE ${predicate}`,
+    `  WHERE ${whereClause}`,
   ].join("\n");
 
   const groupingSets = ["()", "(st)", "(device)", "(ip)"].join(", ");
@@ -461,6 +471,7 @@ export async function runHourlyAthenaQuery({
   outputLocation,
   hourKey,
   topPaths,
+  extraPredicate,
 }: {
   athena: Pick<AthenaClient, "send">;
   database: string;
@@ -469,8 +480,9 @@ export async function runHourlyAthenaQuery({
   outputLocation?: string;
   hourKey: string;
   topPaths: number;
+  extraPredicate?: string;
 }): Promise<HourlyAthenaResult> {
-  const queryString = buildHourlyQuery({ table, hourKey, topPaths });
+  const queryString = buildHourlyQuery({ table, hourKey, topPaths, extraPredicate });
 
   const rawRows = await startAndFetchRows({
     athena,

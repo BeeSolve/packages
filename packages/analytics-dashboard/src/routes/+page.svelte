@@ -1,13 +1,13 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
-  import type { Grain } from "@beesolve/analytics-processor";
-  import { hourKey, parsePeriodKey } from "@beesolve/analytics-processor";
+  import type { Grain, Tier } from "@beesolve/analytics-processor";
+  import { hourKey, parsePeriodKey, tiers } from "@beesolve/analytics-processor";
 
   import PeriodPicker from "#lib/components/periodPicker.svelte";
   import SummaryCard from "#lib/components/summaryCard.svelte";
   import type { View } from "#lib/labels.js";
-  import { formatPeriodLabel, formatPeriodTick } from "#lib/labels.js";
+  import { formatPeriodLabel, formatPeriodTick, tierDescription, tierLabel } from "#lib/labels.js";
   import { getOverview } from "#lib/remote/overview.remote.js";
 
   let { data } = $props();
@@ -23,6 +23,10 @@
     return value != null && ["hour", "day", "month", "year"].includes(value);
   }
 
+  function isTier(value: string | null): value is Tier {
+    return value != null && (tiers as ReadonlyArray<string>).includes(value);
+  }
+
   function anchorPeriodKey(view: View): string {
     const key = hourKey(new Date());
     if (view === "hour") return key;
@@ -32,6 +36,8 @@
   }
 
   const view = $derived<View>(isView(page.url.searchParams.get("view")) ? (page.url.searchParams.get("view") as View) : "day");
+
+  const tier = $derived<Tier>(isTier(page.url.searchParams.get("tier")) ? (page.url.searchParams.get("tier") as Tier) : "all");
 
   const anchorKey = $derived(page.url.searchParams.get("anchor") ?? anchorPeriodKey(view));
 
@@ -49,23 +55,28 @@
 
   const queryArgs = $derived(
     view === "year"
-      ? { grain: "month" as Grain, anchor: anchorIso, years: true }
-      : { grain: view, anchor: anchorIso, years: false },
+      ? { grain: "month" as Grain, anchor: anchorIso, years: true, tier }
+      : { grain: view, anchor: anchorIso, years: false, tier },
   );
 
-  function updateUrl(next: { view: View; anchor: string }): void {
+  function updateUrl(next: { view: View; anchor: string; tier: Tier }): void {
     const params = new URLSearchParams(page.url.search);
     params.set("view", next.view);
     params.set("anchor", next.anchor);
+    params.set("tier", next.tier);
     void goto(`${page.url.pathname}?${params.toString()}`, { reset: false });
   }
 
   function selectView(nextView: View): void {
-    updateUrl({ view: nextView, anchor: anchorPeriodKey(nextView) });
+    updateUrl({ view: nextView, anchor: anchorPeriodKey(nextView), tier });
   }
 
   function selectAnchor(nextAnchor: string): void {
-    updateUrl({ view, anchor: nextAnchor });
+    updateUrl({ view, anchor: nextAnchor, tier });
+  }
+
+  function selectTier(nextTier: Tier): void {
+    updateUrl({ view, anchor: anchorKey, tier: nextTier });
   }
 
   function anchorKeyFromIso(iso: string): string {
@@ -112,8 +123,24 @@
       </button>
     {/each}
   </div>
+  <div class="cluster grain-switcher" role="group" aria-label="Traffic tier">
+    {#each tiers as tierOption (tierOption)}
+      <button
+        type="button"
+        class="button"
+        class:primary={tier === tierOption}
+        class:minimal={tier !== tierOption}
+        aria-pressed={tier === tierOption}
+        onclick={() => selectTier(tierOption)}
+      >
+        {tierLabel(tierOption)}
+      </button>
+    {/each}
+  </div>
   <PeriodPicker {view} value={anchorKey} startKey={data.startKey} onchange={selectAnchor} />
 </div>
+
+<p class="tier-caption">{tierDescription(tier)}</p>
 
 <svelte:boundary>
   {#snippet pending()}
@@ -255,6 +282,12 @@
     margin-bottom: var(--vs-base);
     gap: var(--vs-base);
     align-items: center;
+  }
+
+  .tier-caption {
+    margin: 0 0 var(--vs-base);
+    color: var(--fg-5);
+    font-size: 0.75rem;
   }
 
   /* See the breakdown page: force readable foreground on the selected grain

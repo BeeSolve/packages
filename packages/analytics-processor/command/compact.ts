@@ -39,6 +39,7 @@ export const compactColumnMap: ReadonlyArray<{ readonly v1: string; readonly v2:
   { v1: '"cs-uri-stem"', v2: "cs_uri_stem" },
   { v1: '"c-ip"', v2: "c_ip" },
   { v1: '"cs(User-Agent)"', v2: "cs_user_agent" },
+  { v1: '"sc-content-type"', v2: "sc_content_type" },
 ] as const;
 
 const datePattern = /^\d{4}-\d{2}-\d{2}$/;

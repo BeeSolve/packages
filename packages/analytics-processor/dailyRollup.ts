@@ -48,18 +48,34 @@ export async function handler(): Promise<void> {
   yesterday.setUTCDate(yesterday.getUTCDate() - 1);
   const target = dayKey(yesterday);
 
+  const athena = {
+    client: athenaClient,
+    database: env.ATHENA_DATABASE,
+    table: env.ATHENA_V2_TABLE,
+    workgroup: env.ATHENA_WORKGROUP,
+    outputLocation: env.ATHENA_OUTPUT_LOCATION,
+  };
+
   const result = await applyDailyRollup({
     dayKey: target,
     models: { totals, breakdowns, markers, urls, watchStats, config },
-    athena: {
-      client: athenaClient,
-      database: env.ATHENA_DATABASE,
-      table: env.ATHENA_V2_TABLE,
-      workgroup: env.ATHENA_WORKGROUP,
-      outputLocation: env.ATHENA_OUTPUT_LOCATION,
-    },
+    athena,
     dynamo,
   });
 
   console.log(`dailyRollup ${target} ${result.status}`);
+
+  for (const tier of ["real", "watch"] as const) {
+    try {
+      const tierResult = await applyDailyRollup({
+        dayKey: target,
+        models: { totals, breakdowns, markers },
+        dynamo,
+        tier,
+      });
+      console.log(`dailyRollup ${tier} ${target} ${tierResult.status}`);
+    } catch (error) {
+      console.error(`dailyRollup ${tier} ${target} failed`, error);
+    }
+  }
 }

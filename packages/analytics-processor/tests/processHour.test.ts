@@ -317,6 +317,72 @@ describe("processHour", () => {
       expect(transactItems(command).length).toBeLessThanOrEqual(100);
     }
   });
+
+  it("writes the real tier under its namespace and injects the content-type predicate", async () => {
+    const rows = [totalsRow({ hits: 5, cacheHits: 1 }), statusRow({ status: "200", hits: 5 })];
+    const { client, sends: athenaSends } = makeAthena(rows);
+    const { dynamo, sends: dynamoSends } = makeDynamo();
+
+    const applied: Record<string, boolean> = {};
+    const models = baseModels({ isApplied: false });
+    const trackingModels: ProcessHourModels = {
+      ...models,
+      markers: {
+        isApplied: async ({ tier }) => applied[tier ?? "all"] ?? false,
+        buildMarkerPut: models.markers.buildMarkerPut,
+      },
+    };
+
+    const result = await processHour({
+      hourKey: "2026-02-14-09",
+      models: trackingModels,
+      athena: { client, ...athenaConfig },
+      options: { topPaths: 100, hourlyTtlDays: 90, tiers: ["all", "real"] },
+      dynamo,
+    });
+
+    expect(result.status).toBe("applied");
+
+    const queryStarts = athenaSends.filter((send) => send.name === "StartQueryExecutionCommand");
+    expect(queryStarts.length).toBe(2);
+    const realQuery = String(queryStarts[1]?.input.QueryString);
+    expect(realQuery).toContain("text/html%");
+    expect(realQuery).toContain("BETWEEN 200 AND 299");
+
+    const allKeys = dynamoSends.flatMap((command) =>
+      transactItems(command).map((item) => {
+        const update = "Update" in item ? asRecord(item.Update) : undefined;
+        const put = "Put" in item ? asRecord(item.Put) : undefined;
+        const key = asRecord(update?.Key ?? put?.Item);
+        return String(key.pk);
+      }),
+    );
+    expect(allKeys.some((pk) => pk === "totals#hour")).toBe(true);
+    expect(allKeys.some((pk) => pk === "totals#real#hour")).toBe(true);
+    expect(allKeys.some((pk) => pk === "applied#real-hour#2026-02-14-09")).toBe(true);
+  });
+
+  it("skips the watch tier with no active sitemap entries (no query, no write)", async () => {
+    const rows = [totalsRow({ hits: 5, cacheHits: 1 })];
+    const { client, sends: athenaSends } = makeAthena(rows);
+    const { dynamo } = makeDynamo();
+    const models = baseModels({ isApplied: false });
+    const withConfig: ProcessHourModels = {
+      ...models,
+      config: { ensureStart: async () => {}, listWatch: async () => [] },
+    };
+
+    await processHour({
+      hourKey: "2026-02-14-09",
+      models: withConfig,
+      athena: { client, ...athenaConfig },
+      options: { topPaths: 100, hourlyTtlDays: 90, tiers: ["all", "watch"] },
+      dynamo,
+    });
+
+    const queryStarts = athenaSends.filter((send) => send.name === "StartQueryExecutionCommand");
+    expect(queryStarts.length).toBe(1);
+  });
 });
 
 function asRecord(value: unknown): Record<string, unknown> {

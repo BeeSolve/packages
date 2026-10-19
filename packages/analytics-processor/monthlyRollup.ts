@@ -63,4 +63,18 @@ export async function handler(): Promise<void> {
   });
 
   console.log(`monthlyRollup ${target} ${result.status}`);
+
+  for (const tier of ["real", "watch"] as const) {
+    try {
+      const tierResult = await applyMonthlyRollup({
+        monthKey: target,
+        models: { totals, breakdowns, markers },
+        dynamo,
+        tier,
+      });
+      console.log(`monthlyRollup ${tier} ${target} ${tierResult.status}`);
+    } catch (error) {
+      console.error(`monthlyRollup ${tier} ${target} failed`, error);
+    }
+  }
 }

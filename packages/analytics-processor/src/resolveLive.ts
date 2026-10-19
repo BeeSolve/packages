@@ -1,6 +1,7 @@
 import type { AppliedMarkers } from "./appliedMarkers.ts";
 import type { Breakdowns } from "./breakdowns.ts";
-import type { Dimension, Grain } from "./keys.ts";
+import type { Dimension, Grain, Tier } from "./keys.ts";
+import { defaultTier } from "./keys.ts";
 import type { BreakdownRow, SummedTotals } from "./reduce.ts";
 import { sumBreakdown, sumTotals } from "./reduce.ts";
 import type { Totals, TotalsItem } from "./totals.ts";
@@ -62,19 +63,21 @@ export async function resolveTotalsLive({
   grain,
   periodKey,
   now,
+  tier = defaultTier,
 }: {
   readonly models: ResolveModels;
   readonly grain: Grain;
   readonly periodKey: string;
   readonly now: Date;
+  readonly tier?: Tier;
 }): Promise<SummedTotals> {
   if (grain === "hour") {
-    const stored = await models.totals.getOne({ grain: "hour", timeKey: periodKey });
+    const stored = await models.totals.getOne({ grain: "hour", timeKey: periodKey, tier });
     return stored == null ? emptyTotals : pickTotals(stored);
   }
 
-  if (await isSealed({ models, grain, periodKey, now })) {
-    const stored = await models.totals.getOne({ grain, timeKey: periodKey });
+  if (await isSealed({ models, grain, periodKey, now, tier })) {
+    const stored = await models.totals.getOne({ grain, timeKey: periodKey, tier });
     if (stored != null) return pickTotals(stored);
   }
 
@@ -84,6 +87,7 @@ export async function resolveTotalsLive({
       grain: "hour",
       startKey: `${periodKey}-00`,
       endKey: `${periodKey}-${pad2(lastHour)}`,
+      tier,
     });
     return sumTotals(hours);
   }
@@ -92,6 +96,7 @@ export async function resolveTotalsLive({
     grain: "day",
     startKey: `${periodKey}-01`,
     endKey: `${periodKey}-31`,
+    tier,
   });
   const base = sumTotals(
     storedDays.filter((item) => !isCurrentPeriod({ grain: "day", periodKey: item.timeKey, now })),
@@ -105,6 +110,7 @@ export async function resolveTotalsLive({
     grain: "day",
     periodKey: currentDayKey,
     now,
+    tier,
   });
   return sumTotals([base, currentDay]);
 }
@@ -115,19 +121,23 @@ export async function resolveBreakdownLive({
   grain,
   periodKey,
   now,
+  tier = defaultTier,
 }: {
   readonly models: ResolveModels;
   readonly dimension: Dimension;
   readonly grain: Grain;
   readonly periodKey: string;
   readonly now: Date;
+  readonly tier?: Tier;
 }): Promise<Array<BreakdownRow>> {
   if (grain === "hour") {
-    return toRows(await models.breakdowns.getForPeriod({ dimension, grain: "hour", periodKey }));
+    return toRows(
+      await models.breakdowns.getForPeriod({ dimension, grain: "hour", periodKey, tier }),
+    );
   }
 
-  if (await isSealed({ models, grain, periodKey, now })) {
-    const stored = await models.breakdowns.getForPeriod({ dimension, grain, periodKey });
+  if (await isSealed({ models, grain, periodKey, now, tier })) {
+    const stored = await models.breakdowns.getForPeriod({ dimension, grain, periodKey, tier });
     if (stored.length > 0) return toRows(stored);
   }
 
@@ -135,7 +145,7 @@ export async function resolveBreakdownLive({
     const hourKeys = hourKeysInProgress({ periodKey, now });
     const hourRows = await Promise.all(
       hourKeys.map((hourKey) =>
-        models.breakdowns.getForPeriod({ dimension, grain: "hour", periodKey: hourKey }),
+        models.breakdowns.getForPeriod({ dimension, grain: "hour", periodKey: hourKey, tier }),
       ),
     );
     return sumBreakdown(hourRows.flat().map(toRow));
@@ -144,7 +154,7 @@ export async function resolveBreakdownLive({
   const storedDayKeys = pastDayKeys({ periodKey, now });
   const storedDayRows = await Promise.all(
     storedDayKeys.map((dayKey) =>
-      models.breakdowns.getForPeriod({ dimension, grain: "day", periodKey: dayKey }),
+      models.breakdowns.getForPeriod({ dimension, grain: "day", periodKey: dayKey, tier }),
     ),
   );
   const rows = storedDayRows.flat().map(toRow);
@@ -157,6 +167,7 @@ export async function resolveBreakdownLive({
       grain: "day",
       periodKey: currentDayKey,
       now,
+      tier,
     });
     rows.push(...currentDay);
   }
@@ -177,14 +188,16 @@ export async function classifyBucketState({
   periodKey,
   now,
   hasData,
+  tier = defaultTier,
 }: {
   readonly models: ResolveModels;
   readonly grain: Grain;
   readonly periodKey: string;
   readonly now: Date;
   readonly hasData: boolean;
+  readonly tier?: Tier;
 }): Promise<BucketState> {
-  if (await isSealed({ models, grain, periodKey, now })) return "sealed";
+  if (await isSealed({ models, grain, periodKey, now, tier })) return "sealed";
   if (hasData) return "partial";
   return "pending";
 }
@@ -194,14 +207,16 @@ async function isSealed({
   grain,
   periodKey,
   now,
+  tier = defaultTier,
 }: {
   readonly models: ResolveModels;
   readonly grain: Grain;
   readonly periodKey: string;
   readonly now: Date;
+  readonly tier?: Tier;
 }): Promise<boolean> {
   if (!isPastPeriod({ grain, periodKey, now })) return false;
-  return models.markers.isApplied({ grain, periodKey });
+  return models.markers.isApplied({ grain, periodKey, tier });
 }
 
 function isCurrentPeriod({

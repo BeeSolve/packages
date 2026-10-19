@@ -3,8 +3,8 @@ import { GetCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import { queryAll } from "@beesolve/dynamo-helpers";
 import * as v from "valibot";
 
-import type { Grain } from "./keys.ts";
-import { grains } from "./keys.ts";
+import type { Grain, Tier } from "./keys.ts";
+import { defaultTier, grains, tierSegment } from "./keys.ts";
 
 type TransactWriteItem = NonNullable<TransactWriteCommandInput["TransactItems"]>[number];
 type UpdateMembers = NonNullable<TransactWriteItem["Update"]>;
@@ -80,6 +80,7 @@ export class Totals {
   readonly addHourly = async (props: {
     readonly item: TotalsInput;
     readonly ttl: number;
+    readonly tier?: Tier;
   }): Promise<void> => {
     const update = this.buildHourlyUpdate(props);
     await this.props.dynamo.send(new UpdateCommand(update.Update));
@@ -88,6 +89,7 @@ export class Totals {
   readonly addAggregate = async (props: {
     readonly grain: "day" | "month";
     readonly item: TotalsInput;
+    readonly tier?: Tier;
   }): Promise<void> => {
     const update = this.buildAggregateUpdate(props);
     await this.props.dynamo.send(new UpdateCommand(update.Update));
@@ -96,9 +98,11 @@ export class Totals {
   readonly buildHourlyUpdate = (props: {
     readonly item: TotalsInput;
     readonly ttl: number;
+    readonly tier?: Tier;
   }): TransactUpdateItem => ({
     Update: this.buildUpdateMembers({
       grain: "hour",
+      tier: props.tier ?? defaultTier,
       item: props.item,
       ttl: props.ttl,
       includeHourlyDetail: true,
@@ -108,9 +112,11 @@ export class Totals {
   readonly buildAggregateUpdate = (props: {
     readonly grain: "day" | "month";
     readonly item: TotalsInput;
+    readonly tier?: Tier;
   }): TransactUpdateItem => ({
     Update: this.buildUpdateMembers({
       grain: props.grain,
+      tier: props.tier ?? defaultTier,
       item: props.item,
       includeHourlyDetail: false,
     }),
@@ -120,6 +126,7 @@ export class Totals {
     readonly grain: Grain;
     readonly startKey: string;
     readonly endKey: string;
+    readonly tier?: Tier;
   }): Promise<Array<TotalsItem>> => {
     const items = await queryAll({
       dynamo: this.props.dynamo,
@@ -128,7 +135,7 @@ export class Totals {
         KeyConditionExpression: "#pk = :pk AND #sk BETWEEN :start AND :end",
         ExpressionAttributeNames: { "#pk": "pk", "#sk": "sk" },
         ExpressionAttributeValues: {
-          ":pk": partitionKey(props.grain),
+          ":pk": partitionKey(props.grain, props.tier ?? defaultTier),
           ":start": props.startKey,
           ":end": props.endKey,
         },
@@ -141,11 +148,12 @@ export class Totals {
   readonly getOne = async (props: {
     readonly grain: Grain;
     readonly timeKey: string;
+    readonly tier?: Tier;
   }): Promise<TotalsItem | undefined> => {
     const { Item: item } = await this.props.dynamo.send(
       new GetCommand({
         TableName: this.props.tableName,
-        Key: { pk: partitionKey(props.grain), sk: props.timeKey },
+        Key: { pk: partitionKey(props.grain, props.tier ?? defaultTier), sk: props.timeKey },
       }),
     );
 
@@ -155,6 +163,7 @@ export class Totals {
 
   private readonly buildUpdateMembers = (props: {
     readonly grain: Grain;
+    readonly tier: Tier;
     readonly item: TotalsInput;
     readonly ttl?: number;
     readonly includeHourlyDetail: boolean;
@@ -198,7 +207,7 @@ export class Totals {
 
     return {
       TableName: this.props.tableName,
-      Key: { pk: partitionKey(props.grain), sk: props.item.timeKey },
+      Key: { pk: partitionKey(props.grain, props.tier), sk: props.item.timeKey },
       UpdateExpression: `SET ${setParts.join(", ")} ADD ${addParts.join(", ")}`,
       ExpressionAttributeNames: names,
       ExpressionAttributeValues: values,
@@ -215,6 +224,6 @@ export class Totals {
   };
 }
 
-function partitionKey(grain: Grain): string {
-  return `totals#${grain}`;
+function partitionKey(grain: Grain, tier: Tier = defaultTier): string {
+  return `totals${tierSegment(tier)}#${grain}`;
 }

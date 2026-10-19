@@ -1,7 +1,30 @@
-import type { Grain, WatchMode } from "@beesolve/analytics-processor";
+import type { Grain, Tier, WatchMode } from "@beesolve/analytics-processor";
 import { parsePeriodKey } from "@beesolve/analytics-processor";
 
 export type View = Grain | "year";
+
+/**
+ * Short selector label for a traffic tier. `all` is every logged request;
+ * `real` is genuine HTML page views; `watch` is the curated sitemap page set.
+ */
+export function tierLabel(tier: Tier): string {
+  if (tier === "all") return "All";
+  if (tier === "real") return "Real";
+  return "Sitemap";
+}
+
+/**
+ * One-line explanation of what a tier counts, shown under the controls.
+ */
+export function tierDescription(tier: Tier): string {
+  if (tier === "all") {
+    return "All traffic: every logged request, including bots, assets, and errors.";
+  }
+  if (tier === "real") {
+    return "Real traffic: successful HTML page views (2xx text/html) - genuine page reads.";
+  }
+  return "Sitemap traffic: requests to the pages declared in your sitemap.";
+}
 
 /**
  * Human-readable label for a stored period key, converted from the UTC bucket

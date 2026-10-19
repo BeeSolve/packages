@@ -2,7 +2,8 @@ import type { DynamoDBDocumentClient, TransactWriteCommandInput } from "@aws-sdk
 import { GetCommand } from "@aws-sdk/lib-dynamodb";
 import * as v from "valibot";
 
-import type { Grain } from "./keys.ts";
+import type { Grain, Tier } from "./keys.ts";
+import { defaultTier, tierMarkerSegment } from "./keys.ts";
 
 export type MarkerGrain = Grain | "sitemap" | "watch";
 
@@ -38,6 +39,7 @@ export class AppliedMarkers {
   readonly isApplied = async (props: {
     readonly grain: MarkerGrain;
     readonly periodKey: string;
+    readonly tier?: Tier;
   }): Promise<boolean> => {
     const { Item: item } = await this.props.dynamo.send(
       new GetCommand({
@@ -53,6 +55,7 @@ export class AppliedMarkers {
     readonly grain: MarkerGrain;
     readonly periodKey: string;
     readonly ttl?: number;
+    readonly tier?: Tier;
   }): TransactPutItem => {
     const item: NonNullable<PutMembers["Item"]> = {
       pk: partitionKey(props),
@@ -74,6 +77,10 @@ export class AppliedMarkers {
   };
 }
 
-function partitionKey(props: { readonly grain: MarkerGrain; readonly periodKey: string }): string {
-  return `applied#${props.grain}#${props.periodKey}`;
+function partitionKey(props: {
+  readonly grain: MarkerGrain;
+  readonly periodKey: string;
+  readonly tier?: Tier;
+}): string {
+  return `applied#${tierMarkerSegment(props.tier ?? defaultTier)}${props.grain}#${props.periodKey}`;
 }

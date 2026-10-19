@@ -8,13 +8,14 @@ import type { AppliedMarkers } from "./appliedMarkers.ts";
 import { runDayUniques, runDayUrls, runHourlyAthenaQuery, runMonthUniques } from "./athena.ts";
 import type { BreakdownInput, BreakdownItem, Breakdowns } from "./breakdowns.ts";
 import type { Config } from "./config.ts";
-import type { Dimension } from "./keys.ts";
+import type { Dimension, Tier } from "./keys.ts";
 import type { BreakdownRow } from "./reduce.ts";
 import { sumBreakdown, sumTotals } from "./reduce.ts";
 import { fetchSitemapPaths } from "./sitemap.ts";
+import { tierPredicate } from "./tierPredicates.ts";
 import type { Totals } from "./totals.ts";
 import type { UrlDirectory } from "./urls.ts";
-import type { WatchStats } from "./watch.ts";
+import type { WatchEntry, WatchStats } from "./watch.ts";
 
 export type TransactItem = NonNullable<TransactWriteCommandInput["TransactItems"]>[number];
 
@@ -23,7 +24,7 @@ export interface ProcessHourModels {
   readonly breakdowns: Pick<Breakdowns, "buildUpdates">;
   readonly markers: Pick<AppliedMarkers, "isApplied" | "buildMarkerPut">;
   readonly ipCache: Pick<IpInfoCache, "enrichMany">;
-  readonly config?: Pick<Config, "ensureStart">;
+  readonly config?: Pick<Config, "ensureStart" | "listWatch">;
 }
 
 export interface ProcessHourAthena {
@@ -38,6 +39,18 @@ export interface ProcessHourOptions {
   readonly topPaths: number;
   readonly hourlyTtlDays: number;
   readonly ipInfoApiKey?: string;
+  /**
+   * The tiers to compute beyond `all`. `all` is always written. `real` and
+   * `watch` are written only when listed here. Defaults to none (backward
+   * compatible with the pre-tier pipeline).
+   */
+  readonly tiers?: ReadonlyArray<Tier>;
+  /**
+   * Reprocess even when a tier's applied-marker exists, overwriting via `ADD`
+   * semantics. Used by the `--force` backfill. The `all` tier marker still
+   * guards unless `force` is set.
+   */
+  readonly force?: boolean;
 }
 
 export interface ProcessHourResult {
@@ -60,8 +73,38 @@ export async function processHour({
   options: ProcessHourOptions;
   dynamo: Pick<DynamoDBDocumentClient, "send">;
 }): Promise<ProcessHourResult> {
-  const alreadyApplied = await models.markers.isApplied({ grain: "hour", periodKey: hourKey });
-  if (alreadyApplied) return { status: "skipped" };
+  const requestedTiers = options.tiers ?? ["all"];
+
+  let allResult: ProcessHourResult = { status: "skipped" };
+  if (requestedTiers.includes("all")) {
+    allResult = await processAllTierHour({ hourKey, models, athena, options, dynamo });
+  }
+
+  for (const tier of requestedTiers) {
+    if (tier === "all") continue;
+    await processTierHour({ tier, hourKey, models, athena, options, dynamo });
+  }
+
+  return allResult;
+}
+
+async function processAllTierHour({
+  hourKey,
+  models,
+  athena,
+  options,
+  dynamo,
+}: {
+  hourKey: string;
+  models: ProcessHourModels;
+  athena: ProcessHourAthena;
+  options: ProcessHourOptions;
+  dynamo: Pick<DynamoDBDocumentClient, "send">;
+}): Promise<ProcessHourResult> {
+  if (options.force !== true) {
+    const alreadyApplied = await models.markers.isApplied({ grain: "hour", periodKey: hourKey });
+    if (alreadyApplied) return { status: "skipped" };
+  }
 
   const query = await runHourlyAthenaQuery({
     athena: athena.client,
@@ -130,26 +173,128 @@ export async function processHour({
   return result;
 }
 
+/**
+ * Compute and write one non-`all` tier's hourly totals + breakdowns, guarded by
+ * that tier's own applied-marker. The `watch` tier no-ops (no query, no write)
+ * when the active sitemap set is empty. Resolves the tier predicate, runs the
+ * hourly query restricted to it, and writes under the tier namespace with `ADD`.
+ */
+async function processTierHour({
+  tier,
+  hourKey,
+  models,
+  athena,
+  options,
+  dynamo,
+}: {
+  tier: Tier;
+  hourKey: string;
+  models: ProcessHourModels;
+  athena: ProcessHourAthena;
+  options: ProcessHourOptions;
+  dynamo: Pick<DynamoDBDocumentClient, "send">;
+}): Promise<ProcessHourResult> {
+  if (options.force !== true) {
+    const alreadyApplied = await models.markers.isApplied({
+      grain: "hour",
+      periodKey: hourKey,
+      tier,
+    });
+    if (alreadyApplied) return { status: "skipped" };
+  }
+
+  const sitemapEntries: Array<WatchEntry> =
+    tier === "watch" && models.config != null ? await models.config.listWatch() : [];
+  const predicate = tierPredicate({ tier, sitemapEntries });
+  if (predicate == null) return { status: "skipped" };
+
+  const query = await runHourlyAthenaQuery({
+    athena: athena.client,
+    database: athena.database,
+    table: athena.table,
+    workgroup: athena.workgroup,
+    outputLocation: athena.outputLocation,
+    hourKey,
+    topPaths: options.topPaths,
+    extraPredicate: predicate,
+  });
+
+  const byCountry = await resolveCountryBreakdown({
+    topIps: query.topIps,
+    ipCache: models.ipCache,
+    hasApiKey: options.ipInfoApiKey != null,
+  });
+
+  const ttl = computeHourlyTtl(options.hourlyTtlDays);
+
+  const markerPut = models.markers.buildMarkerPut({ grain: "hour", periodKey: hourKey, ttl, tier });
+
+  const totalsUpdate = models.totals.buildHourlyUpdate({
+    tier,
+    item: {
+      timeKey: hourKey,
+      hits: query.totals.hits,
+      success: query.totals.success,
+      errors: query.totals.errors,
+      errors4xx: query.totals.errors4xx,
+      errors5xx: query.totals.errors5xx,
+      bytesSent: query.totals.bytesSent,
+      bytesReceived: query.totals.bytesReceived,
+      cacheHits: query.totals.cacheHits,
+      cacheMisses: query.totals.cacheMisses,
+      cacheErrors: query.totals.cacheErrors,
+      p50TimeTaken: query.totals.p50TimeTaken,
+      p95TimeTaken: query.totals.p95TimeTaken,
+      uniqueIpCount: query.totals.uniqueIpCount,
+    },
+    ttl,
+  });
+
+  const breakdownUpdates = buildBreakdownUpdates({
+    breakdowns: models.breakdowns,
+    grain: "hour",
+    periodKey: hourKey,
+    ttl,
+    tier,
+    byStatus: query.byStatus,
+    byDevice: query.byDevice,
+    byCountry,
+  });
+
+  return sendTransacted({ dynamo, leading: [markerPut, totalsUpdate], rest: breakdownUpdates });
+}
+
 export async function applyDailyRollup({
   dayKey,
   models,
   athena,
   sitemapFetcher = fetchSitemapPaths,
   dynamo,
+  tier = "all",
+  force = false,
 }: {
   dayKey: string;
   models: RollupModels;
   athena?: RollupAthena;
   sitemapFetcher?: SitemapFetcher;
   dynamo: Pick<DynamoDBDocumentClient, "send">;
+  tier?: Tier;
+  force?: boolean;
 }): Promise<ProcessHourResult> {
-  const alreadyApplied = await models.markers.isApplied({ grain: "day", periodKey: dayKey });
-  if (alreadyApplied) return { status: "skipped" };
+  if (!force) {
+    const alreadyApplied = await models.markers.isApplied({
+      grain: "day",
+      periodKey: dayKey,
+      tier,
+    });
+    if (alreadyApplied) return { status: "skipped" };
+  }
 
   const hourTotals = await models.totals.queryWindow({
     grain: "hour",
     startKey: `${dayKey}-00`,
     endKey: `${dayKey}-23`,
+    tier,
   });
   const summed = sumTotals(hourTotals);
 
@@ -157,10 +302,11 @@ export async function applyDailyRollup({
     breakdowns: models.breakdowns,
     grain: "hour",
     periodKeys: hourWindowKeys(dayKey),
+    tier,
   });
 
   const uniqueVisitors =
-    athena == null
+    athena == null || tier !== "all"
       ? undefined
       : await runDayUniques({
           athena: athena.client,
@@ -173,6 +319,7 @@ export async function applyDailyRollup({
 
   const totalsUpdate = models.totals.buildAggregateUpdate({
     grain: "day",
+    tier,
     item: { timeKey: dayKey, ...summed, uniqueVisitors },
   });
 
@@ -180,6 +327,7 @@ export async function applyDailyRollup({
     breakdowns: models.breakdowns,
     grain: "day",
     periodKey: dayKey,
+    tier,
     byStatus: byDimension.status,
     byDevice: byDimension.device,
     byCountry: byDimension.country,
@@ -188,6 +336,7 @@ export async function applyDailyRollup({
   const markerPut = models.markers.buildMarkerPut({
     grain: "day",
     periodKey: dayKey,
+    tier,
   });
 
   const result = await sendTransacted({
@@ -197,6 +346,7 @@ export async function applyDailyRollup({
   });
 
   if (result.status !== "applied") return result;
+  if (tier !== "all") return result;
 
   if (athena != null && models.urls != null) {
     const urls = await runDayUrls({
@@ -268,19 +418,30 @@ export async function applyMonthlyRollup({
   models,
   athena,
   dynamo,
+  tier = "all",
+  force = false,
 }: {
   monthKey: string;
   models: RollupModels;
   athena?: RollupAthena;
   dynamo: Pick<DynamoDBDocumentClient, "send">;
+  tier?: Tier;
+  force?: boolean;
 }): Promise<ProcessHourResult> {
-  const alreadyApplied = await models.markers.isApplied({ grain: "month", periodKey: monthKey });
-  if (alreadyApplied) return { status: "skipped" };
+  if (!force) {
+    const alreadyApplied = await models.markers.isApplied({
+      grain: "month",
+      periodKey: monthKey,
+      tier,
+    });
+    if (alreadyApplied) return { status: "skipped" };
+  }
 
   const dayTotals = await models.totals.queryWindow({
     grain: "day",
     startKey: `${monthKey}-01`,
     endKey: `${monthKey}-31`,
+    tier,
   });
   const summed = sumTotals(dayTotals);
 
@@ -288,10 +449,11 @@ export async function applyMonthlyRollup({
     breakdowns: models.breakdowns,
     grain: "day",
     periodKeys: dayTotals.map((item) => item.timeKey),
+    tier,
   });
 
   const uniqueVisitors =
-    athena == null
+    athena == null || tier !== "all"
       ? undefined
       : await runMonthUniques({
           athena: athena.client,
@@ -304,6 +466,7 @@ export async function applyMonthlyRollup({
 
   const totalsUpdate = models.totals.buildAggregateUpdate({
     grain: "month",
+    tier,
     item: { timeKey: monthKey, ...summed, uniqueVisitors },
   });
 
@@ -311,6 +474,7 @@ export async function applyMonthlyRollup({
     breakdowns: models.breakdowns,
     grain: "month",
     periodKey: monthKey,
+    tier,
     byStatus: byDimension.status,
     byDevice: byDimension.device,
     byCountry: byDimension.country,
@@ -319,6 +483,7 @@ export async function applyMonthlyRollup({
   const markerPut = models.markers.buildMarkerPut({
     grain: "month",
     periodKey: monthKey,
+    tier,
   });
 
   return sendTransacted({
@@ -406,6 +571,7 @@ function buildBreakdownUpdates({
   grain,
   periodKey,
   ttl,
+  tier,
   byStatus,
   byDevice,
   byCountry,
@@ -414,6 +580,7 @@ function buildBreakdownUpdates({
   grain: "hour" | "day" | "month";
   periodKey: string;
   ttl?: number;
+  tier?: Tier;
   byStatus: Array<BreakdownRow>;
   byDevice: Array<BreakdownRow>;
   byCountry: Array<BreakdownRow>;
@@ -434,6 +601,7 @@ function buildBreakdownUpdates({
         periodKey,
         items: row.items,
         ttl,
+        tier,
       }),
     );
   }
@@ -474,10 +642,12 @@ async function aggregateFinerBreakdowns({
   breakdowns,
   grain,
   periodKeys,
+  tier = "all",
 }: {
   breakdowns: Pick<Breakdowns, "getForPeriod">;
   grain: "hour" | "day";
   periodKeys: Array<string>;
+  tier?: Tier;
 }): Promise<DimensionBreakdowns> {
   const status: Array<BreakdownRow> = [];
   const device: Array<BreakdownRow> = [];
@@ -485,9 +655,9 @@ async function aggregateFinerBreakdowns({
 
   for (const periodKey of periodKeys) {
     const [statusItems, deviceItems, countryItems] = await Promise.all([
-      breakdowns.getForPeriod({ dimension: "status", grain, periodKey }),
-      breakdowns.getForPeriod({ dimension: "device", grain, periodKey }),
-      breakdowns.getForPeriod({ dimension: "country", grain, periodKey }),
+      breakdowns.getForPeriod({ dimension: "status", grain, periodKey, tier }),
+      breakdowns.getForPeriod({ dimension: "device", grain, periodKey, tier }),
+      breakdowns.getForPeriod({ dimension: "country", grain, periodKey, tier }),
     ]);
 
     status.push(...statusItems.map(toBreakdownRow));

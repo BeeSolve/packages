@@ -3,8 +3,8 @@ import { UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import { queryAll } from "@beesolve/dynamo-helpers";
 import * as v from "valibot";
 
-import type { Dimension, Grain } from "./keys.ts";
-import { dimensions, grains } from "./keys.ts";
+import type { Dimension, Grain, Tier } from "./keys.ts";
+import { defaultTier, dimensions, grains, tierSegment } from "./keys.ts";
 
 type TransactWriteItem = NonNullable<TransactWriteCommandInput["TransactItems"]>[number];
 type UpdateMembers = NonNullable<TransactWriteItem["Update"]>;
@@ -46,6 +46,7 @@ export class Breakdowns {
     readonly periodKey: string;
     readonly items: Array<BreakdownInput>;
     readonly ttl?: number;
+    readonly tier?: Tier;
   }): Promise<void> => {
     const updates = this.buildUpdates(props);
     for (const update of updates) {
@@ -59,6 +60,7 @@ export class Breakdowns {
     readonly periodKey: string;
     readonly items: Array<BreakdownInput>;
     readonly ttl?: number;
+    readonly tier?: Tier;
   }): Array<TransactUpdateItem> =>
     props.items.map((item) => ({
       Update: this.buildUpdateMembers({
@@ -67,6 +69,7 @@ export class Breakdowns {
         periodKey: props.periodKey,
         item,
         ttl: props.ttl,
+        tier: props.tier ?? defaultTier,
       }),
     }));
 
@@ -74,6 +77,7 @@ export class Breakdowns {
     readonly dimension: Dimension;
     readonly grain: Grain;
     readonly periodKey: string;
+    readonly tier?: Tier;
   }): Promise<Array<BreakdownItem>> => {
     const items = await queryAll({
       dynamo: this.props.dynamo,
@@ -86,6 +90,7 @@ export class Breakdowns {
             dimension: props.dimension,
             grain: props.grain,
             periodKey: props.periodKey,
+            tier: props.tier ?? defaultTier,
           }),
         },
       },
@@ -100,6 +105,7 @@ export class Breakdowns {
     readonly periodKey: string;
     readonly item: BreakdownInput;
     readonly ttl?: number;
+    readonly tier: Tier;
   }): UpdateMembers => {
     const names: Record<string, string> = {
       "#dimension": "dimension",
@@ -138,6 +144,7 @@ export class Breakdowns {
           dimension: props.dimension,
           grain: props.grain,
           periodKey: props.periodKey,
+          tier: props.tier,
         }),
         sk: props.item.value,
       },
@@ -161,6 +168,7 @@ function partitionKey(props: {
   readonly dimension: Dimension;
   readonly grain: Grain;
   readonly periodKey: string;
+  readonly tier?: Tier;
 }): string {
-  return `breakdown#${props.dimension}#${props.grain}#${props.periodKey}`;
+  return `breakdown${tierSegment(props.tier ?? defaultTier)}#${props.dimension}#${props.grain}#${props.periodKey}`;
 }

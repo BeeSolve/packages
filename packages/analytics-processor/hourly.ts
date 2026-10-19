@@ -69,6 +69,7 @@ export async function handler(): Promise<void> {
       topPaths: Number(env.TOP_PATHS),
       hourlyTtlDays: Number(env.HOURLY_TTL_DAYS),
       ipInfoApiKey: env.IPINFO_API_KEY,
+      tiers: ["all", "real", "watch"],
     },
     dynamo,
   });

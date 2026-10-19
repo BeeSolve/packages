@@ -100,7 +100,10 @@ npx analytics-backfill --from 2026-01-01T00:00:00Z --to 2026-01-31T23:00:00Z --r
 - `--from` / `--to` are inclusive ISO timestamps (hour granularity).
 - `--rollups` additionally runs the daily and monthly rollups for the range.
 - `--concurrency <n>` optionally parallelizes (default 2).
-- Hours already marked applied are skipped (marker-guarded).
+- `--tier <all|real|watch>` selects which tier(s) to backfill (repeatable;
+  default: all three). See [Traffic tiers](./traffic-tiers.md).
+- `--force` reprocesses even hours/periods already marked applied, overwriting
+  them. Without it, applied hours are skipped (marker-guarded).
 
 ## compact
 

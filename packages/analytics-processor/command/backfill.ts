@@ -5,6 +5,8 @@ import { AppliedMarkers } from "../src/appliedMarkers.ts";
 import { Breakdowns } from "../src/breakdowns.ts";
 import { Config } from "../src/config.ts";
 import { toDynamoClient } from "../src/dynamo.ts";
+import type { Tier } from "../src/keys.ts";
+import { tiers as allTiers } from "../src/keys.ts";
 import type { ProcessHourResult } from "../src/processHour.ts";
 import { applyDailyRollup, applyMonthlyRollup, processHour } from "../src/processHour.ts";
 import { dayKey, hoursBetween, monthKey } from "../src/time.ts";
@@ -16,6 +18,8 @@ export interface BackfillArgs {
   readonly to: Date;
   readonly concurrency: number;
   readonly rollups: boolean;
+  readonly tiers: ReadonlyArray<Tier>;
+  readonly force: boolean;
 }
 
 export interface BackfillConfig {
@@ -45,6 +49,8 @@ export function parseBackfillArgs(argv: Array<string>): BackfillArgs {
   let to: string | undefined;
   let concurrency = defaultConcurrency;
   let rollups = false;
+  let force = false;
+  const tierSelection: Array<Tier> = [];
 
   for (let index = 0; index < argv.length; index += 1) {
     const token = argv[index];
@@ -59,6 +65,15 @@ export function parseBackfillArgs(argv: Array<string>): BackfillArgs {
       index += 1;
     } else if (token === "--rollups") {
       rollups = true;
+    } else if (token === "--force") {
+      force = true;
+    } else if (token === "--tier") {
+      const value = argv[index + 1];
+      index += 1;
+      if (value == null || !isTier(value)) {
+        throw new Error(`backfill --tier must be one of ${allTiers.join(", ")}, got ${value}`);
+      }
+      if (!tierSelection.includes(value)) tierSelection.push(value);
     }
   }
 
@@ -80,7 +95,20 @@ export function parseBackfillArgs(argv: Array<string>): BackfillArgs {
     throw new Error(`backfill --concurrency must be a positive number, got ${String(concurrency)}`);
   }
 
-  return { from: fromDate, to: toDate, concurrency: Math.floor(concurrency), rollups };
+  const tiers = tierSelection.length > 0 ? tierSelection : [...allTiers];
+
+  return {
+    from: fromDate,
+    to: toDate,
+    concurrency: Math.floor(concurrency),
+    rollups,
+    tiers,
+    force,
+  };
+}
+
+function isTier(value: string): value is Tier {
+  return (allTiers as ReadonlyArray<string>).includes(value);
 }
 
 export async function runPool<Input, Output>({
@@ -147,7 +175,11 @@ export async function runBackfill({
   const totals = new Totals({ dynamo, tableName: config.tableName });
   const breakdowns = new Breakdowns({ dynamo, tableName: config.tableName });
   const markers = new AppliedMarkers({ dynamo, tableName: config.tableName });
-  const configModel = new Config({ dynamo, tableName: config.tableName });
+  const configModel = new Config({
+    dynamo,
+    tableName: config.tableName,
+    reverseIndexName: config.reverseIndexName,
+  });
   const ipCache = new IpInfoCache({
     dynamo,
     tableName: config.tableName,
@@ -180,6 +212,8 @@ export async function runBackfill({
             topPaths: config.topPaths,
             hourlyTtlDays: config.hourlyTtlDays,
             ipInfoApiKey: config.ipInfoApiKey,
+            tiers: args.tiers,
+            force: args.force,
           },
           dynamo,
         });
@@ -222,26 +256,32 @@ async function runRollups({
   const days = distinctKeys({ from: args.from, to: args.to, keyFor: dayKey });
   const months = distinctKeys({ from: args.from, to: args.to, keyFor: monthKey });
 
-  const logRollup = (label: string, key: string, result: ProcessHourResult): void => {
-    console.log(`backfill ${label} ${key} ${result.status}`);
+  const logRollup = (label: string, tier: Tier, key: string, result: ProcessHourResult): void => {
+    console.log(`backfill ${label} ${tier} ${key} ${result.status}`);
   };
 
-  for (const day of days) {
-    const result = await applyDailyRollup({
-      dayKey: day,
-      models: { totals, breakdowns, markers },
-      dynamo,
-    });
-    logRollup("daily", day, result);
-  }
+  for (const tier of args.tiers) {
+    for (const day of days) {
+      const result = await applyDailyRollup({
+        dayKey: day,
+        models: { totals, breakdowns, markers },
+        dynamo,
+        tier,
+        force: args.force,
+      });
+      logRollup("daily", tier, day, result);
+    }
 
-  for (const month of months) {
-    const result = await applyMonthlyRollup({
-      monthKey: month,
-      models: { totals, breakdowns, markers },
-      dynamo,
-    });
-    logRollup("monthly", month, result);
+    for (const month of months) {
+      const result = await applyMonthlyRollup({
+        monthKey: month,
+        models: { totals, breakdowns, markers },
+        dynamo,
+        tier,
+        force: args.force,
+      });
+      logRollup("monthly", tier, month, result);
+    }
   }
 }
 

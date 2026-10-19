@@ -1,12 +1,12 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
-  import type { Dimension, Grain } from "@beesolve/analytics-processor";
-  import { dimensions, grains, hourKey } from "@beesolve/analytics-processor";
+  import type { Dimension, Grain, Tier } from "@beesolve/analytics-processor";
+  import { dimensions, grains, hourKey, tiers } from "@beesolve/analytics-processor";
 
   import PeriodPicker from "#lib/components/periodPicker.svelte";
   import Tooltip from "#lib/components/tooltip.svelte";
-  import { formatCountry, formatPeriodLabel, statusCodeExplanation } from "#lib/labels.js";
+  import { formatCountry, formatPeriodLabel, statusCodeExplanation, tierDescription, tierLabel } from "#lib/labels.js";
   import { getBreakdown } from "#lib/remote/breakdowns.remote.js";
   import { getStatusUrls } from "#lib/remote/statusUrls.remote.js";
 
@@ -18,6 +18,10 @@
 
   function isGrain(value: string | null): value is Grain {
     return value != null && (grains as ReadonlyArray<string>).includes(value);
+  }
+
+  function isTier(value: string | null): value is Tier {
+    return value != null && (tiers as ReadonlyArray<string>).includes(value);
   }
 
   function defaultPeriodKey(grain: Grain): string {
@@ -33,21 +37,28 @@
 
   const grain = $derived<Grain>(isGrain(page.url.searchParams.get("grain")) ? (page.url.searchParams.get("grain") as Grain) : "day");
 
+  const tier = $derived<Tier>(isTier(page.url.searchParams.get("tier")) ? (page.url.searchParams.get("tier") as Tier) : "all");
+
   const periodKey = $derived(page.url.searchParams.get("period") ?? defaultPeriodKey(grain));
 
-  function updateUrl(next: { grain: Grain; period: string }): void {
+  function updateUrl(next: { grain: Grain; period: string; tier: Tier }): void {
     const params = new URLSearchParams(page.url.search);
     params.set("grain", next.grain);
     params.set("period", next.period);
+    params.set("tier", next.tier);
     void goto(`${page.url.pathname}?${params.toString()}`, { reset: false });
   }
 
   function selectGrain(nextGrain: Grain): void {
-    updateUrl({ grain: nextGrain, period: defaultPeriodKey(nextGrain) });
+    updateUrl({ grain: nextGrain, period: defaultPeriodKey(nextGrain), tier });
   }
 
   function selectPeriod(nextPeriod: string): void {
-    updateUrl({ grain, period: nextPeriod });
+    updateUrl({ grain, period: nextPeriod, tier });
+  }
+
+  function selectTier(nextTier: Tier): void {
+    updateUrl({ grain, period: periodKey, tier: nextTier });
   }
 
   function formatBytes(bytes: number): string {
@@ -93,6 +104,20 @@
       </button>
     {/each}
   </div>
+  <div class="cluster grain-switcher" role="group" aria-label="Traffic tier">
+    {#each tiers as tierOption (tierOption)}
+      <button
+        type="button"
+        class="button mini"
+        class:primary={tier === tierOption}
+        class:minimal={tier !== tierOption}
+        aria-pressed={tier === tierOption}
+        onclick={() => selectTier(tierOption)}
+      >
+        {tierLabel(tierOption)}
+      </button>
+    {/each}
+  </div>
   <PeriodPicker
     view={grain}
     value={periodKey}
@@ -103,6 +128,8 @@
 
 <p class="period-caption">{formatPeriodLabel({ view: grain, periodKey })}</p>
 
+<p class="dimension-note">{tierDescription(tier)}</p>
+
 {#if dimension === "country"}
   <p class="dimension-note">Unique visitors are tracked site-wide only, not per country.</p>
 {/if}
@@ -112,7 +139,7 @@
     <p>Loading breakdown…</p>
   {/snippet}
 
-  {@const result = await getBreakdown({ dimension, grain, periodKey })}
+  {@const result = await getBreakdown({ dimension, grain, periodKey, tier })}
 
   {#if result.items.length === 0}
     <p>No data for {dimension} in this period.</p>
