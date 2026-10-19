@@ -1,5 +1,18 @@
 # @beesolve/dmarc-reports
 
+## 0.1.8
+
+### Patch Changes
+
+- 010a478: Add a pre-1.0 stability banner to the README. The package is `0.x` and under
+  active development, so breaking changes can land in any `0.x` release without a
+  major version bump. The banner is removed when the package reaches `1.0.0`.
+- Updated dependencies [010a478]
+- Updated dependencies [0937ad2]
+  - @beesolve/dmarc-parser@0.1.5
+  - @beesolve/cdk-constructs@0.9.0
+  - @beesolve/lambda-keep-active@2.1.13
+
 ## 0.1.7
 
 ### Patch Changes

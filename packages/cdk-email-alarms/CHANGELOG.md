@@ -1,5 +1,13 @@
 # @beesolve/cdk-email-alarms
 
+## 0.1.8
+
+### Patch Changes
+
+- 010a478: Add a pre-1.0 stability banner to the README. The package is `0.x` and under
+  active development, so breaking changes can land in any `0.x` release without a
+  major version bump. The banner is removed when the package reaches `1.0.0`.
+
 ## 0.1.7
 
 ### Patch Changes

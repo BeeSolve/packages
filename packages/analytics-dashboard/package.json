@@ -1,6 +1,6 @@
 {
   "name": "@beesolve/analytics-dashboard",
-  "version": "0.7.5",
+  "version": "0.8.0",
   "description": "CloudFront analytics dashboard — SvelteKit app for viewing traffic analytics",
   "homepage": "https://github.com/BeeSolve/packages/tree/main/packages/analytics-dashboard#readme",
   "license": "MIT",
