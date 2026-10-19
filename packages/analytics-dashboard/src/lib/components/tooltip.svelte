@@ -84,7 +84,7 @@
     border: var(--border-1);
     border-radius: var(--br-s);
     box-shadow: var(--shadow-3);
-    color: var(--fg-1);
+    color: var(--fg);
     font-size: 0.8rem;
     text-align: center;
     position-area: block-start center;
