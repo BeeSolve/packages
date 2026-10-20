@@ -11,6 +11,8 @@ import type { Setup } from "#lib/server/setup.js";
 import type { Users } from "#lib/server/users.js";
 
 declare global {
+  const __APP_VERSION__: string;
+
   namespace App {
     interface Locals {
       session: SessionContext;

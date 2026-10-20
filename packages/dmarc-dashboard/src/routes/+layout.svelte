@@ -2,6 +2,7 @@
   import { page } from "$app/state";
   import "@drop-in/graffiti";
   import ThemeSwitcher from "#lib/components/themeSwitcher.svelte";
+  import VersionFooter from "#lib/components/versionFooter.svelte";
 
   let { data, children } = $props();
 
@@ -66,6 +67,8 @@
   <main class="app-main">
     {@render children()}
   </main>
+
+  <VersionFooter />
 </div>
 
 <style>

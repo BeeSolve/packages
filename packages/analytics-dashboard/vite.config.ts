@@ -2,6 +2,8 @@ import { sveltekit } from "@sveltejs/kit/vite";
 import adapter from "kit-on-lambda";
 import { defineConfig } from "vite";
 
+import packageJson from "./package.json" with { type: "json" };
+
 // Vite 8 uses lightningcss as its default CSS transformer. Without an explicit
 // target, lightningcss lowers modern CSS — including `light-dark()`, which
 // graffiti relies on for theming — into a `prefers-color-scheme` media-query
@@ -20,6 +22,9 @@ const cssTargets = {
 };
 
 export default defineConfig({
+  define: {
+    __APP_VERSION__: JSON.stringify(packageJson.version),
+  },
   plugins: [
     sveltekit({
       adapter: adapter({ out: "dist/build" }),
