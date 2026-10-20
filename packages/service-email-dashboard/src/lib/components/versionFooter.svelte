@@ -1,5 +1,8 @@
 <footer class="app-footer">
-  <span>Made with ❤️ by BeeSolve s.r.o.</span>
+  <span>
+    Made with ❤️ by
+    <a href="https://beesolve.com" target="_blank" rel="noopener noreferrer">BeeSolve s.r.o.</a>
+  </span>
   <span class="version">v{__APP_VERSION__}</span>
 </footer>
 
