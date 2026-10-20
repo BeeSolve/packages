@@ -1,5 +1,14 @@
 # @beesolve/dmarc-dashboard
 
+## 0.10.10
+
+### Patch Changes
+
+- 89c0328: Add a footer to every dashboard showing "Made with ❤️ by BeeSolve s.r.o." and
+  the deployed package version (`v<version>`). The version is injected at build
+  time from each package's `package.json` via a Vite `define` (`__APP_VERSION__`),
+  so the running UI always reflects which published version is deployed.
+
 ## 0.10.9
 
 ### Patch Changes
