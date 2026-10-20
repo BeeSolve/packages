@@ -3,6 +3,8 @@
   import { page } from "$app/state";
 
   import PeriodPicker from "#lib/components/periodPicker.svelte";
+  import AboutData from "#lib/components/aboutData.svelte";
+  import Tooltip from "#lib/components/tooltip.svelte";
   import { formatPeriodLabel, formatPeriodTick } from "#lib/labels.js";
   import { getWatchPeriod, getWatchTrend } from "#lib/remote/watch.remote.js";
   import type { WatchGrain } from "#lib/watchWindow.js";
@@ -14,6 +16,8 @@
   } from "#lib/watchWindow.js";
 
   let { data } = $props();
+
+  let trendDialog = $state<HTMLDialogElement | null>(null);
 
   const grainLabels: Record<WatchGrain, string> = {
     day: "Daily",
@@ -64,6 +68,21 @@
     updateUrl({ grain, period: periodKey, bucket: null });
   }
 
+  // The trend lives in a modal dialog so a selection is unmistakable regardless
+  // of where the clicked row sits on the page. The dialog's open state is
+  // driven by the `bucket` URL param (an external DOM API that must be synced
+  // to app state), and dismissing it (Esc / backdrop) clears the param.
+  $effect(() => {
+    const dialog = trendDialog;
+    if (dialog == null) return;
+    if (selectedPk != null && !dialog.open) dialog.showModal();
+    if (selectedPk == null && dialog.open) dialog.close();
+  });
+
+  function onDialogClose(): void {
+    if (selectedPk != null) clearBucket();
+  }
+
   function formatBytes(bytes: number): string {
     if (bytes < 1024) return `${bytes} B`;
     const units = ["KB", "MB", "GB", "TB"];
@@ -91,24 +110,41 @@
   }
 </script>
 
-<h1>Watchlist</h1>
+<div class="cluster page-head">
+  <h1>Watchlist</h1>
+  <AboutData
+    processingLagHours={data.processingLagHours}
+    hourlyRetentionDays={data.hourlyRetentionDays}
+    notes={["processingLag", "watchForward", "bucketStates"]}
+  />
+</div>
 
-<div class="cluster controls">
-  <div class="cluster grain-switcher" role="group" aria-label="Time grain">
-    {#each watchGrains as grainOption (grainOption)}
-      <button
-        type="button"
-        class="button"
-        class:primary={grain === grainOption}
-        class:minimal={grain !== grainOption}
-        aria-pressed={grain === grainOption}
-        onclick={() => selectGrain(grainOption)}
-      >
-        {grainLabels[grainOption]}
-      </button>
-    {/each}
+<div class="controls-panel">
+  <div class="control-field">
+    <span class="control-label">
+      Granularity
+      <Tooltip text="How finely time is bucketed for watched URLs.">
+        <span class="info-dot" aria-hidden="true">?</span>
+      </Tooltip>
+    </span>
+    <div class="cluster chip-group" role="group" aria-label="Granularity">
+      {#each watchGrains as grainOption (grainOption)}
+        <button
+          type="button"
+          class="chip"
+          aria-pressed={grain === grainOption}
+          onclick={() => selectGrain(grainOption)}
+        >
+          {grainLabels[grainOption]}
+        </button>
+      {/each}
+    </div>
   </div>
-  <PeriodPicker view={grain} value={periodKey} startKey={data.startKey} onchange={selectPeriod} />
+
+  <div class="control-field period-field">
+    <span class="control-label">Period</span>
+    <PeriodPicker view={grain} value={periodKey} startKey={data.startKey} onchange={selectPeriod} />
+  </div>
 </div>
 
 <p class="period-caption">{formatPeriodLabel({ view: grain, periodKey })}</p>
@@ -120,6 +156,8 @@
   </p>
 {/if}
 
+<p class="row-hint">Select a bucket row to see its hits trend over time.</p>
+
 <svelte:boundary>
   {#snippet pending()}
     <p>Loading watch buckets…</p>
@@ -130,12 +168,10 @@
   {#if selectedPk != null}
     {@const selected = result.items.find((item) => item.pk === selectedPk)}
     {#if selected != null}
-      <section class="trend-section">
+      <dialog bind:this={trendDialog} class="trend-dialog" onclose={onDialogClose}>
         <div class="cluster trend-head">
           <h2>Hits trend: {selected.label}</h2>
-          <button type="button" class="button mini minimal" onclick={clearBucket}>
-            ← Back to all buckets
-          </button>
+          <button type="button" class="button mini ghost" onclick={clearBucket}>Close</button>
         </div>
 
         <svelte:boundary>
@@ -173,7 +209,7 @@
             </div>
           {/if}
         </svelte:boundary>
-      </section>
+      </dialog>
     {/if}
   {/if}
 
@@ -224,24 +260,9 @@
 </svelte:boundary>
 
 <style>
-  h1 {
-    font-size: 1.5rem;
-    margin: 0 0 1rem;
-  }
-
   h2 {
     font-size: 1.15rem;
     margin: 0;
-  }
-
-  .controls {
-    margin-bottom: var(--vs-base);
-    gap: var(--vs-base);
-    align-items: center;
-  }
-
-  .grain-switcher button.primary {
-    color: var(--white);
   }
 
   .period-caption {
@@ -251,13 +272,20 @@
   }
 
   .scalar-note {
-    margin: 0 0 var(--vs-l);
+    margin: 0 0 var(--vs-s);
     color: var(--fg-5);
     font-size: 0.8rem;
   }
 
-  .trend-section {
-    margin-bottom: var(--vs-l);
+  .row-hint {
+    margin: 0 0 var(--vs-base);
+    color: var(--fg-5);
+    font-size: 0.8rem;
+  }
+
+  .trend-dialog {
+    max-inline-size: min(52rem, calc(100vw - 2rem));
+    inline-size: 52rem;
   }
 
   .trend-head {
@@ -265,6 +293,10 @@
     align-items: baseline;
     margin-bottom: var(--vs-base);
     gap: var(--vs-base);
+  }
+
+  .trend-head button {
+    margin-block-start: 0;
   }
 
   .bucket-button {

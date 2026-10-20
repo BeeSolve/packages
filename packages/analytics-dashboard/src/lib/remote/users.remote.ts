@@ -114,7 +114,9 @@ export const inviteUser = form(inviteUserSchema, async ({ email }) => {
     text: `Hi,\n\nYou've been invited to the Analytics Dashboard. You can sign in at any time using your email address — a one-time code will be sent to verify your identity.\n\n— Analytics Dashboard`,
   });
 
-  redirect(303, "/settings");
+  await listUsers().refresh();
+
+  return { ok: true };
 });
 
 const updateUserSchema = v.object({

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { parsePeriodKey } from "@beesolve/analytics-processor";
+  import { parsePeriodKey } from "#lib/periodKeys.js";
 
   import type { View } from "#lib/labels.js";
 
@@ -235,7 +235,26 @@
 
   .period-picker select {
     margin: 0;
-    min-width: 0;
+    width: auto;
+  }
+
+  /* The year is four digits plus the native select chevron; the default
+     field width clips it to "202…". Give each grain select enough room for
+     its own longest value rather than a single shared min-width. */
+  .period-picker select[aria-label="Year"] {
+    min-width: 5.5rem;
+  }
+
+  .period-picker select[aria-label="Month"] {
+    min-width: 5rem;
+  }
+
+  .period-picker select[aria-label="Day"] {
+    min-width: 4rem;
+  }
+
+  .period-picker select[aria-label="Hour"] {
+    min-width: 5.5rem;
   }
 
   .period-picker button[type="button"] {

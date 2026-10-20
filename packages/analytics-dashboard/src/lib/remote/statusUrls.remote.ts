@@ -9,7 +9,10 @@ import { monthSpanForPeriod, scalarsForPeriod } from "#lib/watchWindow.js";
 
 const periodKeySchema = v.pipe(
   v.string(),
-  v.regex(/^\d{4}(-\d{2}){0,2}$/, "Expected a YYYY, YYYY-MM or YYYY-MM-DD period key"),
+  v.regex(
+    /^\d{4}(-\d{2}){0,3}$/,
+    "Expected a YYYY, YYYY-MM, YYYY-MM-DD or YYYY-MM-DD-HH period key",
+  ),
 );
 
 const getStatusUrlsSchema = v.object({

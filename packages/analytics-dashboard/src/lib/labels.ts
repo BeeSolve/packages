@@ -1,5 +1,6 @@
 import type { Grain, Tier, WatchMode } from "@beesolve/analytics-processor";
-import { parsePeriodKey } from "@beesolve/analytics-processor";
+
+import { parsePeriodKey } from "#lib/periodKeys.js";
 
 export type View = Grain | "year";
 

@@ -1,7 +1,6 @@
 <script lang="ts">
   import { page } from "$app/state";
   import "@drop-in/graffiti";
-  import DataNotes from "#lib/components/dataNotes.svelte";
   import ThemeSwitcher from "#lib/components/themeSwitcher.svelte";
   import VersionFooter from "#lib/components/versionFooter.svelte";
 
@@ -69,12 +68,6 @@
 
   <main class="app-main">
     {@render children()}
-    {#if data.user != null}
-      <DataNotes
-        processingLagHours={data.processingLagHours}
-        hourlyRetentionDays={data.hourlyRetentionDays}
-      />
-    {/if}
   </main>
 
   <VersionFooter />
@@ -106,6 +99,100 @@
 
   :global(a:visited) {
     color: var(--primary);
+  }
+
+  /* Shared control-panel styling used by the analytics pages (Overview,
+     Breakdowns, Watchlist). A labeled row of chip groups + the period picker,
+     so granularity, traffic tier and period read as three distinct choices
+     rather than one undifferentiated wall of buttons. */
+  :global(.controls-panel) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: var(--vs-l) var(--vs-xl, 2rem);
+    padding: var(--pad-l);
+    border: var(--border-1);
+    border-radius: var(--br-m);
+    background: var(--fg-05);
+    margin-block-end: var(--vs-l);
+  }
+
+  :global(.control-field) {
+    display: flex;
+    flex-direction: column;
+    gap: var(--vs-s);
+  }
+
+  /* The period picker always sits on its own row so the controls panel keeps a
+     consistent two-row shape regardless of grain (the hour grain adds an extra
+     select that would otherwise wrap the picker only sometimes). */
+  :global(.control-field.period-field) {
+    flex-basis: 100%;
+  }
+
+  :global(.control-label) {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4em;
+    font-size: 0.72rem;
+    font-weight: var(--fw-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--fg-5);
+  }
+
+  :global(.info-dot) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1rem;
+    height: 1rem;
+    border-radius: 50%;
+    border: 1px solid var(--fg-3);
+    color: var(--fg-5);
+    font-size: 0.6rem;
+    font-weight: var(--fw-bold);
+    text-transform: none;
+  }
+
+  :global(.chip-group) {
+    gap: var(--vs-s);
+    flex-wrap: wrap;
+  }
+
+  /* An `<a class="chip selected">` is repainted by the global `a:visited` rule
+     above (→ `--primary`, the same hue as the selected chip fill), making the
+     label unreadable. Restore the on-primary foreground for selected chips. */
+  :global(.chip.selected),
+  :global(.chip.selected:visited),
+  :global(.chip[aria-pressed="true"]) {
+    color: var(--white);
+  }
+
+  /* Chips rendered as links (dimension nav) should read as chips, not links —
+     drop the global anchor underline and link color on the unselected state. */
+  :global(a.chip),
+  :global(a.chip:visited),
+  :global(a.chip:hover) {
+    text-decoration: none;
+    color: var(--fg);
+  }
+
+  :global(a.chip.selected),
+  :global(a.chip.selected:visited) {
+    color: var(--white);
+  }
+
+  :global(.page-head) {
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--vs-base);
+    margin-block-end: var(--vs-l);
+  }
+
+  :global(.page-head h1) {
+    margin: 0;
+    font-size: 1.5rem;
   }
 
   .app {

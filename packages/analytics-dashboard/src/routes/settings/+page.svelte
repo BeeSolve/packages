@@ -1,6 +1,6 @@
 <script lang="ts">
   import { formatPattern } from "#lib/labels.js";
-  import { deleteUser, listUsers } from "#lib/remote/users.remote.js";
+  import { deleteUser, inviteUser, listUsers } from "#lib/remote/users.remote.js";
   import {
     addWatch,
     deleteWatch,
@@ -9,17 +9,26 @@
     setSitemapUrl,
     setWatchStatus,
   } from "#lib/remote/watchConfig.remote.js";
+
+  let inviteDialog = $state<HTMLDialogElement | null>(null);
+
+  function openInvite(): void {
+    inviteDialog?.showModal();
+  }
+
+  function closeInvite(): void {
+    inviteDialog?.close();
+  }
 </script>
 
 <h1>Settings</h1>
 
 <div class="stack">
   <section class="card">
-    <header>
+    <header class="cluster section-head">
       <h2>User management</h2>
+      <button type="button" class="button primary" onclick={openInvite}>Invite user</button>
     </header>
-
-    <p><a href="/settings/users/invite">Invite user</a></p>
 
     <svelte:boundary>
       {#snippet pending()}
@@ -196,7 +205,89 @@
   </section>
 </div>
 
+<dialog bind:this={inviteDialog} class="invite-dialog">
+  <div class="cluster invite-head">
+    <h2>Invite user</h2>
+    <button type="button" class="button mini ghost" onclick={closeInvite}>Close</button>
+  </div>
+
+  <p class="invite-blurb">
+    The invitee receives an email and can sign in with their address at any time — a one-time code
+    verifies their identity.
+  </p>
+
+  {#each inviteUser.fields.allIssues() ?? [] as issue (issue.message)}
+    <p class="error">{issue.message}</p>
+  {/each}
+
+  <form {...inviteUser.enhance(async (form) => {
+    await form.submit();
+    if (form.result?.ok === true) closeInvite();
+  })}>
+    <label>
+      Email address
+      <input {...inviteUser.fields.email.as("email")} required disabled={inviteUser.pending > 0} />
+    </label>
+
+    <div class="cluster invite-actions">
+      <button type="button" class="button minimal" onclick={closeInvite}>Cancel</button>
+      <button type="submit" class="button primary" disabled={inviteUser.pending > 0}>
+        {inviteUser.pending > 0 ? "Inviting..." : "Send invite"}
+      </button>
+    </div>
+  </form>
+</dialog>
+
 <style>
+  .section-head {
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--vs-base);
+  }
+
+  .section-head h2 {
+    margin: 0;
+  }
+
+  .section-head button {
+    margin-block-start: 0;
+  }
+
+  .invite-dialog {
+    max-inline-size: 32rem;
+  }
+
+  .invite-head {
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--vs-base);
+    margin-block-end: var(--vs-s);
+  }
+
+  .invite-head h2 {
+    margin: 0;
+  }
+
+  .invite-head button {
+    margin-block-start: 0;
+  }
+
+  .invite-blurb {
+    margin: 0 0 var(--vs-base);
+    color: var(--fg-7);
+    font-size: 0.875rem;
+  }
+
+  .invite-actions {
+    justify-content: flex-end;
+    gap: var(--vs-base);
+    margin-block-start: var(--vs-base);
+  }
+
+  .invite-actions button {
+    margin-block-start: 0;
+  }
+
   .actions {
     display: inline-flex;
     align-items: center;

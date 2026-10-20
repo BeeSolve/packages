@@ -2,10 +2,13 @@
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
   import type { Grain, Tier } from "@beesolve/analytics-processor";
-  import { hourKey, parsePeriodKey, tiers } from "@beesolve/analytics-processor";
+
+  import { hourKey, parsePeriodKey, tiers } from "#lib/periodKeys.js";
 
   import PeriodPicker from "#lib/components/periodPicker.svelte";
+  import AboutData from "#lib/components/aboutData.svelte";
   import SummaryCard from "#lib/components/summaryCard.svelte";
+  import Tooltip from "#lib/components/tooltip.svelte";
   import type { View } from "#lib/labels.js";
   import { formatPeriodLabel, formatPeriodTick, tierDescription, tierLabel } from "#lib/labels.js";
   import { getOverview } from "#lib/remote/overview.remote.js";
@@ -79,14 +82,6 @@
     updateUrl({ view, anchor: anchorKey, tier: nextTier });
   }
 
-  function anchorKeyFromIso(iso: string): string {
-    const key = hourKey(new Date(iso));
-    if (view === "hour") return key;
-    if (view === "day") return key.slice(0, 10);
-    if (view === "month") return key.slice(0, 7);
-    return key.slice(0, 4);
-  }
-
   function formatBytes(bytes: number): string {
     if (bytes < 1024) return `${bytes} B`;
     const units = ["KB", "MB", "GB", "TB"];
@@ -106,38 +101,61 @@
   }
 </script>
 
-<h1>Overview</h1>
+<div class="cluster page-head">
+  <h1>Overview</h1>
+  <AboutData
+    processingLagHours={data.processingLagHours}
+    hourlyRetentionDays={data.hourlyRetentionDays}
+  />
+</div>
 
-<div class="cluster controls">
-  <div class="cluster grain-switcher" role="group" aria-label="Time grain">
-    {#each views as viewOption (viewOption.id)}
-      <button
-        type="button"
-        class="button"
-        class:primary={view === viewOption.id}
-        class:minimal={view !== viewOption.id}
-        aria-pressed={view === viewOption.id}
-        onclick={() => selectView(viewOption.id)}
-      >
-        {viewOption.label}
-      </button>
-    {/each}
+<div class="controls-panel">
+  <div class="control-field">
+    <span class="control-label">
+      Granularity
+      <Tooltip text="How finely time is bucketed. Hourly shows each hour; Daily, Monthly and Yearly roll traffic up into larger periods.">
+        <span class="info-dot" aria-hidden="true">?</span>
+      </Tooltip>
+    </span>
+    <div class="cluster chip-group" role="group" aria-label="Granularity">
+      {#each views as viewOption (viewOption.id)}
+        <button
+          type="button"
+          class="chip"
+          aria-pressed={view === viewOption.id}
+          onclick={() => selectView(viewOption.id)}
+        >
+          {viewOption.label}
+        </button>
+      {/each}
+    </div>
   </div>
-  <div class="cluster grain-switcher" role="group" aria-label="Traffic tier">
-    {#each tiers as tierOption (tierOption)}
-      <button
-        type="button"
-        class="button"
-        class:primary={tier === tierOption}
-        class:minimal={tier !== tierOption}
-        aria-pressed={tier === tierOption}
-        onclick={() => selectTier(tierOption)}
-      >
-        {tierLabel(tierOption)}
-      </button>
-    {/each}
+
+  <div class="control-field">
+    <span class="control-label">
+      Traffic
+      <Tooltip text="Which requests are counted. All = every logged request; Real = genuine HTML page views; Sitemap = pages declared in your sitemap.">
+        <span class="info-dot" aria-hidden="true">?</span>
+      </Tooltip>
+    </span>
+    <div class="cluster chip-group" role="group" aria-label="Traffic tier">
+      {#each tiers as tierOption (tierOption)}
+        <button
+          type="button"
+          class="chip"
+          aria-pressed={tier === tierOption}
+          onclick={() => selectTier(tierOption)}
+        >
+          {tierLabel(tierOption)}
+        </button>
+      {/each}
+    </div>
   </div>
-  <PeriodPicker {view} value={anchorKey} startKey={data.startKey} onchange={selectAnchor} />
+
+  <div class="control-field period-field">
+    <span class="control-label">Period</span>
+    <PeriodPicker {view} value={anchorKey} startKey={data.startKey} onchange={selectAnchor} />
+  </div>
 </div>
 
 <p class="tier-caption">{tierDescription(tier)}</p>
@@ -183,28 +201,11 @@
   {@const hasPartial = chartBuckets.some((bucket) => bucket.state === "partial")}
   {@const hasPending = chartBuckets.some((bucket) => bucket.state === "pending")}
 
-  <div class="cluster window-nav">
-    <button
-      type="button"
-      class="button minimal"
-      onclick={() => selectAnchor(anchorKeyFromIso(result.prevAnchor))}
-    >
-      ← Previous
-    </button>
-    <span class="window-range">
-      {formatPeriodLabel({ view, periodKey: result.startKey })} —
-      {formatPeriodLabel({ view, periodKey: result.endKey })}
-    </span>
-    <button
-      type="button"
-      class="button minimal"
-      onclick={() => selectAnchor(anchorKeyFromIso(result.nextAnchor))}
-    >
-      Next →
-    </button>
-  </div>
-
-  <p class="data-lag">Data is ~{data.processingLagHours}h delayed</p>
+  <p class="window-range">
+    Showing {formatPeriodLabel({ view, periodKey: result.startKey })} —
+    {formatPeriodLabel({ view, periodKey: result.endKey })}
+    <span class="data-lag">· data is ~{data.processingLagHours}h delayed</span>
+  </p>
   {#if view === "hour" && isOlderThanRetention(result.endKey)}
     <p class="retention-hint">
       Hourly data is only retained for the last {data.hourlyRetentionDays} days - older periods are
@@ -268,20 +269,9 @@
 </svelte:boundary>
 
 <style>
-  h1 {
-    font-size: 1.5rem;
-    margin: 0 0 1.25rem;
-  }
-
   h2 {
     font-size: 1.15rem;
     margin: 0 0 0.75rem;
-  }
-
-  .controls {
-    margin-bottom: var(--vs-base);
-    gap: var(--vs-base);
-    align-items: center;
   }
 
   .tier-caption {
@@ -290,27 +280,15 @@
     font-size: 0.75rem;
   }
 
-  /* See the breakdown page: force readable foreground on the selected grain
-     button, which graffiti/visited-link rules would otherwise repaint. */
-  .grain-switcher button.primary {
-    color: var(--white);
-  }
-
-  .window-nav {
-    margin-bottom: var(--vs-base);
-    gap: var(--vs-base);
-  }
-
   .window-range {
+    margin: 0 0 var(--vs-base);
     font-variant-numeric: tabular-nums;
     color: var(--fg-7);
-    font-size: 0.875rem;
+    font-size: 0.8125rem;
   }
 
   .data-lag {
-    margin: 0 0 var(--vs-base);
     color: var(--fg-5);
-    font-size: 0.75rem;
   }
 
   .retention-hint {

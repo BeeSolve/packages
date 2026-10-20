@@ -8,14 +8,17 @@
 
 <h1>URLs</h1>
 
-<p class="caption">Every distinct URL CloudFront has served, with the day it first appeared.</p>
-
 <svelte:boundary>
   {#snippet pending()}
     <p>Loading URLs…</p>
   {/snippet}
 
   {@const result = await listUrls()}
+
+  <p class="caption">
+    <strong>{result.items.length.toLocaleString()}</strong>
+    distinct {result.items.length === 1 ? "URL" : "URLs"} CloudFront has served, with the day each first appeared.
+  </p>
 
   {#if result.items.length === 0}
     <p>No URLs recorded yet.</p>
@@ -24,10 +27,10 @@
       <table>
         <thead>
           <tr>
-            <th>URL</th>
-            <th>First seen</th>
+            <th class="col-url">URL</th>
+            <th class="col-firstseen">First seen</th>
             {#if isAdmin}
-              <th>Action</th>
+              <th class="col-action">Action</th>
             {/if}
           </tr>
         </thead>
@@ -35,10 +38,10 @@
           {#each result.items as item (item.url)}
             {@const addForm = addToWatchlist.for(item.url)}
             <tr>
-              <td>{item.url}</td>
-              <td>{item.firstSeen}</td>
+              <td class="col-url">{item.url}</td>
+              <td class="col-firstseen">{item.firstSeen}</td>
               {#if isAdmin}
-                <td>
+                <td class="col-action">
                   <form {...addForm}>
                     <input {...addForm.fields.url.as("hidden", item.url)} />
                     <button type="submit" class="button mini">Add to watchlist</button>
@@ -75,5 +78,23 @@
 
   .table form button[type="submit"] {
     margin-block-start: 0;
+    white-space: nowrap;
+  }
+
+  /* The URL column absorbs the slack so the date and action columns size to
+     their content; without this the narrow columns wrap "2026-10-17" and the
+     button onto two lines. */
+  .col-url {
+    width: 100%;
+    word-break: break-all;
+  }
+
+  .col-firstseen {
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .col-action {
+    white-space: nowrap;
   }
 </style>

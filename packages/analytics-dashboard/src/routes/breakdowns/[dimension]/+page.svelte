@@ -2,15 +2,33 @@
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
   import type { Dimension, Grain, Tier } from "@beesolve/analytics-processor";
-  import { dimensions, grains, hourKey, tiers } from "@beesolve/analytics-processor";
+
+  import { dimensions, grains, hourKey, tiers } from "#lib/periodKeys.js";
 
   import PeriodPicker from "#lib/components/periodPicker.svelte";
+  import AboutData from "#lib/components/aboutData.svelte";
   import Tooltip from "#lib/components/tooltip.svelte";
   import { formatCountry, formatPeriodLabel, statusCodeExplanation, tierDescription, tierLabel } from "#lib/labels.js";
   import { getBreakdown } from "#lib/remote/breakdowns.remote.js";
   import { getStatusUrls } from "#lib/remote/statusUrls.remote.js";
 
   let { data } = $props();
+
+  const dimensionLabels: Record<string, string> = {
+    status: "Status codes",
+    country: "Countries",
+    device: "Devices",
+  };
+
+  const grainLabels: Record<Grain, string> = {
+    hour: "Hourly",
+    day: "Daily",
+    month: "Monthly",
+  };
+
+  function dimensionLabel(value: string): string {
+    return dimensionLabels[value] ?? value;
+  }
 
   function isDimension(value: string): value is Dimension {
     return (dimensions as ReadonlyArray<string>).includes(value);
@@ -74,61 +92,88 @@
   }
 </script>
 
-<h1>Breakdown: {dimension}</h1>
-
-<nav class="cluster dimension-nav" aria-label="Dimension">
-  {#each dimensions as dimensionOption (dimensionOption)}
-    <a
-      href="/breakdowns/{dimensionOption}?grain={grain}&period={periodKey}"
-      class="button mini"
-      class:primary={dimension === dimensionOption}
-      class:minimal={dimension !== dimensionOption}
-    >
-      {dimensionOption}
-    </a>
-  {/each}
-</nav>
-
-<div class="cluster controls">
-  <div class="cluster grain-switcher" role="group" aria-label="Time grain">
-    {#each grains as grainOption (grainOption)}
-      <button
-        type="button"
-        class="button mini"
-        class:primary={grain === grainOption}
-        class:minimal={grain !== grainOption}
-        aria-pressed={grain === grainOption}
-        onclick={() => selectGrain(grainOption)}
-      >
-        {grainOption}
-      </button>
-    {/each}
-  </div>
-  <div class="cluster grain-switcher" role="group" aria-label="Traffic tier">
-    {#each tiers as tierOption (tierOption)}
-      <button
-        type="button"
-        class="button mini"
-        class:primary={tier === tierOption}
-        class:minimal={tier !== tierOption}
-        aria-pressed={tier === tierOption}
-        onclick={() => selectTier(tierOption)}
-      >
-        {tierLabel(tierOption)}
-      </button>
-    {/each}
-  </div>
-  <PeriodPicker
-    view={grain}
-    value={periodKey}
-    startKey={data.startKey}
-    onchange={selectPeriod}
+<div class="cluster page-head">
+  <h1>Breakdown</h1>
+  <AboutData
+    processingLagHours={data.processingLagHours}
+    hourlyRetentionDays={data.hourlyRetentionDays}
+    notes={["processingLag", "hourlyRetention", "uniqueVisitors"]}
   />
 </div>
 
-<p class="period-caption">{formatPeriodLabel({ view: grain, periodKey })}</p>
+<div class="controls-panel">
+  <div class="control-field">
+    <span class="control-label">
+      Dimension
+      <Tooltip text="What to break the traffic down by for the selected period.">
+        <span class="info-dot" aria-hidden="true">?</span>
+      </Tooltip>
+    </span>
+    <nav class="cluster chip-group" aria-label="Dimension">
+      {#each dimensions as dimensionOption (dimensionOption)}
+        <a
+          href="/breakdowns/{dimensionOption}?grain={grain}&period={periodKey}&tier={tier}"
+          class="chip"
+          class:selected={dimension === dimensionOption}
+          aria-current={dimension === dimensionOption ? "page" : undefined}
+        >
+          {dimensionLabel(dimensionOption)}
+        </a>
+      {/each}
+    </nav>
+  </div>
 
-<p class="dimension-note">{tierDescription(tier)}</p>
+  <div class="control-field">
+    <span class="control-label">
+      Granularity
+      <Tooltip text="How finely the selected period is bucketed.">
+        <span class="info-dot" aria-hidden="true">?</span>
+      </Tooltip>
+    </span>
+    <div class="cluster chip-group" role="group" aria-label="Granularity">
+      {#each grains as grainOption (grainOption)}
+        <button
+          type="button"
+          class="chip"
+          aria-pressed={grain === grainOption}
+          onclick={() => selectGrain(grainOption)}
+        >
+          {grainLabels[grainOption]}
+        </button>
+      {/each}
+    </div>
+  </div>
+
+  <div class="control-field">
+    <span class="control-label">
+      Traffic
+      <Tooltip text="Which requests are counted. All = every logged request; Real = genuine HTML page views; Sitemap = pages declared in your sitemap.">
+        <span class="info-dot" aria-hidden="true">?</span>
+      </Tooltip>
+    </span>
+    <div class="cluster chip-group" role="group" aria-label="Traffic tier">
+      {#each tiers as tierOption (tierOption)}
+        <button
+          type="button"
+          class="chip"
+          aria-pressed={tier === tierOption}
+          onclick={() => selectTier(tierOption)}
+        >
+          {tierLabel(tierOption)}
+        </button>
+      {/each}
+    </div>
+  </div>
+
+  <div class="control-field period-field">
+    <span class="control-label">Period</span>
+    <PeriodPicker view={grain} value={periodKey} startKey={data.startKey} onchange={selectPeriod} />
+  </div>
+</div>
+
+<p class="period-caption">
+  {dimensionLabel(dimension)} · {formatPeriodLabel({ view: grain, periodKey })} · {tierDescription(tier)}
+</p>
 
 {#if dimension === "country"}
   <p class="dimension-note">Unique visitors are tracked site-wide only, not per country.</p>
@@ -227,11 +272,6 @@
 </svelte:boundary>
 
 <style>
-  h1 {
-    font-size: 1.5rem;
-    margin: 0 0 1rem;
-  }
-
   h2 {
     font-size: 1.15rem;
     margin: 0 0 0.5rem;
@@ -247,32 +287,11 @@
     margin-top: var(--vs-l);
   }
 
-  .dimension-nav {
-    margin-bottom: var(--vs-base);
-  }
-
-  .controls {
-    margin-bottom: var(--vs-base);
-    gap: var(--vs-base);
-    align-items: center;
-  }
-
   .period-caption {
     margin: 0 0 var(--vs-l);
     color: var(--fg-7);
     font-size: 0.875rem;
     font-variant-numeric: tabular-nums;
-  }
-
-  /* Graffiti's `.button.primary` sets white text, but an `<a class="button
-     primary">` is also matched by graffiti's anchor color rules (and the app's
-     visited-link rule), which repaint the label in `--primary` — the same hue
-     as the fill, making the selected label unreadable. Force the on-primary
-     foreground for the selected control in both button groups. */
-  .dimension-nav a.primary,
-  .dimension-nav a.primary:visited,
-  .grain-switcher button.primary {
-    color: var(--white);
   }
 
   .num {
