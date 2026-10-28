@@ -1,5 +1,15 @@
 # @beesolve/dmarc-dashboard
 
+## 0.10.11
+
+### Patch Changes
+
+- e879cb5: chore: upgrade dependencies
+- Updated dependencies [e879cb5]
+  - @beesolve/auth-service@0.20.3
+  - @beesolve/dmarc-parser@0.1.6
+  - @beesolve/lambda-keep-active@2.1.14
+
 ## 0.10.10
 
 ### Patch Changes
