@@ -1,5 +1,13 @@
 # @beesolve/auth-service
 
+## 0.20.3
+
+### Patch Changes
+
+- e879cb5: chore: upgrade dependencies
+- Updated dependencies [e879cb5]
+  - @beesolve/lambda-keep-active@2.1.14
+
 ## 0.20.2
 
 ### Patch Changes

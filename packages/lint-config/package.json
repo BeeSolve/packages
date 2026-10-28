@@ -1,6 +1,6 @@
 {
   "name": "@beesolve/lint-config",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Shared Oxlint configuration and custom rules for beesolve projects, plus a bun fmt config",
   "homepage": "https://github.com/BeeSolve/packages/tree/main/packages/lint-config#readme",
   "license": "MIT",

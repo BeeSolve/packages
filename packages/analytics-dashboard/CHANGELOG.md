@@ -1,5 +1,14 @@
 # @beesolve/analytics-dashboard
 
+## 0.8.3
+
+### Patch Changes
+
+- e879cb5: chore: upgrade dependencies
+- Updated dependencies [e879cb5]
+  - @beesolve/auth-service@0.20.3
+  - @beesolve/lambda-keep-active@2.1.14
+
 ## 0.8.2
 
 ### Patch Changes

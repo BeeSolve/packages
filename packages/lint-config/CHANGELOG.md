@@ -1,5 +1,11 @@
 # @beesolve/lint-config
 
+## 0.4.1
+
+### Patch Changes
+
+- e879cb5: chore: upgrade dependencies
+
 ## 0.4.0
 
 ### Minor Changes
