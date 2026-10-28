@@ -30,7 +30,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "oxlint-plugin-eslint": "^1.87.0"
+    "oxlint-plugin-eslint": "^1.90.0"
   },
   "devDependencies": {
     "@types/bun": "catalog:",

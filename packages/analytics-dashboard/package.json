@@ -51,17 +51,17 @@
     "valibot": "catalog:"
   },
   "devDependencies": {
-    "@sveltejs/kit": "^3.0.1",
+    "@sveltejs/kit": "^3.1.0",
     "@sveltejs/vite-plugin-svelte": "^7.3.1",
     "@types/aws-lambda": "catalog:",
     "@types/bun": "catalog:",
     "@types/node": "catalog:",
     "aws-cdk-lib": "catalog:",
     "constructs": "catalog:",
-    "svelte": "^5.57.2",
-    "svelte-check": "^4.2.1",
+    "svelte": "^5.57.3",
+    "svelte-check": "^4.7.7",
     "typescript": "~6.0.3",
-    "vite": "^8.3.4"
+    "vite": "^8.3.5"
   },
   "peerDependencies": {
     "aws-cdk-lib": "catalog:",

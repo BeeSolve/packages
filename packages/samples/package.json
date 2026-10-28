@@ -33,7 +33,7 @@
     "@beesolve/lambda-function-url-protection": "workspace:^",
     "@beesolve/lambda-keep-active": "workspace:^",
     "@beesolve/sqs-handler": "workspace:^",
-    "@tanstack/react-query": "^5.104.2",
+    "@tanstack/react-query": "^5.105.0",
     "@trpc/client": "^11.19.0",
     "@trpc/server": "^11.19.0",
     "@trpc/tanstack-react-query": "^11.19.0",
@@ -42,19 +42,19 @@
     "constructs": "catalog:",
     "kit-on-lambda": "^1.1.2",
     "react": "catalog:",
-    "react-dom": "^19.3.0",
+    "react-dom": "^19.3.1",
     "valibot": "catalog:"
   },
   "devDependencies": {
-    "@sveltejs/kit": "^3.0.1",
+    "@sveltejs/kit": "^3.1.0",
     "@sveltejs/vite-plugin-svelte": "^7.3.1",
     "@types/aws-lambda": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.2",
-    "svelte": "^5.57.2",
+    "svelte": "^5.57.3",
     "typescript": "~6.0.3",
-    "vite": "^8.3.4"
+    "vite": "^8.3.5"
   }
 }
