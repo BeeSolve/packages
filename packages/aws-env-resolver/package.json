@@ -1,0 +1,68 @@
+{
+  "name": "@beesolve/aws-env-resolver",
+  "version": "0.0.0",
+  "description": "Resolve local development environment from CloudFormation and Secrets Manager, cache it, and inject it into a spawned command",
+  "homepage": "https://github.com/BeeSolve/packages/tree/main/packages/aws-env-resolver#readme",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BeeSolve/packages.git"
+  },
+  "bin": {
+    "aws-env-resolver": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "docs/how-to",
+    "DOCS.md"
+  ],
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    },
+    "./cdk": {
+      "import": {
+        "types": "./dist/cdk.d.ts",
+        "default": "./dist/cdk.js"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "type-check": "tsc --noEmit",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@aws-sdk/client-cloudformation": "catalog:",
+    "@aws-sdk/client-secrets-manager": "catalog:",
+    "@aws-sdk/client-sts": "catalog:",
+    "@aws-sdk/credential-providers": "catalog:",
+    "valibot": "catalog:"
+  },
+  "devDependencies": {
+    "@types/bun": "catalog:",
+    "@types/node": "catalog:",
+    "aws-cdk-lib": "catalog:",
+    "constructs": "catalog:"
+  },
+  "peerDependencies": {
+    "aws-cdk-lib": "catalog:",
+    "constructs": "catalog:",
+    "typescript": "catalog:"
+  },
+  "peerDependenciesMeta": {
+    "aws-cdk-lib": {
+      "optional": true
+    },
+    "constructs": {
+      "optional": true
+    },
+    "typescript": {
+      "optional": true
+    }
+  }
+}

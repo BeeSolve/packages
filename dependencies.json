@@ -1,5 +1,6 @@
 [
   "packages/action-tokens",
+  "packages/aws-env-resolver",
   "packages/cdk-email-alarms",
   "packages/dmarc-parser",
   "packages/helpers",
@@ -7,10 +8,10 @@
   "packages/helpers-dynamo",
   "packages/hmac",
   "packages/ip-info",
-  "packages/analytics-processor",
   "packages/lambda-fetch-api",
   "packages/lambda-function-url-protection",
   "packages/lambda-keep-active",
+  "packages/analytics-processor",
   "packages/dmarc-reports",
   "packages/lint-config",
   "packages/service-email",

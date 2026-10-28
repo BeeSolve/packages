@@ -229,6 +229,17 @@ const workspace: Array<DefineWorkspaceItem> = [
       },
     },
   },
+  {
+    name: "@beesolve/aws-env-resolver",
+    root: "packages/aws-env-resolver",
+    config: {
+      entry: ["index.ts", "cli.ts", "cdk.ts"],
+      dts: {
+        inferTypes: true,
+        tsgo: true,
+      },
+    },
+  },
 ];
 
 export default defineWorkspace(
