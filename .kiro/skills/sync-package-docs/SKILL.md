@@ -26,7 +26,7 @@ Substitute these into the generic skill's placeholders:
   - all others: `@beesolve/<dir-name>`
 - **Publish mechanism:** the `files` array in each `package.json` (no `.npmignore` in this repo).
   - User-facing packages: `"files"` includes `"dist"`, `"docs/how-to"`, `"DOCS.md"`.
-  - Internal plumbing packages (`helpers`, `helpers-dynamo`, `lint-config`): `"files"` includes `"DOCS.md"` but NOT `"docs/how-to"`. `lint-config` keeps its custom list (`oxfmt.json`, `presets`, `plugins`, `scripts`) and appends `"DOCS.md"`.
+  - Internal plumbing packages (`helpers`, `helpers-dynamo`, `lint-config`): `"files"` includes `"DOCS.md"` but NOT `"docs/how-to"`. `lint-config` keeps its custom list (`.oxfmtrc.json`, `presets`, `plugins`, `scripts`) and appends `"DOCS.md"`.
   - ADRs (`docs/adr-*.md`) and bug notes (`docs/bugs/`) stay unpublished. Never add the whole `"docs"` folder to `files`.
 - **Internal design docs to keep OUT of the tarball:** `docs/adr-*.md`, `docs/bugs/*`, `docs/*-design.md`, `docs/plans/*`.
 - **Further Reading ADR link:** include `[Architecture Decision Records](<repo-url>/tree/main/packages/<dir-name>/docs) (GitHub only)` only when the package actually has a `docs/` folder with ADRs; omit otherwise.
@@ -36,7 +36,7 @@ Substitute these into the generic skill's placeholders:
 Run after any docs change:
 
 ```bash
-bun run check        # oxfmt + oxlint (run `bun run fmt` first if markdown tables need realignment)
+bun run check        # bun fmt + oxlint (run `bun run fmt` first if markdown tables need realignment)
 bun run type-check
 bun test
 

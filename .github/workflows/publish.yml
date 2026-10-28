@@ -30,6 +30,8 @@ jobs:
           # DO NOT set NODE_AUTH_TOKEN — its presence breaks OIDC auth
 
       - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
 
       - run: bun install
 

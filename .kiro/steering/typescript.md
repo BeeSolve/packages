@@ -23,9 +23,9 @@
 
 ## Linting & Formatting
 
-- Formatter: Oxfmt (`bun run fmt` / `bun run fmt:check`)
+- Formatter: `bun fmt` (`bun run fmt` / `bun run fmt:check`), configured via `.oxfmtrc.json`
 - Linter: Oxlint (`bun run lint`) with custom rules via `@beesolve/lint-config`
-- Pre-commit: nano-staged + husky (auto-runs oxfmt + oxlint on changed files)
+- Pre-commit: nano-staged + husky (auto-runs `bun fmt` + oxlint on changed files)
 - Config lives in `packages/lint-config/` — shared across all beesolve projects
 
 ## Monorepo

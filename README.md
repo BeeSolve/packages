@@ -25,7 +25,7 @@ All packages target Node.js 24+ and are published as ESM.
 | [`@beesolve/helpers`](packages/helpers)                                               | Shared TypeScript utilities (serialization, retry, type guards)                                 |
 | [`@beesolve/dynamo-helpers`](packages/helpers-dynamo)                                 | Shared DynamoDB access helpers — document client, query pagination, single-table batch get      |
 | [`@beesolve/hmac`](packages/hmac)                                                     | HMAC signer — create and validate HMAC signatures and signed URLs                               |
-| [`@beesolve/lint-config`](packages/lint-config)                                       | Shared Oxlint + Oxfmt linting and formatting configuration                                      |
+| [`@beesolve/lint-config`](packages/lint-config)                                       | Shared Oxlint config, custom rules, and a `bun fmt` formatting config                           |
 | [`@beesolve/samples`](packages/samples)                                               | Deployable reference implementations showcasing the packages above (not published to npm)       |
 
 ## Installation
@@ -54,7 +54,7 @@ bun run build           # build all packages
 bun run type-check      # type-check all packages
 bun run test            # run all tests
 bun run lint            # lint with oxlint
-bun run fmt:check       # check formatting with oxfmt
+bun run fmt:check       # check formatting with bun fmt
 ```
 
 ### Adding a new package

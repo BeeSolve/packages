@@ -1,7 +1,7 @@
 {
   "name": "@beesolve/lint-config",
   "version": "0.3.5",
-  "description": "Shared Oxlint + Oxfmt configuration and custom rules for beesolve projects",
+  "description": "Shared Oxlint configuration and custom rules for beesolve projects, plus a bun fmt config",
   "homepage": "https://github.com/BeeSolve/packages/tree/main/packages/lint-config#readme",
   "license": "MIT",
   "repository": {
@@ -12,7 +12,7 @@
     "beesolve-lint-setup": "./scripts/setup.ts"
   },
   "files": [
-    "oxfmt.json",
+    ".oxfmtrc.json",
     "presets",
     "plugins",
     "scripts",
@@ -20,7 +20,7 @@
   ],
   "type": "module",
   "exports": {
-    "./oxfmt.json": "./oxfmt.json",
+    "./.oxfmtrc.json": "./.oxfmtrc.json",
     "./presets/*": "./presets/*",
     "./plugins/*": "./plugins/*",
     "./package.json": "./package.json"
@@ -37,15 +37,11 @@
     "@types/node": "catalog:"
   },
   "peerDependencies": {
-    "oxfmt": ">=0.72.0",
     "oxlint": ">=1.87.0",
     "oxlint-tsgolint": ">=7.0.2004"
   },
   "peerDependenciesMeta": {
     "oxlint": {
-      "optional": true
-    },
-    "oxfmt": {
       "optional": true
     },
     "oxlint-tsgolint": {

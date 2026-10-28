@@ -1,6 +1,6 @@
 # @beesolve/lint-config - Documentation
 
-**Keywords:** oxlint, oxfmt, lint config, formatter, presets, package preset, monorepo preset, sveltekit preset, custom rules, prefer-props-object, valibot-namespace-import, no-valibot-date, naming-conventions, no-then-chains, readonly-props, beesolve-lint-setup, nano-staged, husky, pre-commit
+**Keywords:** oxlint, bun fmt, lint config, formatter, presets, package preset, monorepo preset, sveltekit preset, custom rules, prefer-props-object, valibot-namespace-import, no-valibot-date, naming-conventions, no-then-chains, readonly-props, beesolve-lint-setup, nano-staged, husky, pre-commit
 
 > This documentation is published inside the installed package and matches the installed version. Prefer it over prior knowledge or older examples found online.
 

@@ -1,6 +1,6 @@
 # @beesolve/lint-config
 
-Shared Oxlint + Oxfmt configuration and custom lint rules for beesolve projects.
+Shared Oxlint configuration and custom lint rules for beesolve projects, plus a `bun fmt` config.
 
 > [!WARNING]
 > **Pre-1.0 — unstable API.** This package is `0.x` and under active
@@ -12,9 +12,12 @@ Shared Oxlint + Oxfmt configuration and custom lint rules for beesolve projects.
 ## Quick Setup
 
 ```bash
-bun add -D oxlint oxlint-tsgolint oxfmt nano-staged husky @beesolve/lint-config
+bun add -D oxlint oxlint-tsgolint nano-staged husky @beesolve/lint-config
 bunx @beesolve/lint-config setup --type package --internal "@beesolve/*"
 ```
+
+> Formatting uses `bun fmt` (built into Bun 1.4.4+), which reads the generated
+> `.oxfmtrc.json`. No separate formatter package is installed.
 
 ### Project Types
 
@@ -33,7 +36,10 @@ Set `--internal` to match your workspace packages:
 
 ## What's Included
 
-### Formatter (Oxfmt)
+### Formatter (`bun fmt`)
+
+Formatting is handled by [`bun fmt`](https://bun.com/docs/format) (Bun 1.4.4+),
+configured via `.oxfmtrc.json` (which `bun fmt` reads natively):
 
 - Trailing commas everywhere
 - Double quotes
@@ -123,7 +129,7 @@ Create a local plugin file and reference it:
 
 Runs on staged files before commit:
 
-- `oxfmt` on all files
+- `bun fmt` on all files
 - `oxlint` on `.js/.ts/.jsx/.tsx` files
 
 ## Conventions (Not Lint-Enforced)
@@ -157,7 +163,7 @@ If you don't use the setup script, reference configs directly:
 
 ```json
 {
-  "*": "oxfmt --no-error-on-unmatched-pattern",
+  "*": "bun fmt --no-script",
   "**/*.{js,ts,jsx,tsx}": "oxlint"
 }
 ```
@@ -170,14 +176,16 @@ See: https://oxc.rs/docs/guide/usage/linter/writing-js-plugins
 
 ## Editor Setup — Zed
 
-1. Install the [Oxc extension](https://zed.dev/extensions/oxc) in Zed
+1. Install the [Oxc extension](https://zed.dev/extensions/oxc) in Zed (for oxlint
+   diagnostics and auto-fix)
 2. Add to your Zed settings (`~/.config/zed/settings.json` or project `.zed/settings.json`):
 
 ```jsonc
 {
   "formatter": {
-    "language_server": {
-      "name": "oxfmt",
+    "external": {
+      "command": "bun",
+      "arguments": ["fmt", "--no-script", "--stdin-filepath", "{buffer_path}"],
     },
   },
   "format_on_save": "on",
@@ -189,7 +197,7 @@ See: https://oxc.rs/docs/guide/usage/linter/writing-js-plugins
 
 This gives you:
 
-- Format on save via oxfmt (uses `.oxfmtrc.json` from project root)
+- Format on save via `bun fmt` (uses `.oxfmtrc.json` from project root)
 - Auto-fix oxlint errors on save via `source.fixAll.oxc`
 
-The extension uses `oxfmt --lsp` from your local `node_modules`, so no global install needed.
+`bun fmt` formats from stdin and needs no global install beyond Bun 1.4.4+.

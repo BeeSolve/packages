@@ -30,7 +30,7 @@
       "@types/react": "^19.3.0",
       "typescript": "^7.0.2",
       "@types/node": "^26.6.5",
-      "@types/bun": "1.4.3",
+      "@types/bun": "1.4.4",
       "esbuild": "^0.28.2",
       "@standard-schema/spec": "^1.1.0"
     }
@@ -38,9 +38,9 @@
   "type": "module",
   "scripts": {
     "lint": "oxlint packages/ scripts/ --ignore-pattern packages/samples/",
-    "fmt": "oxfmt",
-    "fmt:check": "oxfmt --check",
-    "check": "oxfmt --check && oxlint packages/ scripts/ --ignore-pattern packages/samples/",
+    "fmt": "bun fmt --no-script",
+    "fmt:check": "bun fmt --no-script --check",
+    "check": "bun fmt --no-script --check && oxlint packages/ scripts/ --ignore-pattern packages/samples/",
     "build": "bun scripts/cleanDist.ts && bunup && bun scripts/buildLambdas.ts",
     "dev": "bunup --watch",
     "test": "bun run build && bun run --filter '*' test",
@@ -53,13 +53,12 @@
   },
   "devDependencies": {
     "@changesets/cli": "^3.0.3",
-    "@types/bun": "^1.4.3",
+    "@types/bun": "^1.4.4",
     "@types/node": "^26.6.5",
     "@typescript/native-preview": "^7.0.0-dev.20260707.2",
     "bunup": "^0.16.32",
     "husky": "^9.1.7",
     "nano-staged": "^1.0.2",
-    "oxfmt": "^0.72.0",
     "oxlint": "^1.87.0",
     "oxlint-plugin-eslint": "^1.87.0",
     "oxlint-tsgolint": "^7.0.2004",

@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 /**
  * Setup script for @beesolve/lint-config.
- * Generates oxfmt, oxlint, nano-staged configs and husky pre-commit hook.
+ * Generates bun fmt, oxlint, nano-staged configs and husky pre-commit hook.
  *
  * Usage:
  *   bunx @beesolve/lint-config setup --type package --internal "@beesolve/*"
@@ -49,7 +49,7 @@ const oxlintConfig = {
 };
 
 const nanoStagedConfig = {
-  "*": "oxfmt --no-error-on-unmatched-pattern",
+  "*": "bun fmt --no-script",
   "**/*.{js,ts,jsx,tsx}": "oxlint",
 };
 
@@ -72,12 +72,12 @@ console.log("  ✓ .husky/pre-commit");
 
 console.log(`
 Done! Next steps:
-  1. bun add -D oxlint oxfmt nano-staged husky @beesolve/lint-config
+  1. bun add -D oxlint oxlint-tsgolint nano-staged husky @beesolve/lint-config
   2. Add to package.json scripts:
      "lint": "oxlint .",
-     "fmt": "oxfmt",
-     "fmt:check": "oxfmt --check",
-     "check": "oxfmt --check && oxlint .",
+     "fmt": "bun fmt --no-script",
+     "fmt:check": "bun fmt --no-script --check",
+     "check": "bun fmt --no-script --check && oxlint .",
      "prepare": "husky"
-  3. Run: bun run fmt
+  3. Run: bun fmt --no-script
 `);
