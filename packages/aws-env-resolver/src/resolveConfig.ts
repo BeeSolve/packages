@@ -11,6 +11,7 @@ import { GetCallerIdentityCommand, STSClient } from "@aws-sdk/client-sts";
 import { fromIni } from "@aws-sdk/credential-providers";
 
 import type { ResolverConfig, ResourceMapping, ResourceTransform } from "../index.ts";
+import { toStackNames } from "./emit.ts";
 
 export interface CloudFormationLike {
   send(command: DescribeStackResourcesCommand): Promise<DescribeStackResourcesCommandOutput>;
@@ -33,10 +34,14 @@ export async function resolveStackResources(props: {
   }
 
   const cfnClient = props.cfnClient ?? buildCloudFormationClient(config);
-  const response = await cfnClient.send(
-    new DescribeStackResourcesCommand({ StackName: config.stackName }),
+  const stacks = await Promise.all(
+    toStackNames(config.stackName).map(async (stackName) => {
+      const response = await cfnClient.send(
+        new DescribeStackResourcesCommand({ StackName: stackName }),
+      );
+      return { stackName, stackResources: response.StackResources ?? [] };
+    }),
   );
-  const stackResources = response.StackResources ?? [];
 
   const resolveAccountId = makeAccountIdResolver({
     config,
@@ -45,9 +50,17 @@ export async function resolveStackResources(props: {
 
   const resolved: Record<string, string> = {};
   for (const mapping of resources) {
-    const matched = findMatchingResource({ stackResources, mapping });
+    const searched = stacks.filter(
+      (stack) => mapping.stackName == null || stack.stackName === mapping.stackName,
+    );
+    const matched = findMatchingResource({
+      stackResources: searched.flatMap((stack) => stack.stackResources),
+      mapping,
+    });
     if (matched == null) {
-      throw new Error(describeNoMatch({ stackName: config.stackName, mapping }));
+      throw new Error(
+        describeNoMatch({ stackNames: searched.map((stack) => stack.stackName), mapping }),
+      );
     }
 
     const physicalId = matched.PhysicalResourceId;
@@ -155,10 +168,14 @@ function findMatchingResource(props: {
 }
 
 function describeNoMatch(props: {
-  readonly stackName: string;
+  readonly stackNames: ReadonlyArray<string>;
   readonly mapping: ResourceMapping;
 }): string {
-  const { stackName, mapping } = props;
+  const { stackNames, mapping } = props;
+  const stackClause =
+    stackNames.length === 1
+      ? `stack "${stackNames[0]}"`
+      : `stacks ${stackNames.map((name) => `"${name}"`).join(", ")}`;
   const typeClause = mapping.resourceType != null ? `, resourceType "${mapping.resourceType}"` : "";
-  return `No CloudFormation resource in stack "${stackName}" matched env var "${mapping.envVar}" (logicalIdPrefix "${mapping.logicalIdPrefix}"${typeClause}).`;
+  return `No CloudFormation resource in ${stackClause} matched env var "${mapping.envVar}" (logicalIdPrefix "${mapping.logicalIdPrefix}"${typeClause}).`;
 }

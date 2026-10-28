@@ -48,7 +48,7 @@ Exit codes: `0` success, `1` runtime error, `2` invalid arguments. When a comman
 | `resolveEnv`          | `(options: ResolveEnvOptions) => Promise<Record<string, string>>`. Does not mutate `process.env`.               |
 | `purgeCache`          | `({ projectKey, namespace, config, secretKeys? }) => Promise<void>`. Deletes the cache file and keychain items. |
 | `ResolveEnvOptions`   | `config`, `resources`, `secrets?`, `projectKey`, `namespace`, `refresh?`, `cacheTtlMs?`, `trusted?`.            |
-| `ResolverConfig`      | `profile?`, `region`, `stackName`, `secretId?`, `accountId?`, `staticEnv`.                                      |
+| `ResolverConfig`      | `profile?`, `region`, `stackName` (one name or a list), `secretId?`, `accountId?`, `staticEnv`.                 |
 | `ResourceMapping`     | `envVar`, `logicalIdPrefix`, `resourceType?`, `transform?`.                                                     |
 | `SecretMapping`       | `envVar`, `jsonKey?` (defaults to `envVar`).                                                                    |
 | `ResourceTransform`   | A function `(physicalId, { region, accountId }) => string` or a `TransformTag`.                                 |
@@ -61,14 +61,14 @@ Exit codes: `0` success, `1` runtime error, `2` invalid arguments. When a comman
 
 Requires the optional peers `aws-cdk-lib` and `constructs`.
 
-| Export                    | Description                                                                   |
-| ------------------------- | ----------------------------------------------------------------------------- |
-| `generate`                | `(props: AllowEnvResolutionProps) => EmittedConfig`. Walks the scope; no I/O. |
-| `persist`                 | `(config, { path }) => void`. Writes JSON, creating parent directories.       |
-| `generateAndPersist`      | `generate` then `persist`; takes `path` in addition to the props.             |
-| `AllowEnvResolutionProps` | `projectName`, `namespace`, `scope`, `profile?`, `secrets?`, `staticEnv?`.    |
+| Export                    | Description                                                                        |
+| ------------------------- | ---------------------------------------------------------------------------------- |
+| `generate`                | `(props: AllowEnvResolutionProps) => EmittedConfig`. Walks the scope; no I/O.      |
+| `persist`                 | `(config, { path }) => void`. Writes JSON, creating parent directories.            |
+| `generateAndPersist`      | `generate` then `persist`; optional `path` (default `aws-env.config.json`).        |
+| `AllowEnvResolutionProps` | `projectName`, `scope` (construct or array), `profile?`, `secrets?`, `staticEnv?`. |
 
-The emitter reads Lambda `environment` blocks of a single stack. `Ref` and `Fn::GetAtt` `Arn` are supported; other intrinsics throw. It emits a recipe (env var to logical-id prefix), never resolved physical names.
+The emitter reads Lambda `environment` blocks of every stack under the scope that has any (all in one region). `Ref` and `Fn::GetAtt` `Arn` are supported; other intrinsics throw. It emits a recipe (env var to logical-id prefix), never resolved physical names.
 
 ## Config
 

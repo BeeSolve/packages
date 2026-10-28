@@ -239,3 +239,41 @@ describe("resolveStackResources resourceType filter", () => {
     expect(resolved).toEqual({ DATA_TABLE_NAME: "stg-Data666C94C7-XYZ" });
   });
 });
+
+describe("resolveStackResources multiple stacks", () => {
+  it("looks a mapping up only in its own stack and describes every stack", async () => {
+    const byStack: Record<string, ReadonlyArray<StackResource>> = {
+      "stack-a": [
+        stackResource({
+          LogicalResourceId: "Data1",
+          ResourceType: "AWS::S3::Bucket",
+          PhysicalResourceId: "bucket-a",
+        }),
+      ],
+      "stack-b": [
+        stackResource({
+          LogicalResourceId: "Data1",
+          ResourceType: "AWS::S3::Bucket",
+          PhysicalResourceId: "bucket-b",
+        }),
+      ],
+    };
+    const client: CloudFormationLike = {
+      send: async (command) => ({
+        $metadata: {},
+        StackResources: [...(byStack[command.input.StackName ?? ""] ?? [])],
+      }),
+    };
+
+    const resolved = await resolveStackResources({
+      config: { ...baseConfig, stackName: ["stack-a", "stack-b"] },
+      resources: [
+        { envVar: "A", logicalIdPrefix: "Data", stackName: "stack-a" },
+        { envVar: "B", logicalIdPrefix: "Data", stackName: "stack-b" },
+      ],
+      cfnClient: client,
+    });
+
+    expect(resolved).toEqual({ A: "bucket-a", B: "bucket-b" });
+  });
+});

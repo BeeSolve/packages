@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { App, Stack } from "aws-cdk-lib";
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import * as lambda from "aws-cdk-lib/aws-lambda";
+import * as sqs from "aws-cdk-lib/aws-sqs";
 
 import { generate, generateAndPersist, persist } from "../cdk.ts";
 import { loadConfig } from "../src/loadConfig.ts";
@@ -65,7 +66,6 @@ describe("generate", () => {
 
     const config = generate({
       projectName: "example-app",
-      namespace: "staging",
       scope: app,
       secrets: [{ secretId: "example/secrets", envVars: ["API_KEY"] }],
     });
@@ -87,7 +87,6 @@ describe("generate", () => {
     const { app } = buildApp();
     const config = generate({
       projectName: "example-app",
-      namespace: "staging",
       scope: app,
       secrets: [{ secretId: "example/secrets", envVars: ["API_KEY"] }],
     });
@@ -109,7 +108,6 @@ describe("generate", () => {
 
     const config = generateAndPersist({
       projectName: "example-app",
-      namespace: "staging",
       scope: app,
       path,
     });
@@ -117,16 +115,93 @@ describe("generate", () => {
     expect(JSON.parse(readFileSync(path, "utf8"))).toEqual(config);
   });
 
-  it("throws when lambdas span multiple stacks", () => {
+  it("emits every stack with lambda env and tags resource mappings with their stack", () => {
     const { app } = buildApp();
     const otherStack = new Stack(app, "OtherStack", {
       env: { region: "eu-central-1", account: "111122223333" },
+      stackName: "other-stack",
+    });
+    const queue = new sqs.Queue(otherStack, "Jobs");
+    addFunction({
+      stack: otherStack,
+      id: "OtherHandler",
+      environment: { QUEUE_URL: queue.queueUrl },
+    });
+    const noEnvStack = new Stack(app, "NoEnvStack", {
+      env: { region: "us-east-1", account: "111122223333" },
+    });
+    addFunction({ stack: noEnvStack, id: "EdgeHandler", environment: {} });
+
+    const config = generate({ projectName: "example-app", scope: app });
+
+    expect(config.config.stackName).toEqual(["example-stack", "other-stack"]);
+    expect(config.resources).toEqual(
+      expect.arrayContaining([
+        { envVar: "DATA_TABLE_NAME", logicalIdPrefix: "Data", stackName: "example-stack" },
+        { envVar: "QUEUE_URL", logicalIdPrefix: "Jobs", stackName: "other-stack" },
+      ]),
+    );
+  });
+
+  it("throws when stacks with lambda env span multiple regions", () => {
+    const { app } = buildApp();
+    const otherStack = new Stack(app, "OtherStack", {
+      env: { region: "us-east-1", account: "111122223333" },
+      stackName: "other-stack",
     });
     addFunction({ stack: otherStack, id: "OtherHandler", environment: { A: "b" } });
 
-    expect(() =>
-      generate({ projectName: "example-app", namespace: "staging", scope: app }),
-    ).toThrow(/multiple stacks.*ExampleStack.*OtherStack/);
+    expect(() => generate({ projectName: "example-app", scope: app })).toThrow(/multiple regions/);
+  });
+
+  it("writes to aws-env.config.json in the cwd by default", () => {
+    const { app } = buildApp();
+    const dir = makeTempDir();
+    const previous = process.cwd();
+    process.chdir(dir);
+    try {
+      generateAndPersist({ projectName: "example-app", scope: app });
+    } finally {
+      process.chdir(previous);
+    }
+
+    expect(JSON.parse(readFileSync(join(dir, "aws-env.config.json"), "utf8")).projectKey).toBe(
+      "example-app",
+    );
+  });
+
+  it("limits the walk to the stacks given as scope", () => {
+    const { app, stack } = buildApp();
+    const edgeStack = new Stack(app, "EdgeStack", {
+      env: { region: "us-east-1", account: "111122223333" },
+      stackName: "edge-stack",
+    });
+    addFunction({ stack: edgeStack, id: "EdgeHandler", environment: { A: "b" } });
+
+    expect(() => generate({ projectName: "example-app", scope: app })).toThrow(/multiple regions/);
+    const config = generate({ projectName: "example-app", scope: [stack] });
+    expect(config.config.stackName).toBe("example-stack");
+  });
+
+  it("inlines pseudo parameters so a literal ARN becomes static env", () => {
+    const { app, stack } = buildApp();
+    addFunction({
+      stack,
+      id: "Bus",
+      environment: {
+        EVENT_BUS_ARN: stack.formatArn({
+          service: "events",
+          resource: "event-bus",
+          resourceName: "default",
+        }),
+      },
+    });
+
+    const config = generate({ projectName: "example-app", scope: app });
+
+    expect(config.config.staticEnv.EVENT_BUS_ARN).toBe(
+      "arn:aws:events:eu-central-1:111122223333:event-bus/default",
+    );
   });
 
   it("throws for env-agnostic stacks", () => {
@@ -134,17 +209,15 @@ describe("generate", () => {
     const stack = new Stack(app, "AgnosticStack");
     addFunction({ stack, id: "Handler", environment: { A: "b" } });
 
-    expect(() =>
-      generate({ projectName: "example-app", namespace: "staging", scope: app }),
-    ).toThrow(/unresolved region/);
+    expect(() => generate({ projectName: "example-app", scope: app })).toThrow(/unresolved region/);
   });
 
   it("throws when no lambda functions exist", () => {
     const app = new App();
     new Stack(app, "EmptyStack", { env: { region: "eu-central-1", account: "111122223333" } });
 
-    expect(() =>
-      generate({ projectName: "example-app", namespace: "staging", scope: app }),
-    ).toThrow(/No Lambda functions/);
+    expect(() => generate({ projectName: "example-app", scope: app })).toThrow(
+      /No Lambda functions/,
+    );
   });
 });

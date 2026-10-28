@@ -41,8 +41,8 @@ export interface ResolverConfig {
   readonly profile?: string;
   /** AWS region all clients are built against. */
   readonly region: string;
-  /** CloudFormation stack to read resources from. */
-  readonly stackName: string;
+  /** CloudFormation stack, or stacks, to read resources from. All stacks live in `region`. */
+  readonly stackName: string | ReadonlyArray<string>;
   /** Secrets Manager id to read secrets from; omit if the project has no secrets. */
   readonly secretId?: string;
   /** Optional account id for ARN construction; resolved via STS on demand if omitted. */
@@ -78,6 +78,8 @@ export interface ResourceMapping {
   readonly logicalIdPrefix: string;
   /** Optional resource-type filter, e.g. "AWS::DynamoDB::Table". */
   readonly resourceType?: string;
+  /** Stack to look the resource up in; omit to search every configured stack. */
+  readonly stackName?: string;
   /** Transform the physical id into the final value (e.g. a Lambda name -> an ARN). */
   readonly transform?: ResourceTransform;
 }

@@ -106,7 +106,7 @@ describe("buildEmittedConfig", () => {
         ...base,
         entries: [{ envVar: "QUEUE_URL", value: { intrinsic: { "Fn::Join": ["", ["a", "b"]] } } }],
       }),
-    ).toThrow(/QUEUE_URL.*staticEnv/);
+    ).toThrow(/QUEUE_URL.*"Fn::Join".*not support.*staticEnv.*intrinsicRules/);
   });
 
   it("throws on pseudo parameter refs", () => {

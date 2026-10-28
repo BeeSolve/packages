@@ -9,6 +9,7 @@ export const emittedResourceMappingSchema = v.object({
   logicalIdPrefix: v.string(),
   resourceType: v.optional(v.string()),
   transform: v.optional(transformTagSchema),
+  stackName: v.optional(v.string()),
 });
 
 export const emittedSecretMappingSchema = v.object({
@@ -19,7 +20,7 @@ export const emittedSecretMappingSchema = v.object({
 export const emittedResolverConfigSchema = v.object({
   profile: v.optional(v.string()),
   region: v.string(),
-  stackName: v.string(),
+  stackName: v.union([v.string(), v.array(v.string())]),
   secretId: v.optional(v.string()),
   accountId: v.optional(v.string()),
   staticEnv: v.record(v.string(), v.string()),
@@ -43,6 +44,8 @@ export type Intrinsic = Record<string, unknown>;
 export interface ExtractedEnvEntry {
   readonly envVar: string;
   readonly value: string | { readonly intrinsic: Intrinsic };
+  /** Stack the lambda lives in; recorded on resource mappings when several stacks are emitted. */
+  readonly stackName?: string;
 }
 
 /** A Secrets Manager secret and the env vars sourced from it. */
@@ -54,7 +57,7 @@ export interface SecretSource {
 /** Input for {@link buildEmittedConfig}. */
 export interface BuildEmittedConfigProps {
   readonly projectName: string;
-  readonly stackName: string;
+  readonly stackName: string | ReadonlyArray<string>;
   readonly region: string;
   readonly profile?: string;
   readonly entries: ReadonlyArray<ExtractedEnvEntry>;
@@ -79,8 +82,19 @@ export function stripCdkHash(logicalId: string): string {
   return stripped.length === 0 ? logicalId : stripped;
 }
 
+/** Normalize a single stack name or a list of stack names to a list. */
+export function toStackNames(stackName: string | ReadonlyArray<string>): ReadonlyArray<string> {
+  return typeof stackName === "string" ? [stackName] : stackName;
+}
+
 /** Build the declarative resolver config from already-extracted lambda environment data. */
 export function buildEmittedConfig(props: BuildEmittedConfigProps): EmittedConfig {
+  const stackNames = toStackNames(props.stackName);
+  const [firstStackName] = stackNames;
+  if (firstStackName == null) {
+    throw new Error("At least one stack name is required");
+  }
+  const multiStack = stackNames.length > 1;
   const secrets = props.secrets ?? [];
   const secretIds = [...new Set(secrets.map((source) => source.secretId))];
   if (secretIds.length > 1) {
@@ -96,7 +110,7 @@ export function buildEmittedConfig(props: BuildEmittedConfigProps): EmittedConfi
     if (secretEnvVars.includes(entry.envVar) || entry.envVar in explicitStaticEnv) {
       continue;
     }
-    const resolved = resolveEntry(entry);
+    const resolved = resolveEntry({ entry, multiStack });
     const existing = resolvedByEnvVar[entry.envVar];
     if (existing == null) {
       resolvedByEnvVar[entry.envVar] = resolved;
@@ -124,7 +138,7 @@ export function buildEmittedConfig(props: BuildEmittedConfigProps): EmittedConfi
     config: {
       ...(props.profile == null ? {} : { profile: props.profile }),
       region: props.region,
-      stackName: props.stackName,
+      stackName: multiStack ? [...stackNames] : firstStackName,
       ...(secretIds[0] == null ? {} : { secretId: secretIds[0] }),
       staticEnv: { ...walkedStaticEnv, ...explicitStaticEnv },
     },
@@ -137,39 +151,85 @@ function describeEntry(entry: ResolvedEntry): string {
   if (entry.kind === "static") {
     return `literal "${entry.value}"`;
   }
-  return `logical id prefix "${entry.mapping.logicalIdPrefix}"${entry.mapping.transform == null ? "" : ` (${entry.mapping.transform.kind})`}`;
+  return `logical id prefix "${entry.mapping.logicalIdPrefix}"${entry.mapping.transform == null ? "" : ` (${entry.mapping.transform.kind})`}${entry.mapping.stackName == null ? "" : ` in stack "${entry.mapping.stackName}"`}`;
 }
 
-function resolveEntry(entry: ExtractedEnvEntry): ResolvedEntry {
+function resolveEntry(props: {
+  readonly entry: ExtractedEnvEntry;
+  readonly multiStack: boolean;
+}): ResolvedEntry {
+  const resolved = resolveEntryValue(props.entry);
+  if (resolved.kind === "resource" && props.multiStack && props.entry.stackName != null) {
+    return {
+      kind: "resource",
+      mapping: { ...resolved.mapping, stackName: props.entry.stackName },
+    };
+  }
+  return resolved;
+}
+
+/**
+ * Rules for turning a CloudFormation intrinsic into a resolver mapping, tried in order. A rule
+ * returns `undefined` when the intrinsic is not its case; add new special cases here.
+ */
+const intrinsicRules: ReadonlyArray<IntrinsicRule> = [refRule, getAttributeRule];
+
+interface IntrinsicRule {
+  (props: { readonly envVar: string; readonly intrinsic: Intrinsic }): ResolvedEntry | undefined;
+}
+
+function resolveEntryValue(entry: ExtractedEnvEntry): ResolvedEntry {
   if (typeof entry.value === "string") {
     return { kind: "static", value: entry.value };
   }
   const { intrinsic } = entry.value;
-  const referencedId = intrinsic.Ref;
-  if (typeof referencedId === "string" && Object.keys(intrinsic).length === 1) {
-    if (referencedId.startsWith("AWS::")) {
-      throw unsupportedIntrinsic(entry.envVar, intrinsic);
+  for (const rule of intrinsicRules) {
+    const resolved = rule({ envVar: entry.envVar, intrinsic });
+    if (resolved != null) {
+      return resolved;
     }
-    return {
-      kind: "resource",
-      mapping: { envVar: entry.envVar, logicalIdPrefix: stripCdkHash(referencedId) },
-    };
-  }
-  const attributeReference = intrinsic["Fn::GetAtt"];
-  if (
-    Array.isArray(attributeReference) &&
-    attributeReference.length === 2 &&
-    typeof attributeReference[0] === "string" &&
-    typeof attributeReference[1] === "string" &&
-    Object.keys(intrinsic).length === 1
-  ) {
-    return resolveAttribute({
-      envVar: entry.envVar,
-      logicalId: attributeReference[0],
-      attribute: attributeReference[1],
-    });
   }
   throw unsupportedIntrinsic(entry.envVar, intrinsic);
+}
+
+function refRule(props: {
+  readonly envVar: string;
+  readonly intrinsic: Intrinsic;
+}): ResolvedEntry | undefined {
+  const { envVar, intrinsic } = props;
+  const referencedId = intrinsic.Ref;
+  if (typeof referencedId !== "string" || Object.keys(intrinsic).length !== 1) {
+    return undefined;
+  }
+  if (referencedId.startsWith("AWS::")) {
+    throw unsupportedIntrinsic(envVar, intrinsic);
+  }
+  return {
+    kind: "resource",
+    mapping: { envVar, logicalIdPrefix: stripCdkHash(referencedId) },
+  };
+}
+
+function getAttributeRule(props: {
+  readonly envVar: string;
+  readonly intrinsic: Intrinsic;
+}): ResolvedEntry | undefined {
+  const { envVar, intrinsic } = props;
+  const attributeReference = intrinsic["Fn::GetAtt"];
+  if (
+    !Array.isArray(attributeReference) ||
+    attributeReference.length !== 2 ||
+    typeof attributeReference[0] !== "string" ||
+    typeof attributeReference[1] !== "string" ||
+    Object.keys(intrinsic).length !== 1
+  ) {
+    return undefined;
+  }
+  return resolveAttribute({
+    envVar,
+    logicalId: attributeReference[0],
+    attribute: attributeReference[1],
+  });
 }
 
 function resolveAttribute(props: {
@@ -193,7 +253,10 @@ function resolveAttribute(props: {
 }
 
 function unsupportedIntrinsic(envVar: string, intrinsic: Intrinsic): Error {
+  const kind = Object.keys(intrinsic).join(", ");
   return new Error(
-    `Env var ${envVar} uses an unsupported CloudFormation intrinsic ${JSON.stringify(intrinsic)}. Pass it via staticEnv or map it by hand.`,
+    `Env var ${envVar} uses CloudFormation intrinsic "${kind}" which @beesolve/aws-env-resolver does not support yet: ${JSON.stringify(intrinsic)}. ` +
+      `Workaround: pass the value via \`staticEnv\` or map it by hand in a .ts config. ` +
+      `To support it, add a rule to \`inlineRules\` (cdk.ts, values the stack can answer at synth) or \`intrinsicRules\` (src/emit.ts, resource lookups) in packages/aws-env-resolver and open a PR at https://github.com/BeeSolve/packages.`,
   );
 }

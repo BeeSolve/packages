@@ -5,12 +5,14 @@ import { dirname, join } from "node:path";
 
 import * as v from "valibot";
 
+import { toStackNames } from "./emit.ts";
+
 /** Default non-secret cache TTL: 24 hours in milliseconds. */
 export const defaultCacheTtlMs = 86_400_000;
 
 export interface FingerprintInputs {
   readonly region: string;
-  readonly stackName: string;
+  readonly stackName: string | ReadonlyArray<string>;
   readonly secretId?: string;
 }
 
@@ -44,7 +46,7 @@ const storedCacheSchema: v.GenericSchema<StoredCache> = v.object({
 export function computeFingerprint(inputs: FingerprintInputs): string {
   const serialized = JSON.stringify({
     region: inputs.region,
-    stackName: inputs.stackName,
+    stackName: normalizeStackName(inputs.stackName),
     secretId: inputs.secretId ?? null,
   });
   return createHash("sha256").update(serialized).digest("hex").slice(0, 12);
@@ -71,7 +73,7 @@ export function writeCache(props: {
     values: props.values,
     resolvedAt: Date.now(),
     region: props.identity.config.region,
-    stackName: props.identity.config.stackName,
+    stackName: normalizeStackName(props.identity.config.stackName),
     secretId: props.identity.config.secretId,
   };
   writeFileSync(filePath, JSON.stringify(stored), "utf8");
@@ -97,7 +99,7 @@ export function readCache(props: {
   const { config } = props.identity;
   if (
     parsed.region !== config.region ||
-    parsed.stackName !== config.stackName ||
+    parsed.stackName !== normalizeStackName(config.stackName) ||
     (parsed.secretId ?? null) !== (config.secretId ?? null)
   ) {
     return undefined;
@@ -110,6 +112,10 @@ export function readCache(props: {
 export function purgeCache(props: { readonly identity: CacheIdentity }): void {
   const filePath = cacheFilePath(props.identity);
   rmSync(filePath, { force: true });
+}
+
+function normalizeStackName(stackName: string | ReadonlyArray<string>): string {
+  return toStackNames(stackName).toSorted().join(",");
 }
 
 function readJsonFile(filePath: string): unknown {
