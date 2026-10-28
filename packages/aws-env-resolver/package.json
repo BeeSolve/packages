@@ -1,6 +1,6 @@
 {
   "name": "@beesolve/aws-env-resolver",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Resolve local development environment from CloudFormation and Secrets Manager, cache it, and inject it into a spawned command",
   "homepage": "https://github.com/BeeSolve/packages/tree/main/packages/aws-env-resolver#readme",
   "license": "MIT",
