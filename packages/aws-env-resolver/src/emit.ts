@@ -4,12 +4,22 @@ export const transformTagSchema = v.object({
   kind: v.picklist(["lambdaArn"] as const),
 });
 
-export const emittedResourceMappingSchema = v.object({
-  envVar: v.string(),
+export const emittedResourceReferenceSchema = v.object({
   logicalIdPrefix: v.string(),
   resourceType: v.optional(v.string()),
   transform: v.optional(transformTagSchema),
   stackName: v.optional(v.string()),
+});
+
+export const emittedResourceMappingSchema = v.object({
+  envVar: v.string(),
+  ...emittedResourceReferenceSchema.entries,
+});
+
+/** An env var built from literal text and resolved resources, e.g. a JSON string embedding a queue url. */
+export const emittedTemplateMappingSchema = v.object({
+  envVar: v.string(),
+  parts: v.array(v.union([v.string(), emittedResourceReferenceSchema])),
 });
 
 export const emittedSecretMappingSchema = v.object({
@@ -30,7 +40,7 @@ export const emittedResolverConfigSchema = v.object({
 export const emittedConfigSchema = v.object({
   projectKey: v.string(),
   config: emittedResolverConfigSchema,
-  resources: v.array(emittedResourceMappingSchema),
+  resources: v.array(v.union([emittedResourceMappingSchema, emittedTemplateMappingSchema])),
   secrets: v.optional(v.array(emittedSecretMappingSchema)),
 });
 
@@ -67,9 +77,14 @@ export interface BuildEmittedConfigProps {
 
 type EmittedResourceMapping = v.InferOutput<typeof emittedResourceMappingSchema>;
 
+type EmittedResourceReference = v.InferOutput<typeof emittedResourceReferenceSchema>;
+
+type EmittedTemplateMapping = v.InferOutput<typeof emittedTemplateMappingSchema>;
+
 type ResolvedEntry =
   | { readonly kind: "static"; readonly value: string }
-  | { readonly kind: "resource"; readonly mapping: EmittedResourceMapping };
+  | { readonly kind: "resource"; readonly mapping: EmittedResourceMapping }
+  | { readonly kind: "template"; readonly mapping: EmittedTemplateMapping };
 
 const cdkHashSuffix = /[0-9A-F]{8}$/;
 
@@ -106,11 +121,15 @@ export function buildEmittedConfig(props: BuildEmittedConfigProps): EmittedConfi
   const explicitStaticEnv = props.staticEnv ?? {};
 
   const resolvedByEnvVar: Record<string, ResolvedEntry> = {};
+  const errors: Array<Error> = [];
   for (const entry of props.entries) {
     if (secretEnvVars.includes(entry.envVar) || entry.envVar in explicitStaticEnv) {
       continue;
     }
-    const resolved = resolveEntry({ entry, multiStack });
+    const resolved = tryResolveEntry({ entry, multiStack, errors });
+    if (resolved == null) {
+      continue;
+    }
     const existing = resolvedByEnvVar[entry.envVar];
     if (existing == null) {
       resolvedByEnvVar[entry.envVar] = resolved;
@@ -123,8 +142,10 @@ export function buildEmittedConfig(props: BuildEmittedConfigProps): EmittedConfi
     }
   }
 
+  throwCollected(errors);
+
   const walkedStaticEnv: Record<string, string> = {};
-  const resources: Array<EmittedResourceMapping> = [];
+  const resources: Array<EmittedResourceMapping | EmittedTemplateMapping> = [];
   for (const [envVar, resolved] of Object.entries(resolvedByEnvVar)) {
     if (resolved.kind === "static") {
       walkedStaticEnv[envVar] = resolved.value;
@@ -147,9 +168,43 @@ export function buildEmittedConfig(props: BuildEmittedConfigProps): EmittedConfi
   };
 }
 
+/** Resolve an entry; on failure record the error and return `undefined` so every problem is reported at once. */
+function tryResolveEntry(props: {
+  readonly entry: ExtractedEnvEntry;
+  readonly multiStack: boolean;
+  readonly errors: Array<Error>;
+}): ResolvedEntry | undefined {
+  try {
+    return resolveEntry(props);
+  } catch (error) {
+    if (!(error instanceof Error)) {
+      throw error;
+    }
+    props.errors.push(error);
+    return undefined;
+  }
+}
+
+function throwCollected(errors: ReadonlyArray<Error>): void {
+  const messages = [...new Set(errors.map((error) => error.message))];
+  const [only] = messages;
+  if (only == null) {
+    return;
+  }
+  if (messages.length === 1) {
+    throw new Error(only);
+  }
+  throw new Error(
+    `${messages.length} env vars cannot be emitted:\n${messages.map((message) => `- ${message}`).join("\n")}`,
+  );
+}
+
 function describeEntry(entry: ResolvedEntry): string {
   if (entry.kind === "static") {
     return `literal "${entry.value}"`;
+  }
+  if (entry.kind === "template") {
+    return `template ${JSON.stringify(entry.mapping.parts)}`;
   }
   return `logical id prefix "${entry.mapping.logicalIdPrefix}"${entry.mapping.transform == null ? "" : ` (${entry.mapping.transform.kind})`}${entry.mapping.stackName == null ? "" : ` in stack "${entry.mapping.stackName}"`}`;
 }
@@ -159,10 +214,22 @@ function resolveEntry(props: {
   readonly multiStack: boolean;
 }): ResolvedEntry {
   const resolved = resolveEntryValue(props.entry);
-  if (resolved.kind === "resource" && props.multiStack && props.entry.stackName != null) {
+  const { stackName } = props.entry;
+  if (!props.multiStack || stackName == null) {
+    return resolved;
+  }
+  if (resolved.kind === "resource") {
+    return { kind: "resource", mapping: { ...resolved.mapping, stackName } };
+  }
+  if (resolved.kind === "template") {
     return {
-      kind: "resource",
-      mapping: { ...resolved.mapping, stackName: props.entry.stackName },
+      kind: "template",
+      mapping: {
+        ...resolved.mapping,
+        parts: resolved.mapping.parts.map((part) =>
+          typeof part === "string" ? part : { ...part, stackName },
+        ),
+      },
     };
   }
   return resolved;
@@ -172,7 +239,7 @@ function resolveEntry(props: {
  * Rules for turning a CloudFormation intrinsic into a resolver mapping, tried in order. A rule
  * returns `undefined` when the intrinsic is not its case; add new special cases here.
  */
-const intrinsicRules: ReadonlyArray<IntrinsicRule> = [refRule, getAttributeRule];
+const intrinsicRules: ReadonlyArray<IntrinsicRule> = [refRule, getAttributeRule, joinRule];
 
 interface IntrinsicRule {
   (props: { readonly envVar: string; readonly intrinsic: Intrinsic }): ResolvedEntry | undefined;
@@ -183,13 +250,71 @@ function resolveEntryValue(entry: ExtractedEnvEntry): ResolvedEntry {
     return { kind: "static", value: entry.value };
   }
   const { intrinsic } = entry.value;
+  const resolved = resolveIntrinsic({ envVar: entry.envVar, intrinsic });
+  if (resolved == null) {
+    throw unsupportedIntrinsic(entry.envVar, intrinsic);
+  }
+  return resolved;
+}
+
+function resolveIntrinsic(props: {
+  readonly envVar: string;
+  readonly intrinsic: Intrinsic;
+}): ResolvedEntry | undefined {
   for (const rule of intrinsicRules) {
-    const resolved = rule({ envVar: entry.envVar, intrinsic });
+    const resolved = rule(props);
     if (resolved != null) {
       return resolved;
     }
   }
-  throw unsupportedIntrinsic(entry.envVar, intrinsic);
+  return undefined;
+}
+
+/** `Fn::Join` mixing literal text with resolvable intrinsics becomes a template mapping. */
+function joinRule(props: {
+  readonly envVar: string;
+  readonly intrinsic: Intrinsic;
+}): ResolvedEntry | undefined {
+  const { envVar, intrinsic } = props;
+  const join = intrinsic["Fn::Join"];
+  if (!Array.isArray(join) || Object.keys(intrinsic).length !== 1) {
+    return undefined;
+  }
+  const [separator, items] = join;
+  if (typeof separator !== "string" || !Array.isArray(items)) {
+    return undefined;
+  }
+  const parts = items.flatMap((item: unknown, index) => [
+    ...(index === 0 || separator === "" ? [] : [separator]),
+    ...templateParts({ envVar, item }),
+  ]);
+  return { kind: "template", mapping: { envVar, parts } };
+}
+
+function templateParts(props: {
+  readonly envVar: string;
+  readonly item: unknown;
+}): ReadonlyArray<string | EmittedResourceReference> {
+  const { envVar, item } = props;
+  if (typeof item === "string") {
+    return [item];
+  }
+  if (typeof item !== "object" || item == null || Array.isArray(item)) {
+    throw unsupportedIntrinsic(envVar, { value: item });
+  }
+  const intrinsic = Object.fromEntries(Object.entries(item));
+  const resolved = resolveIntrinsic({ envVar, intrinsic });
+  if (resolved == null) {
+    throw unsupportedIntrinsic(envVar, intrinsic);
+  }
+  if (resolved.kind === "template") {
+    return resolved.mapping.parts;
+  }
+  if (resolved.kind === "resource") {
+    const { logicalIdPrefix, resourceType, transform, stackName } = resolved.mapping;
+    return [{ logicalIdPrefix, resourceType, transform, stackName }];
+  }
+  return [resolved.value];
 }
 
 function refRule(props: {

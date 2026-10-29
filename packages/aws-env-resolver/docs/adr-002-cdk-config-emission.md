@@ -44,6 +44,24 @@ A function cannot live in JSON. For the common case of a Lambda ARN, the emitter
 - Several stacks are supported when they share one region: every stack whose Lambdas carry environment variables is emitted, `config.stackName` becomes a list, and each resource mapping records its stack. Stacks across regions make `generate` throw and the caller must pass a narrower scope. Each stack must have a resolved region and an explicit stack name. At most one secret id is allowed.
 - An env var listed in `secrets` or passed in `staticEnv` is dropped from the walked result. The CDK props take no `namespace`; it only exists on the CLI.
 
+## Future Work
+
+### Multi-region stacks
+
+The emitter currently requires every emitted stack to share one region. This is a limit of the config model, not of CloudFormation: `config.region` is a single value used by the CloudFormation, STS and Secrets Manager clients, by the `lambdaArn` transform, and by the cache and keychain fingerprint.
+
+Planned direction:
+
+- `config.stackName` becomes a list of `{ stackName, region }`; a bare string or string list keeps loading as today (stacks in `config.region`).
+- Resource mappings already carry `stackName`; the resolver looks up that stack's region from the list.
+- The resolver builds one CloudFormation client per region and describes the stacks in parallel.
+- The `lambdaArn` transform uses the region of the mapping's stack instead of `config.region`.
+- The fingerprint hashes every `{ stackName, region }` pair.
+- Secrets stay on `config.region` as the primary region, since at most one `secretId` is supported.
+- `generate` stops throwing on mixed regions; passing a narrower `scope` remains available to leave stacks out.
+
+Not planned: resolving the same logical resource across regions (replicated stacks). Each stack is looked up independently, and an env var defined differently per region still conflicts.
+
 ## Alternatives Considered
 
 ### Aspect

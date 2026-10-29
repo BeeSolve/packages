@@ -51,6 +51,7 @@ Commit `aws-env.config.json` and run the CLI as in [Getting Started](./getting-s
 - Literal env values become `staticEnv`.
 - `Ref` becomes a mapping on the stable logical-id prefix (the CDK hash suffix is stripped).
 - `Fn::GetAtt` on `Arn` becomes a mapping with the `{ kind: "lambdaArn" }` tag.
+- `Fn::Join` mixing literal text with the above becomes a template mapping (`parts`: literals and resource references), resolved by concatenation, e.g. a JSON string embedding a queue url.
 - Any other intrinsic or attribute throws. Pass the value through `staticEnv` or write a `.ts` config by hand.
 - Secrets are never discovered. List them in `secrets`; those env vars are dropped from the walked result. At most one `secretId` is allowed.
 - Env vars set by third-party constructs that are not plain values on your Lambdas are not seen. Add them through `staticEnv` or a hand-written config.

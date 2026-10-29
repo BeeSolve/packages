@@ -49,7 +49,8 @@ Exit codes: `0` success, `1` runtime error, `2` invalid arguments. When a comman
 | `purgeCache`          | `({ projectKey, namespace, config, secretKeys? }) => Promise<void>`. Deletes the cache file and keychain items. |
 | `ResolveEnvOptions`   | `config`, `resources`, `secrets?`, `projectKey`, `namespace`, `refresh?`, `cacheTtlMs?`, `trusted?`.            |
 | `ResolverConfig`      | `profile?`, `region`, `stackName` (one name or a list), `secretId?`, `accountId?`, `staticEnv`.                 |
-| `ResourceMapping`     | `envVar`, `logicalIdPrefix`, `resourceType?`, `transform?`.                                                     |
+| `ResourceMapping`     | `envVar`, `logicalIdPrefix`, `resourceType?`, `stackName?`, `transform?`.                                       |
+| `TemplateMapping`     | `envVar`, `parts`: literal strings and resource references (`logicalIdPrefix`, ...), concatenated.              |
 | `SecretMapping`       | `envVar`, `jsonKey?` (defaults to `envVar`).                                                                    |
 | `ResourceTransform`   | A function `(physicalId, { region, accountId }) => string` or a `TransformTag`.                                 |
 | `TransformTag`        | `{ kind: "lambdaArn" }`, for JSON config.                                                                       |

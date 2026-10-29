@@ -277,3 +277,30 @@ describe("resolveStackResources multiple stacks", () => {
     expect(resolved).toEqual({ A: "bucket-a", B: "bucket-b" });
   });
 });
+
+describe("resolveStackResources template mapping", () => {
+  it("concatenates literal parts with resolved physical ids and transforms", async () => {
+    const cfn = makeCfn([
+      stackResource({
+        LogicalResourceId: "LongRunningQueue1",
+        ResourceType: "AWS::SQS::Queue",
+        PhysicalResourceId: "https://sqs.eu-central-1.amazonaws.com/1/queue",
+      }),
+    ]);
+
+    const resolved = await resolveStackResources({
+      config: baseConfig,
+      resources: [
+        {
+          envVar: "ADDITIONAL_QUEUE_URLS",
+          parts: ['{"longRunning":"', { logicalIdPrefix: "LongRunningQueue" }, '"}'],
+        },
+      ],
+      cfnClient: cfn.client,
+    });
+
+    expect(resolved).toEqual({
+      ADDITIONAL_QUEUE_URLS: '{"longRunning":"https://sqs.eu-central-1.amazonaws.com/1/queue"}',
+    });
+  });
+});

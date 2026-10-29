@@ -70,10 +70,8 @@ export type ResourceTransform =
   | ((physicalId: string, ctx: TransformContext) => string)
   | TransformTag;
 
-/** One target env var resolved from a CloudFormation stack resource. */
-export interface ResourceMapping {
-  /** Target env var, e.g. "DATA_TABLE_NAME". */
-  readonly envVar: string;
+/** Points at one CloudFormation stack resource. */
+export interface ResourceReference {
   /** Logical-id prefix to match the stack resource by, e.g. "Data", "ExportsBucket". */
   readonly logicalIdPrefix: string;
   /** Optional resource-type filter, e.g. "AWS::DynamoDB::Table". */
@@ -82,6 +80,22 @@ export interface ResourceMapping {
   readonly stackName?: string;
   /** Transform the physical id into the final value (e.g. a Lambda name -> an ARN). */
   readonly transform?: ResourceTransform;
+}
+
+/** One target env var resolved from a CloudFormation stack resource. */
+export interface ResourceMapping extends ResourceReference {
+  /** Target env var, e.g. "DATA_TABLE_NAME". */
+  readonly envVar: string;
+}
+
+/**
+ * One target env var built by concatenating literal text and resolved resources, e.g. a JSON
+ * string embedding a queue url.
+ */
+export interface TemplateMapping {
+  /** Target env var, e.g. "ADDITIONAL_QUEUE_URLS". */
+  readonly envVar: string;
+  readonly parts: ReadonlyArray<string | ResourceReference>;
 }
 
 /** Secrets Manager JSON key -> target env var. */
@@ -95,7 +109,7 @@ export interface SecretMapping {
 /** Input to `resolveEnv`. */
 export interface ResolveEnvOptions {
   readonly config: ResolverConfig;
-  readonly resources: ReadonlyArray<ResourceMapping>;
+  readonly resources: ReadonlyArray<ResourceMapping | TemplateMapping>;
   readonly secrets?: ReadonlyArray<SecretMapping>;
   /** Human-readable cache/keychain namespace, e.g. the project name. From the committed config. */
   readonly projectKey: string;

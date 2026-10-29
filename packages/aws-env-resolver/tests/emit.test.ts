@@ -104,9 +104,73 @@ describe("buildEmittedConfig", () => {
     expect(() =>
       buildEmittedConfig({
         ...base,
-        entries: [{ envVar: "QUEUE_URL", value: { intrinsic: { "Fn::Join": ["", ["a", "b"]] } } }],
+        entries: [{ envVar: "QUEUE_URL", value: { intrinsic: { "Fn::Select": [0, ["a", "b"]] } } }],
       }),
-    ).toThrow(/QUEUE_URL.*"Fn::Join".*not support.*staticEnv.*intrinsicRules/);
+    ).toThrow(/QUEUE_URL.*"Fn::Select".*not support.*staticEnv.*intrinsicRules/);
+  });
+
+  it("emits a template mapping for a join of literals and resources", () => {
+    const config = buildEmittedConfig({
+      ...base,
+      entries: [
+        {
+          envVar: "ADDITIONAL_QUEUE_URLS",
+          value: {
+            intrinsic: {
+              "Fn::Join": ["", ['{"longRunning":"', { Ref: "LongRunningQueueA64C8547" }, '"}']],
+            },
+          },
+        },
+      ],
+    });
+
+    expect(config.resources).toEqual([
+      {
+        envVar: "ADDITIONAL_QUEUE_URLS",
+        parts: ['{"longRunning":"', { logicalIdPrefix: "LongRunningQueue" }, '"}'],
+      },
+    ]);
+  });
+
+  it("keeps the separator between joined parts and tags parts with their stack", () => {
+    const config = buildEmittedConfig({
+      ...base,
+      stackName: ["stack-a", "stack-b"],
+      entries: [
+        {
+          envVar: "LIST",
+          stackName: "stack-b",
+          value: { intrinsic: { "Fn::Join": [",", [{ Ref: "QueueAAAAAAAA" }, "literal"]] } },
+        },
+      ],
+    });
+
+    expect(config.resources).toEqual([
+      {
+        envVar: "LIST",
+        parts: [{ logicalIdPrefix: "Queue", stackName: "stack-b" }, ",", "literal"],
+      },
+    ]);
+  });
+
+  it("reports every unsupported env var in one error, without duplicates", () => {
+    const unsupported = { "Fn::Select": [0, ["a", "b"]] };
+    let message = "";
+    try {
+      buildEmittedConfig({
+        ...base,
+        entries: [
+          { envVar: "FIRST", value: { intrinsic: unsupported } },
+          { envVar: "FIRST", value: { intrinsic: unsupported } },
+          { envVar: "SECOND", value: { intrinsic: { "Fn::Sub": "x" } } },
+        ],
+      });
+    } catch (error) {
+      message = error instanceof Error ? error.message : String(error);
+    }
+
+    expect(message).toStartWith("2 env vars cannot be emitted:");
+    expect(message).toMatch(/- Env var FIRST .*\n- Env var SECOND /);
   });
 
   it("throws on pseudo parameter refs", () => {

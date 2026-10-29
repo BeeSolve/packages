@@ -270,7 +270,9 @@ export default (namespace) => {
     expect(code).toBe(7);
     expect(await Bun.file(recordPath).text()).toBe("acme-dev");
     expect(harness.resolveCalls[0]?.config.stackName).toBe("stack-acme-dev");
-    expect(typeof harness.resolveCalls[0]?.resources[0]?.transform).toBe("function");
+    expect(harness.resolveCalls[0]?.resources[0]).toMatchObject({
+      transform: expect.any(Function),
+    });
   });
 
   it("accepts an async factory", async () => {
@@ -368,7 +370,7 @@ export default (namespace) => {
     expect(code).toBe(7);
     const options = harness.resolveCalls[0];
     expect(options?.projectKey).toBe("json-app");
-    expect(options?.resources[0]?.transform).toEqual({ kind: "lambdaArn" });
+    expect(options?.resources[0]).toMatchObject({ transform: { kind: "lambdaArn" } });
     expect(options?.secrets).toEqual([{ envVar: "API_KEY" }]);
   });
 

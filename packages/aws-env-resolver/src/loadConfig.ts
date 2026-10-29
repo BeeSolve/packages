@@ -9,6 +9,7 @@ import type { ResolveEnvOptions, ResourceTransform } from "../index.ts";
 import {
   emittedConfigSchema,
   emittedResolverConfigSchema,
+  emittedResourceReferenceSchema,
   emittedSecretMappingSchema,
   transformTagSchema,
 } from "./emit.ts";
@@ -61,17 +62,25 @@ function isResourceTransform(input: unknown): input is ResourceTransform {
   return typeof input === "function" || v.is(transformTagSchema, input);
 }
 
+const resourceReferenceSchema = v.object({
+  ...emittedResourceReferenceSchema.entries,
+  transform: v.optional(v.custom<ResourceTransform>(isResourceTransform)),
+});
+
+const resourceMappingSchema = v.object({
+  envVar: v.string(),
+  ...resourceReferenceSchema.entries,
+});
+
+const templateMappingSchema = v.object({
+  envVar: v.string(),
+  parts: v.array(v.union([v.string(), resourceReferenceSchema])),
+});
+
 const moduleConfigSchema = v.object({
   projectKey: v.string(),
   config: emittedResolverConfigSchema,
-  resources: v.array(
-    v.object({
-      envVar: v.string(),
-      logicalIdPrefix: v.string(),
-      resourceType: v.optional(v.string()),
-      transform: v.optional(v.custom<ResourceTransform>(isResourceTransform)),
-    }),
-  ),
+  resources: v.array(v.union([resourceMappingSchema, templateMappingSchema])),
   secrets: v.optional(v.array(emittedSecretMappingSchema)),
   cacheTtlMs: v.optional(v.number()),
 });
