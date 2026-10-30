@@ -18,7 +18,7 @@ function makeIdentity(overrides: Partial<CacheIdentity> = {}): CacheIdentity {
   const suffix = Math.random().toString(36).slice(2);
   return {
     projectKey: `example-app-${suffix}`,
-    namespace: "staging",
+    stage: "staging",
     config: {
       region: "eu-central-1",
       stackName: "example-stack",
@@ -38,6 +38,23 @@ afterEach(() => {
     rmSync(filePath, { force: true });
   }
   createdFiles.clear();
+});
+
+describe("cache targets", () => {
+  it("keeps a separate cache file per target and leaves the default path unchanged", () => {
+    const base = makeIdentity();
+    const web = track({ ...base, target: "web" });
+    const worker = track({ ...base, target: "worker" });
+
+    expect(cacheFilePath(web)).not.toBe(cacheFilePath(worker));
+    expect(cacheFilePath(web)).not.toBe(cacheFilePath(base));
+
+    writeCache({ identity: web, values: { TABLE: "web-table" } });
+
+    expect(readCache({ identity: web })?.values).toEqual({ TABLE: "web-table" });
+    expect(readCache({ identity: worker })).toBeUndefined();
+    expect(readCache({ identity: base })).toBeUndefined();
+  });
 });
 
 describe("cache", () => {

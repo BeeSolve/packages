@@ -21,7 +21,7 @@ Ship `@beesolve/aws-env-resolver` as a reusable CLI and library that:
 
 - resolves the environment from static config, CloudFormation resources (matched by logical-id prefix), and one Secrets Manager secret
 - caches non-secret values in the OS temp dir and secrets in the macOS login keychain
-- injects the result into a spawned child command (`aws-env-resolver --namespace <ns> -- <command>`) instead of writing a file
+- injects the result into a spawned child command (`aws-env-resolver --stage <stage> -- <command>`) instead of writing a file
 - reads all project-specific knowledge (stack, mappings, static values) from a committed `aws-env.config.ts` or `aws-env.config.json`
 
 The package boundary is: resolve, cache, inject. It does not write secrets to AWS, rotate them, manage infrastructure, or interpret environment names.
@@ -40,13 +40,15 @@ On macOS, secrets are cached in the login keychain through the `security` CLI, e
 
 By default items are stored with an empty trust list (`-T ""`), so macOS prompts before the `security` binary may read an item and the resolver never handles the user's password. `--trusted` stores items with `-T /usr/bin/security`, which makes reads silent. It is a plain on/off flag. The package does not couple it to any environment or "production" notion and never refuses it; the user decides the tradeoff.
 
-### 4. No stage concept
+### 4. An optional stage label
 
-Projects differ in how they select which environment to resolve. The package accepts an opaque, required `namespace` string. It is passed to the config factory so the project can choose a stack, secret, or profile, and it keys the cache and keychain so parallel environments do not collide. The package never parses or branches on its value. There is deliberately no default: forgetting the flag must fail fast rather than resolve the wrong environment.
+Projects differ in how they select which environment to resolve. The package accepts an optional `stage` string (originally an opaque, required `namespace`). It selects the per-stage config file `aws-env.config.<stage>.*`, is passed to a config factory so the project can choose a stack, secret, or profile, and keys the cache and keychain so parallel environments do not collide. The package never branches on its value beyond using it in those names, so it is restricted to letters, digits, `.`, `_` and `-`.
+
+It was renamed because, once it picks the config file, it is a stage in every real use, and "namespace" left users guessing what to pass. It became optional so single-stage projects need no flag; caches then use the label `default`. The original fail-fast intent is kept by the file lookup instead of a required flag: a multi-stage project that keeps only `aws-env.config.<stage>.json` files fails with "no config file found" when `--stage` is forgotten. A project that also keeps a generic `aws-env.config.*` (or a factory that does not validate its argument) gives that up, and the factory receives `undefined`.
 
 ### 5. One identity for cache and keychain
 
-Both the temp-dir cache file and the keychain service derive from `{ projectKey, namespace, fingerprint }`, where the fingerprint is a short hash of `{ region, stackName, secretId }`. The working directory is never part of it. Two checkouts of the same repo pointed at the same stack share entries (correct, the values are identical). Two pointed at different stacks get separate entries and never overwrite each other. The fingerprint must be in the keychain service as well as the cache key, otherwise the second checkout would overwrite the first checkout's secret under a service name that no longer matched its stack.
+Both the temp-dir cache file and the keychain service derive from `{ projectKey, stage, fingerprint }`, where the fingerprint is a short hash of `{ region, stackName, secretId }`. The working directory is never part of it. Two checkouts of the same repo pointed at the same stack share entries (correct, the values are identical). Two pointed at different stacks get separate entries and never overwrite each other. The fingerprint must be in the keychain service as well as the cache key, otherwise the second checkout would overwrite the first checkout's secret under a service name that no longer matched its stack.
 
 ### 6. Injected project config for reuse
 

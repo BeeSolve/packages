@@ -45,7 +45,7 @@ A single injected `SecurityRunner` seam exists in `keychain.ts` (the default use
 ### 1. The CLI already needs Bun to load a `.ts` config for free
 
 The headline consumer workflow is rewriting a script to
-`aws-env-resolver --namespace <ns> -- <command>` and authoring an
+`aws-env-resolver --stage <stage> -- <command>` and authoring an
 `aws-env.config.ts` that can contain `transform` functions (e.g. a Lambda name to
 an ARN). A function cannot live in JSON, so the hand-written config is TypeScript.
 Bun imports `.ts` natively; Node does not. Choosing Bun makes the most ergonomic

@@ -14,12 +14,18 @@ export interface FingerprintInputs {
   readonly region: string;
   readonly stackName: string | ReadonlyArray<string>;
   readonly secretId?: string;
+  /** Set for a non-default target so each target keeps its own resource cache. */
+  readonly target?: string;
 }
+
+/** Stage label used for cache and keychain keys when no stage is given. */
+export const defaultStage = "default";
 
 export interface CacheIdentity {
   readonly projectKey: string;
-  readonly namespace: string;
+  readonly stage: string;
   readonly config: FingerprintInputs;
+  readonly target?: string;
 }
 
 export interface CacheRecord {
@@ -48,14 +54,15 @@ export function computeFingerprint(inputs: FingerprintInputs): string {
     region: inputs.region,
     stackName: normalizeStackName(inputs.stackName),
     secretId: inputs.secretId ?? null,
+    ...(inputs.target == null ? {} : { target: inputs.target }),
   });
   return createHash("sha256").update(serialized).digest("hex").slice(0, 12);
 }
 
 /** Absolute path of the non-secret cache file for a given identity. */
 export function cacheFilePath(identity: CacheIdentity): string {
-  const fingerprint = computeFingerprint(identity.config);
-  const fileName = `${identity.projectKey}-${identity.namespace}-${fingerprint}.json`;
+  const fingerprint = computeFingerprint({ ...identity.config, target: identity.target });
+  const fileName = `${identity.projectKey}-${identity.stage}-${fingerprint}.json`;
   return join(tmpdir(), "aws-env-resolver", fileName);
 }
 

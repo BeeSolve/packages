@@ -13,33 +13,38 @@ The package knows how to resolve an environment, but not what your project needs
 
 ### 2. Write `aws-env.config.ts`
 
-Export an options object, or a function from namespace to options (sync or async). Use a factory when the namespace selects the stack or secret.
+Export an options object, or a function from stage to options (sync or async; it also receives the `--target` value as a second argument). Use a factory when the stage selects the stack or secret. The factory receives `undefined` when the CLI runs without `--stage`; throw if your project needs one. Alternatively keep one file per stage, `aws-env.config.<stage>.ts`, which `--stage <stage>` picks before `aws-env.config.ts`.
 
 ```ts
 import type { ResolveEnvOptions } from "@beesolve/aws-env-resolver";
 
-type ProjectConfig = Omit<ResolveEnvOptions, "namespace" | "refresh" | "trusted">;
+type ProjectConfig = Omit<ResolveEnvOptions, "stage" | "refresh" | "trusted">;
 
-export default (namespace: string): ProjectConfig => ({
-  projectKey: "example-app",
-  config: {
-    profile: "example-profile",
-    region: "eu-central-1",
-    stackName: `example-stack-${namespace}`,
-    secretId: `example/secrets-${namespace}`,
-    staticEnv: { BASE_URI: "https://example.test:3000" },
-  },
-  resources: [
-    { envVar: "DATA_TABLE_NAME", logicalIdPrefix: "Data", resourceType: "AWS::DynamoDB::Table" },
-    {
-      envVar: "SDK_HANDLER_ARN",
-      logicalIdPrefix: "SdkHandler",
-      resourceType: "AWS::Lambda::Function",
-      transform: { kind: "lambdaArn" },
+export default (stage: string | undefined): ProjectConfig => {
+  if (stage == null) {
+    throw new Error("Pass --stage");
+  }
+  return {
+    projectKey: "example-app",
+    config: {
+      profile: "example-profile",
+      region: "eu-central-1",
+      stackName: `example-stack-${stage}`,
+      secretId: `example/secrets-${stage}`,
+      staticEnv: { BASE_URI: "https://example.test:3000" },
     },
-  ],
-  secrets: [{ envVar: "API_KEY" }, { envVar: "SIGNING_KEY", jsonKey: "signingKey" }],
-});
+    resources: [
+      { envVar: "DATA_TABLE_NAME", logicalIdPrefix: "Data", resourceType: "AWS::DynamoDB::Table" },
+      {
+        envVar: "SDK_HANDLER_ARN",
+        logicalIdPrefix: "SdkHandler",
+        resourceType: "AWS::Lambda::Function",
+        transform: { kind: "lambdaArn" },
+      },
+    ],
+    secrets: [{ envVar: "API_KEY" }, { envVar: "SIGNING_KEY", jsonKey: "signingKey" }],
+  };
+};
 ```
 
 ### 3. Know how each part resolves
@@ -51,11 +56,11 @@ export default (namespace: string): ProjectConfig => ({
 
 ### 4. Choose the file type
 
-Generated config goes to `.json`, hand-written config goes to `.ts`. Lookup order in the current directory is `aws-env.config.ts`, `.js`, `.mjs`, `.json`. A `.json` file cannot hold functions, so use the `{ kind: "lambdaArn" }` tag there.
+Generated config goes to `.json`, hand-written config goes to `.ts`. Lookup order in the current directory is `aws-env.config.<stage>.ts`, `.js`, `.mjs`, `.json` (only with `--stage`), then `aws-env.config.ts`, `.js`, `.mjs`, `.json`. A `.json` file cannot hold functions, so use the `{ kind: "lambdaArn" }` tag there.
 
 ## Common Pitfalls
 
-- `projectKey`, `namespace`, region, stack name, and secret id form the cache identity. Changing the stack or secret creates fresh cache entries.
+- `projectKey`, the stage, region, stack name, and secret id form the cache identity. Changing the stack or secret creates fresh cache entries.
 - Only one `secretId` per config.
 - Never put secret values in `staticEnv`; it is committed.
 

@@ -36,16 +36,33 @@ export const emittedResolverConfigSchema = v.object({
   staticEnv: v.record(v.string(), v.string()),
 });
 
-/** Valibot schema for the JSON config the CDK emitter produces and the CLI loads. */
-export const emittedConfigSchema = v.object({
-  projectKey: v.string(),
+/** Target used when no construct names one and when a config file holds a single flat target. */
+export const defaultTarget = "default";
+
+/** Resolver mapping for one target: the env one local process needs. */
+export const emittedTargetSchema = v.object({
   config: emittedResolverConfigSchema,
   resources: v.array(v.union([emittedResourceMappingSchema, emittedTemplateMappingSchema])),
   secrets: v.optional(v.array(emittedSecretMappingSchema)),
 });
 
+/** Valibot schema for the JSON config the CDK emitter produces and the CLI loads. */
+export const emittedConfigSchema = v.object({
+  projectKey: v.string(),
+  targets: v.record(v.string(), emittedTargetSchema),
+});
+
+/** Pre-targets JSON shape: one flat mapping. The CLI still loads it as the `default` target. */
+export const flatEmittedConfigSchema = v.object({
+  projectKey: v.string(),
+  ...emittedTargetSchema.entries,
+});
+
 /** JSON-serializable config shape produced by the CDK emitter and loaded from `.json`. */
 export type EmittedConfig = v.InferOutput<typeof emittedConfigSchema>;
+
+/** One target's mapping inside an {@link EmittedConfig}. */
+export type EmittedTarget = v.InferOutput<typeof emittedTargetSchema>;
 
 /** A resolved CloudFormation intrinsic function object, e.g. `{ Ref: "Data666C94C7" }`. */
 export type Intrinsic = Record<string, unknown>;
@@ -64,9 +81,8 @@ export interface SecretSource {
   readonly envVars: ReadonlyArray<string>;
 }
 
-/** Input for {@link buildEmittedConfig}. */
-export interface BuildEmittedConfigProps {
-  readonly projectName: string;
+/** Input for {@link buildEmittedTarget}. */
+export interface BuildEmittedTargetProps {
   readonly stackName: string | ReadonlyArray<string>;
   readonly region: string;
   readonly profile?: string;
@@ -102,8 +118,8 @@ export function toStackNames(stackName: string | ReadonlyArray<string>): Readonl
   return typeof stackName === "string" ? [stackName] : stackName;
 }
 
-/** Build the declarative resolver config from already-extracted lambda environment data. */
-export function buildEmittedConfig(props: BuildEmittedConfigProps): EmittedConfig {
+/** Build one target's declarative resolver config from already-extracted lambda environment data. */
+export function buildEmittedTarget(props: BuildEmittedTargetProps): EmittedTarget {
   const stackNames = toStackNames(props.stackName);
   const [firstStackName] = stackNames;
   if (firstStackName == null) {
@@ -155,7 +171,6 @@ export function buildEmittedConfig(props: BuildEmittedConfigProps): EmittedConfi
   }
 
   return {
-    projectKey: props.projectName,
     config: {
       ...(props.profile == null ? {} : { profile: props.profile }),
       region: props.region,

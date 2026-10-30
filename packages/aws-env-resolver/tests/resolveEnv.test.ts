@@ -89,7 +89,7 @@ function makeHarness(props: {
 function makeOptions(overrides: Partial<ResolveEnvOptions> = {}): ResolveEnvOptions {
   return {
     projectKey: "example-app",
-    namespace: "example-ns",
+    stage: "example-ns",
     config: {
       region: "eu-central-1",
       stackName: "example-stack",
@@ -103,6 +103,25 @@ function makeOptions(overrides: Partial<ResolveEnvOptions> = {}): ResolveEnvOpti
 }
 
 describe("resolveEnvWithDeps", () => {
+  it("keys caches under the default stage when no stage is given", async () => {
+    const harness = makeHarness({
+      cached: undefined,
+      stored: {},
+      resources: { DATA_TABLE_NAME: "table" },
+      secrets: { API_KEY: "key", HMAC_SECRET: "hmac" },
+    });
+    const stages: Array<string> = [];
+
+    await resolveEnvWithDeps(makeOptions({ stage: undefined }), {
+      ...harness.deps,
+      writeCache: (props) => {
+        stages.push(props.identity.stage);
+      },
+    });
+
+    expect(stages).toEqual(["default"]);
+  });
+
   it("makes zero AWS calls when cache and store are warm", async () => {
     const harness = makeHarness({
       cached: { DATA_TABLE_NAME: "cached-table" },

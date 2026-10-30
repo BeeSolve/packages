@@ -51,13 +51,13 @@ function makeStore(props: {
   readonly runner: SecurityRunner;
   readonly secretKeys?: ReadonlyArray<string>;
   readonly platform?: NodeJS.Platform;
-  readonly namespaceConfig?: FingerprintInputs;
+  readonly stageConfig?: FingerprintInputs;
 }): KeychainSecretStore {
   return new KeychainSecretStore({
     service: keychainService({
       projectKey: "example-app",
-      namespace: "staging",
-      config: props.namespaceConfig ?? config,
+      stage: "staging",
+      config: props.stageConfig ?? config,
     }),
     secretKeys: props.secretKeys ?? ["API_KEY", "HMAC_SECRET"],
     runner: props.runner,
@@ -72,7 +72,7 @@ describe("KeychainSecretStore.set", () => {
 
     await store.set({ key: "API_KEY", value: "super-secret-value", trusted: false });
 
-    const service = keychainService({ projectKey: "example-app", namespace: "staging", config });
+    const service = keychainService({ projectKey: "example-app", stage: "staging", config });
     expect(fake.calls[0]).toEqual([
       "add-generic-password",
       "-a",
@@ -134,7 +134,7 @@ describe("KeychainSecretStore.get", () => {
       "-a",
       "API_KEY",
       "-s",
-      keychainService({ projectKey: "example-app", namespace: "staging", config }),
+      keychainService({ projectKey: "example-app", stage: "staging", config }),
       "-w",
     ]);
   });
@@ -166,10 +166,10 @@ describe("KeychainSecretStore.purge", () => {
 
 describe("keychain service identity", () => {
   it("includes the fingerprint and differs when the stack name differs", () => {
-    const service = keychainService({ projectKey: "example-app", namespace: "staging", config });
+    const service = keychainService({ projectKey: "example-app", stage: "staging", config });
     const otherStack = keychainService({
       projectKey: "example-app",
-      namespace: "staging",
+      stage: "staging",
       config: { ...config, stackName: "other-stack" },
     });
 
@@ -205,7 +205,7 @@ describe("createSecretStore", () => {
     const fake = makeFakeRunner();
     const store = createSecretStore({
       projectKey: "example-app",
-      namespace: "staging",
+      stage: "staging",
       config,
       secretKeys: ["API_KEY"],
       platform: "darwin",
@@ -218,7 +218,7 @@ describe("createSecretStore", () => {
   it("returns a NoopSecretStore on a non-darwin platform", () => {
     const store = createSecretStore({
       projectKey: "example-app",
-      namespace: "staging",
+      stage: "staging",
       config,
       secretKeys: ["API_KEY"],
       platform: "linux",

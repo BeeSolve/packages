@@ -1,6 +1,6 @@
 import type { ResolveEnvOptions } from "../index.ts";
 import type { CacheIdentity } from "./cache.ts";
-import { purgeCache, readCache, writeCache } from "./cache.ts";
+import { defaultStage, purgeCache, readCache, writeCache } from "./cache.ts";
 import { resolveStackResources } from "./resolveConfig.ts";
 import { resolveSecrets } from "./secrets.ts";
 import type { SecretStore } from "./secretStore.ts";
@@ -30,12 +30,14 @@ export async function resolveEnvWithDeps(
   options: ResolveEnvOptions,
   deps: ResolveEnvDeps,
 ): Promise<Record<string, string>> {
-  const { config, projectKey, namespace } = options;
+  const { config, projectKey } = options;
+  const stage = options.stage ?? defaultStage;
   const secrets = options.secrets ?? [];
   const identity: CacheIdentity = {
     projectKey,
-    namespace,
+    stage,
     config: { region: config.region, stackName: config.stackName, secretId: config.secretId },
+    target: options.target,
   };
 
   const resourceValues = await loadResourceValues({ options, identity, deps });
@@ -46,7 +48,7 @@ export async function resolveEnvWithDeps(
 
   const store = deps.createSecretStore({
     projectKey,
-    namespace,
+    stage,
     config: identity.config,
     secretKeys: secrets.map((mapping) => mapping.envVar),
     platform: deps.platform,

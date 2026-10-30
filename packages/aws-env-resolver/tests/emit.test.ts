@@ -2,11 +2,10 @@ import { describe, expect, it } from "bun:test";
 
 import * as v from "valibot";
 
-import { buildEmittedConfig, emittedConfigSchema, stripCdkHash } from "../src/emit.ts";
-import type { BuildEmittedConfigProps } from "../src/emit.ts";
+import { buildEmittedTarget, emittedTargetSchema, stripCdkHash } from "../src/emit.ts";
+import type { BuildEmittedTargetProps } from "../src/emit.ts";
 
-const base: Omit<BuildEmittedConfigProps, "entries"> = {
-  projectName: "example-app",
+const base: Omit<BuildEmittedTargetProps, "entries"> = {
   stackName: "example-stack",
   region: "eu-central-1",
 };
@@ -33,9 +32,9 @@ describe("stripCdkHash", () => {
   });
 });
 
-describe("buildEmittedConfig", () => {
+describe("buildEmittedTarget", () => {
   it("maps a Ref to a logical id prefix", () => {
-    const config = buildEmittedConfig({
+    const config = buildEmittedTarget({
       ...base,
       entries: [{ envVar: "DATA_TABLE_NAME", value: { intrinsic: { Ref: "Data666C94C7" } } }],
     });
@@ -43,7 +42,7 @@ describe("buildEmittedConfig", () => {
   });
 
   it("maps GetAtt Arn to a prefix with the lambdaArn tag", () => {
-    const config = buildEmittedConfig({
+    const config = buildEmittedTarget({
       ...base,
       entries: [
         {
@@ -62,7 +61,7 @@ describe("buildEmittedConfig", () => {
   });
 
   it("routes literals to staticEnv", () => {
-    const config = buildEmittedConfig({
+    const config = buildEmittedTarget({
       ...base,
       entries: [{ envVar: "BASE_URI", value: "https://example.test" }],
     });
@@ -72,13 +71,13 @@ describe("buildEmittedConfig", () => {
 
   it("collapses identical duplicates", () => {
     const entry = { envVar: "DATA_TABLE_NAME", value: { intrinsic: { Ref: "Data666C94C7" } } };
-    const config = buildEmittedConfig({ ...base, entries: [entry, entry] });
+    const config = buildEmittedTarget({ ...base, entries: [entry, entry] });
     expect(config.resources).toHaveLength(1);
   });
 
   it("throws on conflicting duplicates naming the env var", () => {
     expect(() =>
-      buildEmittedConfig({
+      buildEmittedTarget({
         ...base,
         entries: [
           { envVar: "DATA_TABLE_NAME", value: { intrinsic: { Ref: "Data666C94C7" } } },
@@ -90,7 +89,7 @@ describe("buildEmittedConfig", () => {
 
   it("throws on a literal conflicting with a token", () => {
     expect(() =>
-      buildEmittedConfig({
+      buildEmittedTarget({
         ...base,
         entries: [
           { envVar: "DATA_TABLE_NAME", value: "literal" },
@@ -102,7 +101,7 @@ describe("buildEmittedConfig", () => {
 
   it("throws on unsupported intrinsics naming the env var", () => {
     expect(() =>
-      buildEmittedConfig({
+      buildEmittedTarget({
         ...base,
         entries: [{ envVar: "QUEUE_URL", value: { intrinsic: { "Fn::Select": [0, ["a", "b"]] } } }],
       }),
@@ -110,7 +109,7 @@ describe("buildEmittedConfig", () => {
   });
 
   it("emits a template mapping for a join of literals and resources", () => {
-    const config = buildEmittedConfig({
+    const config = buildEmittedTarget({
       ...base,
       entries: [
         {
@@ -133,7 +132,7 @@ describe("buildEmittedConfig", () => {
   });
 
   it("keeps the separator between joined parts and tags parts with their stack", () => {
-    const config = buildEmittedConfig({
+    const config = buildEmittedTarget({
       ...base,
       stackName: ["stack-a", "stack-b"],
       entries: [
@@ -157,7 +156,7 @@ describe("buildEmittedConfig", () => {
     const unsupported = { "Fn::Select": [0, ["a", "b"]] };
     let message = "";
     try {
-      buildEmittedConfig({
+      buildEmittedTarget({
         ...base,
         entries: [
           { envVar: "FIRST", value: { intrinsic: unsupported } },
@@ -175,7 +174,7 @@ describe("buildEmittedConfig", () => {
 
   it("throws on pseudo parameter refs", () => {
     expect(() =>
-      buildEmittedConfig({
+      buildEmittedTarget({
         ...base,
         entries: [{ envVar: "REGION", value: { intrinsic: { Ref: "AWS::Region" } } }],
       }),
@@ -184,7 +183,7 @@ describe("buildEmittedConfig", () => {
 
   it("throws on non-Arn GetAtt attributes", () => {
     expect(() =>
-      buildEmittedConfig({
+      buildEmittedTarget({
         ...base,
         entries: [
           {
@@ -197,7 +196,7 @@ describe("buildEmittedConfig", () => {
   });
 
   it("passes secrets through and lets them win over walked entries", () => {
-    const config = buildEmittedConfig({
+    const config = buildEmittedTarget({
       ...base,
       entries: [
         { envVar: "API_KEY", value: { intrinsic: { Ref: "ApiKey666C94C7" } } },
@@ -212,7 +211,7 @@ describe("buildEmittedConfig", () => {
   });
 
   it("lets the staticEnv prop override walked literals", () => {
-    const config = buildEmittedConfig({
+    const config = buildEmittedTarget({
       ...base,
       entries: [{ envVar: "BASE_URI", value: "https://deployed.example.test" }],
       staticEnv: { BASE_URI: "https://local.example.test", EXTRA: "1" },
@@ -225,7 +224,7 @@ describe("buildEmittedConfig", () => {
 
   it("throws on more than one distinct secretId", () => {
     expect(() =>
-      buildEmittedConfig({
+      buildEmittedTarget({
         ...base,
         entries: [],
         secrets: [
@@ -236,8 +235,8 @@ describe("buildEmittedConfig", () => {
     ).toThrow(/secretId.*example\/a.*example\/b/);
   });
 
-  it("produces output that satisfies the emitted config schema", () => {
-    const config = buildEmittedConfig({
+  it("produces output that satisfies the emitted target schema", () => {
+    const config = buildEmittedTarget({
       ...base,
       profile: "example-profile",
       entries: [
@@ -246,7 +245,7 @@ describe("buildEmittedConfig", () => {
       ],
       secrets: [{ secretId: "example/secrets", envVars: ["API_KEY"] }],
     });
-    expect(v.parse(emittedConfigSchema, config)).toEqual(config);
+    expect(v.parse(emittedTargetSchema, config)).toEqual(config);
     expect(config.config.profile).toBe("example-profile");
   });
 });

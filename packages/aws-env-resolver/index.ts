@@ -1,9 +1,9 @@
-import { purgeCache as purgeCacheFile } from "./src/cache.ts";
+import { defaultStage, purgeCache as purgeCacheFile } from "./src/cache.ts";
 import { defaultResolveEnvDeps, resolveEnvWithDeps } from "./src/resolveEnv.ts";
 import { createSecretStore } from "./src/secretStore.ts";
 
-export type { EmittedConfig } from "./src/emit.ts";
-export { emittedConfigSchema } from "./src/emit.ts";
+export type { EmittedConfig, EmittedTarget } from "./src/emit.ts";
+export { defaultTarget, emittedConfigSchema, emittedTargetSchema } from "./src/emit.ts";
 
 /**
  * Resolve the full env as a flat record. Does not mutate `process.env`.
@@ -20,15 +20,19 @@ export function resolveEnv(options: ResolveEnvOptions): Promise<Record<string, s
 /** Delete the temp-dir cache file and the keychain items for exactly this identity. */
 export async function purgeCache(props: {
   readonly projectKey: string;
-  readonly namespace: string;
+  /** Stage whose cache to purge; defaults to the same label `resolveEnv` uses without one. */
+  readonly stage?: string;
+  /** Target whose resource cache to purge; omit for the `default` target. */
+  readonly target?: string;
   readonly config: Pick<ResolverConfig, "region" | "stackName" | "secretId">;
   readonly secretKeys?: ReadonlyArray<string>;
 }): Promise<void> {
-  const { projectKey, namespace, config } = props;
-  purgeCacheFile({ identity: { projectKey, namespace, config } });
+  const { projectKey, config } = props;
+  const stage = props.stage ?? defaultStage;
+  purgeCacheFile({ identity: { projectKey, stage, config, target: props.target } });
   const store = createSecretStore({
     projectKey,
-    namespace,
+    stage,
     config,
     secretKeys: props.secretKeys ?? [],
   });
@@ -111,14 +115,19 @@ export interface ResolveEnvOptions {
   readonly config: ResolverConfig;
   readonly resources: ReadonlyArray<ResourceMapping | TemplateMapping>;
   readonly secrets?: ReadonlyArray<SecretMapping>;
-  /** Human-readable cache/keychain namespace, e.g. the project name. From the committed config. */
+  /** Human-readable cache/keychain prefix, e.g. the project name. From the committed config. */
   readonly projectKey: string;
   /**
-   * Opaque namespace. Passed to the config factory (so the project can pick a stack/secret) and
-   * used, together with a fingerprint of { region, stackName, secretId }, to key the cache file
-   * and keychain service. Never interpreted or enumerated by the package. Required — no default.
+   * Stage label, e.g. "stg" or "dev-ivan". Selects the per-stage config file, is passed to a
+   * config factory, and, with a fingerprint of { region, stackName, secretId }, keys the cache
+   * file and keychain service. Omit for single-stage projects; caches then use "default".
    */
-  readonly namespace: string;
+  readonly stage?: string;
+  /**
+   * Target this run resolves, e.g. "web". Keys the resource cache so targets that share a stack
+   * never read each other's values. Omit (or leave unset for the `default` target) otherwise.
+   */
+  readonly target?: string;
   /** Bypass caches, re-fetch from AWS, rewrite caches. */
   readonly refresh?: boolean;
   /** Non-secret temp-dir cache TTL in ms; default 24h. */

@@ -68,23 +68,82 @@ function createHarness(overrides: Partial<CliDeps> = {}): Harness {
 }
 
 describe("runCli", () => {
-  it("fails with exit code 2 and mentions --namespace when it is missing", async () => {
+  it("runs without --stage and passes no stage on", async () => {
     const harness = createHarness();
 
     const code = await runCli({ argv: ["--", "bun", "dev.tsx"], cwd: "/tmp", deps: harness.deps });
 
+    expect(code).toBe(7);
+    expect(harness.resolveCalls[0]?.stage).toBeUndefined();
+  });
+
+  it("passes --target to the config loader, resolveEnv and purge", async () => {
+    const loadCalls: Array<{ readonly target?: string }> = [];
+    const harness = createHarness({
+      loadConfig: async (props) => {
+        loadCalls.push(props);
+        return { ...baseConfig, target: props.target };
+      },
+    });
+
+    await runCli({
+      argv: ["--stage", "dev", "--target", "web", "--purge", "--", "echo"],
+      cwd: "/tmp",
+      deps: harness.deps,
+    });
+
+    expect(loadCalls[0]?.target).toBe("web");
+    expect(harness.resolveCalls[0]?.target).toBe("web");
+    expect(harness.purgeCalls[0]?.target).toBe("web");
+    expect(harness.stdout.join("")).toContain("(dev, web)");
+  });
+
+  it("fails with exit code 2 on a target that is unsafe as a cache key", async () => {
+    const harness = createHarness();
+
+    const code = await runCli({
+      argv: ["--target", "../web", "--", "echo"],
+      cwd: "/tmp",
+      deps: harness.deps,
+    });
+
     expect(code).toBe(2);
-    expect(harness.stderr.join("")).toContain("--namespace");
+    expect(harness.stderr.join("")).toContain("target must start with a letter or digit");
+  });
+
+  it("treats a non-flag first argument as the command, as Bun drops a leading --", async () => {
+    const harness = createHarness();
+
+    const code = await runCli({
+      argv: ["bun", "--hot", "dev.tsx", "--", "--trusted"],
+      cwd: "/tmp",
+      deps: harness.deps,
+    });
+
+    expect(code).toBe(7);
+    expect(harness.spawnCalls[0]?.command).toEqual(["bun", "--hot", "dev.tsx", "--", "--trusted"]);
+    expect(harness.resolveCalls[0]?.trusted).toBe(false);
+  });
+
+  it("fails with exit code 2 on a stage that is unsafe in file names", async () => {
+    const harness = createHarness();
+
+    const code = await runCli({
+      argv: ["--stage", "../prod", "--", "echo"],
+      cwd: "/tmp",
+      deps: harness.deps,
+    });
+
+    expect(code).toBe(2);
+    expect(harness.stderr.join("")).toContain("stage must start with a letter or digit");
     expect(harness.resolveCalls).toHaveLength(0);
-    expect(harness.spawnCalls).toHaveLength(0);
-    expect(harness.purgeCalls).toHaveLength(0);
   });
 
   it("fails with exit code 2 when no command is given and --purge is absent", async () => {
     const harness = createHarness();
 
     const code = await runCli({
-      argv: ["--namespace", "staging"],
+      argv: ["--stage", "staging"],
       cwd: "/tmp",
       deps: harness.deps,
     });
@@ -98,7 +157,7 @@ describe("runCli", () => {
     const harness = createHarness();
 
     const code = await runCli({
-      argv: ["--namespace", "staging", "--bogus", "--", "echo"],
+      argv: ["--stage", "staging", "--bogus", "--", "echo"],
       cwd: "/tmp",
       deps: harness.deps,
     });
@@ -111,7 +170,7 @@ describe("runCli", () => {
     const harness = createHarness();
 
     const code = await runCli({
-      argv: ["--namespace", "staging", "--", "bun", "--hot", "dev.tsx", "--", "--trusted"],
+      argv: ["--stage", "staging", "--", "bun", "--hot", "dev.tsx", "--", "--trusted"],
       cwd: "/tmp",
       deps: harness.deps,
     });
@@ -129,7 +188,7 @@ describe("runCli", () => {
 
     await runCli({
       argv: [
-        "--namespace",
+        "--stage",
         "prod-readonly",
         "--trusted",
         "--refresh",
@@ -143,7 +202,7 @@ describe("runCli", () => {
     });
 
     const options = harness.resolveCalls[0];
-    expect(options?.namespace).toBe("prod-readonly");
+    expect(options?.stage).toBe("prod-readonly");
     expect(options?.trusted).toBe(true);
     expect(options?.refresh).toBe(true);
     expect(options?.config.profile).toBe("cli-profile");
@@ -154,7 +213,7 @@ describe("runCli", () => {
     const harness = createHarness();
 
     await runCli({
-      argv: ["--namespace", "staging", "--", "echo"],
+      argv: ["--stage", "staging", "--", "echo"],
       cwd: "/tmp",
       deps: harness.deps,
     });
@@ -166,7 +225,7 @@ describe("runCli", () => {
     const harness = createHarness();
 
     const code = await runCli({
-      argv: ["--namespace", "staging", "--purge"],
+      argv: ["--stage", "staging", "--purge"],
       cwd: "/tmp",
       deps: harness.deps,
     });
@@ -175,7 +234,7 @@ describe("runCli", () => {
     expect(harness.purgeCalls).toEqual([
       {
         projectKey: "example-app",
-        namespace: "staging",
+        stage: "staging",
         config: { region: "eu-central-1", stackName: "example-stack", secretId: "example/secrets" },
         secretKeys: ["API_KEY", "HMAC_SECRET"],
       },
@@ -189,7 +248,7 @@ describe("runCli", () => {
     const harness = createHarness();
 
     const code = await runCli({
-      argv: ["--namespace", "staging", "--purge", "--", "echo", "hi"],
+      argv: ["--stage", "staging", "--purge", "--", "echo", "hi"],
       cwd: "/tmp",
       deps: harness.deps,
     });
@@ -208,7 +267,7 @@ describe("runCli", () => {
     });
 
     const code = await runCli({
-      argv: ["--namespace", "staging", "--", "echo"],
+      argv: ["--stage", "staging", "--", "echo"],
       cwd: "/tmp",
       deps: harness.deps,
     });
@@ -225,7 +284,7 @@ describe("runCli", () => {
 
     expect(code).toBe(0);
     expect(harness.stdout.join("")).toContain("Usage:");
-    expect(harness.stdout.join("")).toContain("--namespace");
+    expect(harness.stdout.join("")).toContain("--stage");
   });
 });
 
@@ -244,16 +303,16 @@ describe("runCli config loading", () => {
     return createHarness({ loadConfig });
   }
 
-  it("invokes a default-exported factory with the --namespace value", async () => {
+  it("invokes a default-exported factory with the --stage value", async () => {
     const recordPath = join(directory, "recorded.txt");
     await writeFile(
       join(directory, "aws-env.config.mjs"),
       `import { writeFileSync } from "node:fs";
-export default (namespace) => {
-  writeFileSync(${JSON.stringify(recordPath)}, namespace);
+export default (stage) => {
+  writeFileSync(${JSON.stringify(recordPath)}, stage);
   return {
     projectKey: "example-app",
-    config: { region: "eu-central-1", stackName: "stack-" + namespace, staticEnv: {} },
+    config: { region: "eu-central-1", stackName: "stack-" + stage, staticEnv: {} },
     resources: [{ envVar: "DATA_TABLE_NAME", logicalIdPrefix: "Data", transform: (name) => name + "!" }],
   };
 };
@@ -262,7 +321,7 @@ export default (namespace) => {
     const harness = realConfigHarness();
 
     const code = await runCli({
-      argv: ["--namespace", "acme-dev", "--", "echo"],
+      argv: ["--stage", "acme-dev", "--", "echo"],
       cwd: directory,
       deps: harness.deps,
     });
@@ -278,9 +337,9 @@ export default (namespace) => {
   it("accepts an async factory", async () => {
     await writeFile(
       join(directory, "aws-env.config.mjs"),
-      `export default async (namespace) => ({
+      `export default async (stage) => ({
   projectKey: "example-app",
-  config: { region: "eu-central-1", stackName: namespace, staticEnv: {} },
+  config: { region: "eu-central-1", stackName: stage, staticEnv: {} },
   resources: [],
 });
 `,
@@ -288,7 +347,7 @@ export default (namespace) => {
     const harness = realConfigHarness();
 
     await runCli({
-      argv: ["--namespace", "async-ns", "--", "echo"],
+      argv: ["--stage", "async-ns", "--", "echo"],
       cwd: directory,
       deps: harness.deps,
     });
@@ -309,7 +368,7 @@ export default (namespace) => {
     const harness = realConfigHarness();
 
     const code = await runCli({
-      argv: ["--namespace", "staging", "--config", "custom.config.mjs", "--", "echo"],
+      argv: ["--stage", "staging", "--config", "custom.config.mjs", "--", "echo"],
       cwd: directory,
       deps: harness.deps,
     });
@@ -324,7 +383,7 @@ export default (namespace) => {
     const harness = realConfigHarness();
 
     const code = await runCli({
-      argv: ["--namespace", "staging", "--", "echo"],
+      argv: ["--stage", "staging", "--", "echo"],
       cwd: directory,
       deps: harness.deps,
     });
@@ -338,7 +397,7 @@ export default (namespace) => {
     const harness = realConfigHarness();
 
     const code = await runCli({
-      argv: ["--namespace", "staging", "--", "echo"],
+      argv: ["--stage", "staging", "--", "echo"],
       cwd: directory,
       deps: harness.deps,
     });
@@ -362,7 +421,7 @@ export default (namespace) => {
     const harness = realConfigHarness();
 
     const code = await runCli({
-      argv: ["--namespace", "staging", "--", "echo"],
+      argv: ["--stage", "staging", "--", "echo"],
       cwd: directory,
       deps: harness.deps,
     });
@@ -382,7 +441,7 @@ export default (namespace) => {
     const harness = realConfigHarness();
 
     const code = await runCli({
-      argv: ["--namespace", "staging", "--", "echo"],
+      argv: ["--stage", "staging", "--", "echo"],
       cwd: directory,
       deps: harness.deps,
     });
@@ -396,13 +455,38 @@ export default (namespace) => {
     const harness = realConfigHarness();
 
     const code = await runCli({
-      argv: ["--namespace", "staging", "--", "echo"],
+      argv: ["--stage", "staging", "--", "echo"],
       cwd: directory,
       deps: harness.deps,
     });
 
     expect(code).toBe(1);
     expect(harness.stderr.join("")).toContain("No config file found");
+  });
+
+  it("prefers aws-env.config.<stage>.json over the generic config", async () => {
+    const write = (name: string, projectKey: string) =>
+      writeFile(
+        join(directory, name),
+        JSON.stringify({
+          projectKey,
+          config: { region: "eu-central-1", stackName: projectKey, staticEnv: {} },
+          resources: [],
+        }),
+      );
+    await write("aws-env.config.json", "generic");
+    await write("aws-env.config.stg.json", "staged");
+    const harness = realConfigHarness();
+
+    await runCli({ argv: ["--stage", "stg", "--", "echo"], cwd: directory, deps: harness.deps });
+    await runCli({ argv: ["--stage", "prod", "--", "echo"], cwd: directory, deps: harness.deps });
+    await runCli({ argv: ["--", "echo"], cwd: directory, deps: harness.deps });
+
+    expect(harness.resolveCalls.map((options) => options.projectKey)).toEqual([
+      "staged",
+      "generic",
+      "generic",
+    ]);
   });
 
   it("prefers .ts over .json in default lookup order", async () => {
@@ -421,7 +505,7 @@ export default (namespace) => {
     const harness = realConfigHarness();
 
     await runCli({
-      argv: ["--namespace", "staging", "--", "echo"],
+      argv: ["--stage", "staging", "--", "echo"],
       cwd: directory,
       deps: harness.deps,
     });

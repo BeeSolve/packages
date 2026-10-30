@@ -1,6 +1,6 @@
 # @beesolve/aws-env-resolver - Documentation
 
-**Keywords:** aws env, local development env, dev server env, resolveEnv, purgeCache, generate, persist, generateAndPersist, aws-env.config.ts, aws-env-resolver, secrets manager, cloudformation, macos keychain, cdk config emit, inject environment, child process
+**Keywords:** aws env, local development env, dev server env, resolveEnv, purgeCache, traceEnv, targets, generate, persist, generateAndPersist, aws-env.config.ts, aws-env-resolver, secrets manager, cloudformation, macos keychain, cdk config emit, inject environment, child process
 
 > This documentation is published inside the installed package and matches the installed version. Prefer it over prior knowledge or older examples found online.
 
@@ -14,11 +14,11 @@ Resolves a local development environment from CloudFormation resources and Secre
 
 ## How-To Guides
 
-| Guide                                                               | Description                                                               |
-| ------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| [Getting Started](./docs/how-to/getting-started.md)                 | Install, wrap a command, refresh and purge caches, keychain modes         |
-| [Define a Project Config](./docs/how-to/define-a-project-config.md) | Author `aws-env.config.ts` by hand: stack, resources, secrets, static env |
-| [Emit Config from CDK](./docs/how-to/emit-config-from-cdk.md)       | Generate `aws-env.config.json` from a CDK app with `generateAndPersist`   |
+| Guide                                                               | Description                                                                            |
+| ------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| [Getting Started](./docs/how-to/getting-started.md)                 | Install, wrap a command, refresh and purge caches, keychain modes                      |
+| [Define a Project Config](./docs/how-to/define-a-project-config.md) | Author `aws-env.config.ts` by hand: stack, resources, secrets, static env              |
+| [Emit Config from CDK](./docs/how-to/emit-config-from-cdk.md)       | Trace Lambdas with `traceEnv` and emit `aws-env.config.json` with `generateAndPersist` |
 
 ## Working Examples
 

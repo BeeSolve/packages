@@ -16,11 +16,11 @@ export interface SecretStore {
 /** Build the keychain service string shared with the on-disk cache identity. */
 export function keychainService(props: {
   readonly projectKey: string;
-  readonly namespace: string;
+  readonly stage: string;
   readonly config: FingerprintInputs;
 }): string {
   const fingerprint = computeFingerprint(props.config);
-  return `aws-env-resolver:${props.projectKey}:${props.namespace}:${fingerprint}`;
+  return `aws-env-resolver:${props.projectKey}:${props.stage}:${fingerprint}`;
 }
 
 /** macOS keychain-backed secret store; one generic-password item per secret env var. */
@@ -99,7 +99,7 @@ export class NoopSecretStore implements SecretStore {
 
 export function createSecretStore(props: {
   readonly projectKey: string;
-  readonly namespace: string;
+  readonly stage: string;
   readonly config: FingerprintInputs;
   readonly secretKeys: ReadonlyArray<string>;
   readonly platform?: NodeJS.Platform;
@@ -112,7 +112,7 @@ export function createSecretStore(props: {
   return new KeychainSecretStore({
     service: keychainService({
       projectKey: props.projectKey,
-      namespace: props.namespace,
+      stage: props.stage,
       config: props.config,
     }),
     secretKeys: props.secretKeys,

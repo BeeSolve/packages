@@ -4,7 +4,7 @@ import * as v from "valibot";
 
 import { purgeCache, resolveEnv } from "../index.ts";
 import type { ResolveEnvOptions } from "../index.ts";
-import { loadConfig } from "./loadConfig.ts";
+import { loadConfig, stageSchema, targetSchema } from "./loadConfig.ts";
 import type { LoadedConfig } from "./loadConfig.ts";
 import { spawnCommand } from "./spawn.ts";
 
@@ -19,16 +19,19 @@ export interface CliDeps {
 }
 
 export const usage = `Usage:
-  aws-env-resolver --namespace <ns> [options] -- <command...>
+  aws-env-resolver [--stage <stage>] [options] -- <command...>
 
 Resolves env from CloudFormation + Secrets Manager, then runs <command> with it.
 
 Options:
-  --namespace <ns>   Required. Opaque label passed to the config factory and used to key caches.
-  --config <path>    Config module or JSON (default: aws-env.config.{ts,js,mjs,json} in cwd).
+  --stage <stage>    Stage to resolve. Picks aws-env.config.<stage>.* first, is passed to a
+                     config factory, and keys the caches. Optional for single-stage projects.
+  --target <name>    Target to resolve when the config defines several (e.g. web, worker).
+                     Optional when the config has exactly one target.
+  --config <path>    Config module or JSON (default: aws-env.config[.<stage>].{ts,js,mjs,json}).
   --profile <name>   AWS profile; overrides the config.
   --refresh          Bypass caches and re-fetch from AWS.
-  --purge            Delete cached values for this namespace (runs <command> only if given).
+  --purge            Delete cached values for this stage (runs <command> only if given).
   --trusted          Store keychain items so reads are silent (no prompt).
   --help             Show this help.
 `;
@@ -68,7 +71,8 @@ const defaultCliDeps: CliDeps = {
 };
 
 const flagsSchema = v.object({
-  namespace: v.optional(v.string()),
+  stage: v.optional(stageSchema),
+  target: v.optional(targetSchema),
   config: v.optional(v.string()),
   profile: v.optional(v.string()),
   refresh: v.optional(v.boolean()),
@@ -79,7 +83,8 @@ const flagsSchema = v.object({
 
 interface RunRequest {
   readonly kind: "run";
-  readonly namespace: string;
+  readonly stage?: string;
+  readonly target?: string;
   readonly configPath?: string;
   readonly profile?: string;
   readonly refresh: boolean;
@@ -94,10 +99,23 @@ type ParsedCli =
   | { readonly kind: "invalid"; readonly message: string };
 
 function parseCliArgs(argv: ReadonlyArray<string>): ParsedCli {
+  const [first] = argv;
+  // Bun drops a leading "--" from process.argv, so `aws-env-resolver -- cmd` arrives as `cmd`.
+  // Flags always start with "-", so a non-flag first argument starts the command.
+  if (first != null && !first.startsWith("-")) {
+    return parseRequest({ flagArgs: [], command: argv });
+  }
   const separatorIndex = argv.indexOf("--");
   const flagArgs = separatorIndex === -1 ? argv : argv.slice(0, separatorIndex);
   const command = separatorIndex === -1 ? [] : argv.slice(separatorIndex + 1);
+  return parseRequest({ flagArgs, command });
+}
 
+function parseRequest(props: {
+  readonly flagArgs: ReadonlyArray<string>;
+  readonly command: ReadonlyArray<string>;
+}): ParsedCli {
+  const { flagArgs, command } = props;
   const raw = readFlags(flagArgs);
   if (!raw.ok) {
     return { kind: "invalid", message: raw.message };
@@ -111,16 +129,14 @@ function parseCliArgs(argv: ReadonlyArray<string>): ParsedCli {
   if (flags.help === true) {
     return { kind: "help" };
   }
-  if (flags.namespace == null || flags.namespace === "") {
-    return { kind: "invalid", message: "--namespace is required" };
-  }
   const purge = flags.purge === true;
   if (!purge && command.length === 0) {
     return { kind: "invalid", message: "a command is required after -- (or pass --purge)" };
   }
   return {
     kind: "run",
-    namespace: flags.namespace,
+    stage: flags.stage,
+    target: flags.target,
     configPath: flags.config,
     profile: flags.profile,
     refresh: flags.refresh === true,
@@ -141,7 +157,8 @@ function readFlags(
       strict: true,
       allowPositionals: false,
       options: {
-        namespace: { type: "string" },
+        stage: { type: "string" },
+        target: { type: "string" },
         config: { type: "string" },
         profile: { type: "string" },
         refresh: { type: "boolean" },
@@ -164,7 +181,8 @@ async function execute(props: {
   const { parsed, cwd, deps } = props;
   const loaded = await deps.loadConfig({
     cwd,
-    namespace: parsed.namespace,
+    stage: parsed.stage,
+    target: parsed.target,
     configPath: parsed.configPath,
   });
   const options = buildOptions({ loaded, parsed });
@@ -172,7 +190,8 @@ async function execute(props: {
   if (parsed.purge) {
     await deps.purgeCache({
       projectKey: options.projectKey,
-      namespace: options.namespace,
+      stage: options.stage,
+      target: options.target,
       config: {
         region: options.config.region,
         stackName: options.config.stackName,
@@ -180,7 +199,7 @@ async function execute(props: {
       },
       secretKeys: (options.secrets ?? []).map((secret) => secret.envVar),
     });
-    deps.stdout(`Purged cached values for ${options.projectKey} (${options.namespace}).\n`);
+    deps.stdout(`Purged cached values for ${options.projectKey}${describeScope(options)}.\n`);
     if (parsed.command.length === 0) {
       return 0;
     }
@@ -191,6 +210,11 @@ async function execute(props: {
   return deps.spawnCommand({ command: parsed.command, env });
 }
 
+function describeScope(options: ResolveEnvOptions): string {
+  const labels = [options.stage, options.target].filter((label) => label != null);
+  return labels.length === 0 ? "" : ` (${labels.join(", ")})`;
+}
+
 function buildOptions(props: {
   readonly loaded: LoadedConfig;
   readonly parsed: RunRequest;
@@ -198,7 +222,7 @@ function buildOptions(props: {
   const { loaded, parsed } = props;
   return {
     ...loaded,
-    namespace: parsed.namespace,
+    stage: parsed.stage,
     refresh: parsed.refresh,
     trusted: parsed.trusted,
     config: { ...loaded.config, profile: parsed.profile ?? loaded.config.profile },

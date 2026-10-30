@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Accepted. The "walk every Lambda under the scope" behavior is superseded by ADR-004 (explicit `traceEnv` and targets).
 
 ## Context
 
@@ -42,7 +42,7 @@ A function cannot live in JSON. For the common case of a Lambda ARN, the emitter
 - Only `Ref` and `Fn::GetAtt` on `Arn` are understood. Any other intrinsic or attribute throws with a message pointing at `staticEnv` or manual mapping.
 - Secrets cannot be discovered by walking. The caller passes the secret id and the env vars sourced from it.
 - Several stacks are supported when they share one region: every stack whose Lambdas carry environment variables is emitted, `config.stackName` becomes a list, and each resource mapping records its stack. Stacks across regions make `generate` throw and the caller must pass a narrower scope. Each stack must have a resolved region and an explicit stack name. At most one secret id is allowed.
-- An env var listed in `secrets` or passed in `staticEnv` is dropped from the walked result. The CDK props take no `namespace`; it only exists on the CLI.
+- An env var listed in `secrets` or passed in `staticEnv` is dropped from the walked result. `generateAndPersist` takes an optional `stage` that only picks the output file (`aws-env.config.<stage>.json`); the stage is not written into the JSON, since the CLI already knows it from `--stage`.
 
 ## Future Work
 
