@@ -248,4 +248,39 @@ describe("buildEmittedTarget", () => {
     expect(v.parse(emittedTargetSchema, config)).toEqual(config);
     expect(config.config.profile).toBe("example-profile");
   });
+
+  it("turns a Secrets Manager dynamic reference into a secret mapping instead of a literal", () => {
+    const secretId = "arn:aws:secretsmanager:eu-central-1:111122223333:secret:stg/secrets";
+    const config = buildEmittedTarget({
+      ...base,
+      entries: [
+        {
+          envVar: "HMAC_SECRET",
+          value: `{{resolve:secretsmanager:${secretId}:SecretString:HMAC_SECRET::}}`,
+        },
+        { envVar: "API_KEY", value: `{{resolve:secretsmanager:${secretId}:SecretString:KEY::}}` },
+        { envVar: "STAGE", value: "stg" },
+      ],
+    });
+    expect(config.config.secretId).toBe(secretId);
+    expect(config.secrets).toEqual([
+      { envVar: "HMAC_SECRET" },
+      { envVar: "API_KEY", jsonKey: "KEY" },
+    ]);
+    expect(config.config.staticEnv).toEqual({ STAGE: "stg" });
+  });
+
+  it("rejects a Secrets Manager reference that pins a version", () => {
+    expect(() =>
+      buildEmittedTarget({
+        ...base,
+        entries: [
+          {
+            envVar: "X",
+            value: "{{resolve:secretsmanager:stg/secrets:SecretString:X:AWSPREVIOUS:}}",
+          },
+        ],
+      }),
+    ).toThrow("cannot follow");
+  });
 });

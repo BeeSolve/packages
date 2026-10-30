@@ -78,7 +78,7 @@ Requires the optional peers `aws-cdk-lib` and `constructs`.
 
 Only constructs marked with `traceEnv` are emitted. `traceEnv(construct)` traces every Lambda function under the construct, so you can pass a function, an auth gateway, a site, or a stack. Nothing is passed through stacks. `traceEnv(app)` traces everything. `scope` only limits where `generate` looks for markers.
 
-Each target is emitted and conflict-checked on its own, so one env var may point at different resources in different targets. A target's stacks must share one region. `secrets` and `staticEnv` apply to every target. `Ref` and `Fn::GetAtt` `Arn` are supported; other intrinsics throw. The emitter writes a recipe (env var to logical-id prefix), never resolved physical names.
+Each target is emitted and conflict-checked on its own, so one env var may point at different resources in different targets. A target's stacks must share one region. `secrets` and `staticEnv` apply to every target. `Ref` and `Fn::GetAtt` `Arn` are supported; other intrinsics throw. Env vars set from `secret.secretValueFromJson(key)` (a `{{resolve:secretsmanager:...}}` dynamic reference) are emitted as secret mappings automatically. The emitter writes a recipe (env var to logical-id prefix), never resolved physical names.
 
 ## Config
 

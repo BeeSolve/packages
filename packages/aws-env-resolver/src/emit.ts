@@ -95,6 +95,8 @@ type EmittedResourceMapping = v.InferOutput<typeof emittedResourceMappingSchema>
 
 type EmittedResourceReference = v.InferOutput<typeof emittedResourceReferenceSchema>;
 
+type EmittedSecretMapping = v.InferOutput<typeof emittedSecretMappingSchema>;
+
 type EmittedTemplateMapping = v.InferOutput<typeof emittedTemplateMappingSchema>;
 
 type ResolvedEntry =
@@ -127,21 +129,29 @@ export function buildEmittedTarget(props: BuildEmittedTargetProps): EmittedTarge
   }
   const multiStack = stackNames.length > 1;
   const secrets = props.secrets ?? [];
-  const secretIds = [...new Set(secrets.map((source) => source.secretId))];
+  const secretEnvVars = [...new Set(secrets.flatMap((source) => source.envVars))];
+  const explicitStaticEnv = props.staticEnv ?? {};
+  const isExplicit = (envVar: string) =>
+    secretEnvVars.includes(envVar) || envVar in explicitStaticEnv;
+
+  const { remaining, references } = extractSecretReferences(
+    props.entries.filter((entry) => !isExplicit(entry.envVar)),
+  );
+  const secretIds = [
+    ...new Set([
+      ...secrets.map((source) => source.secretId),
+      ...references.map((reference) => reference.secretId),
+    ]),
+  ];
   if (secretIds.length > 1) {
     throw new Error(
       `Only one secretId is supported per emitted config, received: ${secretIds.join(", ")}`,
     );
   }
-  const secretEnvVars = [...new Set(secrets.flatMap((source) => source.envVars))];
-  const explicitStaticEnv = props.staticEnv ?? {};
 
   const resolvedByEnvVar: Record<string, ResolvedEntry> = {};
   const errors: Array<Error> = [];
-  for (const entry of props.entries) {
-    if (secretEnvVars.includes(entry.envVar) || entry.envVar in explicitStaticEnv) {
-      continue;
-    }
+  for (const entry of remaining) {
     const resolved = tryResolveEntry({ entry, multiStack, errors });
     if (resolved == null) {
       continue;
@@ -170,6 +180,14 @@ export function buildEmittedTarget(props: BuildEmittedTargetProps): EmittedTarge
     resources.push(resolved.mapping);
   }
 
+  const emittedSecrets: Array<EmittedSecretMapping> = [
+    ...secretEnvVars.map((envVar) => ({ envVar })),
+    ...references.map(({ envVar, jsonKey }) => ({
+      envVar,
+      ...(jsonKey === envVar ? {} : { jsonKey }),
+    })),
+  ];
+
   return {
     config: {
       ...(props.profile == null ? {} : { profile: props.profile }),
@@ -179,7 +197,7 @@ export function buildEmittedTarget(props: BuildEmittedTargetProps): EmittedTarge
       staticEnv: { ...walkedStaticEnv, ...explicitStaticEnv },
     },
     resources,
-    ...(secretEnvVars.length === 0 ? {} : { secrets: secretEnvVars.map((envVar) => ({ envVar })) }),
+    ...(emittedSecrets.length === 0 ? {} : { secrets: emittedSecrets }),
   };
 }
 
@@ -399,4 +417,61 @@ function unsupportedIntrinsic(envVar: string, intrinsic: Intrinsic): Error {
       `Workaround: pass the value via \`staticEnv\` or map it by hand in a .ts config. ` +
       `To support it, add a rule to \`inlineRules\` (cdk.ts, values the stack can answer at synth) or \`intrinsicRules\` (src/emit.ts, resource lookups) in packages/aws-env-resolver and open a PR at https://github.com/BeeSolve/packages.`,
   );
+}
+
+interface SecretReference {
+  readonly envVar: string;
+  readonly secretId: string;
+  readonly jsonKey: string;
+}
+
+const secretReferencePattern =
+  /^\{\{resolve:secretsmanager:(.+):SecretString:([^:]*):([^:]*):([^:]*)\}\}$/;
+
+/**
+ * CDK renders `secret.secretValueFromJson(key)` as a CloudFormation dynamic reference, which is a
+ * plain string in the template. Emitting it as a literal would hand the local process the
+ * unresolved `{{resolve:...}}` text, so these entries become secret mappings instead.
+ */
+function extractSecretReferences(entries: ReadonlyArray<ExtractedEnvEntry>): {
+  readonly remaining: ReadonlyArray<ExtractedEnvEntry>;
+  readonly references: ReadonlyArray<SecretReference>;
+} {
+  const remaining: Array<ExtractedEnvEntry> = [];
+  const referenceByEnvVar: Record<string, SecretReference> = {};
+  for (const entry of entries) {
+    const reference = parseSecretReference(entry);
+    if (reference == null) {
+      remaining.push(entry);
+      continue;
+    }
+    const existing = referenceByEnvVar[entry.envVar];
+    if (existing != null && JSON.stringify(existing) !== JSON.stringify(reference)) {
+      throw new Error(
+        `Conflicting secret references for env var ${entry.envVar}: ${existing.secretId}#${existing.jsonKey} vs ${reference.secretId}#${reference.jsonKey}`,
+      );
+    }
+    referenceByEnvVar[entry.envVar] = reference;
+  }
+  return { remaining, references: Object.values(referenceByEnvVar) };
+}
+
+function parseSecretReference(entry: ExtractedEnvEntry): SecretReference | undefined {
+  if (typeof entry.value !== "string") {
+    return undefined;
+  }
+  const match = secretReferencePattern.exec(entry.value);
+  if (match == null) {
+    return undefined;
+  }
+  const [, secretId, jsonKey, versionStage, versionId] = match;
+  if (secretId == null || jsonKey == null || versionStage == null || versionId == null) {
+    return undefined;
+  }
+  if (jsonKey === "" || versionStage !== "" || versionId !== "") {
+    throw new Error(
+      `Env var ${entry.envVar} uses a Secrets Manager reference the resolver cannot follow (${entry.value}). Only references to a JSON key of the current version are supported; list the variable in \`secrets\` or \`staticEnv\` instead.`,
+    );
+  }
+  return { envVar: entry.envVar, secretId, jsonKey };
 }
