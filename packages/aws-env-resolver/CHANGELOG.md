@@ -1,5 +1,11 @@
 # @beesolve/aws-env-resolver
 
+## 0.4.2
+
+### Patch Changes
+
+- 83827c9: Fix: env vars set from `secret.secretValueFromJson(key)` were emitted as the literal `{{resolve:secretsmanager:...}}` text. They are now emitted as secret mappings (with `jsonKey` when it differs from the env var name) and `config.secretId`, so the CLI fetches the real value. References that pin a version stage or id, or omit the JSON key, fail with a clear error.
+
 ## 0.4.1
 
 ### Patch Changes
