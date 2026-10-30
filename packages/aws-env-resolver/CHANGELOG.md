@@ -1,5 +1,11 @@
 # @beesolve/aws-env-resolver
 
+## 0.4.1
+
+### Patch Changes
+
+- 0a2a8f6: Fix: resources in stacks with more than 100 resources were not found. The resolver now pages through `ListStackResources` instead of calling `DescribeStackResources`, which returns at most 100 resources. The required IAM permission changes from `cloudformation:DescribeStackResources` to `cloudformation:ListStackResources`.
+
 ## 0.4.0
 
 ### Minor Changes
