@@ -1,11 +1,8 @@
 import type {
-  DescribeStackResourcesCommandOutput,
-  StackResource,
+  ListStackResourcesCommandOutput,
+  StackResourceSummary,
 } from "@aws-sdk/client-cloudformation";
-import {
-  CloudFormationClient,
-  DescribeStackResourcesCommand,
-} from "@aws-sdk/client-cloudformation";
+import { CloudFormationClient, ListStackResourcesCommand } from "@aws-sdk/client-cloudformation";
 import type { GetCallerIdentityCommandOutput } from "@aws-sdk/client-sts";
 import { GetCallerIdentityCommand, STSClient } from "@aws-sdk/client-sts";
 import { fromIni } from "@aws-sdk/credential-providers";
@@ -20,7 +17,7 @@ import type {
 import { toStackNames } from "./emit.ts";
 
 export interface CloudFormationLike {
-  send(command: DescribeStackResourcesCommand): Promise<DescribeStackResourcesCommandOutput>;
+  send(command: ListStackResourcesCommand): Promise<ListStackResourcesCommandOutput>;
 }
 
 export interface StsLike {
@@ -41,12 +38,10 @@ export async function resolveStackResources(props: {
 
   const cfnClient = props.cfnClient ?? buildCloudFormationClient(config);
   const stacks = await Promise.all(
-    toStackNames(config.stackName).map(async (stackName) => {
-      const response = await cfnClient.send(
-        new DescribeStackResourcesCommand({ StackName: stackName }),
-      );
-      return { stackName, stackResources: response.StackResources ?? [] };
-    }),
+    toStackNames(config.stackName).map(async (stackName) => ({
+      stackName,
+      stackResources: await listStackResources({ cfnClient, stackName }),
+    })),
   );
 
   const resolveAccountId = makeAccountIdResolver({
@@ -90,7 +85,7 @@ async function resolveReference(props: {
   readonly reference: ResourceReference;
   readonly stacks: ReadonlyArray<{
     readonly stackName: string;
-    readonly stackResources: ReadonlyArray<StackResource>;
+    readonly stackResources: ReadonlyArray<StackResourceSummary>;
   }>;
   readonly config: ResolverConfig;
   readonly resolveAccountId: () => Promise<string>;
@@ -126,6 +121,22 @@ async function resolveReference(props: {
     region: config.region,
     resolveAccountId,
   });
+}
+
+async function listStackResources(props: {
+  readonly cfnClient: CloudFormationLike;
+  readonly stackName: string;
+}): Promise<ReadonlyArray<StackResourceSummary>> {
+  const summaries: Array<StackResourceSummary> = [];
+  let nextToken: string | undefined;
+  do {
+    const response = await props.cfnClient.send(
+      new ListStackResourcesCommand({ StackName: props.stackName, NextToken: nextToken }),
+    );
+    summaries.push(...(response.StackResourceSummaries ?? []));
+    nextToken = response.NextToken;
+  } while (nextToken != null);
+  return summaries;
 }
 
 function buildCloudFormationClient(
@@ -198,9 +209,9 @@ async function applyTransform(props: {
 }
 
 function findMatchingResource(props: {
-  readonly stackResources: ReadonlyArray<StackResource>;
+  readonly stackResources: ReadonlyArray<StackResourceSummary>;
   readonly mapping: ResourceReference;
-}): StackResource | undefined {
+}): StackResourceSummary | undefined {
   const { stackResources, mapping } = props;
   return stackResources.find((resource) => {
     const logicalId = resource.LogicalResourceId;

@@ -11,7 +11,7 @@ Local development commonly loads its environment from committed `.env.*` files. 
 1. Secrets end up committed in plaintext: API keys, HMAC secrets, and third-party config get pushed to git.
 2. Resource names and ARNs are hand-copied: DynamoDB table names, S3 buckets, SQS queue URLs, and Lambda ARNs carry random CloudFormation suffixes, must be pasted in manually, and drift the moment a stack is recreated.
 
-Both are mechanically avoidable. Everything in such a file is derivable from AWS plus a small amount of static config: non-secret resource identifiers come from one CloudFormation `DescribeStackResources` call, secrets come from one Secrets Manager `GetSecretValue` call, and static values (region, fixed URLs, constant index names) come from the consuming project.
+Both are mechanically avoidable. Everything in such a file is derivable from AWS plus a small amount of static config: non-secret resource identifiers come from one CloudFormation `ListStackResources` call, secrets come from one Secrets Manager `GetSecretValue` call, and static values (region, fixed URLs, constant index names) come from the consuming project.
 
 This logic is project-agnostic. Every project that needs it would otherwise re-implement the same resolve, cache, and inject cycle.
 
@@ -60,7 +60,7 @@ The package knows how to resolve, not what a project needs. The mapping lives in
 - Steady state makes zero AWS calls: one temp-file read and one keychain read per secret. AWS is called on first run, TTL expiry (24h by default), a cache miss, or `--refresh`.
 - In the default interactive mode macOS may prompt once per secret on read.
 - Running the CLI requires Bun. The runtime choice is covered in [ADR-003](./adr-003-bun-runtime-dependency.md) and is not repeated here.
-- AWS access is read-only: `cloudformation:DescribeStackResources`, `secretsmanager:GetSecretValue`, and `sts:GetCallerIdentity` only when an ARN transform runs without a configured account id.
+- AWS access is read-only: `cloudformation:ListStackResources`, `secretsmanager:GetSecretValue`, and `sts:GetCallerIdentity` only when an ARN transform runs without a configured account id.
 - Only one secret id per config is supported.
 
 ## Alternatives Considered

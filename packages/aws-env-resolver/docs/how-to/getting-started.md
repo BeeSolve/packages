@@ -81,7 +81,7 @@ const env = await resolveEnv({
 
 - Put flags before `--`; everything after the separator (or after the first non-flag argument) goes to the command.
 - With only `aws-env.config.<stage>.*` files, forgetting `--stage` fails with "no config file found". Keeping a generic `aws-env.config.*` as well makes it the silent fallback.
-- The profile needs `cloudformation:DescribeStackResources` and `secretsmanager:GetSecretValue`. `sts:GetCallerIdentity` is needed only when an ARN transform runs and the config has no `accountId`.
+- The profile needs `cloudformation:ListStackResources` and `secretsmanager:GetSecretValue`. `sts:GetCallerIdentity` is needed only when an ARN transform runs and the config has no `accountId`.
 - A resource that matches no logical-id prefix fails with an error naming the env var and the prefix.
 - A secret must be a JSON object whose values are all strings.
 - On non-macOS platforms every run calls Secrets Manager.

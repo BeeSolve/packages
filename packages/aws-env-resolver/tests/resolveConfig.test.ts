@@ -1,9 +1,9 @@
 import { describe, expect, it } from "bun:test";
 
 import type {
-  DescribeStackResourcesCommand,
-  DescribeStackResourcesCommandOutput,
-  StackResource,
+  ListStackResourcesCommand,
+  ListStackResourcesCommandOutput,
+  StackResourceSummary,
 } from "@aws-sdk/client-cloudformation";
 import type { GetCallerIdentityCommand, GetCallerIdentityCommandOutput } from "@aws-sdk/client-sts";
 
@@ -13,7 +13,7 @@ import { resolveStackResources } from "../src/resolveConfig.ts";
 
 interface FakeCfn {
   readonly client: CloudFormationLike;
-  readonly calls: Array<DescribeStackResourcesCommand>;
+  readonly calls: Array<ListStackResourcesCommand>;
 }
 
 interface FakeSts {
@@ -25,21 +25,21 @@ function stackResource(props: {
   readonly LogicalResourceId: string;
   readonly ResourceType: string;
   readonly PhysicalResourceId: string;
-}): StackResource {
+}): StackResourceSummary {
   return {
     ...props,
-    Timestamp: new Date(0),
+    LastUpdatedTimestamp: new Date(0),
     ResourceStatus: "CREATE_COMPLETE",
   };
 }
 
-function makeCfn(stackResources: ReadonlyArray<StackResource>): FakeCfn {
-  const calls: Array<DescribeStackResourcesCommand> = [];
+function makeCfn(stackResources: ReadonlyArray<StackResourceSummary>): FakeCfn {
+  const calls: Array<ListStackResourcesCommand> = [];
   const client: CloudFormationLike = {
     send(command) {
       calls.push(command);
-      const output: DescribeStackResourcesCommandOutput = {
-        StackResources: [...stackResources],
+      const output: ListStackResourcesCommandOutput = {
+        StackResourceSummaries: [...stackResources],
         $metadata: {},
       };
       return Promise.resolve(output);
@@ -105,6 +105,44 @@ describe("resolveStackResources happy path", () => {
     expect(resolved).toEqual({ DATA_TABLE_NAME: "stg-Data666C94C7-XYZ" });
     expect(cfn.calls).toHaveLength(1);
     expect(sts.calls).toHaveLength(0);
+  });
+});
+
+describe("resolveStackResources pagination", () => {
+  it("follows NextToken so resources beyond the first page are found", async () => {
+    const firstPage = [
+      stackResource({
+        LogicalResourceId: "Other123",
+        ResourceType: "AWS::S3::Bucket",
+        PhysicalResourceId: "some-bucket",
+      }),
+    ];
+    const secondPage = [
+      stackResource({
+        LogicalResourceId: "TasksMainHandlerInputQueueF083CC2C",
+        ResourceType: "AWS::SQS::Queue",
+        PhysicalResourceId: "https://sqs.eu-central-1.amazonaws.com/1/tasks",
+      }),
+    ];
+    const tokens: Array<string | undefined> = [];
+    const client: CloudFormationLike = {
+      send: async (command) => {
+        const token = command.input.NextToken;
+        tokens.push(token);
+        return token == null
+          ? { $metadata: {}, StackResourceSummaries: firstPage, NextToken: "second" }
+          : { $metadata: {}, StackResourceSummaries: secondPage };
+      },
+    };
+
+    const resolved = await resolveStackResources({
+      config: baseConfig,
+      resources: [{ envVar: "TASKS_QUEUE_URL", logicalIdPrefix: "TasksMainHandlerInputQueue" }],
+      cfnClient: client,
+    });
+
+    expect(resolved).toEqual({ TASKS_QUEUE_URL: "https://sqs.eu-central-1.amazonaws.com/1/tasks" });
+    expect(tokens).toEqual([undefined, "second"]);
   });
 });
 
@@ -242,7 +280,7 @@ describe("resolveStackResources resourceType filter", () => {
 
 describe("resolveStackResources multiple stacks", () => {
   it("looks a mapping up only in its own stack and describes every stack", async () => {
-    const byStack: Record<string, ReadonlyArray<StackResource>> = {
+    const byStack: Record<string, ReadonlyArray<StackResourceSummary>> = {
       "stack-a": [
         stackResource({
           LogicalResourceId: "Data1",
@@ -261,7 +299,7 @@ describe("resolveStackResources multiple stacks", () => {
     const client: CloudFormationLike = {
       send: async (command) => ({
         $metadata: {},
-        StackResources: [...(byStack[command.input.StackName ?? ""] ?? [])],
+        StackResourceSummaries: [...(byStack[command.input.StackName ?? ""] ?? [])],
       }),
     };
 

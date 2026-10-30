@@ -96,7 +96,7 @@ When an env var appears in several sources, the later one wins: `config.staticEn
 
 ## IAM permissions
 
-- `cloudformation:DescribeStackResources`
+- `cloudformation:ListStackResources`
 - `secretsmanager:GetSecretValue`
 - `sts:GetCallerIdentity`, only when an ARN transform runs without `config.accountId`
 
