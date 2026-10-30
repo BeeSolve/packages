@@ -1,17 +1,19 @@
+import * as v from "valibot";
+
 import type { FingerprintInputs } from "./cache.ts";
 import { computeFingerprint } from "./cache.ts";
 import type { SecurityRunner } from "./keychain.ts";
 import { addGenericPassword, deleteGenericPassword, findGenericPassword } from "./keychain.ts";
 
 export interface SecretStore {
-  get(key: string): Promise<string | undefined>;
-  set(props: {
-    readonly key: string;
-    readonly value: string;
-    readonly trusted: boolean;
-  }): Promise<void>;
+  get(): Promise<Record<string, string> | undefined>;
+  set(props: { readonly values: Record<string, string>; readonly trusted: boolean }): Promise<void>;
   purge(): Promise<void>;
 }
+
+const secretsAccount = "secrets";
+
+const storedSecretsSchema = v.record(v.string(), v.string());
 
 /** Build the keychain service string shared with the on-disk cache identity. */
 export function keychainService(props: {
@@ -23,70 +25,79 @@ export function keychainService(props: {
   return `aws-env-resolver:${props.projectKey}:${props.stage}:${fingerprint}`;
 }
 
-/** macOS keychain-backed secret store; one generic-password item per secret env var. */
+/**
+ * macOS keychain-backed secret store: one generic-password item per identity holding every secret
+ * as a JSON object, so a read costs one keychain access (and one prompt) regardless of how many
+ * secrets there are.
+ */
 export class KeychainSecretStore implements SecretStore {
   private readonly service: string;
-  private readonly secretKeys: ReadonlyArray<string>;
   private readonly runner?: SecurityRunner;
   private readonly platform?: NodeJS.Platform;
 
   constructor(props: {
     readonly service: string;
-    readonly secretKeys: ReadonlyArray<string>;
     readonly runner?: SecurityRunner;
     readonly platform?: NodeJS.Platform;
   }) {
     this.service = props.service;
-    this.secretKeys = props.secretKeys;
     this.runner = props.runner;
     this.platform = props.platform;
   }
 
-  get(key: string): Promise<string | undefined> {
-    return findGenericPassword({
-      account: key,
+  async get(): Promise<Record<string, string> | undefined> {
+    const raw = await findGenericPassword({
+      account: secretsAccount,
       service: this.service,
       runner: this.runner,
       platform: this.platform,
     });
+    if (raw == null) {
+      return undefined;
+    }
+    const parsed = v.safeParse(v.pipe(v.string(), v.parseJson(), storedSecretsSchema), raw);
+    return parsed.success ? parsed.output : undefined;
   }
 
   set(props: {
-    readonly key: string;
-    readonly value: string;
+    readonly values: Record<string, string>;
     readonly trusted: boolean;
   }): Promise<void> {
     return addGenericPassword({
-      account: props.key,
+      account: secretsAccount,
       service: this.service,
-      secret: props.value,
+      secret: toAsciiJson(props.values),
       trusted: props.trusted,
       runner: this.runner,
       platform: this.platform,
     });
   }
 
-  async purge(): Promise<void> {
-    for (const key of this.secretKeys) {
-      await deleteGenericPassword({
-        account: key,
-        service: this.service,
-        runner: this.runner,
-        platform: this.platform,
-      });
-    }
+  purge(): Promise<void> {
+    return deleteGenericPassword({
+      account: secretsAccount,
+      service: this.service,
+      runner: this.runner,
+      platform: this.platform,
+    });
   }
+}
+
+function toAsciiJson(values: Record<string, string>): string {
+  return JSON.stringify(values).replace(
+    /[\u007f-\uffff]/g,
+    (character) => `\\u${character.charCodeAt(0).toString(16).padStart(4, "0")}`,
+  );
 }
 
 /** Non-macOS fallback: no secure cache, so reads always miss and writes are discarded. */
 export class NoopSecretStore implements SecretStore {
-  get(_key: string): Promise<string | undefined> {
+  get(): Promise<Record<string, string> | undefined> {
     return Promise.resolve(undefined);
   }
 
   set(_props: {
-    readonly key: string;
-    readonly value: string;
+    readonly values: Record<string, string>;
     readonly trusted: boolean;
   }): Promise<void> {
     return Promise.resolve();
@@ -101,7 +112,6 @@ export function createSecretStore(props: {
   readonly projectKey: string;
   readonly stage: string;
   readonly config: FingerprintInputs;
-  readonly secretKeys: ReadonlyArray<string>;
   readonly platform?: NodeJS.Platform;
   readonly runner?: SecurityRunner;
 }): SecretStore {
@@ -115,7 +125,6 @@ export function createSecretStore(props: {
       stage: props.stage,
       config: props.config,
     }),
-    secretKeys: props.secretKeys,
     runner: props.runner,
     platform,
   });

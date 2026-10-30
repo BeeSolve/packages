@@ -17,7 +17,7 @@ export function resolveEnv(options: ResolveEnvOptions): Promise<Record<string, s
   return resolveEnvWithDeps(options, defaultResolveEnvDeps);
 }
 
-/** Delete the temp-dir cache file and the keychain items for exactly this identity. */
+/** Delete the temp-dir cache file and the keychain item for exactly this identity. */
 export async function purgeCache(props: {
   readonly projectKey: string;
   /** Stage whose cache to purge; defaults to the same label `resolveEnv` uses without one. */
@@ -25,7 +25,6 @@ export async function purgeCache(props: {
   /** Target whose resource cache to purge; omit for the `default` target. */
   readonly target?: string;
   readonly config: Pick<ResolverConfig, "region" | "stackName" | "secretId">;
-  readonly secretKeys?: ReadonlyArray<string>;
 }): Promise<void> {
   const { projectKey, config } = props;
   const stage = props.stage ?? defaultStage;
@@ -34,7 +33,6 @@ export async function purgeCache(props: {
     projectKey,
     stage,
     config,
-    secretKeys: props.secretKeys ?? [],
   });
   await store.purge();
 }

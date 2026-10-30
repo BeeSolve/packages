@@ -44,23 +44,23 @@ Exit codes: `0` success, `1` runtime error, `2` invalid arguments. When a comman
 
 ## Library (`@beesolve/aws-env-resolver`)
 
-| Export                | Description                                                                                                           |
-| --------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| `resolveEnv`          | `(options: ResolveEnvOptions) => Promise<Record<string, string>>`. Does not mutate `process.env`.                     |
-| `purgeCache`          | `({ projectKey, stage?, target?, config, secretKeys? }) => Promise<void>`. Deletes the cache file and keychain items. |
-| `ResolveEnvOptions`   | `config`, `resources`, `secrets?`, `projectKey`, `stage?`, `target?`, `refresh?`, `cacheTtlMs?`, `trusted?`.          |
-| `ResolverConfig`      | `profile?`, `region`, `stackName` (one name or a list), `secretId?`, `accountId?`, `staticEnv`.                       |
-| `ResourceMapping`     | `envVar`, `logicalIdPrefix`, `resourceType?`, `stackName?`, `transform?`.                                             |
-| `TemplateMapping`     | `envVar`, `parts`: literal strings and resource references (`logicalIdPrefix`, ...), concatenated.                    |
-| `SecretMapping`       | `envVar`, `jsonKey?` (defaults to `envVar`).                                                                          |
-| `ResourceTransform`   | A function `(physicalId, { region, accountId }) => string` or a `TransformTag`.                                       |
-| `TransformTag`        | `{ kind: "lambdaArn" }`, for JSON config.                                                                             |
-| `TransformContext`    | `{ region, accountId }`.                                                                                              |
-| `EmittedConfig`       | JSON config shape produced by the CDK emitter: `projectKey` and `targets` (name to `EmittedTarget`).                  |
-| `EmittedTarget`       | One target's `config`, `resources`, `secrets?`.                                                                       |
-| `emittedConfigSchema` | Valibot schema for `EmittedConfig`.                                                                                   |
-| `emittedTargetSchema` | Valibot schema for `EmittedTarget`.                                                                                   |
-| `defaultTarget`       | `"default"`, the target used when none is named.                                                                      |
+| Export                | Description                                                                                                  |
+| --------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `resolveEnv`          | `(options: ResolveEnvOptions) => Promise<Record<string, string>>`. Does not mutate `process.env`.            |
+| `purgeCache`          | `({ projectKey, stage?, target?, config }) => Promise<void>`. Deletes the cache file and the keychain item.  |
+| `ResolveEnvOptions`   | `config`, `resources`, `secrets?`, `projectKey`, `stage?`, `target?`, `refresh?`, `cacheTtlMs?`, `trusted?`. |
+| `ResolverConfig`      | `profile?`, `region`, `stackName` (one name or a list), `secretId?`, `accountId?`, `staticEnv`.              |
+| `ResourceMapping`     | `envVar`, `logicalIdPrefix`, `resourceType?`, `stackName?`, `transform?`.                                    |
+| `TemplateMapping`     | `envVar`, `parts`: literal strings and resource references (`logicalIdPrefix`, ...), concatenated.           |
+| `SecretMapping`       | `envVar`, `jsonKey?` (defaults to `envVar`).                                                                 |
+| `ResourceTransform`   | A function `(physicalId, { region, accountId }) => string` or a `TransformTag`.                              |
+| `TransformTag`        | `{ kind: "lambdaArn" }`, for JSON config.                                                                    |
+| `TransformContext`    | `{ region, accountId }`.                                                                                     |
+| `EmittedConfig`       | JSON config shape produced by the CDK emitter: `projectKey` and `targets` (name to `EmittedTarget`).         |
+| `EmittedTarget`       | One target's `config`, `resources`, `secrets?`.                                                              |
+| `emittedConfigSchema` | Valibot schema for `EmittedConfig`.                                                                          |
+| `emittedTargetSchema` | Valibot schema for `EmittedTarget`.                                                                          |
+| `defaultTarget`       | `"default"`, the target used when none is named.                                                             |
 
 ## CDK (`@beesolve/aws-env-resolver/cdk`)
 
@@ -89,8 +89,8 @@ When an env var appears in several sources, the later one wins: `config.staticEn
 ## Caching
 
 - Non-secret values: `os.tmpdir()/aws-env-resolver/<projectKey>-<stage>-<fingerprint>.json`, 24 hour TTL by default (`cacheTtlMs`).
-- Secrets: macOS keychain, service `aws-env-resolver:<projectKey>:<stage>:<fingerprint>`, one item per secret env var. The fingerprint hashes `region`, `stackName`, and `secretId`, so the cache and keychain share one identity independent of the working directory. A non-default target also enters the cache file's fingerprint (not the keychain's), so targets sharing a stack keep separate resource caches.
-- Default mode stores items with an empty trust list, so macOS may prompt once per secret on read. `--trusted` stores them with `-T /usr/bin/security` for silent reads.
+- Secrets: macOS keychain, service `aws-env-resolver:<projectKey>:<stage>:<fingerprint>`, one item holding all secrets as JSON. The fingerprint hashes `region`, `stackName`, and `secretId`, so the cache and keychain share one identity independent of the working directory. A non-default target also enters the cache file's fingerprint (not the keychain's), so targets sharing a stack keep separate resource caches.
+- Default mode stores items with an empty trust list, so macOS may prompt once on read. `--trusted` stores them with `-T /usr/bin/security` for silent reads.
 - Steady state makes zero AWS calls.
 - On non-macOS platforms there is no secure cache and secrets are fetched on every run.
 

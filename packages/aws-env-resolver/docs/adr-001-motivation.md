@@ -34,7 +34,7 @@ Writing a `.env.*.local` file puts secrets in the project tree at a predictable 
 
 ### 2. Keychain instead of plaintext, with an honest limit
 
-On macOS, secrets are cached in the login keychain through the `security` CLI, encrypted at rest under the login password, and read through OS-mediated access. There is no plaintext file and no predictable dotfile path. The limit is stated rather than hidden: malware already running as the user can call `security` the same way the resolver does, unless the item forces a prompt. That is why the default is interactive.
+On macOS, secrets are cached in the login keychain through the `security` CLI, encrypted at rest under the login password, and read through OS-mediated access. There is no plaintext file and no predictable dotfile path. The limit is stated rather than hidden: malware already running as the user can call `security` the same way the resolver does, unless the item forces a prompt. That is why the default is interactive. All secrets for an identity live in one item (a JSON object), so a run costs one keychain access and one prompt regardless of the number of secrets.
 
 ### 3. Interactive by default, with an independent `--trusted` opt-in
 
@@ -57,8 +57,8 @@ The package knows how to resolve, not what a project needs. The mapping lives in
 ## Consequences
 
 - The secure secret cache is macOS-only. On any other platform a no-op store is used: secrets are fetched from Secrets Manager on every run and live only in the child's environment, never on disk.
-- Steady state makes zero AWS calls: one temp-file read and one keychain read per secret. AWS is called on first run, TTL expiry (24h by default), a cache miss, or `--refresh`.
-- In the default interactive mode macOS may prompt once per secret on read.
+- Steady state makes zero AWS calls: one temp-file read and one keychain read. AWS is called on first run, TTL expiry (24h by default), a cache miss, or `--refresh`.
+- In the default interactive mode macOS may prompt once on read.
 - Running the CLI requires Bun. The runtime choice is covered in [ADR-003](./adr-003-bun-runtime-dependency.md) and is not repeated here.
 - AWS access is read-only: `cloudformation:ListStackResources`, `secretsmanager:GetSecretValue`, and `sts:GetCallerIdentity` only when an ARN transform runs without a configured account id.
 - Only one secret id per config is supported.

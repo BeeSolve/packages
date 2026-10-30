@@ -6,15 +6,14 @@ import { resolveEnvWithDeps } from "../src/resolveEnv.ts";
 import type { SecretStore } from "../src/secretStore.ts";
 
 interface SetCall {
-  readonly key: string;
-  readonly value: string;
+  readonly values: Record<string, string>;
   readonly trusted: boolean;
 }
 
 interface Harness {
   readonly deps: ResolveEnvDeps;
   readonly cache: Map<string, Record<string, string>>;
-  readonly store: Map<string, string>;
+  readonly store: { values: Record<string, string> | undefined };
   readonly setCalls: Array<SetCall>;
   readonly writeCalls: Array<Record<string, string>>;
   readonly counts: {
@@ -35,23 +34,25 @@ function makeHarness(props: {
   if (props.cached != null) {
     cache.set("entry", props.cached);
   }
-  const store = new Map<string, string>(Object.entries(props.stored ?? {}));
+  const store: { values: Record<string, string> | undefined } = {
+    values: props.stored == null ? undefined : { ...props.stored },
+  };
   const setCalls: Array<SetCall> = [];
   const writeCalls: Array<Record<string, string>> = [];
   const counts = { resources: 0, secrets: 0, storeGets: 0, storeCreations: 0 };
 
   const fakeStore: SecretStore = {
-    get(key) {
+    get() {
       counts.storeGets += 1;
-      return Promise.resolve(store.get(key));
+      return Promise.resolve(store.values);
     },
     set(setProps) {
       setCalls.push(setProps);
-      store.set(setProps.key, setProps.value);
+      store.values = setProps.values;
       return Promise.resolve();
     },
     purge() {
-      store.clear();
+      store.values = undefined;
       return Promise.resolve();
     },
   };
@@ -156,7 +157,9 @@ describe("resolveEnvWithDeps", () => {
     expect(harness.counts.resources).toBe(1);
     expect(harness.counts.secrets).toBe(1);
     expect(harness.writeCalls).toEqual([{ DATA_TABLE_NAME: "fresh-table" }]);
-    expect(harness.setCalls.map((call) => call.key).sort()).toEqual(["API_KEY", "HMAC_SECRET"]);
+    expect(harness.setCalls.map((call) => call.values)).toEqual([
+      { API_KEY: "fresh-key", HMAC_SECRET: "fresh-hmac" },
+    ]);
     expect(env.API_KEY).toBe("fresh-key");
     expect(env.DATA_TABLE_NAME).toBe("fresh-table");
   });
@@ -171,8 +174,9 @@ describe("resolveEnvWithDeps", () => {
     await resolveEnvWithDeps(makeOptions({ trusted: true }), trustedHarness.deps);
 
     expect(trustedHarness.counts.secrets).toBe(1);
-    expect(trustedHarness.setCalls).toHaveLength(2);
-    expect(trustedHarness.setCalls.every((call) => call.trusted)).toBe(true);
+    expect(trustedHarness.setCalls).toEqual([
+      { values: { API_KEY: "fetched-key", HMAC_SECRET: "fetched-hmac" }, trusted: true },
+    ]);
 
     const defaultHarness = makeHarness({
       cached: { DATA_TABLE_NAME: "cached-table" },
@@ -181,8 +185,9 @@ describe("resolveEnvWithDeps", () => {
     });
     await resolveEnvWithDeps(makeOptions(), defaultHarness.deps);
 
-    expect(defaultHarness.setCalls).toHaveLength(2);
-    expect(defaultHarness.setCalls.every((call) => !call.trusted)).toBe(true);
+    expect(defaultHarness.setCalls).toEqual([
+      { values: { API_KEY: "fetched-key", HMAC_SECRET: "fetched-hmac" }, trusted: false },
+    ]);
   });
 
   it("applies precedence static < resources < secrets", async () => {

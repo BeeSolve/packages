@@ -197,7 +197,6 @@ async function execute(props: {
         stackName: options.config.stackName,
         secretId: options.config.secretId,
       },
-      secretKeys: (options.secrets ?? []).map((secret) => secret.envVar),
     });
     deps.stdout(`Purged cached values for ${options.projectKey}${describeScope(options)}.\n`);
     if (parsed.command.length === 0) {

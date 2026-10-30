@@ -236,7 +236,6 @@ describe("runCli", () => {
         projectKey: "example-app",
         stage: "staging",
         config: { region: "eu-central-1", stackName: "example-stack", secretId: "example/secrets" },
-        secretKeys: ["API_KEY", "HMAC_SECRET"],
       },
     ]);
     expect(harness.spawnCalls).toHaveLength(0);

@@ -50,7 +50,6 @@ export async function resolveEnvWithDeps(
     projectKey,
     stage,
     config: identity.config,
-    secretKeys: secrets.map((mapping) => mapping.envVar),
     platform: deps.platform,
   });
   const secretValues = await loadSecretValues({ options, store, deps });
@@ -89,37 +88,14 @@ async function loadSecretValues(props: {
   const secrets = options.secrets ?? [];
 
   if (options.refresh !== true) {
-    const stored = await readAllFromStore({
-      store,
-      keys: secrets.map((mapping) => mapping.envVar),
-    });
-    if (stored != null) {
-      return stored;
+    const stored = await store.get();
+    const envVars = secrets.map((mapping) => mapping.envVar);
+    if (stored != null && envVars.every((envVar) => envVar in stored)) {
+      return Object.fromEntries(envVars.map((envVar) => [envVar, stored[envVar] ?? ""]));
     }
   }
 
   const fetched = await deps.resolveSecrets({ config: options.config, secrets });
-  await Promise.all(
-    Object.entries(fetched).map(([key, value]) =>
-      store.set({ key, value, trusted: options.trusted ?? false }),
-    ),
-  );
+  await store.set({ values: fetched, trusted: options.trusted ?? false });
   return fetched;
-}
-
-async function readAllFromStore(props: {
-  readonly store: SecretStore;
-  readonly keys: ReadonlyArray<string>;
-}): Promise<Record<string, string> | undefined> {
-  const entries = await Promise.all(
-    props.keys.map(async (key) => [key, await props.store.get(key)] as const),
-  );
-  const result: Record<string, string> = {};
-  for (const [key, value] of entries) {
-    if (value == null) {
-      return undefined;
-    }
-    result[key] = value;
-  }
-  return result;
 }

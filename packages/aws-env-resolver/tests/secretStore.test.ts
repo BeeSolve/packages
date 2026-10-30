@@ -49,7 +49,6 @@ async function captureError(operation: () => Promise<unknown>): Promise<Error> {
 
 function makeStore(props: {
   readonly runner: SecurityRunner;
-  readonly secretKeys?: ReadonlyArray<string>;
   readonly platform?: NodeJS.Platform;
   readonly stageConfig?: FingerprintInputs;
 }): KeychainSecretStore {
@@ -59,31 +58,35 @@ function makeStore(props: {
       stage: "staging",
       config: props.stageConfig ?? config,
     }),
-    secretKeys: props.secretKeys ?? ["API_KEY", "HMAC_SECRET"],
     runner: props.runner,
     platform: props.platform ?? "darwin",
   });
 }
 
 describe("KeychainSecretStore.set", () => {
-  it("builds interactive add-generic-password argv with an empty trust list", async () => {
+  it("stores every secret as one JSON item with an empty trust list", async () => {
     const fake = makeFakeRunner();
     const store = makeStore({ runner: fake.runner });
 
-    await store.set({ key: "API_KEY", value: "super-secret-value", trusted: false });
+    await store.set({
+      values: { API_KEY: "super-secret-value", HMAC_SECRET: "hmac" },
+      trusted: false,
+    });
 
     const service = keychainService({ projectKey: "example-app", stage: "staging", config });
-    expect(fake.calls[0]).toEqual([
-      "add-generic-password",
-      "-a",
-      "API_KEY",
-      "-s",
-      service,
-      "-w",
-      "super-secret-value",
-      "-U",
-      "-T",
-      "",
+    expect(fake.calls).toEqual([
+      [
+        "add-generic-password",
+        "-a",
+        "secrets",
+        "-s",
+        service,
+        "-w",
+        '{"API_KEY":"super-secret-value","HMAC_SECRET":"hmac"}',
+        "-U",
+        "-T",
+        "",
+      ],
     ]);
   });
 
@@ -91,11 +94,23 @@ describe("KeychainSecretStore.set", () => {
     const fake = makeFakeRunner();
     const store = makeStore({ runner: fake.runner });
 
-    await store.set({ key: "API_KEY", value: "super-secret-value", trusted: true });
+    await store.set({ values: { API_KEY: "super-secret-value" }, trusted: true });
 
     const argv = fake.calls[0] ?? [];
     expect(argv).toContain("-T");
     expect(argv[argv.indexOf("-T") + 1]).toBe("/usr/bin/security");
+  });
+
+  it("escapes non-ASCII characters so the stored value stays printable", async () => {
+    const fake = makeFakeRunner();
+    const store = makeStore({ runner: fake.runner });
+
+    await store.set({ values: { NAME: "žába" }, trusted: false });
+
+    const argv = fake.calls[0] ?? [];
+    const stored = argv[argv.indexOf("-w") + 1] ?? "";
+    expect(stored).toBe('{"NAME":"\\u017e\\u00e1ba"}');
+    expect(JSON.parse(stored)).toEqual({ NAME: "žába" });
   });
 
   it("never includes the secret value in a thrown error", async () => {
@@ -108,34 +123,35 @@ describe("KeychainSecretStore.set", () => {
     const store = makeStore({ runner: fake.runner });
 
     const error = await captureError(() =>
-      store.set({ key: "API_KEY", value: secret, trusted: false }),
+      store.set({ values: { API_KEY: secret }, trusted: false }),
     );
 
     expect(error).toBeInstanceOf(Error);
     expect(error.message).not.toContain(secret);
-    expect(error.message).toContain("API_KEY");
   });
 });
 
 describe("KeychainSecretStore.get", () => {
-  it("returns the -w output trimmed of a trailing newline", async () => {
+  it("parses the stored JSON item", async () => {
     const fake = makeFakeRunner(() => ({
       exitCode: 0,
-      stdout: "resolved-secret\n",
+      stdout: '{"API_KEY":"resolved-secret"}\n',
       stderr: "",
     }));
     const store = makeStore({ runner: fake.runner });
 
-    const value = await store.get("API_KEY");
+    const values = await store.get();
 
-    expect(value).toBe("resolved-secret");
-    expect(fake.calls[0]).toEqual([
-      "find-generic-password",
-      "-a",
-      "API_KEY",
-      "-s",
-      keychainService({ projectKey: "example-app", stage: "staging", config }),
-      "-w",
+    expect(values).toEqual({ API_KEY: "resolved-secret" });
+    expect(fake.calls).toEqual([
+      [
+        "find-generic-password",
+        "-a",
+        "secrets",
+        "-s",
+        keychainService({ projectKey: "example-app", stage: "staging", config }),
+        "-w",
+      ],
     ]);
   });
 
@@ -147,20 +163,27 @@ describe("KeychainSecretStore.get", () => {
     }));
     const store = makeStore({ runner: fake.runner });
 
-    expect(await store.get("API_KEY")).toBeUndefined();
+    expect(await store.get()).toBeUndefined();
+  });
+
+  it("returns undefined when the stored value is not a JSON object of strings", async () => {
+    const fake = makeFakeRunner(() => ({ exitCode: 0, stdout: "not-json\n", stderr: "" }));
+    const store = makeStore({ runner: fake.runner });
+
+    expect(await store.get()).toBeUndefined();
   });
 });
 
 describe("KeychainSecretStore.purge", () => {
-  it("issues a delete-generic-password for each known secret key", async () => {
+  it("deletes the single secrets item", async () => {
     const fake = makeFakeRunner();
-    const store = makeStore({ runner: fake.runner, secretKeys: ["API_KEY", "HMAC_SECRET"] });
+    const store = makeStore({ runner: fake.runner });
 
     await store.purge();
 
-    const accounts = fake.calls.map((args) => args[args.indexOf("-a") + 1]);
-    expect(fake.calls.every((args) => args[0] === "delete-generic-password")).toBe(true);
-    expect(accounts).toEqual(["API_KEY", "HMAC_SECRET"]);
+    expect(fake.calls).toHaveLength(1);
+    expect(fake.calls[0]?.[0]).toBe("delete-generic-password");
+    expect(fake.calls[0]?.[fake.calls[0].indexOf("-a") + 1]).toBe("secrets");
   });
 });
 
@@ -183,7 +206,7 @@ describe("platform guard", () => {
     const fake = makeFakeRunner();
     const store = makeStore({ runner: fake.runner, platform: "linux" });
 
-    const error = await captureError(() => store.get("API_KEY"));
+    const error = await captureError(() => store.get());
 
     expect(error.message).toMatch(/macOS-only/);
     expect(fake.calls).toHaveLength(0);
@@ -194,8 +217,8 @@ describe("NoopSecretStore", () => {
   it("get returns undefined and set/purge resolve without a runner", async () => {
     const store = new NoopSecretStore();
 
-    expect(await store.get("API_KEY")).toBeUndefined();
-    expect(await store.set({ key: "API_KEY", value: "x", trusted: false })).toBeUndefined();
+    expect(await store.get()).toBeUndefined();
+    expect(await store.set({ values: { API_KEY: "x" }, trusted: false })).toBeUndefined();
     expect(await store.purge()).toBeUndefined();
   });
 });
@@ -207,7 +230,6 @@ describe("createSecretStore", () => {
       projectKey: "example-app",
       stage: "staging",
       config,
-      secretKeys: ["API_KEY"],
       platform: "darwin",
       runner: fake.runner,
     });
@@ -220,7 +242,6 @@ describe("createSecretStore", () => {
       projectKey: "example-app",
       stage: "staging",
       config,
-      secretKeys: ["API_KEY"],
       platform: "linux",
     });
 

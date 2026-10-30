@@ -45,7 +45,7 @@ aws-env-resolver --stage dev --trusted -- bun --hot dev.tsx
 - `--target <name>` picks one target from a config that defines several (for example `web` and `worker`). It is optional when the config has exactly one target. Each target keeps its own resource cache.
 - `--refresh` bypasses the caches, re-fetches from AWS, and rewrites them.
 - `--purge` deletes the cached file and the keychain items for this stage. With no command after `--` it exits; with one, it then resolves and runs the command.
-- `--trusted` is an independent opt-in. Items are stored with `-T /usr/bin/security`, so later reads are silent. The default stores them with an empty trust list, so macOS may prompt (once per secret) when the items are read. Trusted mode trades those prompts for any process running as you being able to read the items through `security`.
+- `--trusted` is an independent opt-in. The item is stored with `-T /usr/bin/security`, so later reads are silent. The default stores them with an empty trust list, so macOS may prompt (once) when the item is read. Trusted mode trades those prompts for any process running as you being able to read the item through `security`.
 - `--profile <name>` overrides the profile from the config.
 
 Exit codes: `0` success, `1` runtime error, `2` invalid arguments. Otherwise the exit code is the child's.
