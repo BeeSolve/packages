@@ -66,19 +66,18 @@ Exit codes: `0` success, `1` runtime error, `2` invalid arguments. When a comman
 
 Requires the optional peers `aws-cdk-lib` and `constructs`.
 
-| Export                    | Description                                                                                       |
-| ------------------------- | ------------------------------------------------------------------------------------------------- |
-| `traceEnv`                | `(construct, { target? }) => void`. Marks a Lambda, or a construct containing Lambdas, to emit.   |
-| `generate`                | `(props: AllowEnvResolutionProps) => EmittedConfig`. Walks the scope; no I/O.                     |
-| `persist`                 | `(config, { path }) => void`. Writes JSON, creating parent directories.                           |
-| `generateAndPersist`      | `generate` then `persist`; optional `stage` and `path` (default `aws-env.config[.<stage>].json`). |
-| `defaultConfigPath`       | `(stage?) => string`. The file name `generateAndPersist` writes without a `path`.                 |
-| `AllowEnvResolutionProps` | `projectName`, `scope` (construct or array), `profile?`, `secrets?`, `staticEnv?`.                |
-| `TraceEnvOptions`         | `target?`: a name or a list of names. Defaults to `"default"`.                                    |
+| Export              | Description                                                                                                   |
+| ------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `envOf`             | `(construct) => Record<string, DevEnvValue>`. The env of the Lambda(s) under a construct.                     |
+| `secret`            | `({ secretId, jsonKey? }) => EnvSecret`. A Secrets Manager value; `jsonKey` defaults to the name.             |
+| `generateDevEnv`    | `(props: DevEnvProps) => EmittedConfig`. Turns the composed env into a mapping; no I/O.                       |
+| `persistDevEnv`     | `(config, { path }) => void`. Writes JSON, creating parent directories.                                       |
+| `devEnv`            | `generateDevEnv` then `persistDevEnv`; optional `stage` and `path` (default `aws-env.config[.<stage>].json`). |
+| `defaultConfigPath` | `(stage?) => string`. The file name `devEnv` writes without a `path`.                                         |
+| `DevEnvProps`       | `projectName`, `env`, `profile?`.                                                                             |
+| `DevEnvValue`       | `string \| EnvResource \| EnvSecret`.                                                                         |
 
-Only constructs marked with `traceEnv` are emitted. `traceEnv(construct)` traces every Lambda function under the construct, so you can pass a function, an auth gateway, a site, or a stack. Nothing is passed through stacks. `traceEnv(app)` traces everything. `scope` only limits where `generate` looks for markers.
-
-Each target is emitted and conflict-checked on its own, so one env var may point at different resources in different targets. A target's stacks must share one region. `secrets` and `staticEnv` apply to every target. `Ref` and `Fn::GetAtt` `Arn` are supported; other intrinsics throw. Env vars set from `secret.secretValueFromJson(key)` (a `{{resolve:secretsmanager:...}}` dynamic reference) are emitted as secret mappings automatically. The emitter writes a recipe (env var to logical-id prefix), never resolved physical names.
+The dev env is a plain object you compose: spread `envOf(...)` for each construct whose env the local process needs, then add literals and `secret(...)`. Later keys win, so spread order is precedence and two embedded constructs that set the same name to different resources never conflict; you pick one. `envOf` throws when Lambdas under one construct disagree on a name. All values must share one region. `Ref` and `Fn::GetAtt` `Arn` are supported; other intrinsics throw. Env vars set from `secret.secretValueFromJson(key)` (a `{{resolve:secretsmanager:...}}` dynamic reference) are emitted as secret mappings automatically. The emitter writes a recipe (env var to logical-id prefix), never resolved physical names.
 
 ## Config
 

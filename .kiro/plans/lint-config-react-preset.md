@@ -54,4 +54,4 @@ In consuming projects:
 
 ## After publishing
 
-Update `bewatr-reporting/.oxlintrc.json` to use the preset and remove the local overrides.
+Update the consuming project's `.oxlintrc.json` to use the preset and remove the local overrides.

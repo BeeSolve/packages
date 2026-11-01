@@ -330,7 +330,7 @@ resolver config in sync with the real infra automatically: the same `environment
 dataTable.tableName }` that configures the deployed lambda is the source the emitter reads.
 
 **What synth knows vs. doesn't (the honest boundary):** at synth time a resource's physical name
-(e.g. `stg-BewatrApi-Data666C94C7-3TLI1OAEKFAP`) is an **unresolved CloudFormation token**, not a
+(e.g. `stg-ExampleApi-Data666C94C7-3TLI1OAEKFAP`) is an **unresolved CloudFormation token**, not a
 string — CloudFormation assigns the random suffix at _deploy_ time. So the emitter can **never**
 produce resolved physical values; it produces the **mapping/recipe** (env var → logical-id prefix +
 stack + region + secret ids + static values), which the normal resolver then resolves against the

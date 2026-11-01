@@ -7,65 +7,80 @@ import { RegionInfo } from "aws-cdk-lib/region-info";
 import type { IConstruct } from "constructs";
 import * as v from "valibot";
 
-import type { EmittedConfig, EmittedTarget, ExtractedEnvEntry } from "./src/emit.ts";
+import type { EmittedConfig, ExtractedEnvEntry, Intrinsic } from "./src/emit.ts";
 import { buildEmittedTarget, defaultTarget } from "./src/emit.ts";
-import { stageSchema, targetSchema } from "./src/loadConfig.ts";
+import { stageSchema } from "./src/loadConfig.ts";
 
-const traceKey = Symbol.for("@beesolve/aws-env-resolver/trace");
-
-const traceSchema = v.array(v.string());
-
-/** Options for {@link traceEnv}. */
-export interface TraceEnvOptions {
-  /**
-   * Target(s) the traced Lambdas belong to, e.g. `"web"`. Each target is resolved on its own, so
-   * the same env var may point at different resources in different targets. Defaults to
-   * `"default"`.
-   */
-  readonly target?: string | ReadonlyArray<string>;
+/** A CDK-derived env value the resolver looks up in the deployed stack. Produced by {@link envOf}. */
+export interface EnvResource {
+  readonly kind: "resource";
+  readonly intrinsic: Intrinsic;
+  readonly stackName: string;
+  readonly region: string;
 }
 
-/** Input for {@link generate} and {@link generateAndPersist}. */
-export interface AllowEnvResolutionProps {
+/** A value read from Secrets Manager. Produced by {@link secret}. */
+export interface EnvSecret {
+  readonly kind: "secret";
+  readonly secretId: string;
+  readonly jsonKey?: string;
+}
+
+/** One env var value: a literal, a resource of the deployed stack, or a secret. */
+export type DevEnvValue = string | EnvResource | EnvSecret;
+
+/** Input for {@link generateDevEnv} and {@link devEnv}. */
+export interface DevEnvProps {
   /** Becomes `projectKey` in the emitted config. */
   readonly projectName: string;
   /**
-   * Scope(s) searched for constructs marked with {@link traceEnv}: an `App`, a `Stage`, a `Stack`,
-   * or a list of any of these. List the stacks you want emitted to leave out others, e.g. stacks
-   * in another region.
+   * The env the local process gets. Compose it from {@link envOf}, {@link secret} and literals;
+   * later keys win, so spread order is precedence.
    */
-  readonly scope: IConstruct | ReadonlyArray<IConstruct>;
+  readonly env: Record<string, DevEnvValue>;
   /** AWS profile to bake into the emitted config. */
   readonly profile?: string;
-  /** Secret id plus the env vars sourced from it; the walk cannot infer these. Applies to every target. */
-  readonly secrets?: ReadonlyArray<{
-    readonly secretId: string;
-    readonly envVars: ReadonlyArray<string>;
-  }>;
-  /** Extra static env the walk will not see. Wins over literals found in lambda environments. Applies to every target. */
-  readonly staticEnv?: Record<string, string>;
 }
 
 /**
- * Mark a construct whose Lambda environment variables the resolver should emit. Pass a Lambda
- * function, or any construct that contains one (an auth gateway, a SvelteKit site, a whole
- * stack): every Lambda function under it is traced. Call it where the construct is created or
- * from `app.ts`; nothing has to be passed through stacks. Calling it again on the same construct
- * adds targets.
- *
- * `traceEnv(app)` traces every Lambda in the app.
+ * Read the environment of the Lambda function(s) under a construct as values to spread into
+ * `env`. Pass a function, or a construct containing functions (an auth gateway, a site, a stack).
+ * Throws when the Lambdas under the construct set one env var to different values; pass a
+ * narrower construct (for example `construct.node.findChild("Api")`) in that case.
  */
-export function traceEnv(construct: IConstruct, options: TraceEnvOptions = {}): void {
-  const requested = toTargetNames(options.target);
-  const targets = requested.length === 0 ? [defaultTarget] : requested;
-  for (const target of targets) {
-    v.parse(targetSchema, target);
+export function envOf(construct: IConstruct): Record<string, DevEnvValue> {
+  const functions = construct.node.findAll().filter((node) => node instanceof CfnFunction);
+  if (functions.length === 0) {
+    throw new Error(
+      `Construct "${construct.node.path}" contains no Lambda function. Pass the function itself or a construct that creates one.`,
+    );
   }
-  Reflect.set(construct, traceKey, [...new Set([...readTraceTargets(construct), ...targets])]);
+  const byEnvVar: Record<string, { readonly value: DevEnvValue; readonly source: string }> = {};
+  for (const lambdaFunction of functions) {
+    for (const entry of extractEntries(lambdaFunction)) {
+      const value = toDevEnvValue({ entry, lambdaFunction });
+      const existing = byEnvVar[entry.envVar];
+      if (existing == null) {
+        byEnvVar[entry.envVar] = { value, source: lambdaFunction.node.path };
+        continue;
+      }
+      if (JSON.stringify(existing.value) !== JSON.stringify(value)) {
+        throw new Error(
+          `Lambdas under "${construct.node.path}" set env var ${entry.envVar} to different values: ${existing.source} vs ${lambdaFunction.node.path}. Pass a narrower construct to envOf.`,
+        );
+      }
+    }
+  }
+  return Object.fromEntries(Object.entries(byEnvVar).map(([envVar, { value }]) => [envVar, value]));
+}
+
+/** Mark an env var as sourced from Secrets Manager. `jsonKey` defaults to the env var name. */
+export function secret(props: { readonly secretId: string; readonly jsonKey?: string }): EnvSecret {
+  return { kind: "secret", secretId: props.secretId, jsonKey: props.jsonKey };
 }
 
 /**
- * File {@link generateAndPersist} writes when no `path` is given: `aws-env.config.<stage>.json`,
+ * File {@link devEnv} writes when no `path` is given: `aws-env.config.<stage>.json`,
  * or `aws-env.config.json` without a stage. The CLI finds it with `--stage <stage>`.
  */
 export function defaultConfigPath(stage?: string): string {
@@ -75,127 +90,93 @@ export function defaultConfigPath(stage?: string): string {
 }
 
 /**
- * Walk the scope, read the environment of every Lambda function under a construct marked with
- * {@link traceEnv}, and return the resolver mapping, one entry per target. A target's stacks
- * must share one region.
- * Performs no I/O. Emits the recipe (env var to logical id prefix), never resolved physical names.
+ * Turn the composed env into the resolver mapping. Literals stay literal, {@link envOf} values
+ * become lookups on the stack's logical-id prefixes, and {@link secret} values become secret
+ * mappings. Performs no I/O and never emits resolved physical names.
  */
-export function generate(props: AllowEnvResolutionProps): EmittedConfig {
-  const scopes = isConstruct(props.scope) ? [props.scope] : props.scope;
-  const scopeLabel = scopes.map((scope) => scope.node.path).join(", ");
-  const traced = [...new Set(scopes.flatMap((scope) => scope.node.findAll()))].filter(
-    (node) => readTraceTargets(node).length > 0,
+export function generateDevEnv(props: DevEnvProps): EmittedConfig {
+  const resources = Object.values(props.env).flatMap((value) =>
+    typeof value === "string" || value.kind === "secret" ? [] : [value],
   );
-  if (traced.length === 0) {
+  const [first] = resources;
+  if (first == null) {
     throw new Error(
-      `No constructs marked with traceEnv() found under scope "${scopeLabel}". Call traceEnv(<lambda or construct containing one>) for each runtime whose env you need.`,
+      "The env has no value from envOf(), so the stack and region are unknown. Spread envOf(<construct>) into env.",
     );
   }
-
-  const functionsByTarget = groupFunctionsByTarget(traced);
-  const targets: Record<string, EmittedTarget> = {};
-  for (const [target, functions] of Object.entries(functionsByTarget)) {
-    targets[target] = buildTarget({ props, target, functions: [...functions] });
+  const regions = [...new Set(resources.map((resource) => resource.region))];
+  if (regions.length > 1) {
+    throw new Error(
+      `The env spans multiple regions (${regions.join(", ")}). The resolver reads one region; use envOf() on constructs in a single region.`,
+    );
   }
-  return { projectKey: props.projectName, targets };
+  const stackNames = [...new Set(resources.map((resource) => resource.stackName))];
+  const target = buildEmittedTarget({
+    stackName: stackNames,
+    region: first.region,
+    profile: props.profile,
+    entries: Object.entries(props.env).map(([envVar, value]) => toEntry({ envVar, value })),
+  });
+  return { projectKey: props.projectName, targets: { [defaultTarget]: target } };
 }
 
 /** Write an emitted config to `options.path` as JSON, creating parent directories. */
-export function persist(config: EmittedConfig, options: { readonly path: string }): void {
+export function persistDevEnv(config: EmittedConfig, options: { readonly path: string }): void {
   mkdirSync(dirname(options.path), { recursive: true });
   writeFileSync(options.path, `${JSON.stringify(config, null, 2)}\n`);
 }
 
-/** {@link generate} followed by {@link persist}; returns the generated config. */
-export function generateAndPersist(
-  props: AllowEnvResolutionProps & {
+/** {@link generateDevEnv} followed by {@link persistDevEnv}; returns the generated config. */
+export function devEnv(
+  props: DevEnvProps & {
     /** Stage this config is for; picks the default path `aws-env.config.<stage>.json`. */
     readonly stage?: string;
     /** Output path; overrides the stage-derived default. */
     readonly path?: string;
   },
 ): EmittedConfig {
-  const config = generate(props);
-  persist(config, { path: props.path ?? defaultConfigPath(props.stage) });
+  const config = generateDevEnv(props);
+  persistDevEnv(config, { path: props.path ?? defaultConfigPath(props.stage) });
   return config;
 }
 
-function toTargetNames(target: string | ReadonlyArray<string> | undefined): ReadonlyArray<string> {
-  if (target == null) {
-    return [];
+function toDevEnvValue(props: {
+  readonly entry: ExtractedEnvEntry;
+  readonly lambdaFunction: CfnFunction;
+}): DevEnvValue {
+  const { entry, lambdaFunction } = props;
+  if (typeof entry.value === "string") {
+    return entry.value;
   }
-  return typeof target === "string" ? [target] : target;
-}
-
-function readTraceTargets(construct: IConstruct): ReadonlyArray<string> {
-  const parsed = v.safeParse(traceSchema, Reflect.get(construct, traceKey));
-  return parsed.success ? parsed.output : [];
-}
-
-function groupFunctionsByTarget(
-  traced: ReadonlyArray<IConstruct>,
-): Record<string, Set<CfnFunction>> {
-  const functionsByTarget: Record<string, Set<CfnFunction>> = {};
-  for (const construct of traced) {
-    const functions = construct.node.findAll().filter((node) => node instanceof CfnFunction);
-    if (functions.length === 0) {
-      throw new Error(
-        `Construct "${construct.node.path}" is marked with traceEnv() but contains no Lambda function. Trace the function itself or a construct that creates one.`,
-      );
-    }
-    for (const target of readTraceTargets(construct)) {
-      const group = (functionsByTarget[target] ??= new Set());
-      for (const lambdaFunction of functions) {
-        group.add(lambdaFunction);
-      }
-    }
-  }
-  return functionsByTarget;
-}
-
-function buildTarget(input: {
-  readonly props: AllowEnvResolutionProps;
-  readonly target: string;
-  readonly functions: ReadonlyArray<CfnFunction>;
-}): EmittedTarget {
-  const { props, target, functions } = input;
-  const stackEntries = collectStackEntries(functions);
-  const withEnv = stackEntries.filter((stackEntry) => stackEntry.entries.length > 0);
-  const included = withEnv.length === 0 ? stackEntries : withEnv;
-  const [first] = included;
-  if (first == null) {
-    throw new Error(`Target "${target}" has no Lambda functions`);
-  }
-
-  for (const { stack } of included) {
-    if (Token.isUnresolved(stack.region) || Token.isUnresolved(stack.stackName)) {
-      throw new Error(
-        `Stack "${stack.node.path}" has an unresolved region or stack name. Set env.region and an explicit stackName on the stack.`,
-      );
-    }
-  }
-  const regions = [...new Set(included.map(({ stack }) => stack.region))];
-  if (regions.length > 1) {
+  const stack = Stack.of(lambdaFunction);
+  if (Token.isUnresolved(stack.region) || Token.isUnresolved(stack.stackName)) {
     throw new Error(
-      `Target "${target}" spans multiple regions (${regions.join(", ")}). The resolver reads one region; trace only the constructs in one region or put the others in another target.`,
+      `Stack "${stack.node.path}" has an unresolved region or stack name. Set env.region and an explicit stackName on the stack.`,
     );
   }
+  return {
+    kind: "resource",
+    intrinsic: entry.value.intrinsic,
+    stackName: stack.stackName,
+    region: stack.region,
+  };
+}
 
-  try {
-    return buildEmittedTarget({
-      stackName: included.map(({ stack }) => stack.stackName),
-      region: first.stack.region,
-      profile: props.profile,
-      entries: included.flatMap((stackEntry) => stackEntry.entries),
-      secrets: props.secrets,
-      staticEnv: props.staticEnv,
-    });
-  } catch (error) {
-    if (error instanceof Error) {
-      throw new Error(`Target "${target}": ${error.message}`, { cause: error });
-    }
-    throw error;
+function toEntry(props: {
+  readonly envVar: string;
+  readonly value: DevEnvValue;
+}): ExtractedEnvEntry {
+  const { envVar, value } = props;
+  if (typeof value === "string") {
+    return { envVar, value };
   }
+  if (value.kind === "secret") {
+    return {
+      envVar,
+      value: `{{resolve:secretsmanager:${value.secretId}:SecretString:${value.jsonKey ?? envVar}::}}`,
+    };
+  }
+  return { envVar, value: { intrinsic: value.intrinsic }, stackName: value.stackName };
 }
 
 const resolvedEnvironmentSchema = v.object({
@@ -203,23 +184,6 @@ const resolvedEnvironmentSchema = v.object({
     v.record(v.string(), v.union([v.string(), v.record(v.string(), v.unknown())])),
   ),
 });
-
-function isConstruct(scope: IConstruct | ReadonlyArray<IConstruct>): scope is IConstruct {
-  return "node" in scope;
-}
-
-function collectStackEntries(
-  functions: ReadonlyArray<CfnFunction>,
-): ReadonlyArray<{ readonly stack: Stack; readonly entries: ReadonlyArray<ExtractedEnvEntry> }> {
-  const stacks = [...new Set(functions.map((lambdaFunction) => Stack.of(lambdaFunction)))];
-  return stacks.map((stack) => ({
-    stack,
-    entries: functions
-      .filter((lambdaFunction) => Stack.of(lambdaFunction) === stack)
-      .flatMap((lambdaFunction) => extractEntries(lambdaFunction))
-      .map((entry) => ({ ...entry, stackName: stack.stackName })),
-  }));
-}
 
 function extractEntries(lambdaFunction: CfnFunction): ReadonlyArray<ExtractedEnvEntry> {
   const stack = Stack.of(lambdaFunction);

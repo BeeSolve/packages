@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted. Supersedes the "walk every Lambda under the scope" part of ADR-002.
+Accepted. Supersedes the "walk every Lambda under the scope" part of ADR-002. The `traceEnv` part is superseded by ADR-005.
 
 ## Context
 

@@ -117,13 +117,13 @@ const auth = new AuthGateway(this, "Auth", {
   stage,
   frontendUri,
   allowSignUp: true,
-  appId: "bewatr", // source => "beesolve.auth.bewatr"
+  appId: "example", // source => "beesolve.auth.example"
 });
 
 new Rule(this, "AuthRule", {
   eventBus: auth.eventBus,
   eventPattern: {
-    source: [auth.eventSource], // resolved from appId: "beesolve.auth.bewatr"
+    source: [auth.eventSource], // resolved from appId: "beesolve.auth.example"
     detailType: ["EmailCodeAuth", "UnsuccessfulAuth"],
   },
   targets: [new LambdaFunction(consumer)],

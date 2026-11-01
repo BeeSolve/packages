@@ -8,7 +8,7 @@ import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as sqs from "aws-cdk-lib/aws-sqs";
 
-import { generate, generateAndPersist, persist, traceEnv } from "../cdk.ts";
+import { envOf, generateDevEnv, devEnv, persistDevEnv, secret } from "../cdk.ts";
 import type { EmittedTarget } from "../src/emit.ts";
 import { loadConfig } from "../src/loadConfig.ts";
 
@@ -39,6 +39,19 @@ function addFunction(props: {
   });
 }
 
+function addStack(app: App, id: string, region = "eu-central-1"): Stack {
+  return new Stack(app, id, {
+    env: { region, account: "111122223333" },
+    stackName: id.toLowerCase(),
+  });
+}
+
+function addTable(stack: Stack, id: string): dynamodb.Table {
+  return new dynamodb.Table(stack, id, {
+    partitionKey: { name: "pk", type: dynamodb.AttributeType.STRING },
+  });
+}
+
 function only(config: { readonly targets: Record<string, EmittedTarget> }): EmittedTarget {
   const target = config.targets.default;
   if (target == null) {
@@ -47,184 +60,130 @@ function only(config: { readonly targets: Record<string, EmittedTarget> }): Emit
   return target;
 }
 
-function buildApp(): { readonly app: App; readonly stack: Stack; readonly table: dynamodb.Table } {
+function buildApp(): {
+  readonly app: App;
+  readonly stack: Stack;
+  readonly handler: lambda.Function;
+} {
   const app = new App();
-  const stack = new Stack(app, "ExampleStack", {
-    env: { region: "eu-central-1", account: "111122223333" },
-    stackName: "example-stack",
-  });
-  const table = new dynamodb.Table(stack, "Data", {
-    partitionKey: { name: "pk", type: dynamodb.AttributeType.STRING },
-  });
-  addFunction({
+  const stack = addStack(app, "ExampleStack");
+  const table = addTable(stack, "Data");
+  const handler = addFunction({
     stack,
     id: "Handler",
     environment: { DATA_TABLE_NAME: table.tableName, BASE_URI: "https://example.test" },
   });
-  traceEnv(stack);
-  return { app, stack, table };
+  return { app, stack, handler };
 }
 
-describe("generate", () => {
-  it("emits the mapping from a real CDK app", () => {
-    const { app, stack, table } = buildApp();
-    const tableResource = table.node.defaultChild;
-    if (!(tableResource instanceof dynamodb.CfnTable)) {
-      throw new Error("expected CfnTable default child");
-    }
-    const expectedPrefix = stack.getLogicalId(tableResource).replace(/[0-9A-F]{8}$/, "");
+describe("generateDevEnv", () => {
+  it("emits resources, literals and secrets from the composed env", () => {
+    const { handler } = buildApp();
 
-    const config = generate({
+    const config = generateDevEnv({
       projectName: "example-app",
-      scope: app,
-      secrets: [{ secretId: "example/secrets", envVars: ["API_KEY"] }],
+      profile: "example-profile",
+      env: {
+        ...envOf(handler),
+        BASE_URI: "https://local.test:3000",
+        IS_LOCAL: "true",
+        API_KEY: secret({ secretId: "example/secrets" }),
+        SIGNING: secret({ secretId: "example/secrets", jsonKey: "signingKey" }),
+      },
     });
 
-    expect(expectedPrefix.startsWith("Data")).toBe(true);
-    expect(config.projectKey).toBe("example-app");
     const target = only(config);
-    expect(target.resources).toContainEqual({
-      envVar: "DATA_TABLE_NAME",
-      logicalIdPrefix: expectedPrefix,
+    expect(config.projectKey).toBe("example-app");
+    expect(target.resources).toEqual([{ envVar: "DATA_TABLE_NAME", logicalIdPrefix: "Data" }]);
+    expect(target.config.staticEnv).toEqual({
+      BASE_URI: "https://local.test:3000",
+      IS_LOCAL: "true",
     });
-    expect(target.config.staticEnv.BASE_URI).toBe("https://example.test");
-    expect(target.config.stackName).toBe("example-stack");
+    expect(target.config.stackName).toBe("examplestack");
     expect(target.config.region).toBe("eu-central-1");
+    expect(target.config.profile).toBe("example-profile");
     expect(target.config.secretId).toBe("example/secrets");
-    expect(target.secrets).toEqual([{ envVar: "API_KEY" }]);
+    expect(target.secrets).toEqual([
+      { envVar: "API_KEY" },
+      { envVar: "SIGNING", jsonKey: "signingKey" },
+    ]);
   });
 
-  it("round-trips a persisted config through the CLI json loader", async () => {
-    const { app } = buildApp();
-    const config = generate({
+  it("lets later spreads win, so the app's resource beats an embedded one", () => {
+    const app = new App();
+    const stack = addStack(app, "Stack");
+    const appQueue = new sqs.Queue(stack, "AppQueue");
+    const authQueue = new sqs.Queue(stack, "AuthQueue");
+    const appHandler = addFunction({ stack, id: "App", environment: { QUEUE: appQueue.queueUrl } });
+    const authHandler = addFunction({
+      stack,
+      id: "Auth",
+      environment: { QUEUE: authQueue.queueUrl },
+    });
+
+    const config = generateDevEnv({
       projectName: "example-app",
-      scope: app,
-      secrets: [{ secretId: "example/secrets", envVars: ["API_KEY"] }],
+      env: { ...envOf(authHandler), ...envOf(appHandler) },
     });
-    const dir = makeTempDir();
-    const path = join(dir, "aws-env.config.json");
 
-    persist(config, { path });
-    const loaded = await loadConfig({ cwd: dir, stage: "staging" });
-
-    expect(loaded.projectKey).toBe(config.projectKey);
-    expect(loaded.config).toEqual(only(config).config);
-    expect(loaded.resources).toEqual(only(config).resources);
-    expect(loaded.secrets).toEqual(only(config).secrets);
-    expect(loaded.target).toBeUndefined();
+    expect(only(config).resources).toEqual([{ envVar: "QUEUE", logicalIdPrefix: "AppQueue" }]);
   });
 
-  it("generateAndPersist writes nested paths and returns the config", () => {
-    const { app } = buildApp();
-    const path = join(makeTempDir(), "nested", "aws-env.config.json");
-
-    const config = generateAndPersist({
-      projectName: "example-app",
-      scope: app,
-      path,
-    });
-
-    expect(JSON.parse(readFileSync(path, "utf8"))).toEqual(config);
-  });
-
-  it("emits every stack with lambda env and tags resource mappings with their stack", () => {
-    const { app } = buildApp();
-    const otherStack = new Stack(app, "OtherStack", {
-      env: { region: "eu-central-1", account: "111122223333" },
-      stackName: "other-stack",
-    });
-    traceEnv(otherStack);
+  it("emits every stack and tags resource mappings with their stack", () => {
+    const { app, handler } = buildApp();
+    const otherStack = addStack(app, "OtherStack");
     const queue = new sqs.Queue(otherStack, "Jobs");
-    addFunction({
+    const other = addFunction({
       stack: otherStack,
       id: "OtherHandler",
       environment: { QUEUE_URL: queue.queueUrl },
     });
-    const noEnvStack = new Stack(app, "NoEnvStack", {
-      env: { region: "us-east-1", account: "111122223333" },
+
+    const config = generateDevEnv({
+      projectName: "example-app",
+      env: { ...envOf(handler), ...envOf(other) },
     });
-    traceEnv(noEnvStack);
-    addFunction({ stack: noEnvStack, id: "EdgeHandler", environment: {} });
 
-    const config = generate({ projectName: "example-app", scope: app });
-
-    expect(only(config).config.stackName).toEqual(["example-stack", "other-stack"]);
+    expect(only(config).config.stackName).toEqual(["examplestack", "otherstack"]);
     expect(only(config).resources).toEqual(
       expect.arrayContaining([
-        { envVar: "DATA_TABLE_NAME", logicalIdPrefix: "Data", stackName: "example-stack" },
-        { envVar: "QUEUE_URL", logicalIdPrefix: "Jobs", stackName: "other-stack" },
+        { envVar: "DATA_TABLE_NAME", logicalIdPrefix: "Data", stackName: "examplestack" },
+        { envVar: "QUEUE_URL", logicalIdPrefix: "Jobs", stackName: "otherstack" },
       ]),
     );
   });
 
-  it("throws when stacks with lambda env span multiple regions", () => {
-    const { app } = buildApp();
-    const otherStack = new Stack(app, "OtherStack", {
-      env: { region: "us-east-1", account: "111122223333" },
-      stackName: "other-stack",
+  it("throws when the env spans multiple regions", () => {
+    const { app, handler } = buildApp();
+    const other = addFunction({
+      stack: addStack(app, "OtherStack", "us-east-1"),
+      id: "OtherHandler",
+      environment: { A: "b" },
     });
-    traceEnv(otherStack);
-    addFunction({ stack: otherStack, id: "OtherHandler", environment: { A: "b" } });
-
-    expect(() => generate({ projectName: "example-app", scope: app })).toThrow(/multiple regions/);
-  });
-
-  it("writes to aws-env.config.<stage>.json when a stage is given", () => {
-    const { app } = buildApp();
-    const dir = makeTempDir();
-    const previous = process.cwd();
-    process.chdir(dir);
-    try {
-      generateAndPersist({ projectName: "example-app", stage: "stg", scope: app });
-    } finally {
-      process.chdir(previous);
-    }
-
-    expect(existsSync(join(dir, "aws-env.config.stg.json"))).toBe(true);
-    expect(existsSync(join(dir, "aws-env.config.json"))).toBe(false);
-  });
-
-  it("rejects a stage that is unsafe in file names", () => {
-    const { app } = buildApp();
+    const queue = new sqs.Queue(other.stack, "Jobs");
+    const withQueue = addFunction({
+      stack: Stack.of(other),
+      id: "Queue",
+      environment: { QUEUE_URL: queue.queueUrl },
+    });
 
     expect(() =>
-      generateAndPersist({ projectName: "example-app", stage: "../prod", scope: app }),
-    ).toThrow(/stage must start with a letter or digit/);
+      generateDevEnv({
+        projectName: "example-app",
+        env: { ...envOf(handler), ...envOf(withQueue) },
+      }),
+    ).toThrow(/multiple regions/);
   });
 
-  it("writes to aws-env.config.json in the cwd by default", () => {
-    const { app } = buildApp();
-    const dir = makeTempDir();
-    const previous = process.cwd();
-    process.chdir(dir);
-    try {
-      generateAndPersist({ projectName: "example-app", scope: app });
-    } finally {
-      process.chdir(previous);
-    }
-
-    expect(JSON.parse(readFileSync(join(dir, "aws-env.config.json"), "utf8")).projectKey).toBe(
-      "example-app",
+  it("throws when the env has no value from envOf", () => {
+    expect(() => generateDevEnv({ projectName: "example-app", env: { A: "b" } })).toThrow(
+      /no value from envOf/,
     );
   });
 
-  it("limits the walk to the stacks given as scope", () => {
-    const { app, stack } = buildApp();
-    const edgeStack = new Stack(app, "EdgeStack", {
-      env: { region: "us-east-1", account: "111122223333" },
-      stackName: "edge-stack",
-    });
-    traceEnv(edgeStack);
-    addFunction({ stack: edgeStack, id: "EdgeHandler", environment: { A: "b" } });
-
-    expect(() => generate({ projectName: "example-app", scope: app })).toThrow(/multiple regions/);
-    const config = generate({ projectName: "example-app", scope: [stack] });
-    expect(only(config).config.stackName).toBe("example-stack");
-  });
-
   it("inlines pseudo parameters so a literal ARN becomes static env", () => {
-    const { app, stack } = buildApp();
-    addFunction({
+    const { stack, handler } = buildApp();
+    const bus = addFunction({
       stack,
       id: "Bus",
       environment: {
@@ -236,204 +195,154 @@ describe("generate", () => {
       },
     });
 
-    const config = generate({ projectName: "example-app", scope: app });
+    const config = generateDevEnv({
+      projectName: "example-app",
+      env: { ...envOf(handler), ...envOf(bus) },
+    });
 
     expect(only(config).config.staticEnv.EVENT_BUS_ARN).toBe(
       "arn:aws:events:eu-central-1:111122223333:event-bus/default",
     );
   });
 
-  it("throws for env-agnostic stacks", () => {
-    const app = new App();
-    const stack = new Stack(app, "AgnosticStack");
-    traceEnv(stack);
-    addFunction({ stack, id: "Handler", environment: { A: "b" } });
-
-    expect(() => generate({ projectName: "example-app", scope: app })).toThrow(/unresolved region/);
-  });
-
-  it("throws when nothing is marked with traceEnv", () => {
-    const app = new App();
-    const stack = new Stack(app, "Stack", { env: { region: "eu-central-1" } });
-    addFunction({ stack, id: "Handler", environment: { A: "b" } });
-
-    expect(() => generate({ projectName: "example-app", scope: app })).toThrow(
-      /No constructs marked with traceEnv/,
-    );
-  });
-
-  it("throws when a traced construct contains no lambda function", () => {
-    const app = new App();
-    const stack = new Stack(app, "EmptyStack", {
-      env: { region: "eu-central-1", account: "111122223333" },
+  it("emits dynamic secret references on a Lambda as secret mappings", () => {
+    const { stack, handler } = buildApp();
+    const withSecret = addFunction({
+      stack,
+      id: "WithSecret",
+      environment: { TOKEN: "{{resolve:secretsmanager:example/secrets:SecretString:token::}}" },
     });
-    traceEnv(stack);
 
-    expect(() => generate({ projectName: "example-app", scope: app })).toThrow(
-      /contains no Lambda function/,
-    );
+    const config = generateDevEnv({
+      projectName: "example-app",
+      env: { ...envOf(handler), ...envOf(withSecret) },
+    });
+
+    expect(only(config).secrets).toEqual([{ envVar: "TOKEN", jsonKey: "token" }]);
+    expect(only(config).config.secretId).toBe("example/secrets");
   });
 });
 
-describe("traceEnv", () => {
-  it("traces only the marked construct, leaving other lambdas out", () => {
-    const { app, stack } = buildApp();
-    const untraced = new Stack(app, "Untraced", {
-      env: { region: "us-east-1", account: "111122223333" },
-      stackName: "untraced",
-    });
-    addFunction({ stack: untraced, id: "Other", environment: { DATA_TABLE_NAME: "other" } });
-
-    const config = generate({ projectName: "example-app", scope: app });
-
-    expect(only(config).config.stackName).toBe(stack.stackName);
-  });
-
-  it("finds lambdas inside a marked construct and accepts a lambda directly", () => {
+describe("envOf", () => {
+  it("finds lambdas inside a construct and accepts a lambda directly", () => {
     const app = new App();
-    const stack = new Stack(app, "Stack", {
-      env: { region: "eu-central-1", account: "111122223333" },
-      stackName: "example-stack",
-    });
+    const stack = addStack(app, "Stack");
     const handler = addFunction({ stack, id: "Handler", environment: { A: "a" } });
     addFunction({ stack, id: "Unrelated", environment: { B: "b" } });
-    traceEnv(handler);
 
-    const config = generate({ projectName: "example-app", scope: app });
-
-    expect(only(config).config.staticEnv).toEqual({ A: "a" });
+    expect(envOf(handler)).toEqual({ A: "a" });
+    expect(envOf(stack)).toEqual({ A: "a", B: "b" });
   });
 
-  it("keeps targets apart so one env var can differ per target", () => {
+  it("merges identical values from several lambdas under one construct", () => {
     const app = new App();
-    const stack = new Stack(app, "Stack", {
-      env: { region: "eu-central-1", account: "111122223333" },
-      stackName: "example-stack",
-    });
-    const webTable = new dynamodb.Table(stack, "WebTable", {
-      partitionKey: { name: "pk", type: dynamodb.AttributeType.STRING },
-    });
-    const workerTable = new dynamodb.Table(stack, "WorkerTable", {
-      partitionKey: { name: "pk", type: dynamodb.AttributeType.STRING },
-    });
-    const web = addFunction({ stack, id: "Web", environment: { TABLE: webTable.tableName } });
-    const worker = addFunction({
-      stack,
-      id: "Worker",
-      environment: { TABLE: workerTable.tableName },
-    });
-    traceEnv(web, { target: "web" });
-    traceEnv(worker, { target: "worker" });
+    const stack = addStack(app, "Stack");
+    const table = addTable(stack, "Data");
+    addFunction({ stack, id: "One", environment: { TABLE: table.tableName } });
+    addFunction({ stack, id: "Two", environment: { TABLE: table.tableName } });
 
-    const config = generate({ projectName: "example-app", scope: app });
-
-    expect(Object.keys(config.targets).toSorted()).toEqual(["web", "worker"]);
-    expect(config.targets.web?.resources).toEqual([
-      { envVar: "TABLE", logicalIdPrefix: "WebTable" },
-    ]);
-    expect(config.targets.worker?.resources).toEqual([
-      { envVar: "TABLE", logicalIdPrefix: "WorkerTable" },
-    ]);
+    expect(Object.keys(envOf(stack))).toEqual(["TABLE"]);
   });
 
-  it("still reports a conflict inside one target and names the target", () => {
+  it("names both lambdas when they disagree", () => {
     const app = new App();
-    const stack = new Stack(app, "Stack", {
-      env: { region: "eu-central-1", account: "111122223333" },
-      stackName: "example-stack",
-    });
-    const first = new dynamodb.Table(stack, "First", {
-      partitionKey: { name: "pk", type: dynamodb.AttributeType.STRING },
-    });
-    const second = new dynamodb.Table(stack, "Second", {
-      partitionKey: { name: "pk", type: dynamodb.AttributeType.STRING },
-    });
-    traceEnv(addFunction({ stack, id: "One", environment: { TABLE: first.tableName } }), {
-      target: "web",
-    });
-    traceEnv(addFunction({ stack, id: "Two", environment: { TABLE: second.tableName } }), {
-      target: "web",
-    });
+    const stack = addStack(app, "Stack");
+    addFunction({ stack, id: "One", environment: { TABLE: addTable(stack, "First").tableName } });
+    addFunction({ stack, id: "Two", environment: { TABLE: addTable(stack, "Second").tableName } });
 
-    expect(() => generate({ projectName: "example-app", scope: app })).toThrow(
-      /Target "web": Conflicting values for env var TABLE/,
+    expect(() => envOf(stack)).toThrow(
+      /set env var TABLE to different values: Stack\/One\/Resource vs Stack\/Two\/Resource/,
     );
   });
 
-  it("puts a construct in several targets and merges repeated calls", () => {
-    const app = new App();
-    const stack = new Stack(app, "Stack", {
-      env: { region: "eu-central-1", account: "111122223333" },
-      stackName: "example-stack",
-    });
-    const shared = addFunction({ stack, id: "Shared", environment: { A: "a" } });
-    traceEnv(shared, { target: ["web", "worker"] });
-    traceEnv(shared, { target: "other" });
+  it("throws for a construct without a lambda function", () => {
+    const stack = addStack(new App(), "EmptyStack");
 
-    const config = generate({ projectName: "example-app", scope: app });
-
-    expect(Object.keys(config.targets).toSorted()).toEqual(["other", "web", "worker"]);
+    expect(() => envOf(stack)).toThrow(/contains no Lambda function/);
   });
 
-  it("rejects an unsafe target name", () => {
-    const { stack } = buildApp();
+  it("throws for env-agnostic stacks when the env needs a lookup", () => {
+    const app = new App();
+    const stack = new Stack(app, "AgnosticStack");
+    const queue = new sqs.Queue(stack, "Jobs");
+    const handler = addFunction({ stack, id: "Handler", environment: { Q: queue.queueUrl } });
 
-    expect(() => traceEnv(stack, { target: "../web" })).toThrow(/target must start/);
+    expect(() => envOf(handler)).toThrow(/unresolved region/);
   });
 
-  it("round-trips named targets through the json loader and selects one", async () => {
+  it("allows lambdas in stacks without a region when they only set literals", () => {
     const app = new App();
-    const stack = new Stack(app, "Stack", {
-      env: { region: "eu-central-1", account: "111122223333" },
-      stackName: "example-stack",
-    });
-    traceEnv(addFunction({ stack, id: "Web", environment: { A: "web" } }), { target: "web" });
-    traceEnv(addFunction({ stack, id: "Worker", environment: { A: "worker" } }), {
-      target: "worker",
-    });
-    const dir = makeTempDir();
-    persist(generate({ projectName: "example-app", scope: app }), {
-      path: join(dir, "aws-env.config.json"),
-    });
+    const stack = new Stack(app, "AgnosticStack");
+    const handler = addFunction({ stack, id: "Handler", environment: { A: "b" } });
 
-    const web = await loadConfig({ cwd: dir, target: "web" });
-    const worker = await loadConfig({ cwd: dir, target: "worker" });
-
-    expect(web.config.staticEnv).toEqual({ A: "web" });
-    expect(web.target).toBe("web");
-    expect(worker.config.staticEnv).toEqual({ A: "worker" });
-    expect(await loadErrorMessage({ cwd: dir })).toMatch(/several targets \(web, worker\)/);
-    expect(await loadErrorMessage({ cwd: dir, target: "nope" })).toMatch(
-      /Target "nope" not found.*Available: web, worker/,
-    );
-  });
-
-  it("loads the only target without a flag", async () => {
-    const app = new App();
-    const stack = new Stack(app, "Stack", {
-      env: { region: "eu-central-1", account: "111122223333" },
-      stackName: "example-stack",
-    });
-    traceEnv(addFunction({ stack, id: "Web", environment: { A: "web" } }), { target: "web" });
-    const dir = makeTempDir();
-    persist(generate({ projectName: "example-app", scope: app }), {
-      path: join(dir, "aws-env.config.json"),
-    });
-
-    const loaded = await loadConfig({ cwd: dir });
-
-    expect(loaded.target).toBe("web");
+    expect(envOf(handler)).toEqual({ A: "b" });
   });
 });
 
-async function loadErrorMessage(props: {
-  readonly cwd: string;
-  readonly target?: string;
-}): Promise<string | undefined> {
-  try {
-    await loadConfig(props);
-    return undefined;
-  } catch (error) {
-    return error instanceof Error ? error.message : String(error);
-  }
-}
+describe("persistDevEnv", () => {
+  it("round-trips a persisted config through the CLI json loader", async () => {
+    const { handler } = buildApp();
+    const config = generateDevEnv({
+      projectName: "example-app",
+      env: { ...envOf(handler), API_KEY: secret({ secretId: "example/secrets" }) },
+    });
+    const dir = makeTempDir();
+    persistDevEnv(config, { path: join(dir, "aws-env.config.json") });
+
+    const loaded = await loadConfig({ cwd: dir, stage: "staging" });
+
+    expect(loaded.projectKey).toBe(config.projectKey);
+    expect(loaded.config).toEqual(only(config).config);
+    expect(loaded.resources).toEqual(only(config).resources);
+    expect(loaded.secrets).toEqual(only(config).secrets);
+    expect(loaded.target).toBeUndefined();
+  });
+
+  it("devEnv writes nested paths and returns the config", () => {
+    const { handler } = buildApp();
+    const path = join(makeTempDir(), "nested", "aws-env.config.json");
+
+    const config = devEnv({ projectName: "example-app", env: envOf(handler), path });
+
+    expect(JSON.parse(readFileSync(path, "utf8"))).toEqual(config);
+  });
+
+  it("writes to aws-env.config.<stage>.json when a stage is given", () => {
+    const { handler } = buildApp();
+    const dir = makeTempDir();
+    const previous = process.cwd();
+    process.chdir(dir);
+    try {
+      devEnv({ projectName: "example-app", stage: "stg", env: envOf(handler) });
+    } finally {
+      process.chdir(previous);
+    }
+
+    expect(existsSync(join(dir, "aws-env.config.stg.json"))).toBe(true);
+    expect(existsSync(join(dir, "aws-env.config.json"))).toBe(false);
+  });
+
+  it("rejects a stage that is unsafe in file names", () => {
+    const { handler } = buildApp();
+
+    expect(() =>
+      devEnv({ projectName: "example-app", stage: "../prod", env: envOf(handler) }),
+    ).toThrow(/stage must start with a letter or digit/);
+  });
+
+  it("writes to aws-env.config.json in the cwd by default", () => {
+    const { handler } = buildApp();
+    const dir = makeTempDir();
+    const previous = process.cwd();
+    process.chdir(dir);
+    try {
+      devEnv({ projectName: "example-app", env: envOf(handler) });
+    } finally {
+      process.chdir(previous);
+    }
+
+    expect(JSON.parse(readFileSync(join(dir, "aws-env.config.json"), "utf8")).projectKey).toBe(
+      "example-app",
+    );
+  });
+});
