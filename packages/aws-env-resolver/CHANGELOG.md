@@ -1,5 +1,12 @@
 # @beesolve/aws-env-resolver
 
+## 0.6.1
+
+### Patch Changes
+
+- dc3ade9: Fix: the resource cache is invalidated when the resource mapping changes. Previously the cache was keyed only by region, stack names and secret id, so regenerating a config with new env vars kept serving the old cached values (and the new vars were missing) until the 24 hour TTL expired or `--refresh` was passed. The cache file now records a hash of the mapping and a mismatch is a miss. Existing cache files miss once after upgrading.
+- 17066d0: Docs: the getting started guide now shows how to run one-off scripts through the resolver instead of `--env-file`, and notes that a missing AWS profile can make the CLI look stuck.
+
 ## 0.6.0
 
 ### Minor Changes
