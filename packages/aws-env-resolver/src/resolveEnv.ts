@@ -65,7 +65,11 @@ async function loadResourceValues(props: {
   const { options, identity, deps } = props;
 
   if (options.refresh !== true) {
-    const cached = deps.readCache({ identity, cacheTtlMs: options.cacheTtlMs });
+    const cached = deps.readCache({
+      identity,
+      resources: options.resources,
+      cacheTtlMs: options.cacheTtlMs,
+    });
     if (cached != null) {
       return cached.values;
     }
@@ -75,7 +79,7 @@ async function loadResourceValues(props: {
     config: options.config,
     resources: options.resources,
   });
-  deps.writeCache({ identity, values });
+  deps.writeCache({ identity, resources: options.resources, values });
   return values;
 }
 

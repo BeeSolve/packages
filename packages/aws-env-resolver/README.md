@@ -87,7 +87,7 @@ When an env var appears in several sources, the later one wins: `config.staticEn
 
 ## Caching
 
-- Non-secret values: `os.tmpdir()/aws-env-resolver/<projectKey>-<stage>-<fingerprint>.json`, 24 hour TTL by default (`cacheTtlMs`).
+- Non-secret values: `os.tmpdir()/aws-env-resolver/<projectKey>-<stage>-<fingerprint>.json`, 24 hour TTL by default (`cacheTtlMs`). The file records a hash of the resource mapping, so values cached for a different mapping (for example after regenerating the config) are a miss and get re-fetched.
 - Secrets: macOS keychain, service `aws-env-resolver:<projectKey>:<stage>:<fingerprint>`, one item holding all secrets as JSON. The fingerprint hashes `region`, `stackName`, and `secretId`, so the cache and keychain share one identity independent of the working directory. A non-default target also enters the cache file's fingerprint (not the keychain's), so targets sharing a stack keep separate resource caches.
 - Default mode stores items with an empty trust list, so macOS may prompt once on read. `--trusted` stores them with `-T /usr/bin/security` for silent reads.
 - Steady state makes zero AWS calls.

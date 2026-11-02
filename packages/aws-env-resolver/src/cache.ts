@@ -5,6 +5,7 @@ import { dirname, join } from "node:path";
 
 import * as v from "valibot";
 
+import type { ResolveEnvOptions } from "../index.ts";
 import { toStackNames } from "./emit.ts";
 
 /** Default non-secret cache TTL: 24 hours in milliseconds. */
@@ -28,6 +29,9 @@ export interface CacheIdentity {
   readonly target?: string;
 }
 
+/** The resource mapping the cached values were resolved from; a change invalidates the cache. */
+export type CachedResources = ResolveEnvOptions["resources"];
+
 export interface CacheRecord {
   readonly values: Record<string, string>;
 }
@@ -38,6 +42,7 @@ interface StoredCache {
   readonly region: string;
   readonly stackName: string;
   readonly secretId?: string;
+  readonly resourcesHash: string;
 }
 
 const storedCacheSchema: v.GenericSchema<StoredCache> = v.object({
@@ -46,6 +51,7 @@ const storedCacheSchema: v.GenericSchema<StoredCache> = v.object({
   region: v.string(),
   stackName: v.string(),
   secretId: v.optional(v.string()),
+  resourcesHash: v.string(),
 });
 
 /** Short, stable hex fingerprint of the AWS target identity shared by cache file and keychain. */
@@ -69,6 +75,7 @@ export function cacheFilePath(identity: CacheIdentity): string {
 /** Persist only non-secret resource values plus the fingerprint inputs and a timestamp. */
 export function writeCache(props: {
   readonly identity: CacheIdentity;
+  readonly resources: CachedResources;
   readonly values: Record<string, string>;
 }): void {
   const filePath = cacheFilePath(props.identity);
@@ -82,13 +89,18 @@ export function writeCache(props: {
     region: props.identity.config.region,
     stackName: normalizeStackName(props.identity.config.stackName),
     secretId: props.identity.config.secretId,
+    resourcesHash: hashResources(props.resources),
   };
   writeFileSync(filePath, JSON.stringify(stored), "utf8");
 }
 
-/** Read the cached non-secret values, honoring TTL and a defensive fingerprint-input match. */
+/**
+ * Read the cached non-secret values, honoring TTL, a defensive fingerprint-input match, and the
+ * resource mapping: values cached for a different mapping are a miss.
+ */
 export function readCache(props: {
   readonly identity: CacheIdentity;
+  readonly resources: CachedResources;
   readonly cacheTtlMs?: number;
 }): CacheRecord | undefined {
   const filePath = cacheFilePath(props.identity);
@@ -107,7 +119,8 @@ export function readCache(props: {
   if (
     parsed.region !== config.region ||
     parsed.stackName !== normalizeStackName(config.stackName) ||
-    (parsed.secretId ?? null) !== (config.secretId ?? null)
+    (parsed.secretId ?? null) !== (config.secretId ?? null) ||
+    parsed.resourcesHash !== hashResources(props.resources)
   ) {
     return undefined;
   }
@@ -123,6 +136,17 @@ export function purgeCache(props: { readonly identity: CacheIdentity }): void {
 
 function normalizeStackName(stackName: string | ReadonlyArray<string>): string {
   return toStackNames(stackName).toSorted().join(",");
+}
+
+/**
+ * Function transforms from a `.ts` config are hashed by their source text, so a change to a value
+ * the function only captures from its closure is not detected; use `--refresh` for that.
+ */
+function hashResources(resources: CachedResources): string {
+  const serialized = JSON.stringify(resources, (_key, value: unknown) =>
+    typeof value === "function" ? value.toString() : value,
+  );
+  return createHash("sha256").update(serialized).digest("hex");
 }
 
 function readJsonFile(filePath: string): unknown {

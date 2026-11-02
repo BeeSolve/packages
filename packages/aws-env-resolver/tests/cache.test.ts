@@ -1,10 +1,11 @@
 import { afterEach, describe, expect, it } from "bun:test";
-import { existsSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 
 import * as v from "valibot";
 
 import {
   type CacheIdentity,
+  type CachedResources,
   cacheFilePath,
   computeFingerprint,
   purgeCache,
@@ -13,6 +14,8 @@ import {
 } from "../src/cache.ts";
 
 const createdFiles = new Set<string>();
+
+const resources: CachedResources = [{ envVar: "DATA_TABLE_NAME", logicalIdPrefix: "Data" }];
 
 function makeIdentity(overrides: Partial<CacheIdentity> = {}): CacheIdentity {
   const suffix = Math.random().toString(36).slice(2);
@@ -49,11 +52,11 @@ describe("cache targets", () => {
     expect(cacheFilePath(web)).not.toBe(cacheFilePath(worker));
     expect(cacheFilePath(web)).not.toBe(cacheFilePath(base));
 
-    writeCache({ identity: web, values: { TABLE: "web-table" } });
+    writeCache({ resources, identity: web, values: { TABLE: "web-table" } });
 
-    expect(readCache({ identity: web })?.values).toEqual({ TABLE: "web-table" });
-    expect(readCache({ identity: worker })).toBeUndefined();
-    expect(readCache({ identity: base })).toBeUndefined();
+    expect(readCache({ resources, identity: web })?.values).toEqual({ TABLE: "web-table" });
+    expect(readCache({ resources, identity: worker })).toBeUndefined();
+    expect(readCache({ resources, identity: base })).toBeUndefined();
   });
 });
 
@@ -62,24 +65,24 @@ describe("cache", () => {
     const identity = track(makeIdentity());
     const values = { DATA_TABLE_NAME: "data-666", EXPORT_BUCKET: "exports-777" };
 
-    writeCache({ identity, values });
-    const record = readCache({ identity });
+    writeCache({ resources, identity, values });
+    const record = readCache({ resources, identity });
 
     expect(record).toEqual({ values });
   });
 
   it("treats an expired cache as a miss", () => {
     const identity = track(makeIdentity());
-    writeCache({ identity, values: { DATA_TABLE_NAME: "data-666" } });
+    writeCache({ resources, identity, values: { DATA_TABLE_NAME: "data-666" } });
 
-    const record = readCache({ identity, cacheTtlMs: -1 });
+    const record = readCache({ resources, identity, cacheTtlMs: -1 });
 
     expect(record).toBeUndefined();
   });
 
   it("misses on a fingerprint mismatch and uses a different file path", () => {
     const base = track(makeIdentity());
-    writeCache({ identity: base, values: { DATA_TABLE_NAME: "data-666" } });
+    writeCache({ resources, identity: base, values: { DATA_TABLE_NAME: "data-666" } });
 
     const otherStack = track({
       ...base,
@@ -87,18 +90,56 @@ describe("cache", () => {
     });
 
     expect(cacheFilePath(otherStack)).not.toBe(cacheFilePath(base));
-    expect(readCache({ identity: otherStack })).toBeUndefined();
+    expect(readCache({ resources, identity: otherStack })).toBeUndefined();
   });
 
   it("removes the file on purge", () => {
     const identity = track(makeIdentity());
-    writeCache({ identity, values: { DATA_TABLE_NAME: "data-666" } });
+    writeCache({ resources, identity, values: { DATA_TABLE_NAME: "data-666" } });
     expect(existsSync(cacheFilePath(identity))).toBe(true);
 
     purgeCache({ identity });
 
     expect(existsSync(cacheFilePath(identity))).toBe(false);
-    expect(readCache({ identity })).toBeUndefined();
+    expect(readCache({ resources, identity })).toBeUndefined();
+  });
+
+  it("misses when the resource mapping changed since the values were cached", () => {
+    const identity = track(makeIdentity());
+    writeCache({ resources, identity, values: { DATA_TABLE_NAME: "data-666" } });
+
+    const widened: CachedResources = [
+      ...resources,
+      { envVar: "SESSIONS_TABLE_NAME", logicalIdPrefix: "AuthSessions" },
+    ];
+
+    expect(readCache({ resources: widened, identity })).toBeUndefined();
+    expect(readCache({ resources, identity })?.values).toEqual({ DATA_TABLE_NAME: "data-666" });
+  });
+
+  it("misses when a function transform changed", () => {
+    const identity = track(makeIdentity());
+    const before: CachedResources = [
+      { envVar: "ARN", logicalIdPrefix: "Fn", transform: (physicalId) => `${physicalId}-a` },
+    ];
+    const after: CachedResources = [
+      { envVar: "ARN", logicalIdPrefix: "Fn", transform: (physicalId) => `${physicalId}-b` },
+    ];
+    writeCache({ resources: before, identity, values: { ARN: "fn-a" } });
+
+    expect(readCache({ resources: after, identity })).toBeUndefined();
+  });
+
+  it("misses on a cache file written before the mapping was recorded", () => {
+    const identity = track(makeIdentity());
+    writeCache({ resources, identity, values: { DATA_TABLE_NAME: "data-666" } });
+    const { resourcesHash: _dropped, ...legacy } = v.parse(
+      v.record(v.string(), v.unknown()),
+      JSON.parse(readFileSync(cacheFilePath(identity), "utf8")),
+    );
+    writeFileSync(cacheFilePath(identity), JSON.stringify(legacy));
+
+    expect(readCache({ resources, identity })).toBeUndefined();
   });
 
   it("purge is a no-op when the file is absent", () => {
@@ -110,7 +151,7 @@ describe("cache", () => {
     const identity = track(makeIdentity());
     const values = { DATA_TABLE_NAME: "data-666" };
 
-    writeCache({ identity, values });
+    writeCache({ resources, identity, values });
 
     const onDisk = v.parse(
       v.record(v.string(), v.unknown()),
@@ -120,6 +161,7 @@ describe("cache", () => {
     expect(Object.keys(onDisk).sort()).toEqual([
       "region",
       "resolvedAt",
+      "resourcesHash",
       "secretId",
       "stackName",
       "values",
