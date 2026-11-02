@@ -50,7 +50,27 @@ aws-env-resolver --stage dev --trusted -- bun --hot dev.tsx
 
 Exit codes: `0` success, `1` runtime error, `2` invalid arguments. Otherwise the exit code is the child's.
 
-### 4. Same repo in two checkouts
+### 4. Run one-off scripts instead of `--env-file`
+
+Any command can be wrapped, not only the dev server. This replaces `bun --env-file=.env.development script.ts` and keeps no secrets in `.env` files:
+
+```sh
+aws-env-resolver --stage dev -- bun scripts/migrate.ts
+aws-env-resolver --stage prod -- bun scripts/export.ts --csv
+```
+
+Use one stage per environment, each with its own config file (`aws-env.config.dev.json`, `aws-env.config.prod.json`) and its own `profile`, so the stage alone selects the account. Arguments after the command are passed through untouched. Add package scripts for the ones you run often:
+
+```json
+{
+  "scripts": {
+    "migrate:dev": "aws-env-resolver --stage dev -- bun scripts/migrate.ts",
+    "migrate:prod": "aws-env-resolver --stage prod -- bun scripts/migrate.ts"
+  }
+}
+```
+
+### 5. Same repo in two checkouts
 
 The cache file and the keychain service are keyed on `projectKey`, the stage, and a fingerprint of `region`, `stackName`, and `secretId`, never on the directory.
 
@@ -58,7 +78,7 @@ The cache file and the keychain service are keyed on `projectKey`, the stage, an
 - If one checkout points at a different stack or secret, its fingerprint differs and it gets separate entries. Neither overwrites the other.
 - To isolate two checkouts of the same stack on purpose, use a different `--stage` in each.
 
-### 5. Use it from code
+### 6. Use it from code
 
 ```ts
 import { resolveEnv } from "@beesolve/aws-env-resolver";
@@ -82,6 +102,7 @@ const env = await resolveEnv({
 - Put flags before `--`; everything after the separator (or after the first non-flag argument) goes to the command.
 - With only `aws-env.config.<stage>.*` files, forgetting `--stage` fails with "no config file found". Keeping a generic `aws-env.config.*` as well makes it the silent fallback.
 - The profile needs `cloudformation:ListStackResources` and `secretsmanager:GetSecretValue`. `sts:GetCallerIdentity` is needed only when an ARN transform runs and the config has no `accountId`.
+- If the CLI appears to hang with no output, no AWS credentials were found and the SDK is still probing for them. Set `profile` in the config (or pass `--profile`), and run `aws sso login --profile <name>` if the session expired.
 - A resource that matches no logical-id prefix fails with an error naming the env var and the prefix.
 - A secret must be a JSON object whose values are all strings.
 - On non-macOS platforms every run calls Secrets Manager.
