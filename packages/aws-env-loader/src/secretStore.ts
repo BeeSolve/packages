@@ -22,7 +22,7 @@ export function keychainService(props: {
   readonly config: FingerprintInputs;
 }): string {
   const fingerprint = computeFingerprint(props.config);
-  return `aws-env-resolver:${props.projectKey}:${props.stage}:${fingerprint}`;
+  return `aws-env-loader:${props.projectKey}:${props.stage}:${fingerprint}`;
 }
 
 /**

@@ -1,4 +1,4 @@
-# @beesolve/aws-env-resolver
+# @beesolve/aws-env-loader
 
 ## Status: Complete
 
@@ -22,7 +22,7 @@ static config:
 - **Static values** (region, profile, fixed URLs, constant index names) → from a config object
   the consuming project supplies.
 
-`@beesolve/aws-env-resolver` is a **reusable, project-agnostic CLI + library** that resolves the
+`@beesolve/aws-env-loader` is a **reusable, project-agnostic CLI + library** that resolves the
 full environment from those sources, caches it (non-secrets on disk in the OS temp dir; secrets
 in the **macOS keychain** when available), injects everything into `process.env`, and **spawns a
 command as a child process** that inherits it. No secret ever lands in the project tree.
@@ -33,22 +33,22 @@ Intended consumer invocation — the resolver wraps whatever the real command wa
 // before
 "dev": "bun --hot dev.tsx"
 // after
-"dev": "aws-env-resolver -- bun --hot dev.tsx"
+"dev": "aws-env-loader -- bun --hot dev.tsx"
 ```
 
-`aws-env-resolver` resolves → sets env → `exec`s the child with that env. The wrapped command is
+`aws-env-loader` resolves → sets env → `exec`s the child with that env. The wrapped command is
 unchanged; the child's import-time env validation just works.
 
 ### Package name
 
-Primary: **`@beesolve/aws-env-resolver`** (directory `packages/aws-env-resolver`). Alternatives
+Primary: **`@beesolve/aws-env-loader`** (directory `packages/aws-env-loader`). Alternatives
 considered and rejected as less descriptive: `@beesolve/dev-env`, `@beesolve/env-from-aws`,
 `@beesolve/local-env`. Confirm the name before Task 1 — it is baked into the npm scope, the bunup
 entry, and the CLI `bin`.
 
 ## Scope & Non-Goals
 
-**In scope:** the standalone package (library API + `aws-env-resolver` CLI), a macOS keychain
+**In scope:** the standalone package (library API + `aws-env-loader` CLI), a macOS keychain
 secret cache with a non-macOS no-cache fallback, an OS-temp-dir cache for non-secrets with TTL +
 purge, docs, tests, placeholder publish.
 
@@ -97,8 +97,8 @@ merge together:
 ```
 identity   = { projectKey, namespace, fingerprint }
 fingerprint = shortHash({ region, stackName, secretId })
-cache file = os.tmpdir()/aws-env-resolver/<projectKey>-<namespace>-<fingerprint>.json
-keychain   = service "aws-env-resolver:<projectKey>:<namespace>:<fingerprint>"
+cache file = os.tmpdir()/aws-env-loader/<projectKey>-<namespace>-<fingerprint>.json
+keychain   = service "aws-env-loader:<projectKey>:<namespace>:<fingerprint>"
 ```
 
 Neither identity includes the working directory / checkout path — **by design**. `projectKey`
@@ -135,7 +135,7 @@ Consequences for **the same codebase checked out in two places**:
   plain on/off flag the user adds or omits. The package does **not** couple it to any stage,
   environment, or "production" notion — there is no automatic refusal; the user decides.
 - Never log secret values. Keychain item account = the secret env-var name; service =
-  `aws-env-resolver:<projectKey>:<namespace>:<fingerprint>` (fingerprint =
+  `aws-env-loader:<projectKey>:<namespace>:<fingerprint>` (fingerprint =
   `shortHash({ region, stackName, secretId })`, the same fingerprint the cache file uses) so items
   are namespaced per project+namespace+target and listed predictably for `--purge`.
 
@@ -147,9 +147,9 @@ interactive mode (the default) forces a prompt — which is exactly why interact
 ### Module layout (barrel exports allowed in this repo)
 
 ```
-packages/aws-env-resolver/
+packages/aws-env-loader/
   index.ts            # library public API ( "." export ) — resolveEnv(), types
-  cli.ts              # "aws-env-resolver" bin: parse args, resolve, spawn child, proxy exit
+  cli.ts              # "aws-env-loader" bin: parse args, resolve, spawn child, proxy exit
   cdk.ts              # "./cdk" export — allowEnvResolution() emitter (introspects the CDK app)
   src/
     resolveConfig.ts  # CloudFormation DescribeStackResources + logical-id-prefix mapping
@@ -246,10 +246,10 @@ wrapper that calls `resolveEnv`, assigns to `process.env`, and spawns the child.
 service string embeds that fingerprint — purging must target the exact same identity that was
 written.
 
-### CLI (`cli.ts`, published as `bin: "aws-env-resolver"`)
+### CLI (`cli.ts`, published as `bin: "aws-env-loader"`)
 
 ```
-aws-env-resolver --namespace <ns> [--config <path>] [--profile <p>] [--refresh] [--purge] [--trusted] -- <command...>
+aws-env-loader --namespace <ns> [--config <path>] [--profile <p>] [--refresh] [--purge] [--trusted] -- <command...>
 ```
 
 - **`--namespace`** (**required**) the opaque label passed to the config factory and used to key
@@ -283,7 +283,7 @@ Generic example (illustrative only — not tied to any real project):
 
 ```ts
 // aws-env.config.ts
-import type { ResolveEnvOptions } from "@beesolve/aws-env-resolver";
+import type { ResolveEnvOptions } from "@beesolve/aws-env-loader";
 
 export default (
   namespace: string,
@@ -415,7 +415,7 @@ tagged form (`.json`).
 **Intended use in `app.ts`:**
 
 ```ts
-import { generateAndPersist } from "@beesolve/aws-env-resolver/cdk";
+import { generateAndPersist } from "@beesolve/aws-env-loader/cdk";
 
 const app = new App();
 const stage = new Stage(app, stageName);
@@ -441,7 +441,7 @@ every deploy. Documented pattern, not enforced by the package.
 
 - Fingerprint: `fingerprint = shortHash({ region, stackName, secretId })` — the single identity
   component shared by the cache file name and the keychain service string.
-- Location: `path.join(os.tmpdir(), "aws-env-resolver", "<projectKey>-<namespace>-<fingerprint>.json")`.
+- Location: `path.join(os.tmpdir(), "aws-env-loader", "<projectKey>-<namespace>-<fingerprint>.json")`.
 - Contents: **only non-secret** resolved resource values + a `resolvedAt` timestamp + the full
   fingerprint inputs (`region`, `stackName`, `secretId`) for a defensive match check. Secrets are
   **never** written here.
@@ -466,7 +466,7 @@ export interface SecretStore {
   find-generic-password -a <key> -s <service> -w`; `set` → `security add-generic-password -a <key>
   -s <service> -w <value> -U` with `-T ''` (interactive, default) or `-T /usr/bin/security` (when
   `trusted`); `purge` → delete every item under the service. `service` =
-  `aws-env-resolver:<projectKey>:<namespace>:<fingerprint>` (fingerprint =
+  `aws-env-loader:<projectKey>:<namespace>:<fingerprint>` (fingerprint =
   `shortHash({ region, stackName, secretId })`, identical to the cache file's fingerprint so cache
   and keychain always split/merge on the same identity — see "Identity" above).
 - `NoopSecretStore` (non-macOS): `get` always returns `undefined` (forces a fresh AWS fetch each
@@ -480,7 +480,7 @@ export interface SecretStore {
   is used for `accountId`, add `@aws-sdk/client-sts` too.)
 - `valibot` (catalog) for parsing the secret JSON and CLI args.
 - **`aws-cdk-lib` + `constructs` as `peerDependencies` (catalog), mirrored into `devDependencies`**
-  — used **only** by the `./cdk` entry point. The core `.` library and the `aws-env-resolver` CLI
+  — used **only** by the `./cdk` entry point. The core `.` library and the `aws-env-loader` CLI
   must **not** import `aws-cdk-lib` (keep the resolver dependency-light; a dev resolving env should
   not pull CDK). The emitter's pure core (`src/emit.ts`) takes already-extracted data so it can be
   unit-tested without CDK; only `cdk.ts` touches `aws-cdk-lib` types. Mirror `action-tokens` /
@@ -495,11 +495,11 @@ export interface SecretStore {
 
 ```jsonc
 {
-  "name": "@beesolve/aws-env-resolver",
+  "name": "@beesolve/aws-env-loader",
   "version": "0.0.0", // placeholder until first changeset release
   "type": "module",
   "files": ["dist", "docs/how-to", "DOCS.md"],
-  "bin": { "aws-env-resolver": "./dist/cli.js" },
+  "bin": { "aws-env-loader": "./dist/cli.js" },
   "exports": {
     ".": { "import": { "types": "./dist/index.d.ts", "default": "./dist/index.js" } },
     "./cdk": { "import": { "types": "./dist/cdk.d.ts", "default": "./dist/cdk.js" } },
@@ -527,8 +527,8 @@ requirement.
 
 ```ts
 {
-  name: "@beesolve/aws-env-resolver",
-  root: "packages/aws-env-resolver",
+  name: "@beesolve/aws-env-loader",
+  root: "packages/aws-env-loader",
   config: {
     entry: ["index.ts", "cli.ts", "cdk.ts"],
     dts: { inferTypes: true, tsgo: true },   // valibot-derived types are exported
@@ -538,7 +538,7 @@ requirement.
 
 ### Key design decisions (to preserve in ADR-001)
 
-- **CLI-wrapper model** (`aws-env-resolver -- <command>`) over writing a `.env.*.local` file:
+- **CLI-wrapper model** (`aws-env-loader -- <command>`) over writing a `.env.*.local` file:
   secrets reach the child only via inherited process env, never the project tree.
 - **macOS keychain for secrets, OS-temp for non-secrets.** Keychain is macOS-only; non-macOS falls
   back to no secure cache (fetch-every-time). Stated as a macOS-only package in docs.
@@ -577,7 +577,7 @@ commit per task.
 
 1. `bun run check` (oxfmt + oxlint)
 2. `bun run type-check`
-3. `cd packages/aws-env-resolver && bun test` (per-package — never bare root `bun test`)
+3. `cd packages/aws-env-loader && bun test` (per-package — never bare root `bun test`)
 
 **Rules for subagents:**
 
@@ -589,7 +589,7 @@ commit per task.
 - Use `catalog:` for shared external deps; run `bun install` after dep changes and
   `bun run recalculate-dependencies` after intra-repo dep changes.
 - Build tool is bunup (`bun run build`).
-- Read `packages/aws-env-resolver/package.json` `name` before creating any changeset.
+- Read `packages/aws-env-loader/package.json` `name` before creating any changeset.
 - Start from `git pull --rebase origin main`; never `git push` without explicit user approval.
 
 **Operational notes:**
@@ -611,10 +611,10 @@ commit per task.
 
 ### Task 1: Scaffold the package
 
-- [x] Confirm the final package name with the user (default `aws-env-resolver`). Then run
-      `bun run add-package aws-env-resolver`.
+- [x] Confirm the final package name with the user (default `aws-env-loader`). Then run
+      `bun run add-package aws-env-loader`.
 - [x] Edit the generated `package.json`: `"version": "0.0.0"`; add
-      `"bin": { "aws-env-resolver": "./dist/cli.js" }`; set
+      `"bin": { "aws-env-loader": "./dist/cli.js" }`; set
       `"files": ["dist", "docs/how-to", "DOCS.md"]`; add the `.` + `./cdk` + `./package.json`
       exports; add `"test": "bun test"` and keep `"type-check": "tsc --noEmit"`; add runtime deps
       `@aws-sdk/client-cloudformation`, `@aws-sdk/client-secrets-manager`,
@@ -631,7 +631,7 @@ commit per task.
 - [x] Replace the generated `tsconfig.json` `include` with `["src/**/*", "index.ts", "cli.ts", "cdk.ts", "tests/**/*"]`.
 - [x] `bun install`, then `bun run recalculate-dependencies`.
 
-**Files:** `packages/aws-env-resolver/{package.json,tsconfig.json,index.ts}`, `bunup.config.ts`, root `package.json`, `dependencies.json`
+**Files:** `packages/aws-env-loader/{package.json,tsconfig.json,index.ts}`, `bunup.config.ts`, root `package.json`, `dependencies.json`
 
 **Acceptance:** `bun run type-check` passes (empty `export {}` index compiles); bunup entry + bin present; catalog has `@aws-sdk/client-secrets-manager`.
 
@@ -647,7 +647,7 @@ commit per task.
       plain interfaces for the hand-written config shapes. **No stage type or enum anywhere** —
       `namespace` is `string` and required.
 - [x] `src/cache.ts`: `readCache` / `writeCache` / `purgeCache` over
-      `os.tmpdir()/aws-env-resolver/<projectKey>-<namespace>-<fingerprint>.json` where
+      `os.tmpdir()/aws-env-loader/<projectKey>-<namespace>-<fingerprint>.json` where
       `fingerprint = shortHash({ region, stackName, secretId })`; store only non-secret values +
       `resolvedAt` + the fingerprint inputs; TTL check (default 24h); never write secrets. Export a
       shared `computeFingerprint({ region, stackName, secretId })` helper so `cache.ts` and
@@ -657,7 +657,7 @@ commit per task.
       assert no secret-shaped keys are ever persisted; assert `computeFingerprint` is stable for
       equal inputs and differs when `stackName`/`region`/`secretId` differ.
 
-**Files:** `packages/aws-env-resolver/src/{types.ts,cache.ts}`, `index.ts`, `tests/cache.test.ts`
+**Files:** `packages/aws-env-loader/src/{types.ts,cache.ts}`, `index.ts`, `tests/cache.test.ts`
 
 **Acceptance:** per-package `bun test` green; `bun run check` + `type-check` pass.
 
@@ -672,7 +672,7 @@ commit per task.
 - [x] `src/secretStore.ts`: `SecretStore` interface; `KeychainSecretStore` (darwin) using
       `keychain.ts`; `NoopSecretStore` (non-darwin: `get` → undefined, `set`/`purge` no-ops). A
       `createSecretStore({ projectKey, namespace, config, platform })` factory returning the right
-      one; it derives the service string `aws-env-resolver:<projectKey>:<namespace>:<fingerprint>`
+      one; it derives the service string `aws-env-loader:<projectKey>:<namespace>:<fingerprint>`
       via the shared `computeFingerprint` from `cache.ts` (passing `config.region/stackName/secretId`),
       so cache and keychain share one identity. Account = secret env-var name.
 - [x] Tests `tests/secretStore.test.ts`: with an injected fake runner, assert `set` builds the
@@ -683,7 +683,7 @@ commit per task.
       `NoopSecretStore.get` returns undefined. Guard test: `KeychainSecretStore` on a simulated
       non-darwin platform throws.
 
-**Files:** `packages/aws-env-resolver/src/{keychain.ts,secretStore.ts}`, `tests/secretStore.test.ts`
+**Files:** `packages/aws-env-loader/src/{keychain.ts,secretStore.ts}`, `tests/secretStore.test.ts`
 
 **Acceptance:** per-package `bun test` green (no real keychain access); `check` + `type-check` pass.
 
@@ -707,7 +707,7 @@ commit per task.
       name → ARN) produces the expected ARN; secret JSON parsed and remapped; missing secret key
       throws. No real AWS calls.
 
-**Files:** `packages/aws-env-resolver/src/{resolveConfig.ts,secrets.ts}`, `tests/{resolveConfig,secrets}.test.ts`
+**Files:** `packages/aws-env-loader/src/{resolveConfig.ts,secrets.ts}`, `tests/{resolveConfig,secrets}.test.ts`
 
 **Acceptance:** per-package `bun test` green; `check` + `type-check` pass.
 
@@ -730,7 +730,7 @@ commit per task.
       is written to the store with the correct `trusted` flag, (d) merged record precedence is
       static < resources < secrets (document and test the chosen precedence).
 
-**Files:** `packages/aws-env-resolver/src/spawn.ts`, `index.ts`, `tests/resolveEnv.test.ts`
+**Files:** `packages/aws-env-loader/src/spawn.ts`, `index.ts`, `tests/resolveEnv.test.ts`
 
 **Acceptance:** per-package `bun test` green; `bun run build` emits `dist/index.{js,d.ts}`; `check` + `type-check` pass.
 
@@ -755,7 +755,7 @@ commit per task.
       captured; config-factory invoked with the given `--namespace`; `--trusted` simply flows
       through to `resolveEnv` (no refusal). Mock `resolveEnv`/`spawn` so no AWS/keychain/child runs.
 
-**Files:** `packages/aws-env-resolver/cli.ts`, `tests/cli.test.ts`
+**Files:** `packages/aws-env-loader/cli.ts`, `tests/cli.test.ts`
 
 **Acceptance:** per-package `bun test` green; `bun run build` emits `dist/cli.js` with the shebang; `bun dist/cli.js --help` prints usage.
 
@@ -787,7 +787,7 @@ commit per task.
       `generate`, and asserts the mapping — plus `persist` writes valid JSON that round-trips through
       the CLI's `.json` loader. Keychain/AWS untouched.
 
-**Files:** `packages/aws-env-resolver/{cdk.ts,src/emit.ts}`, `tests/{emit,cdk}.test.ts`
+**Files:** `packages/aws-env-loader/{cdk.ts,src/emit.ts}`, `tests/{emit,cdk}.test.ts`
 
 **Acceptance:** per-package `bun test` green; `bun run build` emits `dist/cdk.{js,d.ts}`; `src/emit.ts` has **no** `aws-cdk-lib` import (core stays CDK-free); `check` + `type-check` pass.
 
@@ -813,12 +813,12 @@ commit per task.
       Alternatives = Aspect, CfnOutput-based resolution, resolve-at-synth (impossible)).
 - [x] `DOCS.md` (add-package full template, has how-tos): title + one-liner; `**Keywords:**` line
       (`aws env, local development env, secrets manager, cloudformation, macos keychain,
-      aws-env-resolver, dev server env, cdk config emit`); canonical-docs directive blockquote;
+      aws-env-loader, dev server env, cdk config emit`); canonical-docs directive blockquote;
       GitHub link; **prominent macOS-only secure-cache note**; How-To table linking all three guides
       (getting-started, define-a-project-config, emit-config-from-cdk); "No dedicated sample exists
       yet; see the how-to guides." for Working Examples; Further Reading.
 - [x] `docs/how-to/getting-started.md`: install; the script rewrite
-      (`aws-env-resolver --namespace <ns> -- <your command>`); `--refresh` / `--purge` /
+      (`aws-env-loader --namespace <ns> -- <your command>`); `--refresh` / `--purge` /
       `--namespace` (required) / `--trusted` behavior (describe `--trusted` as an independent opt-in
       that makes keychain reads silent, with the security tradeoff); a short **"same repo in two
       checkouts"** subsection explaining that cache/keychain are keyed on
@@ -832,16 +832,16 @@ commit per task.
       section (`example-app` / `example-stack` / `example/secrets`), and the _generated → `.json`,
       manual → `.ts`_ rule of thumb. No real project names.
 - [x] `docs/how-to/emit-config-from-cdk.md`: how to generate the config from CDK — import
-      `generate` / `persist` / `generateAndPersist` from `@beesolve/aws-env-resolver/cdk`, the
+      `generate` / `persist` / `generateAndPersist` from `@beesolve/aws-env-loader/cdk`, the
       `app.ts` example guarded by an env flag, what it can and can't infer (own lambdas' `environment`
       auto; secrets + third-party-construct vars passed explicitly), and the synth-emits-recipe-not-
       values boundary. Generic names only.
-- [x] Add a `@beesolve/aws-env-resolver` row to the Packages table in root `README.md`.
+- [x] Add a `@beesolve/aws-env-loader` row to the Packages table in root `README.md`.
 - [x] Add the `0.x` stability banner requirement to the package `README.md` (per
       `.kiro/steering/versioning.md`) if the scaffold creates a README; otherwise note it is added
       at first release.
 
-**Files:** `packages/aws-env-resolver/{DOCS.md,docs/adr-001-motivation.md,docs/adr-002-cdk-config-emission.md,docs/how-to/getting-started.md,docs/how-to/define-a-project-config.md,docs/how-to/emit-config-from-cdk.md}`, root `README.md`
+**Files:** `packages/aws-env-loader/{DOCS.md,docs/adr-001-motivation.md,docs/adr-002-cdk-config-emission.md,docs/how-to/getting-started.md,docs/how-to/define-a-project-config.md,docs/how-to/emit-config-from-cdk.md}`, root `README.md`
 
 **Acceptance:** `DOCS.md` has the Keywords line + canonical-docs directive + macOS-only note; How-To table links all three guides; no dangling links; no real project/account/stack/secret names anywhere; `files` allowlist already includes `docs/how-to` + `DOCS.md`.
 
@@ -851,17 +851,17 @@ commit per task.
 
 - [x] Follow `.kiro/skills/publish-placeholder-package/SKILL.md` to reserve the npm name and
       register the OIDC Trusted Publisher (publish a `0.0.0` placeholder, then
-      `npm trust github @beesolve/aws-env-resolver --repo BeeSolve/packages --file publish.yml --yes`).
+      `npm trust github @beesolve/aws-env-loader --repo BeeSolve/packages --file publish.yml --yes`).
       **The subagent does NOT run the actual npm publish** — it prepares/verifies and surfaces the
       exact commands for the user to run, since publishing requires npm auth/OTP.
-- [x] Read `packages/aws-env-resolver/package.json` to confirm the name, then `bunx changeset` →
-      select `@beesolve/aws-env-resolver`, `minor`, summary: "Initial release: resolve local dev env
+- [x] Read `packages/aws-env-loader/package.json` to confirm the name, then `bunx changeset` →
+      select `@beesolve/aws-env-loader`, `minor`, summary: "Initial release: resolve local dev env
       from CloudFormation + Secrets Manager, cache non-secrets in the OS temp dir and secrets in the
       macOS keychain (interactive by default, optional `--trusted`), inject into a spawned command,
       and optionally emit the config from a CDK app via `./cdk`."
 - [x] `bun run recalculate-dependencies`.
 - [x] Full gates: `bun run check`, `bun run type-check`, `bun run build` (emits
-      `dist/{index,cli,cdk}.{js,d.ts}`), and per-package `cd packages/aws-env-resolver && bun test`.
+      `dist/{index,cli,cdk}.{js,d.ts}`), and per-package `cd packages/aws-env-loader && bun test`.
 
 **Files:** `.changeset/*.md`, `dependencies.json`
 
@@ -873,7 +873,7 @@ commit per task.
 
 - **Consumer adoption:** in any project that wants dynamic local env, author an `aws-env.config.ts`
   (the `define-a-project-config` how-to is the template), rewrite the relevant scripts to
-  `aws-env-resolver --namespace <ns> -- <existing command>`, and strip secrets + hand-copied
+  `aws-env-loader --namespace <ns> -- <existing command>`, and strip secrets + hand-copied
   resource names out of that project's committed env files (keeping only genuinely-static
   non-sensitive defaults, or deleting them). Ensure the chosen AWS profile has
   `cloudformation:DescribeStackResources` + `secretsmanager:GetSecretValue` (and
@@ -895,4 +895,4 @@ commit per task.
 | `ResolveEnvOptions`                           | interface (`.`)     | Input to `resolveEnv` (includes required opaque `namespace`, `trusted`)               |
 | `generate` / `persist` / `generateAndPersist` | functions (`./cdk`) | Emit the config by introspecting a CDK app (recipe, not resolved values)              |
 | `AllowEnvResolutionProps`                     | interface (`./cdk`) | Input to the CDK emitter (`projectName`, `namespace`, `scope`, `secrets`, ...)        |
-| `aws-env-resolver`                            | bin                 | CLI: `--namespace (required) --config --profile --refresh --purge --trusted -- <cmd>` |
+| `aws-env-loader`                              | bin                 | CLI: `--namespace (required) --config --profile --refresh --purge --trusted -- <cmd>` |

@@ -1,4 +1,4 @@
-# @beesolve/aws-env-resolver
+# @beesolve/aws-env-loader
 
 Resolve local development environment from CloudFormation and Secrets Manager, cache it, and inject it into a spawned command.
 
@@ -11,20 +11,22 @@ Resolve local development environment from CloudFormation and Secrets Manager, c
 
 > **macOS-only secure cache.** Secrets are cached in the macOS login keychain. On other platforms secrets are fetched on every run and never written to disk. The CLI requires Bun.
 
+> Formerly `@beesolve/aws-env-resolver`. Replace the dependency and the `aws-env-resolver` command in your scripts with `aws-env-loader`; the library API is unchanged.
+
 ## Install
 
 ```sh
-bun add -d @beesolve/aws-env-resolver
+bun add -d @beesolve/aws-env-loader
 ```
 
 ```sh
-npm install --save-dev @beesolve/aws-env-resolver
+npm install --save-dev @beesolve/aws-env-loader
 ```
 
 ## CLI
 
 ```sh
-aws-env-resolver [--stage <stage>] [options] -- <command...>
+aws-env-loader [--stage <stage>] [options] -- <command...>
 ```
 
 Put flags before `--`. Bun drops a leading `--`, so with no flags the first non-flag argument starts the command.
@@ -40,15 +42,15 @@ Put flags before `--`. Bun drops a leading `--`, so with no flags the first non-
 | `--trusted`        | Store the keychain item so reads are silent (no prompt). See below.                  |
 | `--help`           | Show help.                                                                           |
 
-The trust list of a keychain item is set when the item is written. With `--trusted` the resolver writes the item on every run, so an item first stored without the flag is upgraded: that run prompts once and later runs are silent. To switch to trusted mode without running anything, pass `--trusted` with no command:
+The trust list of a keychain item is set when the item is written. With `--trusted` the loader writes the item on every run, so an item first stored without the flag is upgraded: that run prompts once and later runs are silent. To switch to trusted mode without running anything, pass `--trusted` with no command:
 
 ```sh
-aws-env-resolver --stage stg --trusted
+aws-env-loader --stage stg --trusted
 ```
 
 Exit codes: `0` success, `1` runtime error, `2` invalid arguments. When a command runs, its exit code is returned.
 
-## Library (`@beesolve/aws-env-resolver`)
+## Library (`@beesolve/aws-env-loader`)
 
 | Export                | Description                                                                                                  |
 | --------------------- | ------------------------------------------------------------------------------------------------------------ |
@@ -68,7 +70,7 @@ Exit codes: `0` success, `1` runtime error, `2` invalid arguments. When a comman
 | `emittedTargetSchema` | Valibot schema for `EmittedTarget`.                                                                          |
 | `defaultTarget`       | `"default"`, the target used when none is named.                                                             |
 
-## CDK (`@beesolve/aws-env-resolver/cdk`)
+## CDK (`@beesolve/aws-env-loader/cdk`)
 
 Requires the optional peers `aws-cdk-lib` and `constructs`.
 
@@ -93,8 +95,8 @@ When an env var appears in several sources, the later one wins: `config.staticEn
 
 ## Caching
 
-- Non-secret values: `os.tmpdir()/aws-env-resolver/<projectKey>-<stage>-<fingerprint>.json`, 24 hour TTL by default (`cacheTtlMs`). The file records a hash of the resource mapping, so values cached for a different mapping (for example after regenerating the config) are a miss and get re-fetched.
-- Secrets: macOS keychain, service `aws-env-resolver:<projectKey>:<stage>:<fingerprint>`, one item holding all secrets as JSON. The fingerprint hashes `region`, `stackName`, and `secretId`, so the cache and keychain share one identity independent of the working directory. A non-default target also enters the cache file's fingerprint (not the keychain's), so targets sharing a stack keep separate resource caches.
+- Non-secret values: `os.tmpdir()/aws-env-loader/<projectKey>-<stage>-<fingerprint>.json`, 24 hour TTL by default (`cacheTtlMs`). The file records a hash of the resource mapping, so values cached for a different mapping (for example after regenerating the config) are a miss and get re-fetched.
+- Secrets: macOS keychain, service `aws-env-loader:<projectKey>:<stage>:<fingerprint>`, one item holding all secrets as JSON. The fingerprint hashes `region`, `stackName`, and `secretId`, so the cache and keychain share one identity independent of the working directory. A non-default target also enters the cache file's fingerprint (not the keychain's), so targets sharing a stack keep separate resource caches.
 - Default mode stores items with an empty trust list, so macOS may prompt once on read. `--trusted` stores them with `-T /usr/bin/security` for silent reads.
 - Steady state makes zero AWS calls.
 - On non-macOS platforms there is no secure cache and secrets are fetched on every run.

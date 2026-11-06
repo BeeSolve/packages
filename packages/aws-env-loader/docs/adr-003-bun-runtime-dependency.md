@@ -6,9 +6,9 @@ Accepted
 
 ## Context
 
-`@beesolve/aws-env-resolver` ships two things: a library (`resolveEnv`, caching,
+`@beesolve/aws-env-loader` ships two things: a library (`resolveEnv`, caching,
 the secret store, the AWS calls) imported by other code, and a CLI
-(`aws-env-resolver -- <command>`) that resolves the environment, injects it into
+(`aws-env-loader -- <command>`) that resolves the environment, injects it into
 `process.env`, and spawns a child command that inherits it.
 
 The monorepo convention is that published packages "target both Bun and Node.js
@@ -45,7 +45,7 @@ A single injected `SecurityRunner` seam exists in `keychain.ts` (the default use
 ### 1. The CLI already needs Bun to load a `.ts` config for free
 
 The headline consumer workflow is rewriting a script to
-`aws-env-resolver --stage <stage> -- <command>` and authoring an
+`aws-env-loader --stage <stage> -- <command>` and authoring an
 `aws-env.config.ts` that can contain `transform` functions (e.g. a Lambda name to
 an ARN). A function cannot live in JSON, so the hand-written config is TypeScript.
 Bun imports `.ts` natively; Node does not. Choosing Bun makes the most ergonomic
@@ -76,7 +76,7 @@ local-only tool.
 
 ## Consequences
 
-- Running the `aws-env-resolver` CLI requires Bun on the developer's machine. This
+- Running the `aws-env-loader` CLI requires Bun on the developer's machine. This
   is stated prominently in `DOCS.md` and the getting-started guide.
 - A consumer who imports the library API (`resolveEnv`) rather than the CLI still
   executes `Bun.spawn` in the default keychain runner on macOS, so the library

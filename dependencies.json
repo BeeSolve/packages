@@ -1,6 +1,6 @@
 [
   "packages/action-tokens",
-  "packages/aws-env-resolver",
+  "packages/aws-env-loader",
   "packages/cdk-email-alarms",
   "packages/dmarc-parser",
   "packages/helpers",

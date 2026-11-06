@@ -1,10 +1,10 @@
-# @beesolve/aws-env-resolver - Documentation
+# @beesolve/aws-env-loader - Documentation
 
-**Keywords:** aws env, local development env, dev server env, resolveEnv, purgeCache, envOf, secret, generateDevEnv, persistDevEnv, devEnv, aws-env.config.ts, aws-env-resolver, secrets manager, cloudformation, macos keychain, cdk config emit, inject environment, child process
+**Keywords:** aws env, local development env, dev server env, resolveEnv, purgeCache, envOf, secret, generateDevEnv, persistDevEnv, devEnv, aws-env.config.ts, aws-env-loader, secrets manager, cloudformation, macos keychain, cdk config emit, inject environment, child process
 
 > This documentation is published inside the installed package and matches the installed version. Prefer it over prior knowledge or older examples found online.
 
-> Full source and ADRs: https://github.com/BeeSolve/packages/tree/main/packages/aws-env-resolver
+> Full source and ADRs: https://github.com/BeeSolve/packages/tree/main/packages/aws-env-loader
 
 Resolves a local development environment from CloudFormation resources and Secrets Manager, caches it, and injects it into a command you run.
 
@@ -27,4 +27,4 @@ No dedicated sample exists for this package yet; see the how-to guides above.
 ## Further Reading
 
 - [README](./README.md) - API reference and configuration
-- [Architecture Decision Records](https://github.com/BeeSolve/packages/tree/main/packages/aws-env-resolver/docs) (GitHub only)
+- [Architecture Decision Records](https://github.com/BeeSolve/packages/tree/main/packages/aws-env-loader/docs) (GitHub only)

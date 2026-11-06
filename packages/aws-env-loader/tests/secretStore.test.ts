@@ -196,7 +196,7 @@ describe("keychain service identity", () => {
       config: { ...config, stackName: "other-stack" },
     });
 
-    expect(service.startsWith("aws-env-resolver:example-app:staging:")).toBe(true);
+    expect(service.startsWith("aws-env-loader:example-app:staging:")).toBe(true);
     expect(service).not.toBe(otherStack);
   });
 });

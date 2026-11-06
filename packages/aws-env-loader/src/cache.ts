@@ -69,7 +69,7 @@ export function computeFingerprint(inputs: FingerprintInputs): string {
 export function cacheFilePath(identity: CacheIdentity): string {
   const fingerprint = computeFingerprint({ ...identity.config, target: identity.target });
   const fileName = `${identity.projectKey}-${identity.stage}-${fingerprint}.json`;
-  return join(tmpdir(), "aws-env-resolver", fileName);
+  return join(tmpdir(), "aws-env-loader", fileName);
 }
 
 /** Persist only non-secret resource values plus the fingerprint inputs and a timestamp. */

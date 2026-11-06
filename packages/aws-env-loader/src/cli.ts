@@ -19,7 +19,7 @@ export interface CliDeps {
 }
 
 export const usage = `Usage:
-  aws-env-resolver [--stage <stage>] [options] -- <command...>
+  aws-env-loader [--stage <stage>] [options] -- <command...>
 
 Resolves env from CloudFormation + Secrets Manager, then runs <command> with it.
 
@@ -101,7 +101,7 @@ type ParsedCli =
 
 function parseCliArgs(argv: ReadonlyArray<string>): ParsedCli {
   const [first] = argv;
-  // Bun drops a leading "--" from process.argv, so `aws-env-resolver -- cmd` arrives as `cmd`.
+  // Bun drops a leading "--" from process.argv, so `aws-env-loader -- cmd` arrives as `cmd`.
   // Flags always start with "-", so a non-flag first argument starts the command.
   if (first != null && !first.startsWith("-")) {
     return parseRequest({ flagArgs: [], command: argv });

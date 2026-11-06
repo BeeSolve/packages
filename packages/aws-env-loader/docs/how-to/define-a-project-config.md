@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- `@beesolve/aws-env-resolver` installed, see [Getting Started](./getting-started.md)
+- `@beesolve/aws-env-loader` installed, see [Getting Started](./getting-started.md)
 - A deployed CloudFormation stack and, optionally, a Secrets Manager secret holding a JSON object of string values
 
 ## Steps
@@ -16,7 +16,7 @@ The package knows how to resolve an environment, but not what your project needs
 Export an options object, or a function from stage to options (sync or async; it also receives the `--target` value as a second argument). Use a factory when the stage selects the stack or secret. The factory receives `undefined` when the CLI runs without `--stage`; throw if your project needs one. Alternatively keep one file per stage, `aws-env.config.<stage>.ts`, which `--stage <stage>` picks before `aws-env.config.ts`.
 
 ```ts
-import type { ResolveEnvOptions } from "@beesolve/aws-env-resolver";
+import type { ResolveEnvOptions } from "@beesolve/aws-env-loader";
 
 type ProjectConfig = Omit<ResolveEnvOptions, "stage" | "refresh" | "trusted">;
 

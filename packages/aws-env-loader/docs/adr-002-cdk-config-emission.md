@@ -12,7 +12,7 @@ At synth time a resource's physical name is an unresolved CloudFormation token. 
 
 ## Decision
 
-Provide an optional `@beesolve/aws-env-resolver/cdk` entry point with `generate`, `persist`, and `generateAndPersist`. It walks the construct tree under a given scope, reads each Lambda function's `environment`, and emits a declarative config (the recipe) as `aws-env.config.json`. The resolver then fills in real values from the deployed stack at dev time.
+Provide an optional `@beesolve/aws-env-loader/cdk` entry point with `generate`, `persist`, and `generateAndPersist`. It walks the construct tree under a given scope, reads each Lambda function's `environment`, and emits a declarative config (the recipe) as `aws-env.config.json`. The resolver then fills in real values from the deployed stack at dev time.
 
 ## Rationale
 

@@ -11,7 +11,7 @@ import type { EmittedConfig, ExtractedEnvEntry, Intrinsic } from "./src/emit.ts"
 import { buildEmittedTarget, defaultTarget } from "./src/emit.ts";
 import { stageSchema } from "./src/loadConfig.ts";
 
-/** A CDK-derived env value the resolver looks up in the deployed stack. Produced by {@link envOf}. */
+/** A CDK-derived env value the loader looks up in the deployed stack. Produced by {@link envOf}. */
 export interface EnvResource {
   readonly kind: "resource";
   readonly intrinsic: Intrinsic;
@@ -90,7 +90,7 @@ export function defaultConfigPath(stage?: string): string {
 }
 
 /**
- * Turn the composed env into the resolver mapping. Literals stay literal, {@link envOf} values
+ * Turn the composed env into the loader mapping. Literals stay literal, {@link envOf} values
  * become lookups on the stack's logical-id prefixes, and {@link secret} values become secret
  * mappings. Performs no I/O and never emits resolved physical names.
  */
@@ -107,7 +107,7 @@ export function generateDevEnv(props: DevEnvProps): EmittedConfig {
   const regions = [...new Set(resources.map((resource) => resource.region))];
   if (regions.length > 1) {
     throw new Error(
-      `The env spans multiple regions (${regions.join(", ")}). The resolver reads one region; use envOf() on constructs in a single region.`,
+      `The env spans multiple regions (${regions.join(", ")}). The loader reads one region; use envOf() on constructs in a single region.`,
     );
   }
   const stackNames = [...new Set(resources.map((resource) => resource.stackName))];

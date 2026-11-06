@@ -1,4 +1,4 @@
-# @beesolve/aws-env-resolver
+# @beesolve/aws-env-loader
 
 ## 0.6.2
 

@@ -397,7 +397,7 @@ function resolveAttribute(props: {
 }): ResolvedEntry {
   if (props.attribute !== "Arn") {
     throw new Error(
-      `Env var ${props.envVar} uses Fn::GetAtt attribute "${props.attribute}" on ${props.logicalId}, which the resolver cannot produce (only physical ids and Lambda ARNs). Pass it via staticEnv or map it by hand.`,
+      `Env var ${props.envVar} uses Fn::GetAtt attribute "${props.attribute}" on ${props.logicalId}, which the loader cannot produce (only physical ids and Lambda ARNs). Pass it via staticEnv or map it by hand.`,
     );
   }
   return {
@@ -413,9 +413,9 @@ function resolveAttribute(props: {
 function unsupportedIntrinsic(envVar: string, intrinsic: Intrinsic): Error {
   const kind = Object.keys(intrinsic).join(", ");
   return new Error(
-    `Env var ${envVar} uses CloudFormation intrinsic "${kind}" which @beesolve/aws-env-resolver does not support yet: ${JSON.stringify(intrinsic)}. ` +
+    `Env var ${envVar} uses CloudFormation intrinsic "${kind}" which @beesolve/aws-env-loader does not support yet: ${JSON.stringify(intrinsic)}. ` +
       `Workaround: pass the value via \`staticEnv\` or map it by hand in a .ts config. ` +
-      `To support it, add a rule to \`inlineRules\` (cdk.ts, values the stack can answer at synth) or \`intrinsicRules\` (src/emit.ts, resource lookups) in packages/aws-env-resolver and open a PR at https://github.com/BeeSolve/packages.`,
+      `To support it, add a rule to \`inlineRules\` (cdk.ts, values the stack can answer at synth) or \`intrinsicRules\` (src/emit.ts, resource lookups) in packages/aws-env-loader and open a PR at https://github.com/BeeSolve/packages.`,
   );
 }
 
@@ -470,7 +470,7 @@ function parseSecretReference(entry: ExtractedEnvEntry): SecretReference | undef
   }
   if (jsonKey === "" || versionStage !== "" || versionId !== "") {
     throw new Error(
-      `Env var ${entry.envVar} uses a Secrets Manager reference the resolver cannot follow (${entry.value}). Only references to a JSON key of the current version are supported; list the variable in \`secrets\` or \`staticEnv\` instead.`,
+      `Env var ${entry.envVar} uses a Secrets Manager reference the loader cannot follow (${entry.value}). Only references to a JSON key of the current version are supported; list the variable in \`secrets\` or \`staticEnv\` instead.`,
     );
   }
   return { envVar: entry.envVar, secretId, jsonKey };

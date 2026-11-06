@@ -24,7 +24,7 @@ export const defaultSecurityRunner: SecurityRunner = async (args) => {
 export function assertDarwin(platform: NodeJS.Platform = process.platform): void {
   if (platform !== "darwin") {
     throw new Error(
-      `@beesolve/aws-env-resolver keychain is macOS-only; got platform "${platform}". Non-macOS platforms fall back to fetching secrets fresh on every run.`,
+      `@beesolve/aws-env-loader keychain is macOS-only; got platform "${platform}". Non-macOS platforms fall back to fetching secrets fresh on every run.`,
     );
   }
 }

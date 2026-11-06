@@ -1,15 +1,15 @@
 {
-  "name": "@beesolve/aws-env-resolver",
+  "name": "@beesolve/aws-env-loader",
   "version": "0.6.2",
   "description": "Resolve local development environment from CloudFormation and Secrets Manager, cache it, and inject it into a spawned command",
-  "homepage": "https://github.com/BeeSolve/packages/tree/main/packages/aws-env-resolver#readme",
+  "homepage": "https://github.com/BeeSolve/packages/tree/main/packages/aws-env-loader#readme",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/BeeSolve/packages.git"
   },
   "bin": {
-    "aws-env-resolver": "./dist/cli.js"
+    "aws-env-loader": "./dist/cli.js"
   },
   "files": [
     "dist",

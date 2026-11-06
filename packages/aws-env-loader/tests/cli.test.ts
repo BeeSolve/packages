@@ -322,7 +322,7 @@ describe("runCli config loading", () => {
   let directory: string;
 
   beforeEach(async () => {
-    directory = await mkdtemp(join(tmpdir(), "aws-env-resolver-cli-"));
+    directory = await mkdtemp(join(tmpdir(), "aws-env-loader-cli-"));
   });
 
   afterEach(async () => {

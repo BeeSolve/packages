@@ -1,4 +1,4 @@
-# How to: Get started with aws-env-resolver
+# How to: Get started with aws-env-loader
 
 ## Prerequisites
 
@@ -12,34 +12,34 @@
 ### 1. Install
 
 ```sh
-bun add -d @beesolve/aws-env-resolver
+bun add -d @beesolve/aws-env-loader
 ```
 
 ```sh
-npm install --save-dev @beesolve/aws-env-resolver
+npm install --save-dev @beesolve/aws-env-loader
 ```
 
 ### 2. Wrap your command
 
-Put flags such as `--stage` before `--`. Without flags, `aws-env-resolver -- <command>` also works: Bun drops a leading `--` from the arguments, and the CLI treats a first argument that is not a flag as the start of the command.
+Put flags such as `--stage` before `--`. Without flags, `aws-env-loader -- <command>` also works: Bun drops a leading `--` from the arguments, and the CLI treats a first argument that is not a flag as the start of the command.
 
 ```json
 {
   "scripts": {
-    "dev": "aws-env-resolver --stage dev -- bun --hot dev.tsx"
+    "dev": "aws-env-loader --stage dev -- bun --hot dev.tsx"
   }
 }
 ```
 
-With `--stage dev` the resolver loads the first of `aws-env.config.dev.ts`, `.js`, `.mjs`, `.json`, then falls back to `aws-env.config.ts`, `.js`, `.mjs`, `.json`, all from the current directory. It resolves the environment, sets it on the process, and runs your command with it. Pass `--config <path>` to use another file.
+With `--stage dev` the loader reads the first of `aws-env.config.dev.ts`, `.js`, `.mjs`, `.json`, then falls back to `aws-env.config.ts`, `.js`, `.mjs`, `.json`, all from the current directory. It resolves the environment, sets it on the process, and runs your command with it. Pass `--config <path>` to use another file.
 
 ### 3. Control caching
 
 ```sh
-aws-env-resolver --stage dev --refresh -- bun --hot dev.tsx
-aws-env-resolver --stage dev --purge
-aws-env-resolver --stage dev --trusted -- bun --hot dev.tsx
-aws-env-resolver --stage dev --trusted
+aws-env-loader --stage dev --refresh -- bun --hot dev.tsx
+aws-env-loader --stage dev --purge
+aws-env-loader --stage dev --trusted -- bun --hot dev.tsx
+aws-env-loader --stage dev --trusted
 ```
 
 - `--stage <stage>` is optional. It picks `aws-env.config.<stage>.*`, is passed to a config factory, and keys the caches. Without it caches use the label `default`. Letters, digits, `.`, `_` and `-` only.
@@ -47,7 +47,7 @@ aws-env-resolver --stage dev --trusted
 - `--refresh` bypasses the caches, re-fetches from AWS, and rewrites them.
 - `--purge` deletes the cached file and the keychain items for this stage. With no command after `--` it exits; with one, it then resolves and runs the command.
 - `--trusted` is an independent opt-in. The item is stored with `-T /usr/bin/security`, so later reads are silent. The default stores them with an empty trust list, so macOS may prompt (once) when the item is read. Trusted mode trades those prompts for any process running as you being able to read the item through `security`.
-  - The trust list is applied when the item is written, so with `--trusted` the resolver rewrites the item on every run. An item first stored without the flag is upgraded on the next `--trusted` run, which prompts one last time.
+  - The trust list is applied when the item is written, so with `--trusted` the loader rewrites the item on every run. An item first stored without the flag is upgraded on the next `--trusted` run, which prompts one last time.
   - With no command, `--trusted` only resolves, stores the item as trusted, and exits. Use it to switch a stage to trusted mode once, then keep your scripts unchanged.
   - Put `--trusted` before `--`. Anything after `--` belongs to the wrapped command. With `bun run <script> --trusted`, Bun appends the flag to the script, so it ends up after `--` too.
 - `--profile <name>` overrides the profile from the config.
@@ -59,8 +59,8 @@ Exit codes: `0` success, `1` runtime error, `2` invalid arguments. Otherwise the
 Any command can be wrapped, not only the dev server. This replaces `bun --env-file=.env.development script.ts` and keeps no secrets in `.env` files:
 
 ```sh
-aws-env-resolver --stage dev -- bun scripts/migrate.ts
-aws-env-resolver --stage prod -- bun scripts/export.ts --csv
+aws-env-loader --stage dev -- bun scripts/migrate.ts
+aws-env-loader --stage prod -- bun scripts/export.ts --csv
 ```
 
 Use one stage per environment, each with its own config file (`aws-env.config.dev.json`, `aws-env.config.prod.json`) and its own `profile`, so the stage alone selects the account. Arguments after the command are passed through untouched. Add package scripts for the ones you run often:
@@ -68,8 +68,8 @@ Use one stage per environment, each with its own config file (`aws-env.config.de
 ```json
 {
   "scripts": {
-    "migrate:dev": "aws-env-resolver --stage dev -- bun scripts/migrate.ts",
-    "migrate:prod": "aws-env-resolver --stage prod -- bun scripts/migrate.ts"
+    "migrate:dev": "aws-env-loader --stage dev -- bun scripts/migrate.ts",
+    "migrate:prod": "aws-env-loader --stage prod -- bun scripts/migrate.ts"
   }
 }
 ```
@@ -85,7 +85,7 @@ The cache file and the keychain service are keyed on `projectKey`, the stage, an
 ### 6. Use it from code
 
 ```ts
-import { resolveEnv } from "@beesolve/aws-env-resolver";
+import { resolveEnv } from "@beesolve/aws-env-loader";
 
 const env = await resolveEnv({
   projectKey: "example-app",

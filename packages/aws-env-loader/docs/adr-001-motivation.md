@@ -17,11 +17,11 @@ This logic is project-agnostic. Every project that needs it would otherwise re-i
 
 ## Decision
 
-Ship `@beesolve/aws-env-resolver` as a reusable CLI and library that:
+Ship `@beesolve/aws-env-loader` as a reusable CLI and library that:
 
 - resolves the environment from static config, CloudFormation resources (matched by logical-id prefix), and one Secrets Manager secret
 - caches non-secret values in the OS temp dir and secrets in the macOS login keychain
-- injects the result into a spawned child command (`aws-env-resolver --stage <stage> -- <command>`) instead of writing a file
+- injects the result into a spawned child command (`aws-env-loader --stage <stage> -- <command>`) instead of writing a file
 - reads all project-specific knowledge (stack, mappings, static values) from a committed `aws-env.config.ts` or `aws-env.config.json`
 
 The package boundary is: resolve, cache, inject. It does not write secrets to AWS, rotate them, manage infrastructure, or interpret environment names.

@@ -30,7 +30,7 @@ Tracing is opt-in at the place that knows whether a Lambda matters. A forgotten 
 
 ### 2. The marker lives on the construct
 
-The marker is stored on the construct under `Symbol.for("@beesolve/aws-env-resolver/trace")` and read back with `Reflect.get`, validated by Valibot. This needs no shared registry, so nothing is threaded through stacks, and `Symbol.for` keeps it working if two copies of the package end up installed (a module-level registry would silently split in that case). Construct node metadata was rejected because it can end up in the cloud assembly.
+The marker is stored on the construct under `Symbol.for("@beesolve/aws-env-loader/trace")` and read back with `Reflect.get`, validated by Valibot. This needs no shared registry, so nothing is threaded through stacks, and `Symbol.for` keeps it working if two copies of the package end up installed (a module-level registry would silently split in that case). Construct node metadata was rejected because it can end up in the cloud assembly.
 
 ### 3. Targets map to runtimes, not to files
 

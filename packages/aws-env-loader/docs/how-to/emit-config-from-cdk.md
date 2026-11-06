@@ -3,7 +3,7 @@
 ## Prerequisites
 
 - A CDK app (`aws-cdk-lib` and `constructs`) whose Lambdas receive the env vars you want locally
-- `@beesolve/aws-env-resolver` installed, see [Getting Started](./getting-started.md)
+- `@beesolve/aws-env-loader` installed, see [Getting Started](./getting-started.md)
 - A stack with an explicit `env.region` and `stackName`
 
 ## Steps
@@ -13,7 +13,7 @@
 The env is a plain object. `envOf(construct)` returns the environment of a Lambda, or of every Lambda under a construct (an auth gateway, a SvelteKit site, a whole stack). Spread what you need, then add literals and secrets.
 
 ```ts
-import { envOf, devEnv, secret } from "@beesolve/aws-env-resolver/cdk";
+import { envOf, devEnv, secret } from "@beesolve/aws-env-loader/cdk";
 
 const { api, auth, payments } = new ApiStack(app, "ApiStack", {
   stackName: "example-api",
@@ -71,7 +71,7 @@ Commit `aws-env.config.<stage>.json` and run the CLI as in [Getting Started](./g
 
 ## The synth boundary
 
-At synth time physical names are unresolved tokens, so the emitter writes the recipe (env var to logical-id prefix) and never real names. The resolver fills in real values from the deployed stack when you run your command.
+At synth time physical names are unresolved tokens, so the emitter writes the recipe (env var to logical-id prefix) and never real names. The loader fills in real values from the deployed stack when you run your command.
 
 ## Common Pitfalls
 
