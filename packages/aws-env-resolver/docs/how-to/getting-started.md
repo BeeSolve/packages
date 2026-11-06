@@ -39,6 +39,7 @@ With `--stage dev` the resolver loads the first of `aws-env.config.dev.ts`, `.js
 aws-env-resolver --stage dev --refresh -- bun --hot dev.tsx
 aws-env-resolver --stage dev --purge
 aws-env-resolver --stage dev --trusted -- bun --hot dev.tsx
+aws-env-resolver --stage dev --trusted
 ```
 
 - `--stage <stage>` is optional. It picks `aws-env.config.<stage>.*`, is passed to a config factory, and keys the caches. Without it caches use the label `default`. Letters, digits, `.`, `_` and `-` only.
@@ -46,6 +47,9 @@ aws-env-resolver --stage dev --trusted -- bun --hot dev.tsx
 - `--refresh` bypasses the caches, re-fetches from AWS, and rewrites them.
 - `--purge` deletes the cached file and the keychain items for this stage. With no command after `--` it exits; with one, it then resolves and runs the command.
 - `--trusted` is an independent opt-in. The item is stored with `-T /usr/bin/security`, so later reads are silent. The default stores them with an empty trust list, so macOS may prompt (once) when the item is read. Trusted mode trades those prompts for any process running as you being able to read the item through `security`.
+  - The trust list is applied when the item is written, so with `--trusted` the resolver rewrites the item on every run. An item first stored without the flag is upgraded on the next `--trusted` run, which prompts one last time.
+  - With no command, `--trusted` only resolves, stores the item as trusted, and exits. Use it to switch a stage to trusted mode once, then keep your scripts unchanged.
+  - Put `--trusted` before `--`. Anything after `--` belongs to the wrapped command. With `bun run <script> --trusted`, Bun appends the flag to the script, so it ends up after `--` too.
 - `--profile <name>` overrides the profile from the config.
 
 Exit codes: `0` success, `1` runtime error, `2` invalid arguments. Otherwise the exit code is the child's.

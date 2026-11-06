@@ -32,7 +32,8 @@ Options:
   --profile <name>   AWS profile; overrides the config.
   --refresh          Bypass caches and re-fetch from AWS.
   --purge            Delete cached values for this stage (runs <command> only if given).
-  --trusted          Store keychain items so reads are silent (no prompt).
+  --trusted          Store the keychain item so reads are silent (no prompt). Rewrites an existing
+                     item as trusted. Without <command> it only stores the item and exits.
   --help             Show this help.
 `;
 
@@ -130,8 +131,12 @@ function parseRequest(props: {
     return { kind: "help" };
   }
   const purge = flags.purge === true;
-  if (!purge && command.length === 0) {
-    return { kind: "invalid", message: "a command is required after -- (or pass --purge)" };
+  const trusted = flags.trusted === true;
+  if (!purge && !trusted && command.length === 0) {
+    return {
+      kind: "invalid",
+      message: "a command is required after -- (or pass --purge or --trusted)",
+    };
   }
   return {
     kind: "run",
@@ -141,7 +146,7 @@ function parseRequest(props: {
     profile: flags.profile,
     refresh: flags.refresh === true,
     purge,
-    trusted: flags.trusted === true,
+    trusted,
     command,
   };
 }
@@ -199,12 +204,18 @@ async function execute(props: {
       },
     });
     deps.stdout(`Purged cached values for ${options.projectKey}${describeScope(options)}.\n`);
-    if (parsed.command.length === 0) {
+    if (parsed.command.length === 0 && !parsed.trusted) {
       return 0;
     }
   }
 
   const env = await deps.resolveEnv(options);
+  if (parsed.command.length === 0) {
+    deps.stdout(
+      `Stored secrets for ${options.projectKey}${describeScope(options)} as trusted; later reads will not prompt.\n`,
+    );
+    return 0;
+  }
   Object.assign(deps.processEnv, env);
   return deps.spawnCommand({ command: parsed.command, env });
 }

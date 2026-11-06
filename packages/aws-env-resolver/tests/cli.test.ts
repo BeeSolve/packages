@@ -153,6 +153,37 @@ describe("runCli", () => {
     expect(harness.spawnCalls).toHaveLength(0);
   });
 
+  it("stores trusted without spawning when --trusted has no command", async () => {
+    const harness = createHarness();
+
+    const code = await runCli({
+      argv: ["--stage", "stg", "--trusted"],
+      cwd: "/tmp",
+      deps: harness.deps,
+    });
+
+    expect(code).toBe(0);
+    expect(harness.resolveCalls).toHaveLength(1);
+    expect(harness.resolveCalls[0]?.trusted).toBe(true);
+    expect(harness.spawnCalls).toHaveLength(0);
+    expect(harness.stdout.join("")).toContain("as trusted");
+  });
+
+  it("purges and re-stores trusted when --purge --trusted has no command", async () => {
+    const harness = createHarness();
+
+    const code = await runCli({
+      argv: ["--stage", "stg", "--purge", "--trusted"],
+      cwd: "/tmp",
+      deps: harness.deps,
+    });
+
+    expect(code).toBe(0);
+    expect(harness.purgeCalls).toHaveLength(1);
+    expect(harness.resolveCalls[0]?.trusted).toBe(true);
+    expect(harness.spawnCalls).toHaveLength(0);
+  });
+
   it("fails with exit code 2 on unknown flags", async () => {
     const harness = createHarness();
 

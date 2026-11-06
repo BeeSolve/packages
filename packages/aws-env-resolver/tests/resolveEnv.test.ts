@@ -190,6 +190,23 @@ describe("resolveEnvWithDeps", () => {
     ]);
   });
 
+  it("rewrites an already stored item as trusted when trusted is set", async () => {
+    const harness = makeHarness({
+      cached: { DATA_TABLE_NAME: "cached-table" },
+      stored: { API_KEY: "stored-key", HMAC_SECRET: "stored-hmac" },
+      resources: {},
+      secrets: {},
+    });
+
+    const env = await resolveEnvWithDeps(makeOptions({ trusted: true }), harness.deps);
+
+    expect(harness.counts.secrets).toBe(0);
+    expect(harness.setCalls).toEqual([
+      { values: { API_KEY: "stored-key", HMAC_SECRET: "stored-hmac" }, trusted: true },
+    ]);
+    expect(env.API_KEY).toBe("stored-key");
+  });
+
   it("applies precedence static < resources < secrets", async () => {
     const harness = makeHarness({
       resources: { SHARED: "from-resource", RESOURCE_OVER_STATIC: "from-resource" },

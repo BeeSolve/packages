@@ -37,8 +37,14 @@ Put flags before `--`. Bun drops a leading `--`, so with no flags the first non-
 | `--profile <name>` | AWS profile; overrides the config.                                                   |
 | `--refresh`        | Bypass caches and re-fetch from AWS.                                                 |
 | `--purge`          | Delete cached values for this stage (runs `<command>` only if given).                |
-| `--trusted`        | Store keychain items so reads are silent (no prompt).                                |
+| `--trusted`        | Store the keychain item so reads are silent (no prompt). See below.                  |
 | `--help`           | Show help.                                                                           |
+
+The trust list of a keychain item is set when the item is written. With `--trusted` the resolver writes the item on every run, so an item first stored without the flag is upgraded: that run prompts once and later runs are silent. To switch to trusted mode without running anything, pass `--trusted` with no command:
+
+```sh
+aws-env-resolver --stage stg --trusted
+```
 
 Exit codes: `0` success, `1` runtime error, `2` invalid arguments. When a command runs, its exit code is returned.
 

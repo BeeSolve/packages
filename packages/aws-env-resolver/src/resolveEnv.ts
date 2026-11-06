@@ -90,16 +90,22 @@ async function loadSecretValues(props: {
 }): Promise<Record<string, string>> {
   const { options, store, deps } = props;
   const secrets = options.secrets ?? [];
+  const trusted = options.trusted ?? false;
 
   if (options.refresh !== true) {
     const stored = await store.get();
     const envVars = secrets.map((mapping) => mapping.envVar);
     if (stored != null && envVars.every((envVar) => envVar in stored)) {
+      if (trusted) {
+        // The trust list is only applied on write, so an item first stored untrusted keeps
+        // prompting until it is rewritten.
+        await store.set({ values: stored, trusted });
+      }
       return Object.fromEntries(envVars.map((envVar) => [envVar, stored[envVar] ?? ""]));
     }
   }
 
   const fetched = await deps.resolveSecrets({ config: options.config, secrets });
-  await store.set({ values: fetched, trusted: options.trusted ?? false });
+  await store.set({ values: fetched, trusted });
   return fetched;
 }
