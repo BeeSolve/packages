@@ -1,0 +1,87 @@
+{
+  "name": "@beesolve/dsql-helpers",
+  "version": "0.0.0",
+  "description": "Aurora DSQL helpers: CDK cluster construct with per-table role grants, an access reconciler, and a Drizzle database factory",
+  "homepage": "https://github.com/BeeSolve/packages/tree/main/packages/helpers-dsql#readme",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BeeSolve/packages.git"
+  },
+  "files": [
+    "dist",
+    "docs/how-to",
+    "DOCS.md"
+  ],
+  "type": "module",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    },
+    "./cdk": {
+      "import": {
+        "types": "./dist/cdk.d.ts",
+        "default": "./dist/cdk.js"
+      }
+    },
+    "./admin": {
+      "import": {
+        "types": "./dist/admin.d.ts",
+        "default": "./dist/admin.js"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "test": "bun test",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@aws-sdk/client-ssm": "catalog:",
+    "@aws-sdk/credential-providers": "catalog:",
+    "valibot": "catalog:"
+  },
+  "devDependencies": {
+    "@aws/aurora-dsql-drizzle": "catalog:",
+    "@types/bun": "catalog:",
+    "@types/node": "catalog:",
+    "@types/pg": "catalog:",
+    "aws-cdk-lib": "catalog:",
+    "constructs": "catalog:",
+    "drizzle-orm": "catalog:",
+    "pg": "catalog:"
+  },
+  "peerDependencies": {
+    "@aws/aurora-dsql-drizzle": "catalog:",
+    "aws-cdk-lib": "catalog:",
+    "constructs": "catalog:",
+    "drizzle-orm": "catalog:",
+    "pg": "catalog:",
+    "typescript": "catalog:"
+  },
+  "peerDependenciesMeta": {
+    "@aws/aurora-dsql-drizzle": {
+      "optional": true
+    },
+    "aws-cdk-lib": {
+      "optional": true
+    },
+    "constructs": {
+      "optional": true
+    },
+    "drizzle-orm": {
+      "optional": true
+    },
+    "pg": {
+      "optional": true
+    },
+    "typescript": {
+      "optional": true
+    }
+  }
+}

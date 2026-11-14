@@ -23,6 +23,7 @@ Substitute these into the generic skill's placeholders:
   - `service-email` -> `@beesolve/email-service`
   - `service-email-dashboard` -> `@beesolve/email-service-dashboard`
   - `helpers-dynamo` -> `@beesolve/dynamo-helpers`
+  - `helpers-dsql` -> `@beesolve/dsql-helpers`
   - all others: `@beesolve/<dir-name>`
 - **Publish mechanism:** the `files` array in each `package.json` (no `.npmignore` in this repo).
   - User-facing packages: `"files"` includes `"dist"`, `"docs/how-to"`, `"DOCS.md"`.

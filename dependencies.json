@@ -5,6 +5,7 @@
   "packages/dmarc-parser",
   "packages/helpers",
   "packages/cdk-constructs",
+  "packages/helpers-dsql",
   "packages/helpers-dynamo",
   "packages/hmac",
   "packages/ip-info",

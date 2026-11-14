@@ -24,6 +24,7 @@ All packages target Node.js 24+ and are published as ESM.
 | [`@beesolve/dmarc-dashboard`](packages/dmarc-dashboard)                               | DMARC dashboard — SvelteKit app for viewing DMARC reports                                       |
 | [`@beesolve/helpers`](packages/helpers)                                               | Shared TypeScript utilities (serialization, retry, type guards)                                 |
 | [`@beesolve/dynamo-helpers`](packages/helpers-dynamo)                                 | Shared DynamoDB access helpers — document client, query pagination, single-table batch get      |
+| [`@beesolve/dsql-helpers`](packages/helpers-dsql)                                     | Aurora DSQL — CDK cluster with per-table database roles, access reconciler, Drizzle factory     |
 | [`@beesolve/hmac`](packages/hmac)                                                     | HMAC signer — create and validate HMAC signatures and signed URLs                               |
 | [`@beesolve/aws-env-loader`](packages/aws-env-loader)                                 | Local dev env from CloudFormation + Secrets Manager, cached and injected into a command         |
 | [`@beesolve/lint-config`](packages/lint-config)                                       | Shared Oxlint config, custom rules, and a `bun fmt` formatting config                           |
