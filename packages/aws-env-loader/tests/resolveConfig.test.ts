@@ -278,6 +278,31 @@ describe("resolveStackResources resourceType filter", () => {
   });
 });
 
+describe("resolveStackResources shared prefix", () => {
+  it("prefers the resource whose logical id is exactly the prefix over a child listed first", async () => {
+    const cfn = makeCfn([
+      stackResource({
+        LogicalResourceId: "DsqlAccessManifest82103489",
+        ResourceType: "AWS::SSM::Parameter",
+        PhysicalResourceId: "/beesolve/dsql/abc123/access-manifest",
+      }),
+      stackResource({
+        LogicalResourceId: "Dsql",
+        ResourceType: "AWS::DSQL::Cluster",
+        PhysicalResourceId: "abc123",
+      }),
+    ]);
+
+    const resolved = await resolveStackResources({
+      config: baseConfig,
+      resources: [{ envVar: "DSQL_CLUSTER_ID", logicalIdPrefix: "Dsql" }],
+      cfnClient: cfn.client,
+    });
+
+    expect(resolved).toEqual({ DSQL_CLUSTER_ID: "abc123" });
+  });
+});
+
 describe("resolveStackResources multiple stacks", () => {
   it("looks a mapping up only in its own stack and describes every stack", async () => {
     const byStack: Record<string, ReadonlyArray<StackResourceSummary>> = {

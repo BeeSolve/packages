@@ -14,7 +14,7 @@ import type {
   TemplateMapping,
   ResourceMapping,
 } from "../index.ts";
-import { toStackNames } from "./emit.ts";
+import { stripCdkHash, toStackNames } from "./emit.ts";
 
 export interface CloudFormationLike {
   send(command: ListStackResourcesCommand): Promise<ListStackResourcesCommandOutput>;
@@ -213,7 +213,7 @@ function findMatchingResource(props: {
   readonly mapping: ResourceReference;
 }): StackResourceSummary | undefined {
   const { stackResources, mapping } = props;
-  return stackResources.find((resource) => {
+  const candidates = stackResources.filter((resource) => {
     const logicalId = resource.LogicalResourceId;
     if (logicalId == null || !logicalId.startsWith(mapping.logicalIdPrefix)) {
       return false;
@@ -223,6 +223,14 @@ function findMatchingResource(props: {
     }
     return true;
   });
+  // A construct's children share its logical-id prefix (`Dsql` and `DsqlAccessManifest1A2B3C4D`),
+  // so the resource whose id is exactly the prefix plus an optional CDK hash wins over the order
+  // CloudFormation happens to list them in.
+  return (
+    candidates.find(
+      (resource) => stripCdkHash(resource.LogicalResourceId ?? "") === mapping.logicalIdPrefix,
+    ) ?? candidates[0]
+  );
 }
 
 function describeNoMatch(props: {
