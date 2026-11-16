@@ -1,6 +1,6 @@
 # Release 1.0.0 - Stabilize and Clean Up
 
-## Status: In Progress
+## Status: Complete
 
 ## Problem Statement
 
@@ -324,13 +324,13 @@ Per the `versioning` convention, the banner is removed in the same change that c
 
 Confirm the repo is clean and ready for the 1.0 release.
 
-- [ ] The todo search command (see Operational notes) returns no matches in non-sample package source
-- [ ] All 3 bug docs have an updated status
-- [ ] The changeset(s) list exactly the 20 target packages as `major`; `dsql-helpers`, `lambda-fetch-api`, `lambda-keep-active` and `samples` are absent
-- [ ] `grep -rln "Pre-1.0" packages/*/README.md` lists only `dsql-helpers`
-- [ ] `bun run check` (only the known baseline failure), `bun run type-check`, and `bun test` pass
-- [ ] `bun run build` succeeds for all packages
-- [ ] Report a summary: todos resolved, bugs formalized, banners removed, packages queued for 1.0.0, packages deliberately not promoted
+- [x] The todo search command (see Operational notes) returns no matches in non-sample package source
+- [x] All 3 bug docs have an updated status
+- [x] The changeset(s) list exactly the 20 target packages as `major`; `dsql-helpers`, `lambda-fetch-api`, `lambda-keep-active` and `samples` are absent
+- [x] `grep -rln "Pre-1.0" packages/*/README.md` lists only `dsql-helpers`
+- [x] `bun run check` (only the known baseline failure), `bun run type-check`, and `bun test` pass
+- [x] `bun run build` succeeds for all packages
+- [x] Report a summary: todos resolved, bugs formalized, banners removed, packages queued for 1.0.0, packages deliberately not promoted
 
 **Files:** none created - verification only
 
