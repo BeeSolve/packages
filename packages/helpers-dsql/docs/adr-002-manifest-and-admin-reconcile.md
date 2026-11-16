@@ -41,7 +41,7 @@ A CloudFormation output is limited to 1,024 characters; a few Lambda role ARNs a
 
 A Lambda with `dsql:DbConnectAdmin` runs the reconciler on every deploy, with the manifest as resource properties (no SSM). Access would change in the same deploy, and Lambdas could depend on it so they never run with a role that does not exist yet. Rejected for now: it puts an admin-capable function in every stack, and on the first deploy it runs before migrations create the tables, so table-scoped roles and full coverage of new tables still need the post-migration run. Can be added later on top of the same `reconcileAccess`.
 
-### DynamoDB table and stream-triggered Lambda (Anvil's design)
+### DynamoDB table and stream-triggered Lambda ([Anvil's design](https://anvilcloud.dev/docs/blog/automating-dsql))
 
 Deploys write items, a stream-triggered Lambda is the only admin connection. Equivalent to the custom resource in CDK, where CloudFormation is already the trusted writer, with more moving parts.
 

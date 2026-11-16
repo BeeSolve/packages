@@ -67,12 +67,17 @@ const principalArnSchema = v.pipe(
   v.regex(principalArnPattern, "Invalid principal ARN."),
 );
 
-const accessRoleSchema = v.object({
-  name: roleNameSchema,
-  privileges: v.pipe(v.array(v.picklist(dsqlPrivileges)), v.minLength(1)),
-  tables: v.optional(v.pipe(v.array(tableNameSchema), v.minLength(1))),
-  principals: v.array(principalArnSchema),
-});
+const accessRoleSchema = v.pipe(
+  v.object({
+    name: roleNameSchema,
+    privileges: v.pipe(v.array(v.picklist(dsqlPrivileges)), v.minLength(1), v.readonly()),
+    /** Tables the privileges apply to. Absent means every table in the schema, including later ones. */
+    tables: v.optional(v.pipe(v.array(tableNameSchema), v.minLength(1), v.readonly())),
+    /** IAM role or user ARNs mapped to this role with `AWS IAM GRANT`. */
+    principals: v.pipe(v.array(principalArnSchema), v.readonly()),
+  }),
+  v.readonly(),
+);
 
 const accessManifestSchema = v.pipe(
   v.object({
@@ -80,32 +85,20 @@ const accessManifestSchema = v.pipe(
     clusterId: v.pipe(v.string(), v.regex(/^[a-z0-9]+$/, "Invalid cluster id.")),
     account: v.pipe(v.string(), v.regex(/^\d{12}$/, "Invalid account id.")),
     schema: schemaNameSchema,
-    roles: v.array(accessRoleSchema),
+    roles: v.pipe(v.array(accessRoleSchema), v.readonly()),
   }),
   v.check(
     (manifest) => new Set(manifest.roles.map((role) => role.name)).size === manifest.roles.length,
     "Role names must be unique.",
   ),
+  v.readonly(),
 );
 
 /** One database role: what it may do, where, and which IAM principals log in as it. */
-export type AccessRole = {
-  readonly name: string;
-  readonly privileges: ReadonlyArray<DsqlPrivilege>;
-  /** Tables the privileges apply to. Absent means every table in the schema, including later ones. */
-  readonly tables?: ReadonlyArray<string> | undefined;
-  /** IAM role or user ARNs mapped to this role with `AWS IAM GRANT`. */
-  readonly principals: ReadonlyArray<string>;
-};
+export type AccessRole = v.InferOutput<typeof accessRoleSchema>;
 
 /** Desired database access, written by the CDK construct and applied by {@link reconcileAccess}. */
-export type AccessManifest = {
-  readonly version: 1;
-  readonly clusterId: string;
-  readonly account: string;
-  readonly schema: string;
-  readonly roles: ReadonlyArray<AccessRole>;
-};
+export type AccessManifest = v.InferOutput<typeof accessManifestSchema>;
 
 /** Validates untrusted input (for example the SSM parameter value) as an {@link AccessManifest}. */
 export function parseAccessManifest(value: unknown): AccessManifest {

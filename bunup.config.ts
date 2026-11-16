@@ -211,6 +211,10 @@ const workspace: Array<DefineWorkspaceItem> = [
     root: "packages/helpers-dsql",
     config: {
       entry: ["index.ts", "cdk.ts", "admin.ts"],
+      dts: {
+        inferTypes: true,
+        tsgo: true,
+      },
     },
   },
   {

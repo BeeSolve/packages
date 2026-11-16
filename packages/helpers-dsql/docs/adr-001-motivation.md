@@ -26,7 +26,7 @@ The env var names the construct sets are the ones `toDsqlConfig` reads, and the 
 
 ### 2. Least privilege per function, declared next to the function
 
-Anvil's DSQL component showed that roles declared with the infrastructure, attached per function and optionally scoped per table, make least privilege the easy path. The same model fits CDK's `grant*` convention (`grantRead`, `grantReadWrite`, `grant(fn, role)`).
+[Anvil's DSQL component](https://anvilcloud.dev/docs/blog/automating-dsql) showed that roles declared with the infrastructure, attached per function and optionally scoped per table, make least privilege the easy path. The same model fits CDK's `grant*` convention (`grantRead`, `grantReadWrite`, `grant(fn, role)`).
 
 ### 3. Access follows the code
 
@@ -52,4 +52,4 @@ Rejected for the same reason as in `@beesolve/sqs-handler`: entry points (`/cdk`
 
 - https://docs.aws.amazon.com/aurora-dsql/latest/userguide/using-database-and-iam-roles.html
 - https://docs.aws.amazon.com/aurora-dsql/latest/userguide/authentication-authorization.html
-- https://dev.to/damien_pace_2c3ec240cbd46/how-i-made-dsql-easier-4je5
+- https://anvilcloud.dev/docs/blog/automating-dsql
