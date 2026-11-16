@@ -1,5 +1,25 @@
 # @beesolve/analytics-dashboard
 
+## 1.0.0
+
+### Major Changes
+
+- 58e7624: Promote to 1.0.0. The API is considered stable; from this release on, breaking changes require a major version bump.
+
+### Patch Changes
+
+- Updated dependencies [58e7624]
+- Updated dependencies [58e7624]
+  - @beesolve/analytics-processor@1.0.0
+  - @beesolve/cdk-constructs@1.0.0
+  - @beesolve/helpers@1.0.0
+  - @beesolve/dynamo-helpers@1.0.0
+  - @beesolve/lambda-function-url-protection@1.0.0
+  - @beesolve/auth-service@1.0.0
+  - @beesolve/email-service@1.0.0
+  - @beesolve/lambda-keep-active@2.1.15
+  - @beesolve/lambda-fetch-api@2.1.4
+
 ## 0.8.3
 
 ### Patch Changes

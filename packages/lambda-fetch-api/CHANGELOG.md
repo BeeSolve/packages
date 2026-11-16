@@ -1,5 +1,12 @@
 # @beesolve/lambda-fetch-api
 
+## 2.1.4
+
+### Patch Changes
+
+- Updated dependencies [58e7624]
+  - @beesolve/helpers@1.0.0
+
 ## 2.1.3
 
 ### Patch Changes

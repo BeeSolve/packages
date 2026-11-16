@@ -1,6 +1,6 @@
 {
   "name": "@beesolve/lambda-function-url-protection",
-  "version": "0.2.1",
+  "version": "1.0.0",
   "description": "Fail-closed origin-token protection for a Lambda Function URL behind CloudFront",
   "license": "MIT",
   "repository": {
