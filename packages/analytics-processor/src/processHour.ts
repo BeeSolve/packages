@@ -508,7 +508,7 @@ export function chunkTransactItems({
   return [firstChunk, ...tail];
 }
 
-interface RollupModels {
+export interface RollupModels {
   readonly totals: Pick<Totals, "buildAggregateUpdate" | "queryWindow">;
   readonly breakdowns: Pick<Breakdowns, "buildUpdates" | "getForPeriod">;
   readonly markers: Pick<AppliedMarkers, "isApplied" | "buildMarkerPut">;

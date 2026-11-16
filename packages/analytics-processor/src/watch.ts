@@ -406,7 +406,7 @@ export class WatchStats {
   };
 }
 
-interface WatchMatcher {
+export interface WatchMatcher {
   readonly matcher: string;
   readonly mode: WatchMode;
 }

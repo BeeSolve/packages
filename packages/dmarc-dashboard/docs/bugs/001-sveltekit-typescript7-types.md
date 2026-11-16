@@ -37,7 +37,7 @@ Lock TypeScript to version 6 in the project's `package.json`:
 ```json
 {
   "devDependencies": {
-    "typescript": "^6.0.0"
+    "typescript": "~6.0.3"
   }
 }
 ```
@@ -59,7 +59,7 @@ Watch:
 
 ### Test procedure
 
-1. Change `"typescript": "^6.0.0"` to `"typescript": "catalog:"` (which resolves to TS7)
+1. Change `"typescript": "~6.0.3"` to `"typescript": "catalog:"` (which resolves to TS7)
 2. Run `bun install`
 3. Run `bunx svelte-kit sync`
 4. Run `svelte-check --tsconfig ./tsconfig.json`

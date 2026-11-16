@@ -23,6 +23,7 @@ export type {
   ProcessHourOptions,
   ProcessHourResult,
   RollupAthena,
+  RollupModels,
   TransactItem,
 } from "./src/processHour.ts";
 
@@ -68,6 +69,7 @@ export type {
   ProcessWatchOptions,
   WatchEntryRecord,
   WatchHourBatchResult,
+  WatchMatcher,
   WatchMode,
   WatchMonthCounts,
   WatchSource,

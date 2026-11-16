@@ -33,14 +33,14 @@ export async function passkeyAuthOptions({
 
   const allowCredentials = await getAllowCredentials({ accounts, userId });
 
-  const timeoutInSeconds = 300_000;
+  const timeoutInMilliseconds = 300_000;
 
   await actionTokens.createNew({
     owner: token,
     action: "passkeyAuth",
     value: challenge,
     remainingUses: 1,
-    expiresAt: new Date(Date.now() + timeoutInSeconds),
+    expiresAt: new Date(Date.now() + timeoutInMilliseconds),
     data: undefined,
     overwrite: false,
   });
@@ -53,7 +53,7 @@ export async function passkeyAuthOptions({
         challenge,
         allowCredentials,
         userVerification: "preferred",
-        timeout: timeoutInSeconds,
+        timeout: timeoutInMilliseconds,
       },
     }),
     {
@@ -70,7 +70,16 @@ interface AllowCredentialsProps {
   readonly userId: string | undefined;
 }
 
-async function getAllowCredentials({ accounts, userId }: AllowCredentialsProps) {
+interface AllowCredential {
+  readonly id: string;
+  readonly type: "public-key";
+  readonly transports: Array<string>;
+}
+
+async function getAllowCredentials({
+  accounts,
+  userId,
+}: AllowCredentialsProps): Promise<Array<AllowCredential>> {
   if (userId == null) return [];
 
   const passkeys = await accounts.getPasskeysByUserId(userId);

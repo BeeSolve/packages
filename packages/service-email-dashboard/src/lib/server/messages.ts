@@ -32,9 +32,7 @@ const requestSchema = v.object({
   requestId: v.string(),
   timestamp: dateSchema,
 });
-type RequestEvent = v.InferInput<typeof requestSchema>;
 const sendSchema = v.object({ status: v.literal("sent"), timestamp: dateSchema });
-type SendEvent = v.InferInput<typeof sendSchema>;
 const deliverySchema = v.object({
   status: v.literal("delivered"),
   deliveredAt: v.string(),
@@ -42,7 +40,6 @@ const deliverySchema = v.object({
   timestamp: dateSchema,
   recipients: v.array(emailSchema),
 });
-type DeliveryEvent = v.InferInput<typeof deliverySchema>;
 const bounceSchema = v.object({
   status: v.literal("bounced"),
   bounceType: v.picklist(bounceTypes),
@@ -52,7 +49,6 @@ const bounceSchema = v.object({
   timestamp: dateSchema,
   recipients: v.array(emailSchema),
 });
-type BounceEvent = v.InferInput<typeof bounceSchema>;
 
 const complainSchema = v.object({
   status: v.literal("complained"),
@@ -61,7 +57,6 @@ const complainSchema = v.object({
   timestamp: dateSchema,
   recipients: v.array(emailSchema),
 });
-type ComplaintEvent = v.InferInput<typeof complainSchema>;
 
 const rejectSchema = v.object({
   status: v.literal("rejected"),
@@ -70,7 +65,6 @@ const rejectSchema = v.object({
   timestamp: dateSchema,
   recipients: v.array(emailSchema),
 });
-type RejectEvent = v.InferInput<typeof rejectSchema>;
 
 const upsertSchema = v.object({
   eventId: v.string(),
@@ -88,6 +82,7 @@ const upsertSchema = v.object({
     rejectSchema,
   ]),
 });
+type UpsertProps = v.InferInput<typeof upsertSchema>;
 
 export const logEntrySchema = v.variant("status", [
   requestSchema,
@@ -189,21 +184,7 @@ export class Messages {
     },
   ) {}
 
-  readonly upsert = async (props: {
-    readonly eventId: string;
-    readonly messageId: string;
-    readonly recipients: Array<string>;
-    readonly subject: string;
-    readonly sender: string;
-    readonly createdAt: string;
-    readonly data:
-      | RequestEvent
-      | SendEvent
-      | DeliveryEvent
-      | BounceEvent
-      | ComplaintEvent
-      | RejectEvent;
-  }): Promise<void> => {
+  readonly upsert = async (props: UpsertProps): Promise<void> => {
     const validation = v.safeParse(upsertSchema, props);
     if (!validation.success) {
       throw new Error(

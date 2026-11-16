@@ -16,6 +16,7 @@ Every package must have at least one ADR — `adr-001-motivation.md` — that ex
 
 ## Numbering
 
+- When `adr-001-*` is already taken by a different ADR, the package's motivation ADR uses the next free number (`adr-NNN-motivation.md`). The requirement is that a motivation ADR exists, not that it is numbered 001.
 - Use zero-padded three-digit numbers: `adr-001-`, `adr-002-`, etc.
 - Exception: legacy ADRs without numbers (e.g. `adr-async-local-storage-context.md`) are acceptable but new ADRs must be numbered
 
@@ -26,7 +27,7 @@ Every package must have at least one ADR — `adr-001-motivation.md` — that ex
 
 ## Status
 
-Accepted | Superseded | Deprecated
+Accepted | Deferred | Superseded | Deprecated
 
 ## Context
 
