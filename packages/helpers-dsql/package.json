@@ -1,6 +1,6 @@
 {
   "name": "@beesolve/dsql-helpers",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Aurora DSQL helpers: CDK cluster construct with per-table role grants, an access reconciler, and a Drizzle database factory",
   "homepage": "https://github.com/BeeSolve/packages/tree/main/packages/helpers-dsql#readme",
   "license": "MIT",

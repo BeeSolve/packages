@@ -1,5 +1,11 @@
 # @beesolve/aws-env-loader
 
+## 0.7.1
+
+### Patch Changes
+
+- c0deff5: Prefer the resource whose logical id is exactly the mapped prefix (plus an optional CDK hash) over other resources sharing the prefix, such as a construct's children.
+
 ## 0.7.0
 
 ### Minor Changes
