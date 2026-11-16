@@ -36,6 +36,16 @@ export interface AnalyticsProcessorProps {
    */
   readonly processingLagHours?: number;
   /**
+   * How often the hourly processor runs, in whole hours (1-12). Each run
+   * processes every hour since the previous run, so no data is skipped, but the
+   * dashboard shows new data up to this many hours later. Per-hour Athena
+   * queries are unchanged, so this reduces Lambda invocations, not Athena cost.
+   * One run processes ~1 minute of Athena queries per hour of data, so raise
+   * `processorProps.timeout` (max 15 minutes) when increasing this.
+   * @default 1
+   */
+  readonly hourlyIntervalHours?: number;
+  /**
    * DynamoDB table removal policy.
    * @default RemovalPolicy.RETAIN
    */
@@ -51,6 +61,8 @@ export interface AnalyticsProcessorProps {
 const defaultTopPaths = 100;
 const defaultHourlyTtlDays = 90;
 const defaultProcessingLagHours = 2;
+const defaultHourlyIntervalHours = 1;
+const maxHourlyIntervalHours = 12;
 
 export class AnalyticsProcessor extends Construct {
   readonly table: TableV2;
@@ -67,6 +79,16 @@ export class AnalyticsProcessor extends Construct {
     const topPaths = props.topPaths ?? defaultTopPaths;
     const hourlyTtlDays = props.hourlyTtlDays ?? defaultHourlyTtlDays;
     const processingLagHours = props.processingLagHours ?? defaultProcessingLagHours;
+    const hourlyIntervalHours = props.hourlyIntervalHours ?? defaultHourlyIntervalHours;
+    if (
+      !Number.isInteger(hourlyIntervalHours) ||
+      hourlyIntervalHours < 1 ||
+      hourlyIntervalHours > maxHourlyIntervalHours
+    ) {
+      throw new Error(
+        `hourlyIntervalHours must be an integer between 1 and ${maxHourlyIntervalHours}, got ${hourlyIntervalHours}`,
+      );
+    }
     this.hourlyTtlDays = hourlyTtlDays;
     this.processingLagHours = processingLagHours;
     this.topPaths = topPaths;
@@ -160,6 +182,7 @@ export class AnalyticsProcessor extends Construct {
       environment: {
         ...sharedEnvironment,
         ...athenaEnvironment,
+        HOURLY_INTERVAL_HOURS: hourlyIntervalHours.toString(),
         ...(props.ipInfoApiKey != null ? { IPINFO_API_KEY: props.ipInfoApiKey } : {}),
       },
     });
@@ -213,7 +236,7 @@ export class AnalyticsProcessor extends Construct {
     this.sdkHandler = sdk;
 
     new Rule(this, "HourlySchedule", {
-      schedule: Schedule.rate(Duration.hours(1)),
+      schedule: Schedule.rate(Duration.hours(hourlyIntervalHours)),
       targets: [new LambdaFunctionTarget(hourly)],
     });
 

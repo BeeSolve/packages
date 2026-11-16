@@ -54,6 +54,7 @@ export { UrlDirectory } from "./src/urls.ts";
 
 export {
   processWatchHour,
+  processWatchHourBatch,
   processWatchMonth,
   watchModes,
   WatchStats,
@@ -66,6 +67,7 @@ export type {
   ProcessWatchMonthModels,
   ProcessWatchOptions,
   WatchEntryRecord,
+  WatchHourBatchResult,
   WatchMode,
   WatchMonthCounts,
   WatchSource,

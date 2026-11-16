@@ -30,3 +30,11 @@ want ad-hoc Athena queries beyond what the processor computes).
 `requiredRecordFields` is a plain string array of normalized column names; it matches the
 `CloudFrontAccessLogField` names the construct accepts and does not pull in a runtime
 dependency on `@beesolve/cdk-constructs`.
+
+## Query count matters more than bytes scanned
+
+Hourly partitions are a few KB, but Athena bills a **10 MB minimum per query**. Cost is
+therefore driven by how many queries run, not by how much they scan. The hourly processor
+runs one query per tier (`all`, `real`, `watch`) plus **one** batched query for all active
+watch entries, so roughly 4 billed queries per hour regardless of how many URLs you watch
+(about 0.03 TB/month, ~$0.14). Do not add per-URL or per-entry Athena queries.

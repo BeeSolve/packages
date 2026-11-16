@@ -88,6 +88,36 @@ describe("AnalyticsProcessor construct", () => {
     });
   });
 
+  it("defaults the hourly interval env to 1", () => {
+    makeTemplate().hasResourceProperties("AWS::Lambda::Function", {
+      Handler: "hourly.handler",
+      Environment: { Variables: Match.objectLike({ HOURLY_INTERVAL_HOURS: "1" }) },
+    });
+  });
+
+  it("runs the hourly schedule at hourlyIntervalHours", () => {
+    const app = new App();
+    const stack = new Stack(app, "IntervalStack", {
+      env: { account: "123456789012", region: "us-east-1" },
+    });
+    new AnalyticsProcessor(stack, "Analytics", { ...minimalProps, hourlyIntervalHours: 6 });
+    const template = Template.fromStack(stack);
+    template.hasResourceProperties("AWS::Events::Rule", { ScheduleExpression: "rate(6 hours)" });
+    template.hasResourceProperties("AWS::Lambda::Function", {
+      Handler: "hourly.handler",
+      Environment: { Variables: Match.objectLike({ HOURLY_INTERVAL_HOURS: "6" }) },
+    });
+  });
+
+  it("rejects an invalid hourlyIntervalHours", () => {
+    for (const hourlyIntervalHours of [0, 13, 1.5]) {
+      const stack = new Stack(new App(), "BadStack");
+      expect(
+        () => new AnalyticsProcessor(stack, "Analytics", { ...minimalProps, hourlyIntervalHours }),
+      ).toThrow("hourlyIntervalHours");
+    }
+  });
+
   it("grants the hourly Lambda Athena query permissions", () => {
     const template = makeTemplate();
     template.hasResourceProperties("AWS::IAM::Policy", {

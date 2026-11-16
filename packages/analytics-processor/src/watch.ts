@@ -2,6 +2,7 @@ import type { AthenaClient } from "@aws-sdk/client-athena";
 import type { DynamoDBDocumentClient, TransactWriteCommandInput } from "@aws-sdk/lib-dynamodb";
 import { UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import { queryAll } from "@beesolve/dynamo-helpers";
+import { splitArrayToChunks } from "@beesolve/helpers";
 import * as v from "valibot";
 
 import type { AppliedMarkers } from "./appliedMarkers.ts";
@@ -762,10 +763,6 @@ export async function processWatchHour({
   const alreadyApplied = await models.markers.isApplied({ grain: "watch", periodKey });
   if (alreadyApplied) return { status: "skipped", buckets: 0 };
 
-  const parts = hourKeyParts(hourKey);
-  const monthKey = `${parts.year}-${parts.month}`;
-  const dayAttr = `d${parts.day}`;
-
   const counts = await runWatchHourlyQuery({
     athena: athena.client,
     database: athena.database,
@@ -776,6 +773,248 @@ export async function processWatchHour({
     matcher: entry.matcher,
     mode: entry.mode,
   });
+
+  return writeWatchHour({ hourKey, entry, counts, models, options, dynamo });
+}
+
+export interface WatchHourBatchResult {
+  readonly matcher: string;
+  readonly status: "applied" | "skipped" | "failed";
+  readonly buckets: number;
+  readonly error?: unknown;
+}
+
+/**
+ * Process one UTC hour for many watch entries with a single Athena query per
+ * {@link watchBatchSize} entries, instead of one query per entry. Athena bills a
+ * 10 MB minimum per query and the hourly partitions are tiny, so the per-entry
+ * queries were billed almost entirely on that floor. The batch query selects the
+ * union of all pending entries' rows, grouped by raw `cs_uri_stem`; each entry's
+ * buckets are then assembled in memory. Markers, `ADD` semantics and per-entry
+ * transactions are the same as {@link processWatchHour}. A write failure for one
+ * entry is reported as `failed` and does not stop the others.
+ */
+export async function processWatchHourBatch({
+  hourKey,
+  entries,
+  models,
+  athena,
+  options,
+  dynamo,
+}: {
+  hourKey: string;
+  entries: ReadonlyArray<WatchMatcher>;
+  models: ProcessWatchHourModels;
+  athena: ProcessWatchAthena;
+  options?: ProcessWatchOptions;
+  dynamo: Pick<DynamoDBDocumentClient, "send">;
+}): Promise<Array<WatchHourBatchResult>> {
+  const applied = await Promise.all(
+    entries.map((entry) =>
+      models.markers.isApplied({
+        grain: "watch",
+        periodKey: watchMarkerPeriodKey({ matcher: entry.matcher, hourKey }),
+      }),
+    ),
+  );
+
+  const results: Array<WatchHourBatchResult> = [];
+  const pending: Array<WatchMatcher> = [];
+  entries.forEach((entry, index) => {
+    if (applied[index] === true) {
+      results.push({ matcher: entry.matcher, status: "skipped", buckets: 0 });
+      return;
+    }
+    pending.push(entry);
+  });
+
+  for (const chunk of splitArrayToChunks(pending, watchBatchSize)) {
+    const rows = await runWatchHourBatchQuery({
+      athena: athena.client,
+      database: athena.database,
+      table: athena.table,
+      workgroup: athena.workgroup,
+      outputLocation: athena.outputLocation,
+      hourKey,
+      entries: chunk,
+    });
+
+    for (const entry of chunk) {
+      const counts = assembleWatchEntryCounts({ entry, rows });
+      try {
+        const written = await writeWatchHour({ hourKey, entry, counts, models, options, dynamo });
+        results.push({ matcher: entry.matcher, ...written });
+      } catch (error) {
+        results.push({ matcher: entry.matcher, status: "failed", buckets: 0, error });
+      }
+    }
+  }
+
+  return results;
+}
+
+/**
+ * Build the single Athena statement behind {@link processWatchHourBatch}: one
+ * UTC hour, filtered to the union of every entry's predicate (`exact` entries as
+ * one `IN` list on the slash-collapsed URI, `group`/`split` entries as `LIKE
+ * '<prefix>%'`), grouped by raw `cs_uri_stem`. Leading `path_value` column holds
+ * the raw URI, followed by the same metric columns as the per-entry query.
+ */
+export function buildWatchHourBatchQuery({
+  table,
+  hourKey,
+  entries,
+}: {
+  table: string;
+  hourKey: string;
+  entries: ReadonlyArray<WatchMatcher>;
+}): string {
+  if (entries.length === 0) throw new Error("buildWatchHourBatchQuery requires at least one entry");
+
+  const parts = hourKeyParts(hourKey);
+  const hourPredicate = `year = '${parts.year}' AND month = '${parts.month}' AND day = '${parts.day}' AND hour = '${parts.hour}'`;
+
+  const exactMatchers = entries.filter((entry) => entry.mode === "exact");
+  const prefixMatchers = entries.filter((entry) => entry.mode !== "exact");
+  const alternatives: Array<string> = [];
+  if (exactMatchers.length > 0) {
+    const list = exactMatchers.map((entry) => `'${escapeSqlString(entry.matcher)}'`).join(", ");
+    alternatives.push(`${canonicalUriExpr(columnMap.uriStem)} IN (${list})`);
+  }
+  for (const entry of prefixMatchers) {
+    alternatives.push(`${columnMap.uriStem} LIKE '${escapeSqlString(entry.matcher)}%'`);
+  }
+
+  return [
+    "SELECT",
+    [`  ${columnMap.uriStem} AS path_value`, ...watchMetricColumns().map((c) => `  ${c}`)].join(
+      ",\n",
+    ),
+    `FROM "${table}"`,
+    `WHERE ${hourPredicate} AND (${alternatives.join(" OR ")})`,
+    `GROUP BY ${columnMap.uriStem}`,
+  ].join("\n");
+}
+
+async function runWatchHourBatchQuery({
+  athena,
+  database,
+  table,
+  workgroup,
+  outputLocation,
+  hourKey,
+  entries,
+}: {
+  athena: Pick<AthenaClient, "send">;
+  database: string;
+  table: string;
+  workgroup: string;
+  outputLocation?: string;
+  hourKey: string;
+  entries: ReadonlyArray<WatchMatcher>;
+}): Promise<Array<WatchHourCounts>> {
+  const rawRows = await startAndFetchRows({
+    athena,
+    database,
+    workgroup,
+    outputLocation,
+    queryString: buildWatchHourBatchQuery({ table, hourKey, entries }),
+  });
+
+  const rows: Array<WatchHourCounts> = [];
+  for (const cells of rawRows) {
+    const row = parseWatchRow({ cells, mode: "split", byDay: false });
+    if (row == null) continue;
+    rows.push(row.counts);
+  }
+  return rows;
+}
+
+function canonicalUri(uri: string): string {
+  return uri.length > 1 && uri.endsWith("/") ? uri.slice(0, -1) : uri;
+}
+
+const zeroCounts: Omit<WatchHourCounts, "path"> = {
+  hits: 0,
+  bytesSent: 0,
+  cacheHits: 0,
+  cacheMisses: 0,
+  cacheErrors: 0,
+  bytesSaved: 0,
+  errors: 0,
+  redirects: 0,
+};
+
+function addCounts(
+  target: Omit<WatchHourCounts, "path">,
+  row: WatchHourCounts,
+): Omit<WatchHourCounts, "path"> {
+  return {
+    hits: target.hits + row.hits,
+    bytesSent: target.bytesSent + row.bytesSent,
+    cacheHits: target.cacheHits + row.cacheHits,
+    cacheMisses: target.cacheMisses + row.cacheMisses,
+    cacheErrors: target.cacheErrors + row.cacheErrors,
+    bytesSaved: target.bytesSaved + row.bytesSaved,
+    errors: target.errors + row.errors,
+    redirects: target.redirects + row.redirects,
+  };
+}
+
+/**
+ * Reproduce, in memory, what the per-entry query returned: `exact` and `group`
+ * collapse to exactly one pathless bucket (zeros when nothing matched, as SQL
+ * aggregation without `GROUP BY` does); `split` yields one bucket per
+ * slash-collapsed path under the prefix.
+ */
+function assembleWatchEntryCounts({
+  entry,
+  rows,
+}: {
+  entry: WatchMatcher;
+  rows: ReadonlyArray<WatchHourCounts>;
+}): Array<WatchHourCounts> {
+  if (entry.mode === "split") {
+    const byPath: Record<string, Omit<WatchHourCounts, "path">> = {};
+    for (const row of rows) {
+      if (row.path == null || !row.path.startsWith(entry.matcher)) continue;
+      const path = canonicalUri(row.path);
+      byPath[path] = addCounts(byPath[path] ?? zeroCounts, row);
+    }
+    return Object.entries(byPath).map(([path, counts]) => ({ path, ...counts }));
+  }
+
+  let total = zeroCounts;
+  for (const row of rows) {
+    if (row.path == null) continue;
+    const matches =
+      entry.mode === "exact"
+        ? canonicalUri(row.path) === entry.matcher
+        : row.path.startsWith(entry.matcher);
+    if (matches) total = addCounts(total, row);
+  }
+  return [{ ...total }];
+}
+
+async function writeWatchHour({
+  hourKey,
+  entry,
+  counts,
+  models,
+  options,
+  dynamo,
+}: {
+  hourKey: string;
+  entry: WatchMatcher;
+  counts: ReadonlyArray<WatchHourCounts>;
+  models: ProcessWatchHourModels;
+  options?: ProcessWatchOptions;
+  dynamo: Pick<DynamoDBDocumentClient, "send">;
+}): Promise<{ status: "applied" | "skipped"; buckets: number }> {
+  const periodKey = watchMarkerPeriodKey({ matcher: entry.matcher, hourKey });
+  const parts = hourKeyParts(hourKey);
+  const monthKey = `${parts.year}-${parts.month}`;
+  const dayAttr = `d${parts.day}`;
 
   const ttl = computeWatchMarkerTtl(options?.markerTtlDays);
   const markerPut = models.markers.buildMarkerPut({ grain: "watch", periodKey, ttl });
@@ -855,6 +1094,7 @@ export function watchMarkerPeriodKey({
 }
 
 const defaultWatchMarkerTtlDays = 90;
+const watchBatchSize = 200;
 
 function computeWatchMarkerTtl(markerTtlDays?: number): number {
   const days = markerTtlDays ?? defaultWatchMarkerTtlDays;
