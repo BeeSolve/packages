@@ -207,6 +207,17 @@ const workspace: Array<DefineWorkspaceItem> = [
     },
   },
   {
+    name: "@beesolve/dsql-helpers",
+    root: "packages/helpers-dsql",
+    config: {
+      entry: ["index.ts", "cdk.ts", "admin.ts"],
+      dts: {
+        inferTypes: true,
+        tsgo: true,
+      },
+    },
+  },
+  {
     name: "@beesolve/analytics-processor",
     root: "packages/analytics-processor",
     config: {

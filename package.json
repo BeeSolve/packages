@@ -34,7 +34,12 @@
       "@types/node": "^26.6.5",
       "@types/bun": "1.4.4",
       "esbuild": "^0.28.2",
-      "@standard-schema/spec": "^1.1.0"
+      "@standard-schema/spec": "^1.1.0",
+      "@aws/aurora-dsql-drizzle": "^0.2.0",
+      "@aws-sdk/client-ssm": "^3.1158.0",
+      "drizzle-orm": "~0.45.4",
+      "pg": "^8.23.1",
+      "@types/pg": "^8.23.1"
     }
   },
   "type": "module",
