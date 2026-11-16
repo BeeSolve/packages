@@ -72,6 +72,23 @@ const rejectSchema = v.object({
 });
 type RejectEvent = v.InferInput<typeof rejectSchema>;
 
+const upsertSchema = v.object({
+  eventId: v.string(),
+  messageId: v.string(),
+  recipients: v.array(emailSchema),
+  subject: v.string(),
+  sender: v.string(),
+  createdAt: dateSchema,
+  data: v.variant("status", [
+    requestSchema,
+    sendSchema,
+    deliverySchema,
+    bounceSchema,
+    complainSchema,
+    rejectSchema,
+  ]),
+});
+
 export const logEntrySchema = v.variant("status", [
   requestSchema,
   sendSchema,
@@ -172,7 +189,6 @@ export class Messages {
     },
   ) {}
 
-  // todo: we need to verify all the inserted data before we instert them (through valibot schemas)
   readonly upsert = async (props: {
     readonly eventId: string;
     readonly messageId: string;
@@ -188,6 +204,12 @@ export class Messages {
       | ComplaintEvent
       | RejectEvent;
   }): Promise<void> => {
+    const validation = v.safeParse(upsertSchema, props);
+    if (!validation.success) {
+      throw new Error(
+        `Invalid message upsert input: ${validation.issues.map((issue) => issue.message).join("; ")}`,
+      );
+    }
     if (props.recipients.length > 48) {
       throw new Error(`Only can store up to 48 recipients. Transaction won't hold more.`);
     }

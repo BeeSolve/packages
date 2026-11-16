@@ -175,13 +175,13 @@ Resolve the missing-test todo in `packages/service-email/src/handler.ts` around 
 
 Resolve the input-validation todo in `packages/service-email-dashboard/src/lib/server/messages.ts` around line 175.
 
-- [ ] Read the `upsert` method, the six event types in its `data` union (`RequestEvent`, `SendEvent`, `DeliveryEvent`, `BounceEvent`, `ComplaintEvent`, `RejectEvent`), and the existing fixtures in `packages/service-email-dashboard/tests/messages.test.ts`
-- [ ] Define a Valibot schema matching what `upsert` already accepts and persists. Follow repo Valibot conventions: `v.picklist` with an `as const` array for string-literal unions, `v.union` only for different types. Where practical derive the TypeScript types from the schema (`v.InferOutput`) so schema and types cannot drift; do not change the exported type shapes
-- [ ] Parse the input with the schema at the start of `upsert`; throw a plain `Error` with a descriptive message on invalid input
-- [ ] Keep the existing recipient checks (`> 48`, `=== 0`) and their exact error messages, so existing tests keep passing
-- [ ] Do NOT add new fields or new behavior
-- [ ] Remove the `// todo:` comment
-- [ ] Add tests (extend `messages.test.ts`) covering: valid input of each status passes, and at least one malformed input is rejected before any write
+- [x] Read the `upsert` method, the six event types in its `data` union (`RequestEvent`, `SendEvent`, `DeliveryEvent`, `BounceEvent`, `ComplaintEvent`, `RejectEvent`), and the existing fixtures in `packages/service-email-dashboard/tests/messages.test.ts`
+- [x] Define a Valibot schema matching what `upsert` already accepts and persists. Follow repo Valibot conventions: `v.picklist` with an `as const` array for string-literal unions, `v.union` only for different types. Where practical derive the TypeScript types from the schema (`v.InferOutput`) so schema and types cannot drift; do not change the exported type shapes
+- [x] Parse the input with the schema at the start of `upsert`; throw a plain `Error` with a descriptive message on invalid input
+- [x] Keep the existing recipient checks (`> 48`, `=== 0`) and their exact error messages, so existing tests keep passing
+- [x] Do NOT add new fields or new behavior
+- [x] Remove the `// todo:` comment
+- [x] Add tests (extend `messages.test.ts`) covering: valid input of each status passes, and at least one malformed input is rejected before any write
 
 **Files:** `packages/service-email-dashboard/src/lib/server/messages.ts`, `packages/service-email-dashboard/tests/messages.test.ts`
 

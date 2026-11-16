@@ -120,6 +120,71 @@ describe("Messages.upsert", () => {
     expect(send).toHaveBeenCalledTimes(0);
   });
 
+  it("accepts valid input for every event status", async () => {
+    const { dynamo, send } = makeDynamo();
+    const messages = new Messages({ dynamo, tableName: "t", reverseIndexName: "reverse" });
+    const recipients = ["recipient@example.com"];
+    const base = { ...sentProps(), recipients };
+    const datas: Array<UpsertProps["data"]> = [
+      { status: "requested", requestId: "req-1", timestamp: createdAt },
+      { status: "sent", timestamp: createdAt },
+      {
+        status: "delivered",
+        deliveredAt: createdAt,
+        deliveryMs: 10,
+        timestamp: createdAt,
+        recipients,
+      },
+      {
+        status: "bounced",
+        bounceType: "Permanent",
+        bounceSubType: "General",
+        at: createdAt,
+        timestamp: createdAt,
+        recipients,
+      },
+      { status: "complained", at: createdAt, timestamp: createdAt, recipients },
+      {
+        status: "rejected",
+        reason: "Bad content",
+        at: createdAt,
+        timestamp: createdAt,
+        recipients,
+      },
+    ];
+
+    for (const data of datas) {
+      await messages.upsert({ ...base, data });
+    }
+
+    expect(send).toHaveBeenCalledTimes(datas.length);
+  });
+
+  it("rejects malformed input before any write", async () => {
+    const { dynamo, send } = makeDynamo();
+    const messages = new Messages({ dynamo, tableName: "t", reverseIndexName: "reverse" });
+    const malformed: Array<unknown> = [
+      { ...sentProps(), createdAt: "not-a-date" },
+      { ...sentProps(), recipients: ["not-an-email"] },
+      { ...sentProps(), data: { status: "unknown", timestamp: createdAt } },
+      { ...sentProps(), data: { status: "bounced", timestamp: createdAt, recipients: [] } },
+      { ...sentProps(), data: { status: "requested", timestamp: createdAt } },
+    ];
+
+    for (const input of malformed) {
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- deliberately malformed input
+      const props = input as UpsertProps;
+      let message = "";
+      try {
+        await messages.upsert(props);
+      } catch (error) {
+        message = error instanceof Error ? error.message : "";
+      }
+      expect(message).toMatch(/Invalid message upsert input/);
+    }
+    expect(send).toHaveBeenCalledTimes(0);
+  });
+
   it("issues one TransactWrite with record update, global stats, recipient stats, relations and month record for a sent event", async () => {
     const { dynamo, send } = makeDynamo();
     const messages = new Messages({ dynamo, tableName: "t", reverseIndexName: "reverse" });
