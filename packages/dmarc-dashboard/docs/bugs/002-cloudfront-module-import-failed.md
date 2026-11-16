@@ -2,6 +2,8 @@
 
 ## Status: Open (investigation not started)
 
+> Note: this does not affect the published package API and is not a 1.0 blocker.
+
 ## Date Discovered: 2026-09-03
 
 ## Package

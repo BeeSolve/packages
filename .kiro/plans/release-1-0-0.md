@@ -217,10 +217,10 @@ Remove the todo that describes an unbuilt feature. Do NOT implement it - the 1.0
 
 Update the status of the 3 bug docs to reflect the 1.0 decision. These are upstream/infra issues, not API blockers. Each file's status is a single line `## Status: <value>`; replace the value only.
 
-- [ ] `packages/service-auth/docs/bugs/001-edge-function-cross-region-race.md`: set the line to `## Status: Accepted (known limitation - upstream AWS CDK experimental.EdgeFunction)`. Verify the "deploy twice with --no-rollback" workaround is still accurate. Keep the "when to retry" monitoring section
-- [ ] `packages/dmarc-dashboard/docs/bugs/001-sveltekit-typescript7-types.md`: set the line to `## Status: Accepted (version-locked to TypeScript 6 - upstream SvelteKit/TS7)`. Verify the TS6 pin (`"typescript": "~6.0.3"`) is still in `packages/dmarc-dashboard/package.json`
-- [ ] `packages/dmarc-dashboard/docs/bugs/002-cloudfront-module-import-failed.md`: add a short note under the status stating it does not affect the published package API and is not a 1.0 blocker. Leave the status `Open (investigation not started)` (owner decides separately whether to investigate). Do NOT make speculative CDK changes
-- [ ] Docs-only edits; no code changes
+- [x] `packages/service-auth/docs/bugs/001-edge-function-cross-region-race.md`: set the line to `## Status: Accepted (known limitation - upstream AWS CDK experimental.EdgeFunction)`. Verify the "deploy twice with --no-rollback" workaround is still accurate. Keep the "when to retry" monitoring section
+- [x] `packages/dmarc-dashboard/docs/bugs/001-sveltekit-typescript7-types.md`: set the line to `## Status: Accepted (version-locked to TypeScript 6 - upstream SvelteKit/TS7)`. Verify the TS6 pin (`"typescript": "~6.0.3"`) is still in `packages/dmarc-dashboard/package.json`
+- [x] `packages/dmarc-dashboard/docs/bugs/002-cloudfront-module-import-failed.md`: add a short note under the status stating it does not affect the published package API and is not a 1.0 blocker. Leave the status `Open (investigation not started)` (owner decides separately whether to investigate). Do NOT make speculative CDK changes
+- [x] Docs-only edits; no code changes
 
 **Files:** the 3 bug markdown files listed above
 

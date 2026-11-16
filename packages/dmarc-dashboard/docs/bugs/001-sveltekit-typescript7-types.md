@@ -1,6 +1,6 @@
 # BUG-001: SvelteKit + TypeScript 7 fails to emit types correctly
 
-## Status: Open (version locked to TypeScript 6)
+## Status: Accepted (version-locked to TypeScript 6 - upstream SvelteKit/TS7)
 
 ## Date Discovered: 2026-08-13
 

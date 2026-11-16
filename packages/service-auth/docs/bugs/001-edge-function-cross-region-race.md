@@ -1,6 +1,6 @@
 # BUG-001: EdgeFunction cross-region race condition on first deployment
 
-## Status: Open (workaround: deploy twice with --no-rollback)
+## Status: Accepted (known limitation - upstream AWS CDK experimental.EdgeFunction)
 
 ## Date Discovered: 2026-08-13
 
