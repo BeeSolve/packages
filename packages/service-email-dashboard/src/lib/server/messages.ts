@@ -435,8 +435,6 @@ export class Messages {
     };
   };
 
-  // todo: here we could create algorithm which will go through multiple "months" in PK until the limit is reached
-  // or the props could be from/to months and we would get all betweeen with correct computed pagination - the cursor would encode current PK as well
   readonly messagesManyForMonth = async ({
     month,
     limit = defaultLimit,

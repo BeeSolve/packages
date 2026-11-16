@@ -198,9 +198,9 @@ Resolve the input-validation todo in `packages/service-email-dashboard/src/lib/s
 
 Remove the todo that describes an unbuilt feature. Do NOT implement it - the 1.0 goal is an honest, settled surface.
 
-- [ ] `packages/service-email-dashboard/src/lib/server/messages.ts` ~line 416: remove the `// todo: here we could create algorithm ...` comment
-- [ ] Record the limitation in the package docs (README or a how-to under `packages/service-email-dashboard/docs/how-to/`) as a one-line "Known limitation: message listing paginates within a single month partition", not as a code comment
-- [ ] Confirm no exported type or method signature changes
+- [x] `packages/service-email-dashboard/src/lib/server/messages.ts` ~line 416: remove the `// todo: here we could create algorithm ...` comment
+- [x] Record the limitation in the package docs (README or a how-to under `packages/service-email-dashboard/docs/how-to/`) as a one-line "Known limitation: message listing paginates within a single month partition", not as a code comment
+- [x] Confirm no exported type or method signature changes
 
 **Files:** `packages/service-email-dashboard/src/lib/server/messages.ts`, a doc file in `packages/service-email-dashboard/`
 

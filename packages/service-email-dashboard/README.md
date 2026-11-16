@@ -139,6 +139,8 @@ loads are `+layout.server.ts` (supplies `user` and the setup redirect), the
 Environment variables are declared in `src/env.ts` via `defineEnvVars` and imported,
 typed and validated, from `$app/env/private`.
 
+Known limitation: message listing paginates within a single month partition (`year`/`month` plus `cursor`); a page never continues into an adjacent month.
+
 ## First Deployment
 
 The SvelteKit build requires a `FRONTEND_URI` environment variable (the CloudFront URL), which does not exist until after the first deploy:
