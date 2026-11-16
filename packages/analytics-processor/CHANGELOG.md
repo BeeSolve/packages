@@ -1,5 +1,12 @@
 # @beesolve/analytics-processor
 
+## 1.1.0
+
+### Minor Changes
+
+- dbcbd5c: The hourly processor now computes all watch entries for an hour with one Athena query instead of one query per entry. Athena bills a 10 MB minimum per query and hourly partitions are tiny, so a site with ~60 watched URLs dropped from ~66 to ~4 billed queries per hour (about 94% less Athena cost). Results are identical to the per-entry queries. Adds `processWatchHourBatch` and `buildWatchHourBatchQuery`; `processWatchHour` is unchanged.
+- dbcbd5c: Add `hourlyIntervalHours` (1-12, default 1) to control how often the hourly processor runs. Each run processes every hour since the previous run, so no data is skipped.
+
 ## 1.0.0
 
 ### Major Changes
