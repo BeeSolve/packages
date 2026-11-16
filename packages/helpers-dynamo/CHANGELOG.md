@@ -1,5 +1,16 @@
 # @beesolve/dynamo-helpers
 
+## 1.0.0
+
+### Major Changes
+
+- 58e7624: Promote to 1.0.0. The API is considered stable; from this release on, breaking changes require a major version bump.
+
+### Patch Changes
+
+- Updated dependencies [58e7624]
+  - @beesolve/helpers@1.0.0
+
 ## 0.2.2
 
 ### Patch Changes
