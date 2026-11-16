@@ -2,10 +2,12 @@
 
 ## Status
 
-Proposed — **deferred, not built**. This ADR records the discovery and design so
-a future implementation does not have to redo the analysis.
+Deferred
 
 ## Context
+
+This decision is deferred and not built. This ADR records the discovery and design so
+a future implementation does not have to redo the analysis.
 
 A reusable, on-demand `compact` command (`command/compact.ts`) was added to
 convert a legacy v1 LazySimpleSerDe CloudFront log table into a v2-shaped
