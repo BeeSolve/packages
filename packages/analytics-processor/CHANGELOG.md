@@ -1,5 +1,11 @@
 # @beesolve/analytics-processor
 
+## 1.2.0
+
+### Minor Changes
+
+- d1076ab: Export the `WatchMatcher` and `RollupModels` types, which appear in public signatures.
+
 ## 1.1.0
 
 ### Minor Changes
