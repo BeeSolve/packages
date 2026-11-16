@@ -31,15 +31,7 @@ export async function passkeyAuthOptions({
   const challenge = randomBytes(32).toString("base64url");
   const token = randomBytes(32).toString("base64url");
 
-  // todo: get rid of ternary here
-  const allowCredentials =
-    userId != null
-      ? (await accounts.getPasskeysByUserId(userId)).map((passkey) => ({
-          id: passkey.username,
-          type: "public-key" as const,
-          transports: passkey.transports,
-        }))
-      : [];
+  const allowCredentials = await getAllowCredentials({ accounts, userId });
 
   const timeoutInSeconds = 300_000;
 
@@ -71,4 +63,20 @@ export async function passkeyAuthOptions({
       }),
     },
   );
+}
+
+interface AllowCredentialsProps {
+  readonly accounts: Pick<Accounts, "getPasskeysByUserId">;
+  readonly userId: string | undefined;
+}
+
+async function getAllowCredentials({ accounts, userId }: AllowCredentialsProps) {
+  if (userId == null) return [];
+
+  const passkeys = await accounts.getPasskeysByUserId(userId);
+  return passkeys.map((passkey) => ({
+    id: passkey.username,
+    type: "public-key" as const,
+    transports: passkey.transports,
+  }));
 }
