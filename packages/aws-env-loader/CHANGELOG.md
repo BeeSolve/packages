@@ -1,5 +1,11 @@
 # @beesolve/aws-env-loader
 
+## 0.7.2
+
+### Patch Changes
+
+- 9b237aa: Document that only the macOS keychain is supported as a secure cache and ask users on other platforms to open an issue.
+
 ## 0.7.1
 
 ### Patch Changes
