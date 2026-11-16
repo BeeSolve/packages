@@ -236,9 +236,9 @@ Update the status of the 3 bug docs to reflect the 1.0 decision. These are upstr
 
 Small, no-feature fixes found during the suitability review.
 
-- [ ] `packages/lambda-function-url-protection/package.json`: replace `"description": null` with a one-line description (for example "Fail-closed origin-token protection for a Lambda Function URL behind CloudFront"). Metadata only
-- [ ] `packages/analytics-processor/docs/adr-008-scheduled-v2-compaction-deferred.md`: change `## Status` from `Proposed - deferred, not built` to `Deferred` (keep the body). Follow the ADR format in `.kiro/steering`
-- [ ] Confirm each of the 20 promoted packages has `docs/adr-001-motivation.md` (ADR convention). Report any missing; do not invent content without asking
+- [x] `packages/lambda-function-url-protection/package.json`: replace `"description": null` with a one-line description (for example "Fail-closed origin-token protection for a Lambda Function URL behind CloudFront"). Metadata only
+- [x] `packages/analytics-processor/docs/adr-008-scheduled-v2-compaction-deferred.md`: change `## Status` from `Proposed - deferred, not built` to `Deferred` (keep the body). Follow the ADR format in `.kiro/steering`
+- [x] Confirm each of the 20 promoted packages has `docs/adr-001-motivation.md` (ADR convention). Report any missing; do not invent content without asking
 
 **Files:** `packages/lambda-function-url-protection/package.json`, `packages/analytics-processor/docs/adr-008-scheduled-v2-compaction-deferred.md`
 
@@ -248,6 +248,24 @@ Small, no-feature fixes found during the suitability review.
 - ADR-008 status reads `Deferred`
 - Every promoted package has ADR-001, or the gap is reported
 - `bun run check`, `bun run type-check`, and `bun test` pass
+
+---
+
+### Task 6b: Write missing motivation ADRs
+
+Task 6 found 6 promoted packages without `docs/adr-001-motivation.md`, which the ADR convention requires. Docs only.
+
+- [x] `helpers`, `lint-config`, `cdk-email-alarms`, `dmarc-parser`: create `docs/adr-001-motivation.md`
+- [x] `cdk-constructs` and `dmarc-reports`: `adr-001-*` is already taken by a different ADR, so create the motivation ADR with the next free number (`adr-002-motivation.md`) and do not renumber existing ADRs
+- [x] Draft each from the package's README, `package.json` and source, following the ADR format in `.kiro/steering` (Status, Context, Decision, Rationale, Consequences, Alternatives Considered). Answer: what problem the package solves, why it is a standalone package, and what its boundaries are. Do not invent history; state only what the code and docs support
+- [x] Hyphens only, no em dashes
+
+**Files:** 6 new files under `packages/{helpers,lint-config,cdk-email-alarms,dmarc-parser,cdk-constructs,dmarc-reports}/docs/`
+
+**Acceptance criteria:**
+
+- All 20 promoted packages have a motivation ADR
+- `bun run check` shows no new failures
 
 ---
 
