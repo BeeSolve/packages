@@ -1,6 +1,6 @@
 # Release 1.0.0 - Stabilize and Clean Up
 
-## Status: Not Started
+## Status: In Progress
 
 ## Problem Statement
 
@@ -136,10 +136,10 @@ After each task, the user reviews changes and signals "continue" to proceed.
 
 Resolve the readability todo in `packages/service-auth/src/handlers/passkeyAuthOptions.ts` around line 34.
 
-- [ ] Read the function containing `// todo: get rid of ternary here` and the surrounding `allowCredentials` assignment
-- [ ] Extract a small helper (internal, not exported) that returns `[]` early when `userId == null`, otherwise maps `accounts.getPasskeysByUserId(userId)` to the `{ id, type, transports }` shape. Preserve exact behavior
-- [ ] Remove the `// todo:` comment
-- [ ] Confirm no public API or behavior change - this is purely internal readability
+- [x] Read the function containing `// todo: get rid of ternary here` and the surrounding `allowCredentials` assignment
+- [x] Extract a small helper (internal, not exported) that returns `[]` early when `userId == null`, otherwise maps `accounts.getPasskeysByUserId(userId)` to the `{ id, type, transports }` shape. Preserve exact behavior
+- [x] Remove the `// todo:` comment
+- [x] Confirm no public API or behavior change - this is purely internal readability
 
 **Files:** `packages/service-auth/src/handlers/passkeyAuthOptions.ts`
 
@@ -155,10 +155,10 @@ Resolve the readability todo in `packages/service-auth/src/handlers/passkeyAuthO
 
 Resolve the missing-test todo in `packages/service-email/src/handler.ts` around line 116 (`// todo: test this properly`), which covers converting a `transformToByteArray()` result into a correctly-sliced `ArrayBuffer`.
 
-- [ ] Read the attachment-handling block in `packages/service-email/src/handler.ts` to understand the `byteArray.buffer.slice(byteOffset, byteOffset + byteLength)` logic
-- [ ] Extract the slice into a small pure helper (internal, not exported from the package barrel) so it can be unit tested. Keep the slice semantics; do not replace it with a different conversion
-- [ ] Add a focused test under `packages/service-email/tests/` asserting the ArrayBuffer slice returns the exact bytes for a `Uint8Array` with a non-zero `byteOffset` (a view into a larger buffer) and for a zero-offset case
-- [ ] Remove the `// todo: test this properly` comment
+- [x] Read the attachment-handling block in `packages/service-email/src/handler.ts` to understand the `byteArray.buffer.slice(byteOffset, byteOffset + byteLength)` logic
+- [x] Extract the slice into a small pure helper (internal, not exported from the package barrel) so it can be unit tested. Keep the slice semantics; do not replace it with a different conversion
+- [x] Add a focused test under `packages/service-email/tests/` asserting the ArrayBuffer slice returns the exact bytes for a `Uint8Array` with a non-zero `byteOffset` (a view into a larger buffer) and for a zero-offset case
+- [x] Remove the `// todo: test this properly` comment
 
 **Files:** `packages/service-email/src/handler.ts`, `packages/service-email/tests/<new-or-existing>.test.ts`
 

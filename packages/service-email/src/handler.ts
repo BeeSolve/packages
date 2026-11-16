@@ -6,6 +6,7 @@ import type { SQSEvent } from "aws-lambda";
 import { createMimeMessage } from "mimetext";
 import * as v from "valibot";
 
+import { toArrayBuffer } from "./byteArray";
 import { Events } from "./events";
 import { requestSchema } from "./validation";
 
@@ -113,13 +114,7 @@ export const handler = async (
 
                 const byteArray = await object.Body.transformToByteArray();
 
-                // todo: test this properly
-                const arrayBuffer = byteArray.buffer.slice(
-                  byteArray.byteOffset,
-                  byteArray.byteOffset + byteArray.byteLength,
-                );
-
-                return arrayBuffer;
+                return toArrayBuffer(byteArray);
               }
               assertUnreachable(item);
             });
