@@ -6,6 +6,10 @@ Superseded by ADR-009 (unified watch model). The `SitemapUrlStats` model and its
 hourly/monthly processors described below are retired; the sitemap parsing/fetch
 helpers are kept and reused by the watch model.
 
+> Note: the `sitemapurl#` key scheme described in this ADR no longer exists in
+> the source. It was replaced by `watch#<matcher>` rows (ADR-009) and is kept
+> here only as history.
+
 ## Context
 
 The hourly pipeline aggregates CloudFront access logs into per-period totals and

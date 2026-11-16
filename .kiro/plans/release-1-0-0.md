@@ -273,10 +273,10 @@ Task 6 found 6 promoted packages without `docs/adr-001-motivation.md`, which the
 
 `packages/analytics-processor/index.ts` re-exports 16 modules with `export *` plus `@beesolve/ip-info`, and the DynamoDB key schema is a persisted contract. Freezing everything at 1.0 would freeze internals. This task is an audit, not a feature.
 
-- [ ] List every symbol exported from `index.ts`, `sdk.ts` and `cdk.ts`, and for each, whether it is used outside the package (other packages in the workspace, samples, `analytics-dashboard`)
-- [ ] Report symbols that are only internal helpers. Do NOT narrow or remove exports unless the user approves the specific list after reviewing the report, because narrowing is itself a breaking change (acceptable now, at 0.x)
-- [ ] Confirm the key schema documented in ADR-002 matches `src/keys.ts` and the `all`/`real`/`watch` namespaces from 0.10.0
-- [ ] If the user approves narrowing, apply it and update `DOCS.md` / how-tos accordingly (`sync-package-docs` skill)
+- [x] List every symbol exported from `index.ts`, `sdk.ts` and `cdk.ts`, and for each, whether it is used outside the package (other packages in the workspace, samples, `analytics-dashboard`)
+- [x] Report symbols that are only internal helpers. Do NOT narrow or remove exports unless the user approves the specific list after reviewing the report, because narrowing is itself a breaking change (acceptable now, at 0.x)
+- [x] Confirm the key schema documented in ADR-002 matches `src/keys.ts` and the `all`/`real`/`watch` namespaces from 0.10.0
+- [x] If the user approves narrowing, apply it and update `DOCS.md` / how-tos accordingly (`sync-package-docs` skill)
 
 **Files:** read-only by default; `packages/analytics-processor/index.ts` and docs only if the user approves narrowing
 

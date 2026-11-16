@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Accepted. Extended by ADR-009 (watch model) and ADR-010 (tiers); see the Amendment section.
 
 ## Context
 
@@ -48,7 +48,47 @@ sk = "applied"
 
 Time keys are fixed-width, zero-padded, UTC, and lexicographically sortable
 (`YYYY-MM-DD-HH`, `YYYY-MM-DD`, `YYYY-MM`). Hourly-grain totals, breakdowns, and
-markers carry a `ttl`; day and month items do not.
+markers carry a `ttl` (`hourlyTtlDays`, default 90 days); day and month totals,
+breakdowns, and markers do not. Watch-grain markers also carry a `ttl`
+(`markerTtlDays`, default 90 days, see the Amendment).
+
+## Amendment (ADR-009, ADR-010)
+
+The layouts above describe the `all` tier, whose keys are unchanged. Later ADRs
+extended the schema without altering existing `all` items.
+
+**Tier namespaces (ADR-010).** The `real` and `watch` tiers insert the tier into
+the partition key. The `all` tier uses an empty segment, so its keys stay
+byte-identical to the layouts above:
+
+```
+pk = totals#<tier>#<grain>                              sk = <timeKey>
+pk = breakdown#<tier>#<dimension>#<grain>#<periodKey>   sk = <value>
+pk = applied#<tier>-<grain>#<periodKey>                 sk = "applied"
+```
+
+with `tier` in `real | watch` (`src/keys.ts`: `tierSegment`, `tierMarkerSegment`).
+
+**Extra marker grains.** `applied#...` markers also exist for grain `sitemap`
+and `watch`. Watch markers use `periodKey = <matcher>#<hourKey>` so distinct
+entries never share a marker.
+
+**Extra item types (ADR-009).**
+
+```
+pk = watch#<matcher>              sk = config       watch entry config row
+pk = watch#<matcher>              sk = <YYYY-MM>    watch metrics (exact, group)
+pk = watch#<prefix>#<path>        sk = <YYYY-MM>    watch metrics (split)
+pk = <normalized url>             sk = url          URL directory
+```
+
+Watch config rows are listed through the reverse GSI with `sk = "config"` and
+`begins_with(pk, "watch#")`. Watch metric rows and the URL directory have no
+TTL.
+
+**TTL.** Only these items expire: hourly totals, hourly breakdowns, and hour
+markers (`hourlyTtlDays`), and watch markers (`markerTtlDays`, default 90 days).
+Day and month items, watch metric rows, and the URL directory never expire.
 
 ## Rationale
 
@@ -84,7 +124,7 @@ and tooling transfer directly.
 ## Consequences
 
 - Every read is a bounded `Query` or `Get`; no `Scan` is ever required.
-- Hourly items expire automatically via TTL; day/month aggregates persist.
+- Hourly items and watch markers expire automatically via TTL; day/month aggregates persist.
 - Grain and dimension are encoded in keys, so adding a new dimension is additive
   (new `pk` prefix) and does not disturb existing items.
 - Because time is in `sk` for totals but in `pk` for breakdowns, the two item
