@@ -2,13 +2,6 @@
 
 Resolve local development environment from CloudFormation and Secrets Manager, cache it, and inject it into a spawned command.
 
-> [!WARNING]
-> **Pre-1.0 - unstable API.** This package is `0.x` and under active
-> development. Breaking changes can land in any `0.x` release without a major
-> version bump. Pin an exact version and review the changelog before upgrading.
-> Once the API stabilizes and the package reaches `1.0.0`, it follows semantic
-> versioning and this notice is removed.
-
 > **macOS-only secure cache.** Secrets are cached in the macOS login keychain. On other platforms secrets are fetched on every run and never written to disk. The CLI requires Bun.
 
 > **Using Linux or Windows?** Only the macOS keychain is supported as a secure cache today. Backends are shipped and reviewed by this package rather than loaded from your config, so please [open an issue](https://github.com/BeeSolve/packages/issues) with your platform and the secret store you use. Candidates that would be easy to add: `secret-tool` (libsecret) on Linux, Windows Credential Manager, `pass`, and the 1Password CLI.

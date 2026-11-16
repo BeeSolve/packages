@@ -294,19 +294,19 @@ Per the `versioning` convention, the banner is removed in the same change that c
 
 **Banner removal:**
 
-- [ ] For each of the 20 promoted packages, remove the `> [!WARNING]` block that starts with `**Pre-1.0` (the em dash and hyphen variants both exist, for example `aws-env-loader` uses a hyphen) from `packages/<dir>/README.md`
-- [ ] Keep any other notes in the README (for example the `aws-env-loader` macOS-only and "Using Linux or Windows?" notes)
-- [ ] Leave `dsql-helpers`, `lambda-fetch-api` and `lambda-keep-active` READMEs untouched
-- [ ] Search each promoted package's `DOCS.md` and `docs/how-to/` for pre-1.0 / `0.x` wording that is now stale. Known hit: `packages/cdk-constructs/docs/how-to/migrate-v1-to-v2-logging.md:120` says "Because the library is 0.x and internal-only"; reword so it stays true (for example "Because the library had a single internal consumer")
+- [x] For each of the 20 promoted packages, remove the `> [!WARNING]` block that starts with `**Pre-1.0` (the em dash and hyphen variants both exist, for example `aws-env-loader` uses a hyphen) from `packages/<dir>/README.md`
+- [x] Keep any other notes in the README (for example the `aws-env-loader` macOS-only and "Using Linux or Windows?" notes)
+- [x] Leave `dsql-helpers`, `lambda-fetch-api` and `lambda-keep-active` READMEs untouched
+- [x] Search each promoted package's `DOCS.md` and `docs/how-to/` for pre-1.0 / `0.x` wording that is now stale. Known hit: `packages/cdk-constructs/docs/how-to/migrate-v1-to-v2-logging.md:120` says "Because the library is 0.x and internal-only"; reword so it stays true (for example "Because the library had a single internal consumer")
 
 **Changesets:**
 
-- [ ] For each of the 20 packages, read its `package.json` `name` field (use the table above)
-- [ ] Create one or more files under `.changeset/` marking each of the 20 packages as `major`. A single file may list all 20, or group them; every package needs a `major` entry
-- [ ] Changeset summary: "Promote to 1.0.0. The API is considered stable; from this release on, breaking changes require a major version bump." Adjust per-package wording only if a package needs a specific note (for example `aws-env-loader` can note that secure caching remains macOS-only)
-- [ ] Do NOT include `lambda-fetch-api`, `lambda-keep-active`, `dsql-helpers` or `samples`
-- [ ] Do NOT run `bunx changeset version` - only create the changeset files
-- [ ] Verify the frontmatter uses the correct npm names (for example `"@beesolve/auth-service": major`, not `service-auth`)
+- [x] For each of the 20 packages, read its `package.json` `name` field (use the table above)
+- [x] Create one or more files under `.changeset/` marking each of the 20 packages as `major`. A single file may list all 20, or group them; every package needs a `major` entry
+- [x] Changeset summary: "Promote to 1.0.0. The API is considered stable; from this release on, breaking changes require a major version bump." Adjust per-package wording only if a package needs a specific note (for example `aws-env-loader` can note that secure caching remains macOS-only)
+- [x] Do NOT include `lambda-fetch-api`, `lambda-keep-active`, `dsql-helpers` or `samples`
+- [x] Do NOT run `bunx changeset version` - only create the changeset files
+- [x] Verify the frontmatter uses the correct npm names (for example `"@beesolve/auth-service": major`, not `service-auth`)
 
 **Files:** 20 `packages/*/README.md`, a few docs files, new `.changeset/*.md`
 

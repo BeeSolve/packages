@@ -117,6 +117,6 @@ DynamoDB. From here on, the hourly processor reads the v2 Parquet table.
 
 - This is a one-way migration. Keep the retained v1 resources only as long as you need the
   backfill; delete them manually afterwards.
-- Because the library is 0.x and internal-only, no compatibility shim is provided — the
+- Because the library had a single internal consumer, no compatibility shim is provided: the
   old `athena.v2.enabled` prop shape and the `glueV1TableName`/`glueV2TableName` getters no
   longer exist.
