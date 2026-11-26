@@ -50,23 +50,27 @@ export const handler = keptActive(async () => {
 });
 ```
 
-For a Bun fetch-style handler, use `keptActiveFetch`.
+For the Bun runtime v4 (`@beesolve/lambda-bun-runtime`), wrap the exported handler the same way. For streaming handlers use `keptActiveStreaming`. It expects `(event, responseStream, context)` and keeps the streaming marker of the wrapped function:
 
 ```ts
-import { keptActiveFetch } from "@beesolve/lambda-keep-active/runtime";
+import { asResponseStreamHandler } from "@beesolve/lambda-fetch-api";
+import { keptActiveStreaming } from "@beesolve/lambda-keep-active/runtime";
 
-export default {
-  fetch: keptActiveFetch(async (request: Request): Promise<Response> => {
-    return new Response();
+export const handler = keptActiveStreaming(
+  asResponseStreamHandler(async (request: Request): Promise<Response> => {
+    return new Response("ok");
   }),
-};
+);
 ```
+
+`keptActiveFetch` is only for runtimes that hand over a Fetch `Request` with the URL `https://lambda/` for non-HTTP events. The Bun runtime v4 passes raw events and does not do that.
 
 ## Common Pitfalls
 
-- Without the `keptActive` / `keptActiveFetch` wrapper, keep-alive invocations run your full handler and may cause unwanted side effects.
-- Match the wrapper to the runtime: `keptActive` for Node.js handlers, `keptActiveFetch` for Bun fetch handlers.
+- Without the `keptActive` / `keptActiveStreaming` / `keptActiveFetch` wrapper, keep-alive invocations run your full handler and may cause unwanted side effects.
+- Wrap the outermost exported handler. Wrapping only the inner Fetch function does not work on the Bun runtime v4, because `asResponseStreamHandler` and `asHttpV2Handler` build a `Request` from the event before your function runs, and a keep-active ping has no HTTP shape.
+- `keptActiveFetch` is for runtimes that deliver Fetch `Request`s with the URL `https://lambda/`, use `keptActive` or `keptActiveStreaming` on the Bun runtime v4.
 
 ## See Also
 
-- [README](../../README.md) — construct and runtime wrapper reference
+- [README](../../README.md) - construct and runtime wrapper reference

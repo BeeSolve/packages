@@ -1,6 +1,6 @@
 # @beesolve/lambda-keep-active - Documentation
 
-**Keywords:** keep lambda warm, cold start, inactive lambda, LambdaKeepActive construct, keepActive, keptActive, keptActiveFetch, CDK, warm-up
+**Keywords:** keep lambda warm, cold start, inactive lambda, LambdaKeepActive construct, keepActive, keptActive, keptActiveStreaming, keptActiveFetch, streamified handler, response streaming, Bun runtime, CDK, warm-up
 
 > This documentation is published inside the installed package and matches the installed version. Prefer it over prior knowledge or older examples found online.
 

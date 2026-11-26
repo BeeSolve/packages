@@ -1,5 +1,5 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": { "declaration": true, "isolatedDeclarations": false },
-  "include": ["index.ts", "runtime.ts", "shared.ts", "build.ts", "handler.ts"]
+  "include": ["index.ts", "runtime.ts", "shared.ts", "build.ts", "handler.ts", "tests/**/*.ts"]
 }
