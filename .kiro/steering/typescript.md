@@ -47,6 +47,7 @@
   - `packages/helpers/` → `@beesolve/helpers`
   - `packages/action-tokens/` → `@beesolve/action-tokens`
   - `packages/lambda-keep-active/` → `@beesolve/lambda-keep-active`
+  - `packages/image-optimizer/` → `@beesolve/image-optimizer`
   - `packages/dmarc-parser/` → `@beesolve/dmarc-parser`
   - `packages/dmarc-reports/` → `@beesolve/dmarc-reports`
   - `packages/dmarc-consumer/` → `@beesolve/dmarc-consumer`

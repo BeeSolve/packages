@@ -14,7 +14,14 @@
     "deploy:authSpaWithApi": "cd authSpaWithApi/site && bun run vite build && cd - && bun run cdk deploy SamplesAuthSpaWithApi --require-approval never",
     "deploy:authImpersonation": "cd authImpersonation/site && bun run vite build && cd - && bun run cdk deploy SamplesAuthImpersonation --require-approval never",
     "deploy:dmarcReports": "bun run cdk deploy SamplesDmarcReports --require-approval never",
-    "deploy:analytics": "bun run cdk deploy SamplesAnalytics --require-approval never"
+    "deploy:analytics": "bun run cdk deploy SamplesAnalytics --require-approval never",
+    "deploy:imageOptimizer": "bun run build:imageOptimizer && bun run cdk deploy SamplesImageOptimizer --require-approval never",
+    "verify:imageOptimizer": "bun imageOptimizer/verify.ts",
+    "fixtures:imageOptimizer": "bun imageOptimizer/fixtures.ts",
+    "screenshots:imageOptimizer": "bun imageOptimizer/screenshots.ts",
+    "build:imageOptimizer": "cd ../image-optimizer && bun build.ts && cd ../.. && bunx bunup --filter @beesolve/image-optimizer",
+    "integ:imageOptimizer:deploy": "cdk --app \"bun imageOptimizer/app.ts\" deploy --require-approval never --outputs-file image-optimizer-outputs.json",
+    "integ:imageOptimizer:destroy": "cdk --app \"bun imageOptimizer/app.ts\" destroy --force"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "catalog:",
@@ -29,6 +36,7 @@
     "@beesolve/dmarc-dashboard": "workspace:^",
     "@beesolve/dmarc-reports": "workspace:^",
     "@beesolve/email-service": "workspace:^",
+    "@beesolve/image-optimizer": "workspace:^",
     "@beesolve/lambda-fetch-api": "workspace:^",
     "@beesolve/lambda-function-url-protection": "workspace:^",
     "@beesolve/lambda-keep-active": "workspace:^",
@@ -53,6 +61,7 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.2",
+    "gifenc": "^1.0.3",
     "svelte": "^5.57.3",
     "typescript": "~6.0.3",
     "vite": "^8.3.5"

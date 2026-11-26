@@ -14,6 +14,7 @@
   "packages/lambda-keep-active",
   "packages/analytics-processor",
   "packages/dmarc-reports",
+  "packages/image-optimizer",
   "packages/lint-config",
   "packages/service-email",
   "packages/sqs-handler",

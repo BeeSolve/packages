@@ -1,0 +1,124 @@
+name: Image optimizer integration
+
+on:
+  workflow_dispatch: {}
+  pull_request:
+    paths:
+      - "packages/image-optimizer/**"
+      - "packages/lambda-keep-active/**"
+      - "packages/samples/imageOptimizer/**"
+      - ".github/workflows/image-optimizer-integration.yml"
+
+concurrency:
+  group: image-optimizer-integration-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: eu-central-1
+  IMAGE_OPTIMIZER_STACK_NAME: ImageOptimizerInteg${{ github.run_id }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    permissions:
+      id-token: write
+      contents: read
+    outputs:
+      url: ${{ steps.outputs.outputs.url }}
+    defaults:
+      run:
+        working-directory: packages/samples
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.5
+
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_INTEG_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - run: bun install --frozen-lockfile
+        working-directory: .
+
+      - run: bun run build:imageOptimizer
+
+      - run: bun run integ:imageOptimizer:deploy
+
+      - id: outputs
+        run: |
+          url=$(jq -r --arg stack "$IMAGE_OPTIMIZER_STACK_NAME" '.[$stack].ImageOptimizerUrl' image-optimizer-outputs.json)
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+
+      - name: Automated checks
+        run: bun run verify:imageOptimizer "${{ steps.outputs.outputs.url }}"
+
+      - name: Screenshots of the test pages
+        run: bun run screenshots:imageOptimizer "${{ steps.outputs.outputs.url }}" image-optimizer-screenshots
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: image-optimizer-screenshots
+          path: packages/samples/image-optimizer-screenshots
+
+      - name: Summary
+        run: |
+          {
+            echo "## Image optimizer visual review"
+            echo
+            echo "Live test pages: ${{ steps.outputs.outputs.url }}/assets/test/index.html"
+            echo
+            echo "Screenshots are attached as the \`image-optimizer-screenshots\` artifact."
+            echo "Compare every image with its expected result, then approve the \`visual-review\` job."
+            echo "The stack \`$IMAGE_OPTIMIZER_STACK_NAME\` is destroyed after the review."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  visual-review:
+    needs: deploy
+    runs-on: ubuntu-24.04
+    environment:
+      name: image-optimizer-visual-review
+      url: ${{ needs.deploy.outputs.url }}/assets/test/index.html
+    steps:
+      - run: echo "Visual review approved"
+
+  destroy:
+    needs: [deploy, visual-review]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      id-token: write
+      contents: read
+    defaults:
+      run:
+        working-directory: packages/samples
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.5
+
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_INTEG_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - run: bun install --frozen-lockfile
+        working-directory: .
+
+      - run: bun run build:imageOptimizer
+
+      - run: bun run integ:imageOptimizer:destroy

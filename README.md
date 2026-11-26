@@ -18,6 +18,7 @@ All packages target Node.js 24+ and are published as ESM.
 | [`@beesolve/cdk-email-alarms`](packages/cdk-email-alarms)                             | CDK construct for email-based CloudWatch alarms                                                 |
 | [`@beesolve/lambda-keep-active`](packages/lambda-keep-active)                         | Lambda warmer — periodic invocations to prevent cold starts                                     |
 | [`@beesolve/lambda-function-url-protection`](packages/lambda-function-url-protection) | Fail-closed origin-token protection for a Lambda Function URL behind CloudFront                 |
+| [`@beesolve/image-optimizer`](packages/image-optimizer)                               | Image optimizer for S3 and CloudFront with imgix-style URL parameters, Bun.Image on Lambda      |
 | [`@beesolve/dmarc-parser`](packages/dmarc-parser)                                     | DMARC aggregate report parser — XML parsing, decompression, and MIME extraction                 |
 | [`@beesolve/dmarc-reports`](packages/dmarc-reports)                                   | DMARC report ingestion pipeline — SES to S3 to EventBridge via Lambda                           |
 | [`@beesolve/dmarc-consumer`](packages/dmarc-consumer)                                 | DMARC consumer — persists parsed DMARC reports from EventBridge to DynamoDB                     |

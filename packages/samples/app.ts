@@ -10,6 +10,7 @@ import { AuthWithEmailStack } from "./authWithEmail/stack.ts";
 import { AuthWithPasskeysStack } from "./authWithPasskeys/stack.ts";
 import { DmarcReportsStack } from "./dmarcReports/stack.ts";
 import { EmailVerifyStack } from "./emailVerify/stack.ts";
+import { ImageOptimizerStack } from "./imageOptimizer/stack.ts";
 
 const account = process.env.AWS_ACCOUNT;
 const region = process.env.AWS_REGION;
@@ -57,5 +58,9 @@ new DmarcReportsStack(app, "SamplesDmarcReports", {
 });
 
 new AnalyticsStack(app, "SamplesAnalytics", {
+  env: { account, region },
+});
+
+new ImageOptimizerStack(app, "SamplesImageOptimizer", {
   env: { account, region },
 });

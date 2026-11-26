@@ -251,6 +251,17 @@ const workspace: Array<DefineWorkspaceItem> = [
       },
     },
   },
+  {
+    name: "@beesolve/image-optimizer",
+    root: "packages/image-optimizer",
+    config: {
+      entry: ["index.ts", "cdk.ts"],
+      dts: {
+        inferTypes: true,
+        tsgo: true,
+      },
+    },
+  },
 ];
 
 export default defineWorkspace(
