@@ -1,6 +1,6 @@
 {
   "name": "@beesolve/image-optimizer",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Resize and re-encode S3 images behind CloudFront with imgix-style URL parameters, on a Bun Lambda",
   "keywords": [
     "aws",
