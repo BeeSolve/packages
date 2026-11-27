@@ -35,7 +35,7 @@ export function keptActive<Event = any, Context = any, Response = any>(
 export function keptActiveStreaming<Event, ResponseStream, Context>(
   handler: (event: Event, responseStream: ResponseStream, context: Context) => Promise<void> | void,
   options?: KeptActiveOptions,
-) {
+): (event: Event, responseStream: ResponseStream, context: Context) => Promise<void> | void {
   const wrapper = (
     event: Event,
     responseStream: ResponseStream,

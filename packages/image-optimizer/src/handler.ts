@@ -1,5 +1,6 @@
 import { asResponseStreamHandler } from "@beesolve/lambda-fetch-api";
 import { keptActiveStreaming } from "@beesolve/lambda-keep-active/runtime";
+import type { APIGatewayProxyEventV2, StreamifyHandler } from "aws-lambda";
 
 import { parseConfig } from "./config";
 import { createFetchHandler } from "./fetchHandler";
@@ -10,7 +11,7 @@ Bun.Image.backend = "bun";
 
 const config = parseConfig(process.env);
 
-export const handler = keptActiveStreaming(
+export const handler: StreamifyHandler<APIGatewayProxyEventV2, void> = keptActiveStreaming(
   asResponseStreamHandler(
     createFetchHandler({
       config,

@@ -52,6 +52,7 @@
   },
   "devDependencies": {
     "@beesolve/lambda-fetch-api": "workspace:^",
+    "@types/aws-lambda": "catalog:",
     "@types/bun": "catalog:",
     "aws-cdk-lib": "catalog:",
     "constructs": "catalog:",

@@ -48,7 +48,8 @@ jobs:
       - run: bun install --frozen-lockfile
         working-directory: .
 
-      - run: bun run build:imageOptimizer
+      - run: bun run build
+        working-directory: .
 
       - run: bun run integ:imageOptimizer:deploy
 
@@ -119,6 +120,7 @@ jobs:
       - run: bun install --frozen-lockfile
         working-directory: .
 
-      - run: bun run build:imageOptimizer
+      - run: bun run build
+        working-directory: .
 
       - run: bun run integ:imageOptimizer:destroy
