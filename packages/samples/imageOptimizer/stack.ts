@@ -2,7 +2,8 @@ import { join } from "node:path";
 
 import { createImageOptimizerDistribution, ImageOptimizer } from "@beesolve/image-optimizer/cdk";
 import { LambdaKeepActive } from "@beesolve/lambda-keep-active";
-import { CfnOutput, RemovalPolicy, Stack, type StackProps } from "aws-cdk-lib";
+import { CfnOutput, CfnResource, RemovalPolicy, Stack, type StackProps } from "aws-cdk-lib";
+import { LogGroup, RetentionDays } from "aws-cdk-lib/aws-logs";
 import { BlockPublicAccess, Bucket } from "aws-cdk-lib/aws-s3";
 import { BucketDeployment, Source } from "aws-cdk-lib/aws-s3-deployment";
 import type { Construct } from "constructs";
@@ -32,9 +33,14 @@ export class ImageOptimizerStack extends Stack {
       keepActive: new LambdaKeepActive(this, "KeepActive"),
     });
     const url = `https://${distribution.distributionDomainName}`;
+    const deploymentLogs = new LogGroup(this, "DeploymentLogs", {
+      retention: RetentionDays.ONE_WEEK,
+      removalPolicy: RemovalPolicy.DESTROY,
+    });
 
     const deployment = new BucketDeployment(this, "Photos", {
       destinationBucket: source,
+      logGroup: deploymentLogs,
       destinationKeyPrefix: "assets/photos",
       sources: [Source.asset(join(import.meta.dirname, "photos"))],
       distribution,
@@ -44,6 +50,7 @@ export class ImageOptimizerStack extends Stack {
 
     new BucketDeployment(this, "Files", {
       destinationBucket: source,
+      logGroup: deploymentLogs,
       destinationKeyPrefix: "assets/files",
       sources: [Source.asset(join(import.meta.dirname, "files"))],
       distribution,
@@ -52,6 +59,7 @@ export class ImageOptimizerStack extends Stack {
 
     new BucketDeployment(this, "Fixtures", {
       destinationBucket: source,
+      logGroup: deploymentLogs,
       destinationKeyPrefix: "assets/fixtures",
       sources: [Source.asset(fixturesDirectory)],
       distribution,
@@ -60,11 +68,14 @@ export class ImageOptimizerStack extends Stack {
 
     new BucketDeployment(this, "TestPages", {
       destinationBucket: source,
+      logGroup: deploymentLogs,
       destinationKeyPrefix: testPagesPrefix,
       sources: Object.entries(testPages()).map(([name, html]) => Source.data(name, html)),
       distribution,
       distributionPaths: [`/${testPagesPrefix}/*`],
     }).node.addDependency(deployment);
+
+    ownAutoDeleteObjectsLogGroup(this);
 
     new CfnOutput(this, "ImageOptimizerUrl", { value: url });
     new CfnOutput(this, "TestPagesUrl", { value: `${url}/${testPagesPrefix}/index.html` });
@@ -73,5 +84,26 @@ export class ImageOptimizerStack extends Stack {
       value: optimizer.intermediateBucket.bucketName,
     });
     new CfnOutput(this, "FunctionName", { value: optimizer.handler.functionName });
+  }
+}
+
+function ownAutoDeleteObjectsLogGroup(stack: Stack): void {
+  const handler = stack.node
+    .tryFindChild("Custom::S3AutoDeleteObjectsCustomResourceProvider")
+    ?.node.tryFindChild("Handler");
+  if (!(handler instanceof CfnResource)) {
+    throw new Error("The autoDeleteObjects provider handler was not found");
+  }
+  const logGroup = new LogGroup(stack, "AutoDeleteObjectsLogs", {
+    logGroupName: `/aws/lambda/${handler.ref}`,
+    retention: RetentionDays.ONE_WEEK,
+    removalPolicy: RemovalPolicy.DESTROY,
+  });
+  // The provider also runs while the stack is deleted, so the log group must be deleted after
+  // every auto-delete custom resource or the provider creates it again.
+  for (const construct of stack.node.findAll()) {
+    if (construct.node.id === "AutoDeleteObjectsCustomResource") {
+      construct.node.addDependency(logGroup);
+    }
   }
 }
