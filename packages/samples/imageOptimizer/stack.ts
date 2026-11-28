@@ -2,7 +2,14 @@ import { join } from "node:path";
 
 import { createImageOptimizerDistribution, ImageOptimizer } from "@beesolve/image-optimizer/cdk";
 import { LambdaKeepActive } from "@beesolve/lambda-keep-active";
-import { CfnOutput, CfnResource, RemovalPolicy, Stack, type StackProps } from "aws-cdk-lib";
+import {
+  ArnFormat,
+  CfnOutput,
+  CfnResource,
+  RemovalPolicy,
+  Stack,
+  type StackProps,
+} from "aws-cdk-lib";
 import { LogGroup, RetentionDays } from "aws-cdk-lib/aws-logs";
 import { BlockPublicAccess, Bucket } from "aws-cdk-lib/aws-s3";
 import { BucketDeployment, Source } from "aws-cdk-lib/aws-s3-deployment";
@@ -88,22 +95,43 @@ export class ImageOptimizerStack extends Stack {
 }
 
 function ownAutoDeleteObjectsLogGroup(stack: Stack): void {
-  const handler = stack.node
-    .tryFindChild("Custom::S3AutoDeleteObjectsCustomResourceProvider")
-    ?.node.tryFindChild("Handler");
-  if (!(handler instanceof CfnResource)) {
-    throw new Error("The autoDeleteObjects provider handler was not found");
+  const provider = stack.node.tryFindChild("Custom::S3AutoDeleteObjectsCustomResourceProvider");
+  const handler = provider?.node.tryFindChild("Handler");
+  const role = provider?.node.tryFindChild("Role");
+  if (!(handler instanceof CfnResource) || !(role instanceof CfnResource)) {
+    throw new Error("The autoDeleteObjects provider handler or role was not found");
   }
   const logGroup = new LogGroup(stack, "AutoDeleteObjectsLogs", {
     logGroupName: `/aws/lambda/${handler.ref}`,
     retention: RetentionDays.ONE_WEEK,
     removalPolicy: RemovalPolicy.DESTROY,
   });
-  // The provider also runs while the stack is deleted, so the log group must be deleted after
-  // every auto-delete custom resource or the provider creates it again.
   for (const construct of stack.node.findAll()) {
     if (construct.node.id === "AutoDeleteObjectsCustomResource") {
       construct.node.addDependency(logGroup);
     }
   }
+  // Lambda delivers logs asynchronously, so the provider's last lines from the stack deletion
+  // arrive after the log group is gone. Without logs:CreateLogGroup they cannot recreate it.
+  role.addPropertyDeletionOverride("ManagedPolicyArns");
+  role.addPropertyOverride("Policies", [
+    {
+      PolicyName: "WriteOwnedLogGroup",
+      PolicyDocument: {
+        Version: "2012-10-17",
+        Statement: [
+          {
+            Effect: "Allow",
+            Action: ["logs:CreateLogStream", "logs:PutLogEvents"],
+            Resource: stack.formatArn({
+              service: "logs",
+              resource: "log-group",
+              resourceName: "/aws/lambda/*:*",
+              arnFormat: ArnFormat.COLON_RESOURCE_NAME,
+            }),
+          },
+        ],
+      },
+    },
+  ]);
 }
